@@ -1,5 +1,5 @@
 interface Env {
-    KOALA: R2Bucket;
+    KOALA: KVNamespace;
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
@@ -7,5 +7,5 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     if (obj === null) {
         return new Response("Not found", { status: 404 });
     }
-    return new Response(obj.body);
+    return new Response(obj);
 };

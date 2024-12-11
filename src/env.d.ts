@@ -1,8 +1,8 @@
 /// <reference types="astro/client" />
 
-type R2Bucket = import("@cloudflare/workers-types").R2Bucket;
+type KVNamespace = import("@cloudflare/workers-types").KVNamespace;
 type ENV = {
-    KOALA: R2Bucket;
+    KOALA: KVNamespace;
 };
 
 // use a default runtime configuration (advanced mode).
