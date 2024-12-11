@@ -1,0 +1,5 @@
+---
+const koalaDB = Astro.locals.runtime.env.KOALA;
+const value = await koalaDB.get('posts');
+---
+<div>{value}</div>

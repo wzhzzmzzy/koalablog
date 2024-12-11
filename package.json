@@ -13,6 +13,7 @@
     "astro": "^5.0.4"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241205.0",
     "unocss": "^0.65.1"
   }
 }

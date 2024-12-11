@@ -15,6 +15,9 @@ importers:
         specifier: ^5.0.4
         version: 5.0.4(@types/node@22.10.1)(jiti@1.21.6)(rollup@4.28.1)(tsx@4.19.2)(typescript@5.7.2)
     devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^4.20241205.0
+        version: 4.20241205.0
       unocss:
         specifier: ^0.65.1
         version: 0.65.1(postcss@8.4.49)(rollup@4.28.1)(vite@6.0.3(@types/node@22.10.1)(jiti@1.21.6)(tsx@4.19.2))(vue@3.5.13(typescript@5.7.2))
