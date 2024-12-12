@@ -1,0 +1,9 @@
+---
+import DashboardLayout from '@/layouts/dashboard.astro'
+import HomeLayout from '@/layouts/home.astro'
+
+const isDashboard = Astro.url.pathname.includes('dashboard')
+const LayoutElement = isDashboard ? DashboardLayout : HomeLayout
+---
+
+<LayoutElement />

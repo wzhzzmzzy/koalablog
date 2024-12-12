@@ -1,0 +1,20 @@
+---
+import Editor from '@/components/editor/index.astro'
+import DashboardLayout from '@/layouts/dashboard.astro'
+import { DASHBOARD_SETTINGS_ROUTE } from '@/lib/const/config'
+
+const { path } = Astro.params
+const route = DASHBOARD_SETTINGS_ROUTE.find(route => route.link === path)
+
+if (!route) {
+  const qs = new URLSearchParams({
+    from: Astro.url.pathname,
+  })
+  return Astro.redirect(`/404?${qs.toString()}`)
+}
+---
+
+<DashboardLayout>
+  <h1>{route!.name}</h1>
+  <Editor />
+</DashboardLayout>

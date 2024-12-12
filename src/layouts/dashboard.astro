@@ -1,0 +1,26 @@
+---
+import { DASHBOARD_SETTINGS_ROUTE } from '@/lib/const/config'
+import Layout from './layout.astro'
+
+---
+<Layout>
+  <header>
+    <h2>Dashboard | Koala Blog</h2>
+    <nav>
+      {DASHBOARD_SETTINGS_ROUTE.map(route => (<a href={`/dashboard/${route.link}`}>{route.name}</a>))}
+    </nav>
+  </header>
+  <main>
+    <slot />
+  </main>
+  <footer>
+    <slot name="footer" />
+  </footer>
+</Layout>
+
+<style>
+nav {
+  display: flex;
+  gap: 10px;
+}
+</style>
