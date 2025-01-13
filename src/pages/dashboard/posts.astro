@@ -1,0 +1,10 @@
+---
+import DashboardLayout from '../../layouts/dashboard.astro'
+
+const env = Astro.locals.runtime.env
+const prisma = await createPrisma(env.DB)
+
+---
+<DashboardLayout>
+
+</DashboardLayout>
