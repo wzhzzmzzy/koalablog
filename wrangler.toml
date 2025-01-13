@@ -4,3 +4,10 @@ compatibility_date = "2024-12-11"
 binding = 'KOALA'
 id = '21ec6922e3e446d9984567753c7a3b88'
 preview_id = '21ec6922e3e446d9984567753c7a3b88'
+
+[[d1_databases]]
+binding = "DB"
+database_name = "prod-koala"
+database_id = "790df9e1-ea03-4eaf-a5f0-966de2e368ce"
+preview_database_id = "DB"
+migrations_dir = "migrations"

@@ -1,5 +1,9 @@
 ---
+import { createPrisma } from '@/lib/prisma'
 import Layout from './layout.astro'
+
+const env = Astro.locals.runtime.env
+await createPrisma(env.DB)
 ---
 <Layout>
   <header>
