@@ -10,12 +10,15 @@
     "astro": "astro",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "test": "vitest",
     "migration:local": "pnpx wrangler d1 migrations apply DB --local",
     "migration:remote": "pnpx wrangler d1 migrations apply DB --remote",
-    "migration:generate": "pnpx prisma migrate diff --from-empty --to-schema-datamodel ./prisma/schema.prisma --script --output migrations/0001_create_markdown.sql",
+    "migration:generate": "pnpx prisma migrate diff --from-empty --to-schema-datamodel ./prisma/schema.prisma --script --output migrations/0001_create_markdown.sql && pnpx prisma generate",
     "db:clear": "pnpx wrangler d1 execute DB --file ./scripts/db/clear.sql --local",
+    "db:clean": "rm -rf ./.wrangler/state",
     "db:info": "pnpx wrangler d1 execute DB --file ./scripts/db/info.sql --local",
-    "db:init": "pnpm run db:clear && pnpm run migration:local"
+    "db:init": "pnpm run db:clear && pnpm run migration:local",
+    "kv:init": "bash ./scripts/kv/init.sh"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.0.1",
@@ -23,11 +26,13 @@
     "@prisma/client": "^6.2.1",
     "astro": "^5.0.4",
     "better-auth": "^1.1.11",
+    "consola": "^3.4.0",
     "es-toolkit": "^1.29.0",
     "marked": "^15.0.4"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^3.11.2",
+    "@cloudflare/vitest-pool-workers": "^0.6.0",
     "@cloudflare/workers-types": "^4.20241205.0",
     "@types/marked": "^6.0.0",
     "eslint": "^9.16.0",

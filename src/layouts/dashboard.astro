@@ -2,10 +2,13 @@
 import { DASHBOARD_SETTINGS_ROUTE } from '@/lib/const/config'
 import Layout from './layout.astro'
 
+const env = Astro.locals.runtime.env
+const title = await env.KOALA.get('title')
 ---
 <Layout>
   <header>
-    <h2>Dashboard | Koala Blog</h2>
+    <h2>(・∀・) {title}</h2>
+    <pre>koala.cloadflare.dev</pre>
     <nav>
       {DASHBOARD_SETTINGS_ROUTE.map(route => (<a href={`/dashboard/${route.link}`}>{route.name}</a>))}
     </nav>

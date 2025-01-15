@@ -1,11 +1,13 @@
 -- CreateTable
 CREATE TABLE "Markdown" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    -- Home = 1, Nav = 2, Post = 10, Page = 20
+    "source" INTEGER NOT NULL,
     "subject" TEXT NOT NULL,
-    "content" TEXT NOT NULL,
+    "content" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "deleted" BOOLEAN NOT NULL
+    "deleted" BOOLEAN NOT NULL DEFAULT false
 );
 
 -- CreateTable

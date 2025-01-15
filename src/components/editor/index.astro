@@ -1,1 +1,111 @@
-<textarea />
+---
+import type { Markdown } from '@prisma/client'
+import { updatePost } from '@/lib/prisma/posts'
+
+let saved = false
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData()
+    const id = Number(data.get('id'))
+    const subject = (data.get('subject') || '') as string
+    const content = (data.get('content') || '') as string
+    await updatePost(Astro.locals.runtime.env, id, subject, content)
+    saved = true
+  }
+  catch (error) {
+    if (error instanceof Error) {
+      console.error(error.message)
+    }
+  }
+}
+
+interface Props {
+  markdown: Markdown
+}
+
+const { markdown } = Astro.props
+---
+
+{ saved && <div>Saved Success</div> }
+
+<markdown-editor data-markdown={JSON.stringify(markdown)}>
+  <div class="flex gap-x-3 w-full">
+    <form class="flex-1 flex flex-col" method="POST">
+      <button id="save" class="w-12">Save</button>
+      <input type="hidden" name="id" value={markdown.id} />
+      <input type="hidden" name="subject" value={markdown.subject} />
+      <textarea class="min-h-[50vh] mt-3" name="content" />
+    </form>
+    <details class="flex-1" open>
+      <summary>Preview</summary>
+      <div id="preview-md" />
+    </details>
+  </div>
+</markdown-editor>
+
+<script>
+import type { Markdown } from '@prisma/client'
+import consola from 'consola'
+import { marked } from 'marked'
+
+class MarkdownEditor extends HTMLElement {
+  markdown: Markdown
+  textareaEl: HTMLTextAreaElement
+  previewEl: HTMLDivElement
+  formEl: HTMLFormElement
+
+  constructor() {
+    super()
+
+    // query elements & register event
+    this.textareaEl = this.querySelector('textarea')!
+    this.onInput = this.onInput.bind(this)
+    this.textareaEl.addEventListener('input', this.onInput)
+
+    this.previewEl = this.querySelector('#preview-md')!
+    this.formEl = this.querySelector('form')!
+    this.onSave = this.onSave.bind(this)
+    // this.formEl?.addEventListener('submit', this.onSave)
+
+    const { markdown } = this.dataset
+    try {
+      this.markdown = JSON.parse(markdown ?? '') as Markdown
+    }
+    catch (e) {
+      consola.error(e)
+      // let it crash
+      throw e
+    }
+
+    this.textareaEl.value = this.markdown.content ?? ''
+    this.refreshPreview()
+  }
+
+  async refreshPreview() {
+    this.previewEl.innerHTML = await marked(this.markdown.content ?? '')
+  }
+
+  onInput(e: Event) {
+    this.markdown.content = (e.target as HTMLTextAreaElement).value
+    this.refreshPreview()
+  }
+
+  onSave(e: SubmitEvent) {
+    e.preventDefault()
+
+    const pickKeys = ['id', 'subject']
+    Object.keys(this.markdown).forEach((key) => {
+      if (pickKeys.includes(key)) {
+        const hiddenInput = document.createElement('input')
+        hiddenInput.type = 'hidden'
+        hiddenInput.name = key
+        hiddenInput.value = String(this.markdown[key])
+      }
+    })
+
+    this.formEl.submit()
+  }
+}
+
+customElements.define('markdown-editor', MarkdownEditor)
+</script>

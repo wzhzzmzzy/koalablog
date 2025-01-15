@@ -1,15 +1,20 @@
 ---
-import { createPrisma } from '@/lib/prisma'
+import { MarkdownSource } from '@/lib/prisma'
+import { readPresetSource } from '@/lib/prisma/pages'
+import { marked } from 'marked'
 import Layout from './layout.astro'
 
 const env = Astro.locals.runtime.env
-await createPrisma(env.DB)
+
+const title = await env.KOALA.get('title')
+const presetSource = await readPresetSource(env, [MarkdownSource.Nav])
+const markup = marked(presetSource[0].content ?? '')
 ---
 <Layout>
   <header>
-    <h1>Koala Blog</h1>
+    <h1>{title}</h1>
     <nav>
-
+      <Fragment set:html={markup} />
     </nav>
   </header>
   <main>

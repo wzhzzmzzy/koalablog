@@ -11,17 +11,18 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:../dev.db/"
+  url      = "file:../dev.db"
 }
 
 model Markdown {
   id        Int      @id @default(autoincrement())
+  source    Int // Post / Page / Home / Nav
   subject   String   @unique
-  content   String
+  content   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
   tags      Tag[]
-  deleted   Boolean
+  deleted   Boolean  @default(false)
 }
 
 model Tag {

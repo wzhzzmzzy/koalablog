@@ -1,16 +1,15 @@
 ---
-import Layout from '@/layouts/home.astro'
+import Editor from '@/components/editor/index.astro'
+import DashboardLayout from '@/layouts/dashboard.astro'
 import { MarkdownSource } from '@/lib/prisma'
 import { readPresetSource } from '@/lib/prisma/pages'
-import { marked } from 'marked'
 
 const env = Astro.locals.runtime.env
+
 const presetSource = await readPresetSource(env, [MarkdownSource.Home])
-const markup = presetSource.map(i => marked(i.content ?? ''))
 ---
 
-<Layout>
-  {
-    markup.map(i => <Fragment set:html={i} />)
-  }
-</Layout>
+<DashboardLayout>
+  <h2>Home</h2>
+  <Editor markdown={presetSource[0]} />
+</DashboardLayout>
