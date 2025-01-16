@@ -1,0 +1,27 @@
+---
+import type { PostOrPage } from '@/lib/prisma'
+import { readList } from '@/lib/prisma/markdown'
+import { format, isSameYear } from 'date-fns'
+
+interface Props {
+  source: PostOrPage
+}
+
+const { source } = Astro.props
+
+const env = Astro.locals.runtime.env
+
+const list = await readList(env, source)
+const formatUpdateAt = (updateAt: Date) => format(updateAt, isSameYear(updateAt, new Date()) ? 'MM-dd (HH:mm)' : 'yyyy-MM-dd')
+---
+
+<ul class="mt-5">
+{
+  list.map(item => (
+    <li class="inline-flex gap-3">
+      <span><i>{ formatUpdateAt(item.updatedAt) }</i></span>
+      <a class="text-black no-underline font-medium" href={item.link}><span>{ item.subject } </span></a>
+    </li>
+  ))
+}
+</ul>

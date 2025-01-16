@@ -1,32 +1,14 @@
 ---
 import type { Markdown } from '@prisma/client'
-import { updatePost } from '@/lib/prisma/posts'
-
-let saved = false
-if (Astro.request.method === 'POST') {
-  try {
-    const data = await Astro.request.formData()
-    const id = Number(data.get('id'))
-    const subject = (data.get('subject') || '') as string
-    const content = (data.get('content') || '') as string
-    await updatePost(Astro.locals.runtime.env, id, subject, content)
-    saved = true
-  }
-  catch (error) {
-    if (error instanceof Error) {
-      console.error(error.message)
-    }
-  }
-}
+import { MarkdownSource } from '@/lib/prisma'
 
 interface Props {
+  source: MarkdownSource
   markdown: Markdown
 }
 
 const { markdown } = Astro.props
 ---
-
-{ saved && <div>Saved Success</div> }
 
 <markdown-editor data-markdown={JSON.stringify(markdown)}>
   <div class="flex gap-x-3 w-full">
@@ -34,6 +16,7 @@ const { markdown } = Astro.props
       <button id="save" class="w-12">Save</button>
       <input type="hidden" name="id" value={markdown.id} />
       <input type="hidden" name="subject" value={markdown.subject} />
+      <input type="hidden" name="subject" value={markdown.link} />
       <textarea class="min-h-[50vh] mt-3" name="content" />
     </form>
     <details class="flex-1" open>
@@ -93,13 +76,14 @@ class MarkdownEditor extends HTMLElement {
   onSave(e: SubmitEvent) {
     e.preventDefault()
 
-    const pickKeys = ['id', 'subject']
+    const pickKeys = ['id', 'link']
     Object.keys(this.markdown).forEach((key) => {
       if (pickKeys.includes(key)) {
         const hiddenInput = document.createElement('input')
         hiddenInput.type = 'hidden'
         hiddenInput.name = key
-        hiddenInput.value = String(this.markdown[key])
+        hiddenInput.value = String(this.markdown[key as keyof Markdown])
+        this.formEl.appendChild(hiddenInput)
       }
     })
 

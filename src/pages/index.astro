@@ -1,11 +1,11 @@
 ---
 import Layout from '@/layouts/home.astro'
 import { MarkdownSource } from '@/lib/prisma'
-import { readPresetSource } from '@/lib/prisma/pages'
+import { readPreset } from '@/lib/prisma/markdown'
 import { marked } from 'marked'
 
 const env = Astro.locals.runtime.env
-const presetSource = await readPresetSource(env, [MarkdownSource.Home])
+const presetSource = await readPreset(env, [MarkdownSource.Home])
 const markup = presetSource.map(i => marked(i.content ?? ''))
 ---
 

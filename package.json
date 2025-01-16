@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "pnpm run db:init && wrangler types && astro dev",
+    "dev:only": "wrangler types && astro dev",
     "build": "wrangler types && astro build",
     "preview": "wrangler types && astro preview",
     "preview:pages": "wrangler pages dev dist",
@@ -25,10 +26,13 @@
     "@prisma/adapter-d1": "^6.2.1",
     "@prisma/client": "^6.2.1",
     "astro": "^5.0.4",
+    "await-to-js": "^3.0.0",
     "better-auth": "^1.1.11",
     "consola": "^3.4.0",
+    "date-fns": "^4.1.0",
     "es-toolkit": "^1.29.0",
-    "marked": "^15.0.4"
+    "marked": "^15.0.4",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^3.11.2",

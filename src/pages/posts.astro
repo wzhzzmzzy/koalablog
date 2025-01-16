@@ -1,0 +1,8 @@
+---
+import List from '@/components/dashboard/list.astro'
+import Layout from '@/layouts/home.astro'
+import { MarkdownSource } from '@/lib/prisma'
+---
+
+<Layout><List source={MarkdownSource.Post} /></Layout>
+

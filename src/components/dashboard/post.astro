@@ -1,0 +1,30 @@
+---
+import Editor from '@/components/editor/index.astro'
+import { MarkdownSource } from '@/lib/prisma'
+import { read } from '@/lib/prisma/markdown'
+import { formHandler } from '@/lib/services/form'
+import { to } from 'await-to-js'
+
+interface Props {
+  link: string
+}
+
+const { link } = Astro.props
+
+const source = MarkdownSource.Post
+
+const [formError, formStatus] = await to(formHandler(Astro, { source }))
+
+const env = Astro.locals.runtime.env
+const [error, post] = await to(read(env, source, link))
+
+if (error) {
+  return Astro.redirect('/500')
+}
+---
+
+<h2>{post.subject}</h2>
+{ formStatus === 'ok' && <div>Saved Success</div> }
+{ formError && formError.message }
+
+<Editor source={source} markdown={post} />

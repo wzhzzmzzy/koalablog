@@ -1,11 +1,28 @@
+import type { PostOrPage, PresetSource } from '.'
+import { kebabCase } from 'es-toolkit'
 import { createPrisma, MarkdownSource } from '.'
 
 interface MaybeTag { id?: number, name: string }
 
-export function addPost(env: Env, subject: string, content: string, tags: MaybeTag[] = []) {
+function linkGenerator(source: PostOrPage, subject: string) {
+  let link = kebabCase(subject)
+  if (source === MarkdownSource.Post) {
+    link = `post/${link}`
+  }
+  return link
+}
+
+export function add(
+  env: Env,
+  source: PostOrPage,
+  subject: string,
+  content: string,
+  tags: MaybeTag[] = [],
+) {
   return createPrisma(env.DB).markdown.create({
     data: {
-      source: MarkdownSource.Post,
+      link: linkGenerator(source, subject),
+      source,
       subject,
       content,
       tags: {
@@ -16,12 +33,20 @@ export function addPost(env: Env, subject: string, content: string, tags: MaybeT
   })
 }
 
-export function updatePost(env: Env, id: number, subject: string, content: string, tags: MaybeTag[] = []) {
+export function update(
+  env: Env,
+  id: number,
+  link: string,
+  subject: string,
+  content: string,
+  tags: MaybeTag[] = [],
+) {
   return createPrisma(env.DB).markdown.update({
     where: {
       id,
     },
     data: {
+      link,
       subject,
       content,
       updatedAt: new Date(),
@@ -33,7 +58,7 @@ export function updatePost(env: Env, id: number, subject: string, content: strin
   })
 }
 
-export function deletePost(env: Env, id: number) {
+export function remove(env: Env, id: number) {
   return createPrisma(env.DB).markdown.update({
     where: {
       id,
@@ -46,27 +71,34 @@ export function deletePost(env: Env, id: number) {
 
 /**
  * @param env CloudFlare Env
+ * @param source MarkdownSource
  * @param tagId query by tag id
  * @param pagination query pagination params, default read all
  * @param pagination.pageSize read all if 0
  * @param pagination.pageNum read all if 0
  */
-export function readPostList(env: Env, tagId?: number, pagination: { pageSize?: number, pageNum?: number } = {}) {
+export function readList(env: Env, source: PostOrPage, tagId?: number, pagination: { pageSize?: number, pageNum?: number } = {}) {
   const { pageSize = 0, pageNum = 0 } = pagination
   const paginationQuery: { take?: number, skip?: number } = {}
   if (pageSize && pageNum) {
     paginationQuery.take = pageSize
     paginationQuery.skip = (pageNum - 1) * pageSize
   }
+  const tagQuery = tagId
+    ? {
+        tags: {
+          some: {
+            id: tagId,
+          },
+        },
+      }
+    : {}
   return createPrisma(env.DB).markdown.findMany({
     ...paginationQuery,
     where: {
+      source,
       deleted: false,
-      tags: {
-        some: {
-          id: tagId,
-        },
-      },
+      ...tagQuery,
     },
     orderBy: {
       createdAt: 'desc',
@@ -77,15 +109,28 @@ export function readPostList(env: Env, tagId?: number, pagination: { pageSize?: 
   })
 }
 
-export function readPost(env: Env, subject: string) {
+export function read(env: Env, source: PostOrPage, link: string) {
   return createPrisma(env.DB).markdown.findUniqueOrThrow({
     where: {
-      source: MarkdownSource.Post,
-      subject,
+      source,
+      link,
     },
   })
 }
 
 export function readTagList(env: Env) {
   return createPrisma(env.DB).tag.findMany()
+}
+
+export function readPreset(env: Env, source: PresetSource[]) {
+  return createPrisma(env.DB).markdown.findMany({
+    where: {
+      source: {
+        in: source,
+      },
+    },
+    orderBy: {
+      source: 'desc',
+    },
+  })
 }

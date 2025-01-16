@@ -1,0 +1,31 @@
+---
+import type { PostOrPage, PresetSource } from '@/lib/prisma'
+import List from '@/components/dashboard/list.astro'
+import Post from '@/components/dashboard/post.astro'
+import Preset from '@/components/dashboard/preset.astro'
+import DashboardLayout from '@/layouts/dashboard.astro'
+import { isPresetSource, MarkdownSource, MarkdownSourceMap, MarkdownSubjectMap } from '@/lib/prisma'
+
+const { slug } = Astro.params
+
+type sourceKeys = keyof typeof MarkdownSourceMap
+// eslint-disable-next-line no-unused-vars
+const [sourcePath, ..._paths] = (slug ?? '').split('/')
+
+const source: MarkdownSource = MarkdownSourceMap[(sourcePath || 'home') as sourceKeys] ?? MarkdownSource.Unknown
+const subject = MarkdownSubjectMap[source]
+
+const isPostArticle = sourcePath === 'post'
+---
+
+<DashboardLayout>
+  {
+    source !== MarkdownSource.Unknown
+    ? isPresetSource(source)
+      ? <Preset subject={subject} source={source as PresetSource} />
+      : <List source={source as PostOrPage} />
+    : isPostArticle
+      ? <Post link={slug ?? ''} />
+      : null
+  }
+</DashboardLayout>

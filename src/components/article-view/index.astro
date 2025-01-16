@@ -1,0 +1,34 @@
+---
+import type { Markdown } from '@prisma/client'
+import { MarkdownSource } from '@/lib/prisma'
+import { read } from '@/lib/prisma/markdown'
+import { to } from 'await-to-js'
+import { marked } from 'marked'
+
+interface Props {
+  link: Markdown['link']
+}
+
+const { link } = Astro.props
+
+if (!link) {
+  return Astro.redirect('/404')
+}
+
+const [error, markdown] = await to(read(
+  Astro.locals.runtime.env,
+  link.startsWith('post/') ? MarkdownSource.Post : MarkdownSource.Page,
+  link,
+))
+
+if (!markdown) {
+  return Astro.redirect('/404?from=')
+}
+if (error) {
+  console.error(error)
+}
+const content = markdown ? marked.parse(markdown.content ?? '') : ''
+---
+
+<h1>{ markdown.subject }</h1>
+<article set:html={content} />

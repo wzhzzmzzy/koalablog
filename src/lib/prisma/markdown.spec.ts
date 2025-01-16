@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test'
 import { assert, describe, expect, it } from 'vitest'
 import { createPrisma, MarkdownSource } from '.'
-import { addPost, deletePost, readPostList, readTagList, updatePost } from './posts'
+import { add } from './markdown'
 
 describe('add post', async () => {
   const prisma = createPrisma(env.DB)
@@ -24,7 +24,7 @@ describe('add post', async () => {
   })
 
   it('should add a post with new tag', async () => {
-    await addPost(env, mockPost.subject, mockPost.content, [mockTag])
+    await add(env, MarkdownSource.Post, mockPost.subject, mockPost.content, [mockTag])
 
     const post1 = await prisma.markdown.findFirst({
       where: {
@@ -53,7 +53,7 @@ describe('add post', async () => {
     const data = await prisma.tag.create({ data: mockTag })
     expect(data).toMatchObject({ id: 1, ...mockTag })
 
-    await addPost(env, 'Post 2', '## Mock post', [data, { name: 'mockData2' }])
+    await add(env, MarkdownSource.Post, 'Post 2', '## Mock post', [data, { name: 'mockData2' }])
     const tags = await prisma.tag.findMany()
     expect(tags).toHaveLength(2)
   })

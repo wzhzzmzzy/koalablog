@@ -1,13 +1,13 @@
 ---
 import { MarkdownSource } from '@/lib/prisma'
-import { readPresetSource } from '@/lib/prisma/pages'
+import { readPreset } from '@/lib/prisma/markdown'
 import { marked } from 'marked'
 import Layout from './layout.astro'
 
 const env = Astro.locals.runtime.env
 
 const title = await env.KOALA.get('title')
-const presetSource = await readPresetSource(env, [MarkdownSource.Nav])
+const presetSource = await readPreset(env, [MarkdownSource.Nav])
 const markup = marked(presetSource[0].content ?? '')
 ---
 <Layout>
