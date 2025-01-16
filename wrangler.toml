@@ -9,5 +9,4 @@ preview_id = '21ec6922e3e446d9984567753c7a3b88'
 binding = "DB"
 database_name = "prod-koala"
 database_id = "85b2cdd8-b1b3-4dc5-84ef-cd83d66deb57"
-preview_database_id = "DB"
 migrations_dir = "migrations"
