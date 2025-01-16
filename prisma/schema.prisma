@@ -1,12 +1,11 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
-  output          = "../node_modules/.prisma/client"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = "file:../dev.db"
+  url      = "file:./dev.db"
 }
 
 model Markdown {
