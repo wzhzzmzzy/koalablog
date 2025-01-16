@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "pnpm run db:init && wrangler types && astro dev",
     "dev:only": "wrangler types && astro dev",
-    "build": "wrangler types && astro build",
+    "build": "astro build",
+    "build:local": "wrangler types && astro build",
     "preview": "wrangler types && astro preview",
     "preview:pages": "wrangler pages dev dist",
     "astro": "astro",
