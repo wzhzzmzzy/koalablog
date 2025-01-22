@@ -1,0 +1,22 @@
+---
+import ArticleView from '@/components/article-view/index.astro'
+import { MarkdownSource } from '@/db'
+import Layout from '@/layouts/home.astro'
+import { readArticle } from '@/lib/services/article'
+
+const { link } = Astro.params
+
+if (!link) {
+  return Astro.redirect('/404')
+}
+
+const source = MarkdownSource.Post
+const article = await readArticle(Astro, source, link)
+
+if (article instanceof Response) {
+  return article
+}
+---
+<Layout title={article.subject}>
+  <ArticleView article={article} />
+</Layout>

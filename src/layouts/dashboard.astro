@@ -1,14 +1,22 @@
 ---
+import Head from '@/components/head/index.astro'
 import { DASHBOARD_SETTINGS_ROUTE } from '@/lib/const/config'
 import Layout from './layout.astro'
+
+interface Props {
+  title?: string
+}
+
+const { title: metaTitle } = Astro.props
 
 const env = Astro.locals.runtime.env
 const title = await env.KOALA.get('title')
 ---
 <Layout>
+  <Head title={metaTitle} slot="meta" />
   <header>
     <h2>(・∀・) {title}</h2>
-    <pre>koala.cloadflare.dev</pre>
+    <a class="no-underline text-inherit" href="https://koalablog.pages.dev"><pre>koalablog.pages.dev</pre></a>
     <nav>
       {DASHBOARD_SETTINGS_ROUTE.map(route => (<a href={`/dashboard/${route.link}`}>{route.name}</a>))}
     </nav>

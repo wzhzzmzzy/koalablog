@@ -19,7 +19,7 @@ if (source === MarkdownSource.Unknown) {
 }
 ---
 
-<DashboardLayout>
+<DashboardLayout title={`${subject} - Dashboard`}>
   {isPresetSource(source)
     ? <Preset subject={subject} source={source as PresetSource} />
     : <List source={source as PostOrPage} editable />}

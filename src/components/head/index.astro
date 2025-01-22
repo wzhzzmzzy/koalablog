@@ -1,0 +1,9 @@
+---
+interface Props {
+  title?: string
+}
+
+const { title = 'Koalablog' } = Astro.props
+
+---
+<title>{title}</title>

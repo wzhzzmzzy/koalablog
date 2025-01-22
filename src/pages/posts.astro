@@ -4,5 +4,7 @@ import { MarkdownSource } from '@/db'
 import Layout from '@/layouts/home.astro'
 ---
 
-<Layout><List source={MarkdownSource.Post} /></Layout>
+<Layout title="Posts">
+  <List source={MarkdownSource.Post} />
+</Layout>
 

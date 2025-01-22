@@ -1,8 +1,15 @@
 ---
+import Head from '@/components/head/index.astro'
 import { MarkdownSource } from '@/db'
 import { readPreset } from '@/db/markdown'
 import { marked } from 'marked'
 import Layout from './layout.astro'
+
+interface Props {
+  title?: string
+}
+
+const { title: metaTitle } = Astro.props
 
 const env = Astro.locals.runtime.env
 
@@ -11,6 +18,7 @@ const presetSource = await readPreset(env, MarkdownSource.Nav)
 const markup = marked(presetSource?.content ?? '')
 ---
 <Layout>
+  <Head title={metaTitle} slot="meta" />
   <header>
     <h1>{title}</h1>
     <nav>

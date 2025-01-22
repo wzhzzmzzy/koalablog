@@ -22,7 +22,7 @@ if (article instanceof Response) {
   return article
 }
 ---
-<DashboardLayout>
+<DashboardLayout title={`[Editor] ${article.subject}`}>
   <main class="py-3">
     <h2>{ mode === 'create' ? 'New Post' : 'Edit' }</h2>
 
