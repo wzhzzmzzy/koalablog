@@ -1,6 +1,6 @@
 ---
-import type { PostOrPage } from '@/lib/prisma'
-import { readList } from '@/lib/prisma/markdown'
+import type { PostOrPage } from '@/db'
+import { readList } from '@/db/markdown'
 import { format, isSameYear } from 'date-fns'
 
 interface Props {
@@ -19,7 +19,7 @@ const formatUpdateAt = (updateAt: Date) => format(updateAt, isSameYear(updateAt,
 {
   list.map(item => (
     <li class="inline-flex gap-3">
-      <span><i>{ formatUpdateAt(item.updatedAt) }</i></span>
+      item.updatedAt ? <span><i>{ formatUpdateAt(item.updatedAt) }</i></span> : null
       <a class="text-black no-underline font-medium" href={item.link}><span>{ item.subject } </span></a>
     </li>
   ))

@@ -1,7 +1,7 @@
 ---
-import type { PresetSource } from '@/lib/prisma'
+import type { PresetSource } from '@/db'
 import Editor from '@/components/editor/index.astro'
-import { readPreset } from '@/lib/prisma/markdown'
+import { readPreset } from '@/db/markdown'
 import { formHandler } from '@/lib/services/form'
 import { to } from 'await-to-js'
 
@@ -15,10 +15,10 @@ const { source, subject } = Astro.props
 const [formError, formStatus] = await to(formHandler(Astro, { source }))
 
 const env = Astro.locals.runtime.env
-const presetSource = await readPreset(env, [source])
+const presetSource = await readPreset(env, source)
 ---
 
 <h2>{subject}</h2>
 { formStatus === 'ok' && <div>Saved Success</div> }
 { formError && formError.message }
-<Editor source={source} markdown={presetSource[0]} />
+{ presetSource && <Editor source={source} markdown={presetSource} /> }

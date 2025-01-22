@@ -1,6 +1,6 @@
 ---
-import type { Markdown } from '@prisma/client'
-import { MarkdownSource } from '@/lib/prisma'
+import type { Markdown } from '@/db/types'
+import { MarkdownSource } from '@/db'
 
 interface Props {
   source: MarkdownSource
@@ -27,7 +27,7 @@ const { markdown } = Astro.props
 </markdown-editor>
 
 <script>
-import type { Markdown } from '@prisma/client'
+import type { Markdown } from '@/db/types'
 import consola from 'consola'
 import { marked } from 'marked'
 

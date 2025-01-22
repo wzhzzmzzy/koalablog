@@ -1,7 +1,7 @@
 ---
 import type { Markdown } from '@prisma/client'
-import { MarkdownSource } from '@/lib/prisma'
-import { read } from '@/lib/prisma/markdown'
+import { MarkdownSource } from '@/db'
+import { read } from '@/db/markdown'
 import { to } from 'await-to-js'
 import { marked } from 'marked'
 

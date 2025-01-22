@@ -1,10 +1,10 @@
 import { env } from 'cloudflare:test'
 import { assert, describe, expect, it } from 'vitest'
-import { createPrisma, MarkdownSource } from '.'
+import { connectDB, MarkdownSource } from '.'
 import { add } from './markdown'
 
 describe('add post', async () => {
-  const prisma = createPrisma(env.DB)
+  const prisma = connectDB(env.DB)
   const mockPost = { subject: 'Post 1', content: '# Post 1\n\n## Content' }
   const mockTag = { name: 'mockData' }
 

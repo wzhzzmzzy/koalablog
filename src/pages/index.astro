@@ -1,16 +1,14 @@
 ---
+import { MarkdownSource } from '@/db'
+import { readPreset } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
-import { MarkdownSource } from '@/lib/prisma'
-import { readPreset } from '@/lib/prisma/markdown'
 import { marked } from 'marked'
 
 const env = Astro.locals.runtime.env
-const presetSource = await readPreset(env, [MarkdownSource.Home])
-const markup = presetSource.map(i => marked(i.content ?? ''))
+const presetSource = await readPreset(env, MarkdownSource.Home)
+const markup = marked(presetSource?.content ?? '')
 ---
 
 <Layout>
-  {
-    markup.map(i => <Fragment set:html={i} />)
-  }
+  <Fragment set:html={markup} />
 </Layout>

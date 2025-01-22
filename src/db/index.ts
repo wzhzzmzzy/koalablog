@@ -1,13 +1,6 @@
 import type { D1Database } from '@cloudflare/workers-types'
-import { PrismaD1 } from '@prisma/adapter-d1'
-import { PrismaClient } from '@prisma/client'
-
-export function createPrisma(db: D1Database) {
-  const adapter = new PrismaD1(db)
-  const prisma = new PrismaClient({ adapter })
-
-  return prisma
-}
+import { drizzle } from 'drizzle-orm/d1'
+import * as schema from './schema'
 
 export enum MarkdownSource {
   Home = 1,
@@ -34,4 +27,8 @@ export const MarkdownSubjectMap: Record<MarkdownSource, string> = {
   [MarkdownSource.Post]: 'Posts',
   [MarkdownSource.Page]: 'Pages',
   [MarkdownSource.Unknown]: '404',
+}
+
+export function connectDB(DB: D1Database) {
+  return drizzle(DB, { schema })
 }

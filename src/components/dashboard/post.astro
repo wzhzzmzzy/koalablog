@@ -1,7 +1,7 @@
 ---
 import Editor from '@/components/editor/index.astro'
-import { MarkdownSource } from '@/lib/prisma'
-import { read } from '@/lib/prisma/markdown'
+import { MarkdownSource } from '@/db'
+import { read } from '@/db/markdown'
 import { formHandler } from '@/lib/services/form'
 import { to } from 'await-to-js'
 
@@ -21,9 +21,12 @@ const [error, post] = await to(read(env, source, link))
 if (error) {
   return Astro.redirect('/500')
 }
+ else if (!post) {
+  return Astro.redirect('/404')
+}
 ---
 
-<h2>{post.subject}</h2>
+<h2>{post?.subject}</h2>
 { formStatus === 'ok' && <div>Saved Success</div> }
 { formError && formError.message }
 

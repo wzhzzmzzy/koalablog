@@ -1,7 +1,7 @@
+import { MarkdownSource } from '@/db'
+import { add, update } from '@/db/markdown'
 import { to } from 'await-to-js'
 import z from 'zod'
-import { MarkdownSource } from '../prisma'
-import { add, update } from '../prisma/markdown'
 
 class ValidationError extends Error {
   errors: Record<string, string>

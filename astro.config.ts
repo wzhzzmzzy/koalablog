@@ -10,12 +10,4 @@ export default defineConfig({
   integrations: [
     UnoCss(),
   ],
-  vite: {
-    ssr: {
-      noExternal: [
-        '@prisma/client',
-      ],
-    },
-  },
 })
-
