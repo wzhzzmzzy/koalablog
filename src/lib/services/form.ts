@@ -40,8 +40,7 @@ export async function formHandler({ request, locals }: Context, { source }: { so
       await update(locals.runtime.env, form.id, form.link, form.subject, form.content)
     }
     else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
-      const newPost = await add(locals.runtime.env, source, form.subject, form.content)
-      console.log(newPost)
+      await add(locals.runtime.env, source, form.subject, form.content)
     }
     else {
       throw new Error(`Preset page source '${source}' cannot be create`)
