@@ -8,5 +8,5 @@ preview_id = '21ec6922e3e446d9984567753c7a3b88'
 [[d1_databases]]
 binding = "DB"
 database_name = "prod-koala"
-database_id = "32dd6bfa-e244-402b-bd1b-fab50996e819"
+database_id = "3cc89d41-3caa-4415-a2dc-46f4af92304a"
 migrations_dir = "migrations"
