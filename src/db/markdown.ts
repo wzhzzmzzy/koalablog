@@ -4,8 +4,8 @@ import { kebabCase } from 'es-toolkit'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
 
-function linkGenerator(source: PostOrPage, subject: string) {
-  let link = kebabCase(subject)
+export function linkGenerator(source: PostOrPage, subject: string) {
+  let link = kebabCase(subject.replace(/[^a-z0-9\s]/gi, ''))
   if (source === MarkdownSource.Post) {
     link = `post/${link}`
   }
@@ -19,7 +19,6 @@ export function add(
   content: string,
   tags: string[] = [],
 ) {
-  console.log('add', source, subject, content)
   return connectDB(env.DB).insert(markdown).values({
     link: linkGenerator(source, subject),
     source,
