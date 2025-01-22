@@ -7,12 +7,10 @@ CREATE TABLE `markdown` (
 	`tags` text,
 	`incoming_links` text,
 	`outgoing_links` text,
-	`createdAt` integer DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
-	`updatedAt` integer DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
+	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
+	`updatedAt` integer DEFAULT (unixepoch()) NOT NULL,
 	`deleted` integer DEFAULT false NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `markdown_link_unique` ON `markdown` (`link`);--> statement-breakpoint
 CREATE UNIQUE INDEX `markdown_subject_unique` ON `markdown` (`subject`);
-
-

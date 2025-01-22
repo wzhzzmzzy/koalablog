@@ -1,0 +1,34 @@
+---
+import Editor from '@/components/editor/index.astro'
+import { MarkdownSource, type PostOrPage } from '@/db'
+import { initMarkdown, type Markdown } from '@/db/types'
+import DashboardLayout from '@/layouts/dashboard.astro'
+import { readArticle } from '@/lib/services/article'
+import { formHandler } from '@/lib/services/form'
+import { to } from 'await-to-js'
+
+const { link } = Astro.params
+const source: PostOrPage = MarkdownSource.Post
+const url: URL = Astro.url
+const mode = url.searchParams.has('new') ? 'create' : 'update'
+
+const [formError, formStatus] = await to(formHandler(Astro, { source }))
+
+const article: Response | Markdown = mode === 'update'
+  ? await readArticle(Astro, source, link!)
+  : initMarkdown()
+
+if (article instanceof Response) {
+  return article
+}
+---
+<DashboardLayout>
+  <main class="py-3">
+    <h2>{ mode === 'create' ? 'New Post' : 'Edit' }</h2>
+
+    { formStatus === 'ok' && <div>Saved Success</div> }
+    { formError && <div>{formError.message}</div> }
+
+    <Editor source={source} markdown={article} />
+  </main>
+</DashboardLayout>

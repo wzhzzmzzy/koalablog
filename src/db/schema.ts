@@ -10,7 +10,11 @@ export const markdown = sqliteTable('markdown', {
   tags: text(),
   incoming_links: text(),
   outgoing_links: text(),
-  createdAt: int({ mode: 'timestamp' }).default(sql`(CURRENT_TIMESTAMP)`).notNull(),
-  updatedAt: int({ mode: 'timestamp' }).default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  createdAt: int({ mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: int({ mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
   deleted: int({ mode: 'boolean' }).default(false).notNull(),
 })

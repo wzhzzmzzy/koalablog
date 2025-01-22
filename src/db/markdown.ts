@@ -19,6 +19,7 @@ export function add(
   content: string,
   tags: string[] = [],
 ) {
+  console.log('add', source, subject, content)
   return connectDB(env.DB).insert(markdown).values({
     link: linkGenerator(source, subject),
     source,
@@ -68,12 +69,13 @@ export function readList(env: Env, source: PostOrPage, tag?: string, pagination:
     paginationQuery.offset = (pageNum - 1) * pageSize
   }
 
+  const ops = [
+    eq(markdown.source, source),
+    eq(markdown.deleted, false),
+    tag ? like(markdown.tags, `%${tag}%`) : null,
+  ].filter(i => !!i)
   return connectDB(env.DB).query.markdown.findMany({
-    where: and(
-      eq(markdown.source, source),
-      eq(markdown.deleted, false),
-      like(markdown.tags, `%${tag}%`),
-    ),
+    where: and(...ops),
     orderBy: desc(markdown.createdAt),
     ...paginationQuery,
   })

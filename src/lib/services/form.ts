@@ -19,10 +19,10 @@ class ValidationError extends Error {
 const FormSchema = z.object({
   id: z.preprocess(
     a => Number.parseInt(a as string, 10),
-    z.number().positive(),
+    z.number().gte(0),
   ),
   link: z.string().default(''),
-  subject: z.string(),
+  subject: z.string().min(1),
   content: z.string(),
 })
 
@@ -40,7 +40,8 @@ export async function formHandler({ request, locals }: Context, { source }: { so
       await update(locals.runtime.env, form.id, form.link, form.subject, form.content)
     }
     else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
-      await add(locals.runtime.env, source, form.subject, form.content)
+      const newPost = await add(locals.runtime.env, source, form.subject, form.content)
+      console.log(newPost)
     }
     else {
       throw new Error(`Preset page source '${source}' cannot be create`)
