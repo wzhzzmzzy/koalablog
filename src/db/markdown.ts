@@ -12,36 +12,69 @@ export function linkGenerator(source: PostOrPage, subject: string) {
   return link
 }
 
+interface TagAndLinkCollection { tags: string[], links: string[] }
+/**
+ * 读取 Markdown content，从其中提取 tag 和 双向链接
+ */
+export function collectTagsAndLinks(markdown: { content?: string | null }): TagAndLinkCollection {
+  const tagAndLinkCollection: TagAndLinkCollection = {
+    tags: [],
+    links: [],
+  }
+
+  const content = markdown.content || ''
+  const tagRegex = /#([\w\-]+)/g
+  const linkRegex = /\[\[([\w\- ]+)\]\]/g
+
+  let tagMatch = tagRegex.exec(content)
+  while (tagMatch !== null) {
+    if (!tagAndLinkCollection.tags.includes(tagMatch[1])) {
+      tagAndLinkCollection.tags.push(tagMatch[1])
+    }
+    tagMatch = tagRegex.exec(content)
+  }
+
+  let linkMatch = linkRegex.exec(content)
+  while (linkMatch !== null) {
+    if (!tagAndLinkCollection.links.includes(linkMatch[1])) {
+      tagAndLinkCollection.links.push(linkMatch[1])
+    }
+    linkMatch = linkRegex.exec(content)
+  }
+
+  return tagAndLinkCollection
+}
 export function add(
   env: Env,
   source: PostOrPage,
   subject: string,
   content: string,
-  tags: string[] = [],
 ) {
+  const { tags, links } = collectTagsAndLinks({ content })
   return connectDB(env.DB).insert(markdown).values({
     link: linkGenerator(source, subject),
     source,
     subject,
     content,
     tags: tags.join(','),
+    outgoing_links: links.join(','),
   }).returning()
 }
-
 export function update(
   env: Env,
   id: number,
   link: string,
   subject: string,
   content: string,
-  tags: string[] = [],
 ) {
+  const { tags, links } = collectTagsAndLinks({ content })
   return connectDB(env.DB).update(markdown).set({
     link,
     subject,
     content,
     updatedAt: new Date(),
     tags: tags.join(','),
+    outgoing_links: links.join(','),
   }).where(eq(markdown.id, id))
 }
 

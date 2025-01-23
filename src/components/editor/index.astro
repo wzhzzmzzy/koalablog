@@ -12,12 +12,26 @@ const isPreset = isPresetSource(source)
 ---
 
 <markdown-editor data-markdown={JSON.stringify(markdown)} data-source={source}>
-  <div class="flex gap-x-3 w-full">
+  <div class="flex gap-x-3 w-full lg:flex-row">
     <form class="flex-1 flex flex-col" method="POST">
       <button id="save" class="w-12">Save</button>
-      <input id="subject-input" type={isPreset ? 'hidden' : null} name="subject" class="mt-3 w-50" value={markdown.subject ?? ''} placeholder="Title" />
+      <input
+        id="subject-input"
+        type={isPreset ? 'hidden' : null}
+        name="subject"
+        class="mt-3 w-50"
+        value={markdown.subject ?? ''}
+        placeholder="Title"
+      />
+      <input
+        id="link-input"
+        type={isPreset ? 'hidden' : null}
+        name="link"
+        class="mt-3 w-50"
+        value={markdown.link}
+        placeholder="Link"
+      />
       <input type="hidden" name="id" value={markdown.id} />
-      <input type="hidden" name="link" value={markdown.link} />
       <textarea class="min-h-[50vh] mt-3" name="content" />
     </form>
     <details class="flex-1" open>
@@ -30,6 +44,7 @@ const isPreset = isPresetSource(source)
 <script>
 import type { Markdown } from '@/db/types'
 import { isPresetSource } from '@/db'
+import { linkGenerator } from '@/db/markdown'
 import consola from 'consola'
 import { marked } from 'marked'
 
@@ -37,8 +52,11 @@ class MarkdownEditor extends HTMLElement {
   markdown: Markdown
   textareaEl: HTMLTextAreaElement
   subjectInputEl: HTMLInputElement
+  linkInputEl: HTMLInputElement
   previewEl: HTMLDivElement
   formEl: HTMLFormElement
+
+  userDefinedLink: boolean = false
 
   constructor() {
     super()
@@ -51,6 +69,10 @@ class MarkdownEditor extends HTMLElement {
     this.subjectInputEl = this.querySelector('#subject-input')!
     this.onInputSubject = this.onInputSubject.bind(this)
     this.subjectInputEl.addEventListener('input', this.onInputSubject)
+
+    this.linkInputEl = this.querySelector('#link-input')!
+    this.onInputLink = this.onInputLink.bind(this)
+    this.linkInputEl.addEventListener('input', this.onInputLink)
 
     this.previewEl = this.querySelector('#preview-md')!
     this.formEl = this.querySelector('form')!
@@ -82,6 +104,11 @@ ${this.markdown.content ?? ''}`
   onInputSubject(e: Event) {
     this.markdown.subject = (e.target as HTMLTextAreaElement).value
     this.refreshPreview()
+
+    if (!this.userDefinedLink) {
+      this.markdown.link = linkGenerator(this.markdown.source, this.markdown.subject)
+      this.linkInputEl.setAttribute('value', this.markdown.link)
+    }
   }
 
   onInput(e: Event) {
@@ -89,22 +116,10 @@ ${this.markdown.content ?? ''}`
     this.refreshPreview()
   }
 
-  // onSave(e: SubmitEvent) {
-  //   e.preventDefault()
-  //
-  //   const pickKeys = ['id', 'link']
-  //   Object.keys(this.markdown).forEach((key) => {
-  //     if (pickKeys.includes(key)) {
-  //       const hiddenInput = document.createElement('input')
-  //       hiddenInput.type = 'hidden'
-  //       hiddenInput.name = key
-  //       hiddenInput.value = String(this.markdown[key as keyof Markdown])
-  //       this.formEl.appendChild(hiddenInput)
-  //     }
-  //   })
-  //
-  //   this.formEl.submit()
-  // }
+  onInputLink(e: Event) {
+    this.markdown.link = (e.target as HTMLInputElement).value
+    this.userDefinedLink = true
+  }
 }
 
 customElements.define('markdown-editor', MarkdownEditor)
