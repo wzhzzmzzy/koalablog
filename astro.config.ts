@@ -1,4 +1,6 @@
 import cloudflare from '@astrojs/cloudflare'
+import svelte from '@astrojs/svelte'
+
 import { defineConfig } from 'astro/config'
 
 import UnoCss from 'unocss/astro'
@@ -7,7 +9,6 @@ import UnoCss from 'unocss/astro'
 export default defineConfig({
   adapter: cloudflare(),
   output: 'server',
-  integrations: [
-    UnoCss(),
-  ],
+  integrations: [UnoCss(), svelte()],
 })
+

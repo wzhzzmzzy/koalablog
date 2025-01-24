@@ -1,4 +1,4 @@
 -- Initial data for Home and Nav
-INSERT INTO markdown (source, link, subject, content, createdAt, updatedAt, deleted) VALUES
-  (1, '/', 'Home', 'Welcome to koala', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0),
-  (2, '/nav', 'Nav', '[Home](/) [Posts](/posts)', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0);
+INSERT INTO markdown (source, link, subject, content, deleted) VALUES
+  (1, '/', 'Home', 'Welcome to koala', 0),
+  (2, '/nav', 'Nav', '[Home](/) [Posts](/posts)', 0);

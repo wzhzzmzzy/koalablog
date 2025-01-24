@@ -12,7 +12,7 @@ const FormSchema = z.object({
   content: z.string(),
 })
 
-interface Context { request: Request, locals: App.Locals }
+export interface Context { request: Request, locals: App.Locals }
 export async function formHandler({ request, locals }: Context, { source }: { source: MarkdownSource }) {
   if (request.method === 'POST') {
     const data = await request.formData()

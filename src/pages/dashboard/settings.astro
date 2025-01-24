@@ -1,4 +1,55 @@
 ---
-import DashboardLayout from '../../layouts/dashboard.astro';
+import DashboardLayout from '@/layouts/dashboard.astro'
+import { settingsHandler } from '@/lib/services/settings'
+import { to } from 'await-to-js'
+
+const env = Astro.locals.runtime.env
+
+const [formError, formStatus] = await to(settingsHandler(Astro))
+const title = await env.KOALA.get('title')
 ---
-<DashboardLayout></DashboardLayout>
+<DashboardLayout>
+  <h1>Settings</h1>
+  <setting-form>
+
+    { formStatus === 'ok' && <div>Saved Success</div> }
+    { formError && <div>{formError.message}</div> }
+
+    <form method="POST" class="flex flex-col gap-3">
+      <button class="w-12">Save</button>
+
+      <label>
+        Blog Title:<br />
+        <input class="w-60 sm:w-80" id="title-input" name="title" value={title} />
+      </label>
+
+    </form>
+  </setting-form>
+</DashboardLayout>
+
+<script>
+class SettingForm extends HTMLElement {
+  titleInputEl: HTMLInputElement
+
+  constructor() {
+    super()
+    this.titleInputEl = this.querySelector('#title-input')!
+    this.onInputTitle = this.onInputTitle.bind(this)
+    this.connectedCallback()
+  }
+
+  connectedCallback() {
+    this.titleInputEl.addEventListener('input', this.onInputTitle)
+  }
+
+  disconnectedCallback() {
+    this.titleInputEl.removeEventListener('input', this.onInputTitle)
+  }
+
+  onInputTitle(e: Event) {
+    const value = (e.target as HTMLInputElement).value
+  }
+}
+
+customElements.define('setting-form', SettingForm)
+</script>
