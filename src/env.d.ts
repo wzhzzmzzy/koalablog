@@ -10,7 +10,7 @@ declare namespace App {
 }
 
 interface ImportMetaEnv {
-  readonly DB?: 'd1' | 'sqlite'
+  readonly DATA_SOURCE?: 'd1' | 'sqlite'
   readonly SQLITE_URL?: string
 }
 

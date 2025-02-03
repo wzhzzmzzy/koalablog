@@ -36,8 +36,8 @@ export function connectD1(DB: D1Database) {
 }
 
 export function connectDB({ DB }: { DB?: D1Database } = {}) {
-  consola.info('Using', import.meta.env.DB)
-  if (import.meta.env.DB === 'd1' && DB) {
+  consola.info('Using', import.meta.env.DATA_SOURCE)
+  if (import.meta.env.DATA_SOURCE === 'd1' && DB) {
     return connectD1(DB)
   }
   return drizzleSqlite({

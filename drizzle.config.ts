@@ -18,6 +18,6 @@ export default defineConfig({
   out: './migrations',
   schema: './src/db/schema.ts',
   dialect: 'sqlite',
-  ...(process.env.DB === 'd1' ? d1DriverConfig : {}),
-  ...(process.env.DB === 'sqlite' ? sqliteDriverConfig : {}),
+  ...(process.env.DATA_SOURCE === 'd1' ? d1DriverConfig : {}),
+  ...(process.env.DATA_SOURCE === 'sqlite' ? sqliteDriverConfig : {}),
 })

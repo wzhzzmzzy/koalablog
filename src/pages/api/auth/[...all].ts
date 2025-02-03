@@ -3,7 +3,7 @@ import { createAuth } from '@/lib/services/auth'
 
 export const ALL: APIRoute = async (ctx) => {
   const auth = createAuth({
-    type: import.meta.env.DB || 'sqlite',
+    type: import.meta.env.DATA_SOURCE || 'sqlite',
     DB: ctx.locals.runtime.env.DB,
   })
   return auth.handler(ctx.request)

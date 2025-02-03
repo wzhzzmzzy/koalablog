@@ -3,7 +3,7 @@ import { defineMiddleware } from 'astro:middleware'
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
   const auth = createAuth({
-    type: import.meta.env.DB || 'sqlite',
+    type: import.meta.env.DATA_SOURCE || 'sqlite',
     DB: ctx.locals.runtime.env.DB,
   })
   const isAuthed = await auth.api
