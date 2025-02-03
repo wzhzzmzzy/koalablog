@@ -122,6 +122,11 @@ export function read(env: Env, source: PostOrPage, link: string) {
   })
 }
 
+// DEBUG
+export function readAll(env: Env) {
+  return connectDB(env.DB).query.markdown.findMany()
+}
+
 export function readPreset(env: Env, source: PresetSource) {
   return connectDB(env.DB).query.markdown.findFirst({
     where: eq(markdown.source, source),

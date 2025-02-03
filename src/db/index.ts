@@ -1,5 +1,7 @@
 import type { D1Database } from '@cloudflare/workers-types'
-import { drizzle } from 'drizzle-orm/d1'
+import consola from 'consola'
+import { drizzle as drizzleD1 } from 'drizzle-orm/d1'
+import { drizzle as drizzleSqlite } from 'drizzle-orm/libsql'
 import * as schema from './schema'
 
 export enum MarkdownSource {
@@ -29,6 +31,19 @@ export const MarkdownSubjectMap: Record<MarkdownSource, string> = {
   [MarkdownSource.Unknown]: '404',
 }
 
-export function connectDB(DB: D1Database) {
-  return drizzle(DB, { schema })
+export function connectD1(DB: D1Database) {
+  return drizzleD1(DB, { schema })
+}
+
+export function connectDB({ DB }: { DB?: D1Database } = {}) {
+  consola.info('Using', import.meta.env.DB)
+  if (import.meta.env.DB === 'd1' && DB) {
+    return connectD1(DB)
+  }
+  return drizzleSqlite({
+    connection: {
+      url: import.meta.env.SQLITE_URL!,
+    },
+    schema,
+  })
 }
