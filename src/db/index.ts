@@ -35,11 +35,12 @@ export function connectD1(DB: D1Database) {
   return drizzleD1(DB, { schema })
 }
 
-export function connectDB({ DB }: { DB?: D1Database } = {}) {
-  consola.info('Using', import.meta.env.DATA_SOURCE)
+export function connectDB(DB?: D1Database) {
   if (import.meta.env.DATA_SOURCE === 'd1' && DB) {
+    consola.info('Using:d1', import.meta.env.DATA_SOURCE)
     return connectD1(DB)
   }
+  consola.info('Using:sqlite', import.meta.env.DATA_SOURCE)
   return drizzleSqlite({
     connection: {
       url: import.meta.env.SQLITE_URL!,

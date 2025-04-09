@@ -18,7 +18,7 @@
     "migration:d1:remote": "pnpx wrangler d1 migrations apply DB --remote",
     "migration:sqlite": "./node_modules/.bin/drizzle-kit migrate && sqlite3 ./local.db < migrations/0001_prepare.sql",
     "migration:generate": "./node_modules/.bin/drizzle-kit generate --name=init",
-    "migration:generate:auth": "pnpx @better-auth/cli@latest generate --output=drizzle --config=./src/lib/services/auth.ts",
+    "migration:generate:auth": "pnpx @better-auth/cli@latest generate --output=drizzle --config=./src/lib/services/auth-db.ts",
     "d1:clear": "pnpx wrangler d1 execute DB --file ./scripts/db/clear.sql --local",
     "db:clean": "rm -rf ./.wrangler/state && rm ./local.db",
     "d1:info": "pnpx wrangler d1 execute DB --file ./scripts/db/info.sql --local",

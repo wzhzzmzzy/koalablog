@@ -13,13 +13,10 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
     type: import.meta.env.DATA_SOURCE || 'sqlite',
     DB: ctx.locals.runtime.env.DB,
   })
-  console.log('auth!', ctx.request.headers)
   const isAuthed = await auth.api
     .getSession({
       headers: ctx.request.headers,
     })
-
-  console.log('auth', isAuthed)
 
   if (isAuthed) {
     ctx.locals.user = isAuthed.user

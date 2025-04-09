@@ -38,8 +38,3 @@ export function createAuth(ctx: Context) {
     })
   }
 }
-
-// for better-auth cli
-export const auth = createAuth({
-  type: 'sqlite',
-})
