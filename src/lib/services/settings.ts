@@ -1,5 +1,6 @@
 import type { Context } from './editor'
 import z from 'zod'
+import { putGlobalConfig } from '../kv'
 
 const SettingsSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -10,7 +11,9 @@ export async function settingsHandler({ request, locals }: Context) {
     const data = await request.formData()
     const form = await SettingsSchema.parseAsync(Object.fromEntries(data))
 
-    await locals.runtime.env.KOALA.put('title', form.title)
+    await putGlobalConfig(locals.runtime.env.KOALA, {
+      title: form.title,
+    })
 
     return 'ok'
   }

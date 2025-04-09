@@ -2,6 +2,7 @@
 import Head from '@/components/head/index.astro'
 import { MarkdownSource } from '@/db'
 import { readPreset } from '@/db/markdown'
+import { globalConfig } from '@/lib/kv'
 import { marked } from 'marked'
 import Layout from './layout.astro'
 
@@ -13,7 +14,7 @@ const { title: metaTitle } = Astro.props
 
 const env = Astro.locals.runtime.env
 
-const title = await env.KOALA.get('title')
+const title = (await globalConfig(env.KOALA)).title
 const presetSource = await readPreset(env, MarkdownSource.Nav)
 const markup = marked(presetSource?.content ?? '')
 ---

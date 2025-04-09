@@ -1,6 +1,8 @@
 ---
 import Head from '@/components/head/index.astro'
 import { DASHBOARD_SETTINGS_ROUTE } from '@/lib/const/config'
+import { globalConfig } from '@/lib/kv'
+
 import Layout from './layout.astro'
 
 interface Props {
@@ -10,7 +12,8 @@ interface Props {
 const { title: metaTitle } = Astro.props
 
 const env = Astro.locals.runtime.env
-const title = await env.KOALA.get('title')
+const title = (await globalConfig(env.KOALA)).title
+
 ---
 <Layout>
   <Head title={metaTitle} slot="meta" />

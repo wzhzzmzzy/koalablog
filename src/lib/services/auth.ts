@@ -13,6 +13,12 @@ type Context = {
 export function createAuth(ctx: Context) {
   if (ctx.type === 'sqlite') {
     return betterAuth({
+      advanced: {
+        cookiePrefix: 'koalablog',
+      },
+      emailAndPassword: {
+        enabled: true,
+      },
       database: drizzleAdapter(connectDB(), {
         provider: 'sqlite',
       }),
@@ -20,6 +26,12 @@ export function createAuth(ctx: Context) {
   }
   else {
     return betterAuth({
+      advanced: {
+        cookiePrefix: 'koalablog',
+      },
+      emailAndPassword: {
+        enabled: true,
+      },
       database: drizzleAdapter(connectD1(ctx.DB), {
         provider: 'sqlite',
       }),

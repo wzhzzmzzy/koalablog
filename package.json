@@ -22,8 +22,8 @@
     "d1:clear": "pnpx wrangler d1 execute DB --file ./scripts/db/clear.sql --local",
     "db:clean": "rm -rf ./.wrangler/state && rm ./local.db",
     "d1:info": "pnpx wrangler d1 execute DB --file ./scripts/db/info.sql --local",
-    "d1:init": "pnpm run db:clear && pnpm run migration:d1:local",
-    "sqlite:init": "pnpm run db:clear && pnpm run migration:sqlite",
+    "d1:init": "pnpm run db:clean && pnpm run migration:d1:local",
+    "sqlite:init": "pnpm run db:clean && pnpm run migration:sqlite",
     "kv:init": "bash ./scripts/kv/init.sh"
   },
   "dependencies": {

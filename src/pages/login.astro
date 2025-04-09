@@ -1,8 +1,70 @@
 ---
-import Layout from '@/layouts/home.astro'
+import { globalConfig } from '@/lib/kv'
 
 const env = Astro.locals.runtime.env
+const config = await globalConfig(env.KOALA)
+const redirectTo = Astro.url.searchParams.get('from') || '/'
 ---
+<login-form data-admin-email={config.adminEmail} data-redirect-to={redirectTo}>
+  <form method="POST" class="max-w-md mx-auto mt-10">
+    <!-- {errorMessage && ( -->
+    <!--   <div class="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert"> -->
+    <!--     {errorMessage} -->
+    <!--   </div> -->
+    <!-- )} -->
+    <div class="mb-6">
+      <label for="adminKey" class="block mb-2 text-sm font-medium text-gray-900">Admin Key</label>
+      <input
+        type="password"
+        id="admin-key"
+        name="adminKey"
+        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+        placeholder="Input admin key"
+        value={config.adminKey}
+        required
+      />
+    </div>
 
-<Layout>
-</Layout>
+    <button
+      id="login-btn"
+      type="submit"
+      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center"
+    >
+      Login, then redirect to {redirectTo}
+    </button>
+  </form>
+</login-form>
+
+<script>
+import { authClient } from '@/lib/utils/auth-client'
+
+class LoginForm extends HTMLElement {
+  loginBtn: HTMLElement | null = null
+  adminKeyInput: HTMLInputElement | null = null
+
+  connectedCallback() {
+    this.loginBtn = this.querySelector('#login-btn')
+    this.adminKeyInput = this.querySelector('#admin-key')
+    this.loginBtn?.addEventListener('click', (e) => {
+      this.login(e)
+    })
+  }
+
+  async login(e: Event) {
+    e.preventDefault()
+    const { error } = await authClient.signIn.email({
+      email: this.dataset.adminEmail!,
+      password: this.adminKeyInput?.value || '',
+    })
+
+    if (!error) {
+      const searchParams = new URLSearchParams(window.location.search)
+      const redirectTo = searchParams.get('from') || '/'
+      window.location.pathname = redirectTo
+    }
+  }
+}
+
+customElements.define('login-form', LoginForm)
+</script>
+

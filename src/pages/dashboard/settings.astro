@@ -1,12 +1,13 @@
 ---
 import DashboardLayout from '@/layouts/dashboard.astro'
+import { globalConfig } from '@/lib/kv'
 import { settingsHandler } from '@/lib/services/settings'
 import { to } from 'await-to-js'
 
 const env = Astro.locals.runtime.env
 
 const [formError, formStatus] = await to(settingsHandler(Astro))
-const title = await env.KOALA.get('title')
+const title = (await globalConfig(env.KOALA)).title
 ---
 <DashboardLayout>
   <h1>Settings</h1>

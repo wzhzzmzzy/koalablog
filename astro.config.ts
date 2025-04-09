@@ -11,4 +11,3 @@ export default defineConfig({
   output: 'server',
   integrations: [UnoCss(), svelte()],
 })
-
