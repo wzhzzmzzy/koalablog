@@ -6,8 +6,11 @@ import { globalConfig } from './lib/kv'
 export const onRequest = defineMiddleware(async (ctx, next) => {
   const config = await globalConfig(ctx.locals.runtime.env.KOALA)
 
-  if (!config.onboardingFinished && ctx.url.pathname !== '/onboarding') {
-    return ctx.redirect('/onboarding')
+  if (!config.onboardingFinished) {
+    if (ctx.url.pathname !== '/onboarding')
+      return ctx.redirect('/onboarding')
+    next()
+    return
   }
 
   const auth = createAuth({

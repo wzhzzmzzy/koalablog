@@ -1,14 +1,7 @@
 ---
-import { globalConfig, putGlobalConfig } from '@/lib/kv'
-import { createAuthClient } from 'better-auth/client'
-import z from 'zod'
+import OnboardingForm from '@/components/onboarding/index.svelte'
+import { globalConfig } from '@/lib/kv'
 import sql from '../../migrations/0000_init.sql?raw'
-
-const OnboardingSchema = z.object({
-  blogTitle: z.string().min(1, 'Blog title cannot be empty').max(100, 'Blog title cannot exceed 100 characters'),
-  adminKey: z.string().min(8, 'Admin key must be at least 8 characters').max(50, 'Admin key cannot exceed 50 characters'),
-  adminEmail: z.string().email('Please enter a valid email address'),
-})
 
 const config = await globalConfig(Astro.locals.runtime.env.KOALA)
 
@@ -16,129 +9,25 @@ if (config.onboardingFinished) {
   return Astro.redirect('/')
 }
 
-let validationErrors: {
-  blogTitle?: string
-  adminKey?: string
-  adminEmail?: string
-} = {}
-
-if (Astro.request.method === 'POST') {
-  try {
-    const data = await Astro.request.formData()
-    const formData = Object.fromEntries(data)
-    const { blogTitle, adminKey, adminEmail } = await OnboardingSchema.parseAsync(formData)
-    validationErrors = {}
-
-    await putGlobalConfig(Astro.locals.runtime.env.KOALA, {
-      title: blogTitle,
-      adminKey,
-      adminEmail,
-      onboardingFinished: true,
-    })
-
-    if (Astro.locals.runtime.env.DATA_SOURCE === 'd1') {
-      const res = await Astro.locals.runtime.env.DB.exec(`
-        DROP INDEX IF EXISTS user_email_unique;
-        DROP TABLE IF EXISTS user;
-        DROP INDEX IF EXISTS session_token_unique;
-        DROP TABLE IF EXISTS session;
-        DROP INDEX IF EXISTS markdown_link_unique;
-        DROP INDEX IF EXISTS markdown_subject_unique;
-        DROP TABLE IF EXISTS markdown;
-        DROP TABLE IF EXISTS account;
-        DROP TABLE IF EXISTS verification;
-      `)
-      console.log('droped', res)
-      const create = await Astro.locals.runtime.env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
-      console.log('created', create)
-    }
-
-    const { data: signUpResult, error } = await createAuthClient({
-      baseURL: Astro.url.origin,
-    }).signUp.email({
-      email: adminEmail,
-      password: adminKey,
-      name: `${blogTitle}Admin`,
-    })
-
-    if (!error) {
-      console.log(signUpResult)
-      return Astro.redirect('/dashboard')
-    }
-    console.log('signup', error, signUpResult)
-  }
-  catch (error) {
-    if (error instanceof z.ZodError) {
-      validationErrors = error.errors.reduce((acc, err) => {
-        acc[err.path[0]] = err.message
-        return acc
-      }, {} as Record<string, any>)
-    }
-    else {
-      console.error('未知错误:', error)
-    }
-  }
+if (Astro.locals.runtime.env.DATA_SOURCE === 'd1') {
+  const res = await Astro.locals.runtime.env.DB.exec(`
+    DROP INDEX IF EXISTS user_email_unique;
+    DROP TABLE IF EXISTS user;
+    DROP INDEX IF EXISTS session_token_unique;
+    DROP TABLE IF EXISTS session;
+    DROP INDEX IF EXISTS markdown_link_unique;
+    DROP INDEX IF EXISTS markdown_subject_unique;
+    DROP TABLE IF EXISTS markdown;
+    DROP TABLE IF EXISTS account;
+    DROP TABLE IF EXISTS verification;
+  `)
+  console.log('droped', res)
+  const create = await Astro.locals.runtime.env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
+  console.log('created', create)
 }
 
 ---
 
-<form method="POST" class="max-w-md mx-auto mt-10">
-  <div class="mb-6">
-    <label for="blogTitle" class="block mb-2 text-sm font-medium text-gray-900">Blog Title:</label>
-    <input
-      type="text"
-      id="blogTitle"
-      name="blogTitle"
-      class={`bg-gray-50 border ${
-        validationErrors.blogTitle ? 'border-red-500' : 'border-gray-300'
-      } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5`}
-      placeholder="Input your blog title"
-      required
-    />
-    {validationErrors.blogTitle && (
-      <p class="mt-2 text-sm text-red-600">{validationErrors.blogTitle}</p>
-    )}
-  </div>
-
-  <div class="mb-6">
-    <label for="adminKey" class="block mb-2 text-sm font-medium text-gray-900">Admin Key:</label>
-    <input
-      type="password"
-      id="adminKey"
-      name="adminKey"
-      class={`bg-gray-50 border ${
-        validationErrors.adminKey ? 'border-red-500' : 'border-gray-300'
-      } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5`}
-      placeholder="Set your admin key"
-      required
-    />
-    {validationErrors.adminKey && (
-      <p class="mt-2 text-sm text-red-600">{validationErrors.adminKey}</p>
-    )}
-  </div>
-
-  <div class="mb-6">
-    <label for="adminEmail" class="block mb-2 text-sm font-medium text-gray-900">Admin Email (for recovery):</label>
-    <input
-      type="email"
-      id="adminEmail"
-      name="adminEmail"
-      class={`bg-gray-50 border ${
-        validationErrors.adminEmail ? 'border-red-500' : 'border-gray-300'
-      } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5`}
-      placeholder="Enter your email for recovery"
-      required
-    />
-    {validationErrors.adminEmail && (
-      <p class="mt-2 text-sm text-red-600">{validationErrors.adminEmail}</p>
-    )}
-  </div>
-
-  <button
-    type="submit"
-    class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center"
-  >
-    Submit
-  </button>
-</form>
-
+<div>
+  <OnboardingForm />
+</div>
