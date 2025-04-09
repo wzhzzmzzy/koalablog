@@ -2,5 +2,6 @@
 
 interface Env {
 	KOALA: KVNamespace;
+	DATA_SOURCE: "d1";
 	DB: D1Database;
 }

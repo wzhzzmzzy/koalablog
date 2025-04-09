@@ -10,3 +10,6 @@ binding = "DB"
 database_name = "prod-koala"
 database_id = "3cc89d41-3caa-4415-a2dc-46f4af92304a"
 migrations_dir = "migrations"
+
+[vars]
+DATA_SOURCE = "d1"

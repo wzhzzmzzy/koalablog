@@ -1,5 +1,6 @@
 import { createAuth } from '@/lib/services/auth'
 import { defineMiddleware } from 'astro:middleware'
+import { getDataSource } from './db'
 import { globalConfig } from './lib/kv'
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
@@ -10,7 +11,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   }
 
   const auth = createAuth({
-    type: import.meta.env.DATA_SOURCE || 'sqlite',
+    type: getDataSource(ctx.locals.runtime.env) || 'sqlite',
     DB: ctx.locals.runtime.env.DB,
   })
   const isAuthed = await auth.api

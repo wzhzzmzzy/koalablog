@@ -4,6 +4,11 @@ import { drizzle as drizzleD1 } from 'drizzle-orm/d1'
 import { drizzle as drizzleSqlite } from 'drizzle-orm/libsql'
 import * as schema from './schema'
 
+export function getDataSource(env?: Env) {
+  consola.log('data_source', import.meta.env.DATA_SOURCE, env?.DATA_SOURCE)
+  return import.meta.env.DATA_SOURCE || env?.DATA_SOURCE || 'd1'
+}
+
 export enum MarkdownSource {
   Home = 1,
   Nav = 2,
@@ -35,12 +40,12 @@ export function connectD1(DB: D1Database) {
   return drizzleD1(DB, { schema })
 }
 
-export function connectDB(DB?: D1Database) {
-  if (import.meta.env.DATA_SOURCE === 'd1' && DB) {
-    consola.info('Using:d1', import.meta.env.DATA_SOURCE)
-    return connectD1(DB)
+export function connectDB(env?: Env) {
+  if (getDataSource(env) === 'd1' && env?.DB) {
+    consola.info('Using:d1')
+    return connectD1(env?.DB)
   }
-  consola.info('Using:sqlite', import.meta.env.DATA_SOURCE)
+  consola.info('Using:sqlite')
   return drizzleSqlite({
     connection: {
       url: import.meta.env.SQLITE_URL!,

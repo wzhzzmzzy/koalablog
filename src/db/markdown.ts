@@ -51,7 +51,7 @@ export function add(
   content: string,
 ) {
   const { tags, links } = collectTagsAndLinks({ content })
-  return connectDB(env.DB).insert(markdown).values({
+  return connectDB(env).insert(markdown).values({
     link: linkGenerator(source, subject),
     source,
     subject,
@@ -68,7 +68,7 @@ export function update(
   content: string,
 ) {
   const { tags, links } = collectTagsAndLinks({ content })
-  return connectDB(env.DB).update(markdown).set({
+  return connectDB(env).update(markdown).set({
     link,
     subject,
     content,
@@ -79,7 +79,7 @@ export function update(
 }
 
 export function remove(env: Env, id: number) {
-  return connectDB(env.DB).update(markdown).set({
+  return connectDB(env).update(markdown).set({
     deleted: true,
     updatedAt: new Date(),
   }).where(eq(markdown.id, id))
@@ -106,7 +106,7 @@ export function readList(env: Env, source: PostOrPage, tag?: string, pagination:
     eq(markdown.deleted, false),
     tag ? like(markdown.tags, `%${tag}%`) : null,
   ].filter(i => !!i)
-  return connectDB(env.DB).query.markdown.findMany({
+  return connectDB(env).query.markdown.findMany({
     where: and(...ops),
     orderBy: desc(markdown.createdAt),
     ...paginationQuery,
@@ -114,7 +114,7 @@ export function readList(env: Env, source: PostOrPage, tag?: string, pagination:
 }
 
 export function read(env: Env, source: PostOrPage, link: string) {
-  return connectDB(env.DB).query.markdown.findFirst({
+  return connectDB(env).query.markdown.findFirst({
     where: and(
       eq(markdown.source, source),
       eq(markdown.link, link),
@@ -124,11 +124,11 @@ export function read(env: Env, source: PostOrPage, link: string) {
 
 // DEBUG
 export function readAll(env: Env) {
-  return connectDB(env.DB).query.markdown.findMany()
+  return connectDB(env).query.markdown.findMany()
 }
 
 export function readPreset(env: Env, source: PresetSource) {
-  return connectDB(env.DB).query.markdown.findFirst({
+  return connectDB(env).query.markdown.findFirst({
     where: eq(markdown.source, source),
   })
 }
