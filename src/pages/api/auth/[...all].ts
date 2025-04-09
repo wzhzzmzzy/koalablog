@@ -6,6 +6,7 @@ export const ALL: APIRoute = async (ctx) => {
   const auth = createAuth({
     type: getDataSource(ctx.locals.runtime.env) || 'sqlite',
     DB: ctx.locals.runtime.env.DB,
+    secret: ctx.locals.runtime.env.AUTH_SECRET || 'koala-secret',
   })
   return auth.handler(ctx.request)
 }

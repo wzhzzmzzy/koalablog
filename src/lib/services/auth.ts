@@ -6,13 +6,16 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 type Context = {
   type: 'd1'
   DB: D1Database
+  secret?: string
 } | {
   type: 'sqlite'
+  secret?: string
 }
 
 export function createAuth(ctx: Context) {
   if (ctx.type === 'sqlite') {
     return betterAuth({
+      secret: ctx.secret,
       advanced: {
         cookiePrefix: 'koalablog',
       },
@@ -26,6 +29,7 @@ export function createAuth(ctx: Context) {
   }
   else {
     return betterAuth({
+      secret: ctx.secret,
       advanced: {
         cookiePrefix: 'koalablog',
       },

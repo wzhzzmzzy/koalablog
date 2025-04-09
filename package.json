@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev:d1": "pnpm run d1:init && wrangler types && astro dev",
+    "dev:d1": "pnpm run db:clean && wrangler types && astro dev",
     "dev:sqlite": "pnpm run sqlite:init && wrangler types && astro dev",
     "dev": "astro dev",
     "build": "astro build",

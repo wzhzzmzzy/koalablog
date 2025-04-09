@@ -2,6 +2,7 @@
 import type { PresetSource } from '@/db'
 import Editor from '@/components/editor/index.svelte'
 import { readPreset } from '@/db/markdown'
+import { initMarkdown } from '@/db/types'
 import { formHandler } from '@/lib/services/editor'
 import { to } from 'await-to-js'
 
@@ -21,4 +22,4 @@ const presetSource = await readPreset(env, source)
 <h2>{subject}</h2>
 { formStatus === 'ok' && <div>Saved Success</div> }
 { formError && formError.message }
-{ presetSource && <Editor client:load source={source} markdown={presetSource} /> }
+{ presetSource ? <Editor client:load source={source} markdown={presetSource} /> : <Editor client:load source={source} markdown={initMarkdown()} /> }

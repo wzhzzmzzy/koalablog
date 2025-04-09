@@ -13,6 +13,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const auth = createAuth({
     type: getDataSource(ctx.locals.runtime.env) || 'sqlite',
     DB: ctx.locals.runtime.env.DB,
+    secret: ctx.locals.runtime.env.AUTH_SECRET || 'koala-secret',
   })
   const isAuthed = await auth.api
     .getSession({
