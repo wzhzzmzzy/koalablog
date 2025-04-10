@@ -9,6 +9,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   if (!config.onboardingFinished) {
     if (ctx.url.pathname !== '/onboarding' && !ctx.url.pathname.startsWith('/api')) {
       return ctx.redirect('/onboarding')
+    }
     next()
     return
   }
