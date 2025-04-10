@@ -21,7 +21,7 @@ if (Astro.locals.runtime.env.DATA_SOURCE === 'd1') {
     DROP TABLE IF EXISTS account;
     DROP TABLE IF EXISTS verification;
   `)
-  console.log('droped', res)
+  console.log('dropped', res)
   const create = await Astro.locals.runtime.env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
   console.log('created', create)
 }
@@ -29,5 +29,5 @@ if (Astro.locals.runtime.env.DATA_SOURCE === 'd1') {
 ---
 
 <div>
-  <OnboardingForm />
+  <OnboardingForm client:load />
 </div>

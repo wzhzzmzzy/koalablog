@@ -7,7 +7,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const config = await globalConfig(ctx.locals.runtime.env.KOALA)
 
   if (!config.onboardingFinished) {
-    if (ctx.url.pathname !== '/onboarding')
+    if (ctx.url.pathname !== '/onboarding' && !ctx.url.pathname.startsWith('/api')) {
       return ctx.redirect('/onboarding')
     next()
     return

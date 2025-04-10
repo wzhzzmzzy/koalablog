@@ -20,6 +20,7 @@ const formData = $state({
   blogTitle: '',
   adminKey: '',
   adminEmail: '',
+  serverFail: ''
 })
 
 const handleSubmit = async (e: Event) => {
@@ -36,32 +37,44 @@ const handleSubmit = async (e: Event) => {
     name: `${formData.blogTitle}Admin`,
   })
 
-  if (error) {
-    console.warn(error)
+  if (error && error.code !== "USER_ALREADY_EXISTS") {
+    console.warn('signup', error)
+    formData.serverFail = error.message || 'Sign up failed'
     return
   }
   
-  const [res, configErr] = await to(ofetch('/api/config/onboarding', {
+  const [configError, res] = await to(ofetch('/api/config/onboarding', {
     method: 'POST',
     body: JSON.stringify(formData),
   }))
   
-  if (configErr) {
-    console.warn(configErr)
+  if (configError) {
+    console.warn('config', configError)
+    formData.serverFail = configError.message
     return
   }
   
-  window.location.pathname = '/dashboard'
+  setTimeout(() => {
+    window.location.pathname = '/dashboard'
+  }, 1000)
 }
 </script>
 
-<form class="max-w-md mx-auto mt-10">
+<div>
+  {#if formData.serverFail}
+    <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
+      {formData.serverFail}
+    </div>
+  {/if}
+</div>
+<form method="POST" class="max-w-md mx-auto mt-10" onsubmit={handleSubmit}>
   <div class="mb-6">
     <label for="blogTitle" class="block mb-2 text-sm font-medium text-gray-900">Blog Title:</label>
     <input
       type="text"
       id="blogTitle"
       name="blogTitle"
+      bind:value={formData.blogTitle}
       class={`bg-gray-50 border ${
         validationErrors.blogTitle ? 'border-red-500' : 'border-gray-300'
       } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5`}
@@ -79,6 +92,7 @@ const handleSubmit = async (e: Event) => {
       type="password"
       id="adminKey"
       name="adminKey"
+      bind:value={formData.adminKey}
       class={`bg-gray-50 border ${
         validationErrors.adminKey ? 'border-red-500' : 'border-gray-300'
       } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5`}
@@ -96,6 +110,7 @@ const handleSubmit = async (e: Event) => {
       type="email"
       id="adminEmail"
       name="adminEmail"
+      bind:value={formData.adminEmail}
       class={`bg-gray-50 border ${
         validationErrors.adminEmail ? 'border-red-500' : 'border-gray-300'
       } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5`}
@@ -110,7 +125,6 @@ const handleSubmit = async (e: Event) => {
   <button
     type="submit"
     class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center"
-    onclick={handleSubmit}
   >
     Submit
   </button>
