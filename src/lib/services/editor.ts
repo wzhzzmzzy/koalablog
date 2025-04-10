@@ -1,5 +1,5 @@
 import { MarkdownSource } from '@/db'
-import { add, update } from '@/db/markdown'
+import { add, addPreset, update } from '@/db/markdown'
 import z from 'zod'
 
 const FormSchema = z.object({
@@ -23,6 +23,9 @@ export async function formHandler({ request, locals }: Context, { source }: { so
     }
     else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
       await add(locals.runtime.env, source, form.subject, form.content)
+    }
+    else if (source === MarkdownSource.Home || source === MarkdownSource.Nav) {
+      await addPreset(locals.runtime.env, form.link, source, form.subject, form.content)
     }
     else {
       throw new Error(`Preset page source '${source}' cannot be create`)

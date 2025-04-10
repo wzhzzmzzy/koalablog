@@ -48,7 +48,7 @@
 
   let fullPreview = $state(true)
   let showPreview = $state(false)
-  const { _, getSnapshot } = useMediaQuery('md', (e) => fullPreview = e.matches)
+  const { getSnapshot } = useMediaQuery('md', (e) => fullPreview = e.matches)
   onMount(() => fullPreview = getSnapshot())
 
 </script>

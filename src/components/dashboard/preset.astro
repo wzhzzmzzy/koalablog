@@ -1,6 +1,6 @@
 ---
-import type { PresetSource } from '@/db'
 import Editor from '@/components/editor/index.svelte'
+import { MarkdownSource, type PresetSource } from '@/db'
 import { readPreset } from '@/db/markdown'
 import { initMarkdown } from '@/db/types'
 import { formHandler } from '@/lib/services/editor'
@@ -16,10 +16,18 @@ const { source, subject } = Astro.props
 const [formError, formStatus] = await to(formHandler(Astro, { source }))
 
 const env = Astro.locals.runtime.env
-const presetSource = await readPreset(env, source)
+const presetSource = (await readPreset(env, source)) || initMarkdown()
+
+if (presetSource.source === MarkdownSource.Unknown) {
+  presetSource.source = source
+  presetSource.link = source === MarkdownSource.Home ? '/' : '/nav'
+  presetSource.subject = source === MarkdownSource.Home ? 'Home' : 'Nav'
+  presetSource.content = source === MarkdownSource.Home ? 'Hello, it\'s koala' : '[Home](/) [Posts](/posts) [Dashboard](/dashboard)'
+}
 ---
 
 <h2>{subject}</h2>
 { formStatus === 'ok' && <div>Saved Success</div> }
 { formError && formError.message }
-{ presetSource ? <Editor client:load source={source} markdown={presetSource} /> : <Editor client:load source={source} markdown={initMarkdown()} /> }
+{ presetSource.id === 0 && `Your blog doesn't have a ${presetSource.subject}, press [Save] to create with default content` }
+{ presetSource && <Editor client:load source={source} markdown={presetSource} /> }

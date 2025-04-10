@@ -1,4 +1,5 @@
 import type { PostOrPage, PresetSource } from '.'
+import type { Markdown } from './types'
 import { and, desc, eq, like } from 'drizzle-orm'
 import { kebabCase } from 'es-toolkit'
 import { connectDB, MarkdownSource } from '.'
@@ -58,6 +59,20 @@ export function add(
     content,
     tags: tags.join(','),
     outgoing_links: links.join(','),
+  }).returning()
+}
+export function addPreset(
+  env: Env,
+  link: string,
+  source: PresetSource,
+  subject: string,
+  content: string,
+) {
+  return connectDB(env).insert(markdown).values({
+    link,
+    source,
+    subject,
+    content,
   }).returning()
 }
 export function update(
@@ -127,7 +142,7 @@ export function readAll(env: Env) {
   return connectDB(env).query.markdown.findMany()
 }
 
-export function readPreset(env: Env, source: PresetSource) {
+export function readPreset(env: Env, source: PresetSource): Promise<Markdown | undefined> {
   return connectDB(env).query.markdown.findFirst({
     where: eq(markdown.source, source),
   })
