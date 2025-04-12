@@ -1,4 +1,4 @@
-import { storage } from './local'
+// import { storage } from './local'
 
 interface GlobalConfig {
   title?: string
@@ -24,14 +24,14 @@ export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConf
     }
   }
   else {
-    const globalConfigValue = await storage.get(GLOBAL_CONFIG_KEY) as GlobalConfig
-
-    if (globalConfigValue) {
-      return globalConfigValue
-    }
-    else {
-      console.warn('globalConfig is null')
-    }
+    // const globalConfigValue = await storage.get(GLOBAL_CONFIG_KEY) as GlobalConfig
+    //
+    // if (globalConfigValue) {
+    //   return globalConfigValue
+    // }
+    // else {
+    //   console.warn('globalConfig is null')
+    // }
   }
 
   return { onboardingFinished: false }
@@ -44,6 +44,6 @@ export async function putGlobalConfig(env: Env, patch: Partial<GlobalConfig>) {
     await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedConfig))
   }
   else {
-    storage.set(GLOBAL_CONFIG_KEY, updatedConfig)
+    // await storage.set(GLOBAL_CONFIG_KEY, updatedConfig)
   }
 }

@@ -1,5 +1,4 @@
 import { promises as fs } from 'node:fs'
-import path from 'node:path'
 import consola from 'consola'
 
 const DB_PATH = 'global-storage.json'
