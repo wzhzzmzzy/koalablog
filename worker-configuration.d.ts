@@ -3,6 +3,7 @@
 interface Env {
 	KOALA: KVNamespace;
 	DATA_SOURCE: "d1";
+	CF_PAGES: 1;
 	AUTH_SECRET: string;
 	DB: D1Database;
 }

@@ -10,12 +10,9 @@ const cfConfig = {
   adapter: cloudflare(),
 }
 
-console.log('import', import.meta.env)
-console.log('process', process.env)
-
 // https://astro.build/config
 export default defineConfig({
-  ...(import.meta.env.CF_PAGES ? cfConfig : {}),
+  ...(process.env.CF_PAGES ? cfConfig : {}),
   output: 'server',
   integrations: [UnoCss(), svelte()],
 })
