@@ -11,7 +11,8 @@ export async function settingsHandler({ request, locals }: Context) {
     const data = await request.formData()
     const form = await SettingsSchema.parseAsync(Object.fromEntries(data))
 
-    await putGlobalConfig(locals.runtime.env.KOALA, {
+    const env = locals.runtime?.env || {}
+    await putGlobalConfig(env, {
       title: form.title,
     })
 

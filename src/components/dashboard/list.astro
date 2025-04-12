@@ -10,7 +10,7 @@ interface Props {
 
 const { source, editable = false } = Astro.props
 
-const env = Astro.locals.runtime.env
+const env = Astro.locals.runtime?.env || {}
 
 const list = await readList(env, source)
 const formatUpdateAt = (updateAt: Date) => format(updateAt, isSameYear(updateAt, new Date()) ? 'MM-dd (HH:mm)' : 'yyyy-MM-dd')

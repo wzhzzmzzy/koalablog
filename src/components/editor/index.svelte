@@ -2,9 +2,9 @@
   import type { Markdown } from '@/db/types'
   import { isPresetSource, MarkdownSource, type PostOrPage } from '@/db'
   import { linkGenerator } from '@/db/markdown'
-  import { marked } from 'marked'
   import { useMediaQuery } from '@/lib/utils/media-query';
   import { onMount } from 'svelte';
+  import { md } from '@/lib/markdown';
 
   interface Props {
 		markdown: Markdown;
@@ -27,7 +27,7 @@
     if (subjectValue && !isPreset) {
       previewMd = `# ${subjectValue}\n\n${textareaValue}`
     }
-    previewHtml = await marked(previewMd)
+    previewHtml = await md().renderAsync(previewMd)
   }
 
   // Generate link when subject changed

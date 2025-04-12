@@ -1,8 +1,8 @@
 ---
 import { globalConfig } from '@/lib/kv'
 
-const env = Astro.locals.runtime.env
-const config = await globalConfig(env.KOALA)
+const env = Astro.locals.runtime?.env || {}
+const config = await globalConfig(env)
 const redirectTo = Astro.url.searchParams.get('from') || '/'
 ---
 <login-form data-admin-email={config.adminEmail} data-redirect-to={redirectTo}>

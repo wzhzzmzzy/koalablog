@@ -18,14 +18,15 @@ export async function formHandler({ request, locals }: Context, { source }: { so
     const data = await request.formData()
 
     const form = await FormSchema.parseAsync(Object.fromEntries(data))
+    const env = locals.runtime?.env || {}
     if (form.id) {
-      await update(locals.runtime.env, form.id, form.link, form.subject, form.content)
+      await update(env, form.id, form.link, form.subject, form.content)
     }
     else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
-      await add(locals.runtime.env, source, form.subject, form.content)
+      await add(env, source, form.subject, form.content)
     }
     else if (source === MarkdownSource.Home || source === MarkdownSource.Nav) {
-      await addPreset(locals.runtime.env, form.link, source, form.subject, form.content)
+      await addPreset(env, form.link, source, form.subject, form.content)
     }
     else {
       throw new Error(`Preset page source '${source}' cannot be create`)

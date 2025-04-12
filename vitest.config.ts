@@ -6,7 +6,7 @@ import { getViteConfig } from 'astro/config'
 export default defineWorkersProject(async () => {
   const migrationsPath = path.join(__dirname, 'migrations')
   const migrations = await readD1Migrations(migrationsPath)
-  return ({
+  return {
     test: {
       setupFiles: ['./test/apply-migrations.ts'],
       poolOptions: {
@@ -20,5 +20,5 @@ export default defineWorkersProject(async () => {
         },
       },
     },
-  })
+  }
 })

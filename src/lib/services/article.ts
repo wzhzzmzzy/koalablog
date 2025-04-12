@@ -6,7 +6,7 @@ import { to } from 'await-to-js'
 interface AppInject { locals: App.Locals, redirect: (path: string, status?: ValidRedirectStatus) => Response }
 
 export async function readArticle({ locals, redirect }: AppInject, source: PostOrPage, link: string) {
-  const env = locals.runtime.env
+  const env = locals.runtime?.env || {}
   const [error, article] = await to(read(env, source, `${source === MarkdownSource.Post ? 'post/' : ''}${link}`))
 
   if (error) {

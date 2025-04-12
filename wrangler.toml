@@ -13,3 +13,4 @@ migrations_dir = "migrations"
 
 [vars]
 DATA_SOURCE = "d1"
+# CF_PAGES = 1

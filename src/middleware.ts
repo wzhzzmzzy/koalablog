@@ -4,20 +4,20 @@ import { getDataSource } from './db'
 import { globalConfig } from './lib/kv'
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
-  const config = await globalConfig(ctx.locals.runtime.env.KOALA)
+  const env = ctx.locals.runtime?.env || {}
+  const config = await globalConfig(env)
 
   if (!config.onboardingFinished) {
     if (ctx.url.pathname !== '/onboarding' && !ctx.url.pathname.startsWith('/api')) {
       return ctx.redirect('/onboarding')
     }
-    next()
-    return
+    return next()
   }
 
   const auth = createAuth({
-    type: getDataSource(ctx.locals.runtime.env) || 'sqlite',
-    DB: ctx.locals.runtime.env.DB,
-    secret: ctx.locals.runtime.env.AUTH_SECRET || 'koala-secret',
+    type: getDataSource(env) || 'sqlite',
+    DB: env.DB,
+    secret: env.AUTH_SECRET || 'koala-secret',
   })
   const isAuthed = await auth.api
     .getSession({

@@ -1,6 +1,6 @@
 ---
 import type { Markdown } from '@/db/types'
-import { marked } from 'marked'
+import { md } from '@/lib/markdown'
 
 interface Props {
   article: Markdown
@@ -8,7 +8,7 @@ interface Props {
 
 const { article } = Astro.props
 
-const content = article ? marked.parse(article.content ?? '') : ''
+const content = article ? await md().renderAsync(article.content ?? '') : ''
 ---
 
 <h1>{ article.subject }</h1>

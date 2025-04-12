@@ -4,7 +4,8 @@ import { putGlobalConfig } from '@/lib/kv'
 export const POST: APIRoute = async (ctx) => {
   const { blogTitle, adminKey, adminEmail } = await ctx.request.json()
 
-  await putGlobalConfig(ctx.locals.runtime.env.KOALA, {
+  const env = ctx.locals.runtime?.env || {}
+  await putGlobalConfig(env, {
     title: blogTitle,
     adminKey,
     adminEmail,

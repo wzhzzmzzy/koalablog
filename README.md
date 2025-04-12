@@ -1,48 +1,54 @@
-# Astro Starter Kit: Basics
+# Koalablog
 
-```sh
-npm create astro@latest -- --template basics
+> Self-host bearblog alternative
+
+## Development
+
+### 1. Cloudflare Pages Mode
+
+#### Prerequirments
+
+- Cloudflare Pages / KV / D1
+- Node 22+
+
+#### Local prepare
+
+1. add local environment var to `.env` file
+
+```env
+DATA_SOURCE=d1
+DEPLOY_MODE=cloudflare
+CLOUDFLARE_ACCOUNT_ID=<your-cloudflare-account-id>
+CLOUDFLARE_DATABASE_ID=<your-cloudflare-d1-id>
+CLOUDFLARE_D1_TOKEN=<your-cloudflare-d1-token>
 ```
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/withastro/astro/tree/latest/examples/basics)
-[![Open with CodeSandbox](https://assets.codesandbox.io/github/button-edit-lime.svg)](https://codesandbox.io/p/sandbox/github/withastro/astro/tree/latest/examples/basics)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/withastro/astro?devcontainer_path=.devcontainer/basics/devcontainer.json)
+2. run local dev scripts
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
-
-![just-the-basics](https://github.com/withastro/astro/assets/2244813/a0a5533c-a856-4198-8470-2d67b1d7c554)
-
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src/
-│   ├── layouts/
-│   │   └── Layout.astro
-│   └── pages/
-│       └── index.astro
-└── package.json
+```bash
+pnpm i
+pnpm run dev:d1
 ```
 
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
+### 2. Standalone Mode
 
-## 🧞 Commands
+#### Prerequirments
 
-All commands are run from the root of the project, from a terminal:
+- Sqlite3 or alternative
+- Node 22+
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+#### Local prepare
 
-## 👀 Want to learn more?
+1. add local environment var to `.env` file
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+```env
+DATA_SOURCE=sqlite
+SQLITE_URL=file:local.db
+```
+
+2. run local dev scripts
+
+```bash
+pnpm i
+pnpm run dev:sqlite
+```

@@ -5,9 +5,13 @@ import { defineConfig } from 'astro/config'
 
 import UnoCss from 'unocss/astro'
 
+const cfConfig = {
+  adapter: cloudflare(),
+}
+
 // https://astro.build/config
 export default defineConfig({
-  adapter: cloudflare(),
+  ...(import.meta.env.CF_PAGES ? cfConfig : {}),
   output: 'server',
   integrations: [UnoCss(), svelte()],
 })

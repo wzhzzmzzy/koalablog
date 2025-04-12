@@ -11,8 +11,8 @@ interface Props {
 
 const { title: metaTitle } = Astro.props
 
-const env = Astro.locals.runtime.env
-const title = (await globalConfig(env.KOALA)).title
+const env = Astro.locals.runtime?.env || {}
+const title = (await globalConfig(env)).title
 
 ---
 <Layout>

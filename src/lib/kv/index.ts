@@ -1,5 +1,7 @@
+import { storage } from './local'
+
 interface GlobalConfig {
-  title: string
+  title?: string
   adminKey?: string
   adminEmail?: string
   onboardingFinished: boolean
@@ -7,23 +9,41 @@ interface GlobalConfig {
 
 const GLOBAL_CONFIG_KEY = 'globalConfig'
 
-export async function globalConfig(kv: KVNamespace): Promise<GlobalConfig> {
-  const globalConfigValue = await kv.get(GLOBAL_CONFIG_KEY)
+export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConfig> {
+  // use cloudflare kv
+  if (CF_PAGES) {
+    const globalConfigValue = await KOALA.get(GLOBAL_CONFIG_KEY)
 
-  if (globalConfigValue) {
-    try {
-      return JSON.parse(globalConfigValue) as GlobalConfig
+    if (globalConfigValue) {
+      try {
+        return JSON.parse(globalConfigValue) as GlobalConfig
+      }
+      catch (error) {
+        console.warn('globalConfig parse failed', error)
+      }
     }
-    catch (error) {
-      console.warn('globalConfig parse failed', error)
+  }
+  else {
+    const globalConfigValue = await storage.get(GLOBAL_CONFIG_KEY) as GlobalConfig
+
+    if (globalConfigValue) {
+      return globalConfigValue
+    }
+    else {
+      console.warn('globalConfig is null')
     }
   }
 
-  return { title: 'KoalaDev', onboardingFinished: false }
+  return { onboardingFinished: false }
 }
 
-export async function putGlobalConfig(kv: KVNamespace, patch: Partial<GlobalConfig>) {
-  const currentConfig = await globalConfig(kv)
+export async function putGlobalConfig(env: Env, patch: Partial<GlobalConfig>) {
+  const currentConfig = await globalConfig(env)
   const updatedConfig = { ...currentConfig, ...patch }
-  await kv.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedConfig))
+  if (env.CF_PAGES) {
+    await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedConfig))
+  }
+  else {
+    storage.set(GLOBAL_CONFIG_KEY, updatedConfig)
+  }
 }

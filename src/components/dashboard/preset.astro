@@ -15,7 +15,7 @@ const { source, subject } = Astro.props
 
 const [formError, formStatus] = await to(formHandler(Astro, { source }))
 
-const env = Astro.locals.runtime.env
+const env = Astro.locals.runtime?.env || {}
 const presetSource = (await readPreset(env, source)) || initMarkdown()
 
 if (presetSource.source === MarkdownSource.Unknown) {

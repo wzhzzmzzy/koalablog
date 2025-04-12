@@ -2,11 +2,11 @@
 import { MarkdownSource } from '@/db'
 import { readPreset } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
-import { marked } from 'marked'
+import { md } from '@/lib/markdown'
 
-const env = Astro.locals.runtime.env
+const env = Astro.locals.runtime?.env || {}
 const presetSource = await readPreset(env, MarkdownSource.Home)
-const markup = marked(presetSource?.content ?? '')
+const markup = await md().renderAsync(presetSource?.content ?? '')
 ---
 
 <Layout>
