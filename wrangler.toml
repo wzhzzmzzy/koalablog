@@ -4,6 +4,7 @@ compatibility_date = "2025-04-01"
 assets.directory = "./dist"
 assets.binding = "ASSETS"
 observability.enabled = true
+main = "./dist/_worker.js/index.js"
 
 [[kv_namespaces]]
 binding = 'KOALA'
