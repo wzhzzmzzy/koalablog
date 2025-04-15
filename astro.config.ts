@@ -20,11 +20,21 @@ export default defineConfig({
   integrations: [UnoCss(), svelte(), {
     name: 'wasm-loader',
     hooks: {
+      'astro:config:done': () => {
+        console.log('config:done')
+      },
+      'astro:route:setup': () => {
+        console.log('route:setup')
+      },
       'astro:server:setup': async () => {
+        console.log('server:setup')
         // eslint-disable-next-line ts/ban-ts-comment
         // @ts-ignore
         await loadWasm(import('shiki/onig.wasm'))
       },
+      'astro:server:start': async () => {
+        console.log('server:start')
+      }
     },
   }],
 })
