@@ -7,7 +7,7 @@
     "dev:sqlite": "pnpm run sqlite:init && wrangler types && astro dev",
     "dev": "astro dev",
     "build": "astro build",
-    "build:local": "wrangler types && astro build",
+    "build:cf": "wrangler types && cross-env CF_PAGES=1 astro build",
     "preview": "wrangler types && astro preview",
     "preview:pages": "wrangler pages dev dist",
     "astro": "astro",

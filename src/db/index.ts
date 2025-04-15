@@ -1,11 +1,10 @@
 import type { D1Database } from '@cloudflare/workers-types'
-import consola from 'consola'
 import { drizzle as drizzleD1 } from 'drizzle-orm/d1'
 import { drizzle as drizzleSqlite } from 'drizzle-orm/libsql'
 import * as schema from './schema'
 
 export function getDataSource(env?: Env) {
-  consola.log('data_source', import.meta.env.DATA_SOURCE, env?.DATA_SOURCE)
+  console.log('data_source', import.meta.env.DATA_SOURCE, env?.DATA_SOURCE)
   return import.meta.env.DATA_SOURCE || env?.DATA_SOURCE || 'd1'
 }
 
@@ -42,10 +41,10 @@ export function connectD1(DB: D1Database) {
 
 export function connectDB(env?: Env) {
   if (getDataSource(env) === 'd1' && env?.DB) {
-    consola.info('Using:d1')
+    console.info('Using:d1')
     return connectD1(env?.DB)
   }
-  consola.info('Using:sqlite')
+  console.info('Using:sqlite')
   return drizzleSqlite({
     connection: {
       url: import.meta.env.SQLITE_URL!,
