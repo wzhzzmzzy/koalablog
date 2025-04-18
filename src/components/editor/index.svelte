@@ -102,7 +102,7 @@
           {/if}
         </div>
 
-        <div class="md:flex-1 {showPreview && 'flex-1'}">
+        <div class="md:flex-1 md:shrink-0 md:flex {showPreview && 'flex-1'}">
           {#if showPreview || fullPreview}
             <article id="preview-md" class="flex-1">
               {@html previewHtml}

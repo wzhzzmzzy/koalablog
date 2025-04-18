@@ -9,9 +9,9 @@ export async function md() {
       import('@shikijs/themes/vitesse-light'),
     ],
     langs: [
-      import('@shikijs/langs/javascript'),
+      import('@shikijs/langs/jsx'),
       import('@shikijs/langs/typescript'),
-      import('@shikijs/langs/rust'),
+      import('@shikijs/langs/javascript'),
     ],
     engine: createJavaScriptRegexEngine(),
   })

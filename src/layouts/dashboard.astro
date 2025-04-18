@@ -13,14 +13,19 @@ const { title: metaTitle } = Astro.props
 
 const env = Astro.locals.runtime?.env || {}
 const title = (await globalConfig(env)).title
+let host = Astro.url.hostname
+const origin = Astro.url.origin
+if (host === 'localhost') {
+  host += `:${Astro.url.port}`
+}
 
 ---
 <Layout>
   <Head title={metaTitle} slot="meta" />
   <header>
     <h2 class="mb-1">(・∀・) {title}</h2>
-    <a class="no-underline text-inherit" href="https://koalablog.pages.dev">
-      <pre class="mt-1">koalablog.pages.dev</pre>
+    <a class="no-underline text-inherit" target="_blank" href={origin}>
+      <pre class="mt-1">{host}</pre>
     </a>
     <nav>
       {DASHBOARD_SETTINGS_ROUTE.map(route => (
