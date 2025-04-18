@@ -1,7 +1,7 @@
 import { fromHighlighter } from '@shikijs/markdown-it/core'
 import MarkdownIt from 'markdown-it'
 import { createHighlighterCore, type HighlighterGeneric } from 'shiki/core'
-import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
 
 export async function md() {
   const highlighter = await createHighlighterCore({
@@ -10,8 +10,10 @@ export async function md() {
     ],
     langs: [
       import('@shikijs/langs/javascript'),
+      import('@shikijs/langs/typescript'),
+      import('@shikijs/langs/rust'),
     ],
-    engine: createOnigurumaEngine(() => import('shiki/wasm')),
+    engine: createJavaScriptRegexEngine(),
   })
 
   const instance = MarkdownIt()

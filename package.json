@@ -9,7 +9,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "build:cf": "wrangler types && cross-env CF_PAGES=1 astro build",
-    "preview": "wrangler types && astro preview",
+    "preview": "wrangler types && cross-env CF_PAGES=1 astro preview",
     "preview:pages": "wrangler pages dev dist",
     "astro": "astro",
     "lint": "eslint .",
