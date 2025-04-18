@@ -17,9 +17,15 @@ importers:
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
+      '@shikijs/langs':
+        specifier: ^3.2.2
+        version: 3.2.2
       '@shikijs/markdown-it':
         specifier: ^3.2.2
         version: 3.2.2(markdown-it-async@2.2.0)
+      '@shikijs/themes':
+        specifier: ^3.2.2
+        version: 3.2.2
       astro:
         specifier: ^5.0.4
         version: 5.0.4(@types/node@22.10.1)(jiti@2.4.2)(rollup@4.28.1)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.6.1)
