@@ -1,9 +1,19 @@
 import { createAuth } from '@/lib/services/auth'
 import { defineMiddleware } from 'astro:middleware'
+import { loadWasm } from 'shiki'
 import { getDataSource } from './db'
 import { globalConfig } from './lib/kv'
 
+let wasmLoaded = false
+
 export const onRequest = defineMiddleware(async (ctx, next) => {
+  if (!wasmLoaded) {
+    // eslint-disable-next-line ts/ban-ts-comment
+    // @ts-ignore
+    await loadWasm(import('shiki/onig.wasm'))
+    wasmLoaded = true
+  }
+
   const env = ctx.locals.runtime?.env || {}
   const config = await globalConfig(env)
 

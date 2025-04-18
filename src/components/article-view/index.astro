@@ -8,7 +8,7 @@ interface Props {
 
 const { article } = Astro.props
 
-const content = article ? await md().renderAsync(article.content ?? '') : ''
+const content = article ? (await md()).render(article.content ?? '') : ''
 ---
 
 <h1>{ article.subject }</h1>

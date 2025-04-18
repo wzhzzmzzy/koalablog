@@ -40,7 +40,7 @@
     "drizzle-orm": "^0.38.4",
     "drizzle-zod": "^0.6.1",
     "es-toolkit": "^1.29.0",
-    "markdown-it-async": "^2.2.0",
+    "markdown-it": "^14.1.0",
     "ofetch": "^1.4.1",
     "shiki": "^3.2.2",
     "svelte": "^5.19.2",

@@ -6,7 +6,7 @@ import { md } from '@/lib/markdown'
 
 const env = Astro.locals.runtime?.env || {}
 const presetSource = await readPreset(env, MarkdownSource.Home)
-const markup = await md().renderAsync(presetSource?.content ?? '')
+const markup = (await md()).render(presetSource?.content ?? '')
 ---
 
 <Layout>

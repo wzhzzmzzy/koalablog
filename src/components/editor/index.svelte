@@ -5,6 +5,7 @@
   import { useMediaQuery } from '@/lib/utils/media-query';
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
+    import type MarkdownIt from 'markdown-it';
 
   interface Props {
 		markdown: Markdown;
@@ -22,12 +23,21 @@
   $effect(() => {
      refreshPreview()
   })
+
+  let mdInstance: MarkdownIt | null = null
+  onMount(async () => {
+    mdInstance = await md()
+    refreshPreview()
+  })
+
   async function refreshPreview() {
     let previewMd = textareaValue
     if (subjectValue && !isPreset) {
       previewMd = `# ${subjectValue}\n\n${textareaValue}`
     }
-    previewHtml = await md().renderAsync(previewMd)
+    if (mdInstance) {
+      previewHtml = mdInstance.render(previewMd)
+    }
   }
 
   // Generate link when subject changed
