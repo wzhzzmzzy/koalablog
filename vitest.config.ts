@@ -1,14 +1,7 @@
 /// <reference types="vitest" />
-import { defineWorkersProject } from '@cloudflare/vitest-pool-workers/config'
+import { getViteConfig } from 'astro/config'
 
-export default defineWorkersProject(async () => {
-  return {
-    test: {
-      poolOptions: {
-        workers: {
-          wrangler: { configPath: './wrangler.toml' },
-        },
-      },
-    },
-  }
+export default getViteConfig({
+  test: {
+  },
 })

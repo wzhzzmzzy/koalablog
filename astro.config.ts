@@ -4,6 +4,7 @@ import svelte from '@astrojs/svelte'
 
 import { defineConfig } from 'astro/config'
 import UnoCss from 'unocss/astro'
+import PreprocessorDirectives from 'unplugin-preprocessor-directives/vite'
 
 const cfConfig = {
   adapter: cloudflare(),
@@ -15,5 +16,8 @@ console.log('build-time:process.env', process.env)
 export default defineConfig({
   ...(process.env.CF_PAGES ? cfConfig : {}),
   output: 'server',
+  vite: {
+    plugins: [PreprocessorDirectives()],
+  },
   integrations: [UnoCss(), svelte()],
 })

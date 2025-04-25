@@ -1,4 +1,6 @@
-// import { storage } from './local'
+// #if !CF_PAGES
+import { storage } from './local'
+// #endif
 
 interface GlobalConfig {
   title?: string
@@ -24,14 +26,16 @@ export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConf
     }
   }
   else {
-    // const globalConfigValue = await storage.get(GLOBAL_CONFIG_KEY) as GlobalConfig
-    //
-    // if (globalConfigValue) {
-    //   return globalConfigValue
-    // }
-    // else {
-    //   console.warn('globalConfig is null')
-    // }
+    // #if !CF_PAGES
+    const globalConfigValue = await storage.get(GLOBAL_CONFIG_KEY) as GlobalConfig
+
+    if (globalConfigValue) {
+      return globalConfigValue
+    }
+    else {
+      console.warn('globalConfig is null')
+    }
+    // #endif
   }
 
   return { onboardingFinished: false }
