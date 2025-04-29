@@ -1,11 +1,7 @@
 ---
-import { globalConfig } from '@/lib/kv'
-
-const env = Astro.locals.runtime?.env || {}
-const config = await globalConfig(env)
 const redirectTo = Astro.url.searchParams.get('from') || '/'
 ---
-<login-form data-admin-email={config.adminEmail} data-redirect-to={redirectTo}>
+<login-form data-redirect-to={redirectTo}>
   <form method="POST" class="max-w-md mx-auto mt-10">
     <!-- {errorMessage && ( -->
     <!--   <div class="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert"> -->
@@ -20,7 +16,6 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
         name="adminKey"
         class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
         placeholder="Input admin key"
-        value={config.adminKey}
         required
       />
     </div>
@@ -36,6 +31,10 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
 </login-form>
 
 <script>
+import to from 'await-to-js'
+import consola from 'consola'
+import { ofetch } from 'ofetch'
+
 class LoginForm extends HTMLElement {
   loginBtn: HTMLElement | null = null
   adminKeyInput: HTMLInputElement | null = null
@@ -50,6 +49,18 @@ class LoginForm extends HTMLElement {
 
   async login(e: Event) {
     e.preventDefault()
+    const [err] = await to(ofetch('/api/auth/login', {
+      method: 'POST',
+      body: {
+        adminKey: this.adminKeyInput?.value,
+      },
+    }))
+
+    if (err) {
+      consola.log(err)
+      return
+    }
+
     const searchParams = new URLSearchParams(window.location.search)
     const redirectTo = searchParams.get('from') || '/'
     window.location.pathname = redirectTo

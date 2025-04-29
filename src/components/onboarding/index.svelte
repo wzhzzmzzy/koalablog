@@ -6,19 +6,16 @@ import { to } from 'await-to-js';
 const OnboardingSchema = z.object({
   blogTitle: z.string().min(1, 'Blog title cannot be empty').max(100, 'Blog title cannot exceed 100 characters'),
   adminKey: z.string().min(6, 'Admin key must be at least 6 characters').max(256, 'Admin key cannot exceed 256 characters'),
-  adminEmail: z.string().email('Please enter a valid email address'),
 })
 
 let validationErrors: {
   blogTitle?: string[]
   adminKey?: string[]
-  adminEmail?: string[]
 } = $state({})
 
 const formData = $state({
   blogTitle: '',
   adminKey: '',
-  adminEmail: '',
   serverFail: ''
 })
 
@@ -88,24 +85,6 @@ const handleSubmit = async (e: Event) => {
     />
     {#if validationErrors.adminKey}
       <p class="mt-2 text-sm text-red-600">{validationErrors.adminKey?.join(';')}</p>
-    {/if}
-  </div>
-
-  <div class="mb-6">
-    <label for="adminEmail" class="block mb-2 text-sm font-medium text-gray-900">Admin Email (for recovery):</label>
-    <input
-      type="email"
-      id="adminEmail"
-      name="adminEmail"
-      bind:value={formData.adminEmail}
-      class={`bg-gray-50 border ${
-        validationErrors.adminEmail ? 'border-red-500' : 'border-gray-300'
-      } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5`}
-      placeholder="Enter your email for recovery"
-      required
-    />
-    {#if validationErrors.adminEmail}
-      <p class="mt-2 text-sm text-red-600">{validationErrors.adminEmail?.join(';')}</p>
     {/if}
   </div>
 

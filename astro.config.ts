@@ -10,8 +10,6 @@ const cfConfig = {
   adapter: cloudflare(),
 }
 
-console.log('build-time:process.env', process.env)
-
 // https://astro.build/config
 export default defineConfig({
   ...(process.env.CF_PAGES ? cfConfig : {}),

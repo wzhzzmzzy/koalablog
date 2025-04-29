@@ -2,14 +2,25 @@
 import { storage } from './local'
 // #endif
 
-interface GlobalConfig {
-  title?: string
-  adminKey?: string
-  adminEmail?: string
-  onboardingFinished: boolean
+export interface GlobalConfig {
+  pageConfig: {
+    title?: string
+  }
+  auth: {
+    adminKey?: string
+  }
+  _runtime: {
+    ready: boolean
+    access_token?: string
+    access_expired_at?: number
+    refresh_token?: string
+    refresh_expired_at?: number
+  }
 }
 
-const GLOBAL_CONFIG_KEY = 'globalConfig'
+const GLOBAL_CONFIG_KEY = '_KoalaConfig_'
+export const ACCESS_TOKEN_KEY = 'koala-access-token'
+export const REFRESH_TOKEN_KEY = 'koala-refresh-token'
 
 export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConfig> {
   // use cloudflare kv
@@ -25,8 +36,8 @@ export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConf
       }
     }
   }
+  // #if !CF_PAGES
   else {
-    // #if !CF_PAGES
     const globalConfigValue = await storage.get(GLOBAL_CONFIG_KEY) as GlobalConfig
 
     if (globalConfigValue) {
@@ -35,19 +46,42 @@ export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConf
     else {
       console.warn('globalConfig is null')
     }
-    // #endif
   }
+  // #endif
 
-  return { onboardingFinished: false }
+  return {
+    pageConfig: {},
+    auth: {},
+    _runtime: { ready: false },
+  }
 }
 
 export async function putGlobalConfig(env: Env, patch: Partial<GlobalConfig>) {
   const currentConfig = await globalConfig(env)
-  const updatedConfig = { ...currentConfig, ...patch }
+  const updatedScopeConfig = { ...currentConfig, ...patch }
   if (env.CF_PAGES) {
-    await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedConfig))
+    await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedScopeConfig))
   }
+  // #if !CF_PAGES
   else {
-    // await storage.set(GLOBAL_CONFIG_KEY, updatedConfig)
+    await storage.set(GLOBAL_CONFIG_KEY, updatedScopeConfig)
   }
+  // #endif
+}
+
+export async function updateGlobalConfig<S extends keyof GlobalConfig>(env: Env, scope: S, patch: Partial<GlobalConfig[S]>) {
+  const currentConfig = await globalConfig(env)
+  const updatedScopeConfig = { ...currentConfig[scope], ...patch }
+  const payload = {
+    ...currentConfig,
+    [scope]: updatedScopeConfig,
+  }
+  if (env.CF_PAGES) {
+    await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(payload))
+  }
+  // #if !CF_PAGES
+  else {
+    await storage.set(GLOBAL_CONFIG_KEY, payload)
+  }
+  // #endif
 }

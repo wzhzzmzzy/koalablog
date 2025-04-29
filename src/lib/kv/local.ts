@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'
 import consola from 'consola'
 
-const DB_PATH = 'global-storage.json'
+const DB_PATH = 'koala.config.json'
 
 // 初始化存储
 async function initStore() {
