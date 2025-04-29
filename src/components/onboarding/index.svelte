@@ -1,5 +1,4 @@
 <script lang="ts">
-import { authClient } from '@/lib/utils/auth-client';
 import z from 'zod'
 import { ofetch } from 'ofetch';
 import { to } from 'await-to-js';
@@ -31,18 +30,6 @@ const handleSubmit = async (e: Event) => {
     return
   }
 
-  const { error } = await authClient.signUp.email({
-    email: formData.adminEmail,
-    password: formData.adminKey,
-    name: `${formData.blogTitle}Admin`,
-  })
-
-  if (error && error.code !== "USER_ALREADY_EXISTS") {
-    console.warn('signup', error)
-    formData.serverFail = error.message || 'Sign up failed'
-    return
-  }
-  
   const [configError, res] = await to(ofetch('/api/config/onboarding', {
     method: 'POST',
     body: JSON.stringify(formData),

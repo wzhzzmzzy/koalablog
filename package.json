@@ -34,6 +34,7 @@
     "@shikijs/langs": "^3.2.2",
     "@shikijs/markdown-it": "^3.2.2",
     "@shikijs/themes": "^3.2.2",
+    "@webtui/css": "^0.0.3",
     "astro": "^5.0.4",
     "await-to-js": "^3.0.0",
     "better-auth": "^1.1.11",

@@ -4,7 +4,6 @@ import { drizzle as drizzleSqlite } from 'drizzle-orm/libsql'
 import * as schema from './schema'
 
 export function getDataSource(env?: Env) {
-  console.log('data_source', import.meta.env.DATA_SOURCE, env?.DATA_SOURCE)
   return import.meta.env.DATA_SOURCE || env?.DATA_SOURCE || 'd1'
 }
 
@@ -41,10 +40,8 @@ export function connectD1(DB: D1Database) {
 
 export function connectDB(env?: Env) {
   if (getDataSource(env) === 'd1' && env?.DB) {
-    console.info('Using:d1')
     return connectD1(env?.DB)
   }
-  console.info('Using:sqlite')
   return drizzleSqlite({
     connection: {
       url: import.meta.env.SQLITE_URL!,

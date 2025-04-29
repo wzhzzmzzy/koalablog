@@ -1,7 +1,10 @@
 ---
 import OnboardingForm from '@/components/onboarding/index.svelte'
 import { globalConfig } from '@/lib/kv'
+
+// #if CF_PAGES
 import sql from '../../migrations/0000_init.sql?raw'
+// #endif
 
 const env = Astro.locals.runtime?.env || {}
 const config = await globalConfig(env)
@@ -10,8 +13,9 @@ if (config.onboardingFinished) {
   return Astro.redirect('/')
 }
 
+// #if CF_PAGES
 if (env.DATA_SOURCE && env.DATA_SOURCE === 'd1') {
-  const res = await env.DB.exec(`
+  await env.DB.exec(`
     DROP INDEX IF EXISTS user_email_unique;
     DROP TABLE IF EXISTS user;
     DROP INDEX IF EXISTS session_token_unique;
@@ -22,10 +26,9 @@ if (env.DATA_SOURCE && env.DATA_SOURCE === 'd1') {
     DROP TABLE IF EXISTS account;
     DROP TABLE IF EXISTS verification;
   `)
-  console.log('dropped', res)
-  const create = await env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
-  console.log('created', create)
+  await env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
 }
+// #endif
 ---
 
 <div>

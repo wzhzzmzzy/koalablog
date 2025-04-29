@@ -36,8 +36,6 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
 </login-form>
 
 <script>
-import { authClient } from '@/lib/utils/auth-client'
-
 class LoginForm extends HTMLElement {
   loginBtn: HTMLElement | null = null
   adminKeyInput: HTMLInputElement | null = null
@@ -52,16 +50,9 @@ class LoginForm extends HTMLElement {
 
   async login(e: Event) {
     e.preventDefault()
-    const { error } = await authClient.signIn.email({
-      email: this.dataset.adminEmail!,
-      password: this.adminKeyInput?.value || '',
-    })
-
-    if (!error) {
-      const searchParams = new URLSearchParams(window.location.search)
-      const redirectTo = searchParams.get('from') || '/'
-      window.location.pathname = redirectTo
-    }
+    const searchParams = new URLSearchParams(window.location.search)
+    const redirectTo = searchParams.get('from') || '/'
+    window.location.pathname = redirectTo
   }
 }
 
