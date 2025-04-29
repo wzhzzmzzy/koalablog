@@ -133,6 +133,7 @@ export function read(env: Env, source: PostOrPage, link: string) {
     where: and(
       eq(markdown.source, source),
       eq(markdown.link, link),
+      eq(markdown.deleted, false),
     ),
   })
 }
@@ -144,6 +145,9 @@ export function readAll(env: Env) {
 
 export function readPreset(env: Env, source: PresetSource): Promise<Markdown | undefined> {
   return connectDB(env).query.markdown.findFirst({
-    where: eq(markdown.source, source),
+    where: and(
+      eq(markdown.source, source),
+      eq(markdown.deleted, false),
+    ),
   })
 }

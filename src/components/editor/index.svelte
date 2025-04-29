@@ -61,6 +61,16 @@
   const { getSnapshot } = useMediaQuery('md', (e) => fullPreview = e.matches)
   onMount(() => fullPreview = getSnapshot())
 
+  // 删除确认对话框
+  let showDeleteConfirm = $state(false)
+  
+  function openDeleteConfirm() {
+    showDeleteConfirm = true
+  }
+  
+  function closeDeleteConfirm() {
+    showDeleteConfirm = false
+  }
 </script>
 
 {#snippet collapse(name: string, show: boolean)}
@@ -71,9 +81,47 @@
 {/snippet}
 
 <div class="w-full">
+  {#if showDeleteConfirm}
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-white p-6 rounded-lg max-w-md w-full">
+        <h3 class="text-xl font-bold mb-4">确认删除</h3>
+        <p class="mb-6">您确定要删除 "{subjectValue}" 吗？此操作无法撤销。</p>
+        <div class="flex justify-end gap-3">
+          <button 
+            class="px-4 py-2 border border-gray-300 rounded-lg" 
+            onclick={closeDeleteConfirm}
+          >
+            取消
+          </button>
+          <form method="POST" class="inline">
+            <input type="hidden" name="id" value={markdown.id} />
+            <input type="hidden" name="_action" value="delete" />
+            <button 
+              type="submit" 
+              class="px-4 py-2 bg-red-600 text-white rounded-lg"
+            >
+              删除
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <form method="POST">
     <div class="flex flex-col">
-      <button id="save" class="w-12">Save</button>
+      <div class="flex justify-between items-center">
+        <button id="save" class="w-12">Save</button>
+        {#if !isPreset && markdown.id > 0}
+          <button 
+            type="button" 
+            class="bg-red-600 text-white px-3 py-1 rounded-lg" 
+            onclick={openDeleteConfirm}
+          >
+            删除
+          </button>
+        {/if}
+      </div>
       <input type="hidden" name="id" value={markdown.id} />
 
       <div class="flex gap-3">
@@ -115,4 +163,3 @@
     </div>
   </form>
 </div>
-
