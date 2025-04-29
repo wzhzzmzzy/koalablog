@@ -1,0 +1,38 @@
+---
+import type { Markdown } from '@/db/types'
+import { rawMd } from '@/lib/markdown'
+
+interface Props {
+  article: Markdown
+}
+
+const { article } = Astro.props
+const content = article ? rawMd().render(article.content ?? '') : ''
+---
+
+<article-client data-article={JSON.stringify(article)}>
+  <h1>{ article.subject }</h1>
+  <article id="article" />
+  <article id="serverArticle" set:html={content} />
+</article-client>
+
+<script>
+import { md } from '@/lib/markdown'
+
+class ArticleClient extends HTMLElement {
+  articleEl: HTMLElement | null = null
+  serverArticleEl: HTMLElement | null = null
+
+  async connectedCallback() {
+    const article = JSON.parse(this.dataset.article || '')
+    this.articleEl = this.querySelector('#article')
+    this.serverArticleEl = this.querySelector('#serverArticle')
+
+    const content = article ? (await md()).render(article?.content ?? '') : ''
+    this.serverArticleEl?.remove()
+    this.articleEl?.insertAdjacentHTML('beforeend', content)
+  }
+}
+
+customElements.define('article-client', ArticleClient)
+</script>

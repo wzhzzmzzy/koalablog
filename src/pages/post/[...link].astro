@@ -1,4 +1,5 @@
 ---
+import ArticleClient from '@/components/article-view/client.astro'
 import ArticleView from '@/components/article-view/index.astro'
 import { MarkdownSource } from '@/db'
 import Layout from '@/layouts/home.astro'
@@ -18,5 +19,5 @@ if (article instanceof Response) {
 }
 ---
 <Layout title={article.subject}>
-  <ArticleView article={article} />
+  { (article.content || '').length < 1000 ? <ArticleView article={article} /> : <ArticleClient article={article} />}
 </Layout>

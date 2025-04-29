@@ -1,7 +1,6 @@
 ---
 import Head from '@/components/head/index.astro'
 import { DASHBOARD_SETTINGS_ROUTE } from '@/lib/const/config'
-import { globalConfig } from '@/lib/kv'
 
 import Layout from './layout.astro'
 
@@ -11,10 +10,9 @@ interface Props {
 
 const { title: metaTitle } = Astro.props
 
-const env = Astro.locals.runtime?.env || {}
-const title = (await globalConfig(env)).title
 let host = Astro.url.hostname
 const origin = Astro.url.origin
+const title = Astro.locals.config.pageConfig.title ?? ''
 if (host === 'localhost') {
   host += `:${Astro.url.port}`
 }

@@ -1,13 +1,10 @@
 ---
 import DashboardLayout from '@/layouts/dashboard.astro'
-import { globalConfig } from '@/lib/kv'
 import { settingsHandler } from '@/lib/services/settings'
 import { to } from 'await-to-js'
 
-const env = Astro.locals.runtime?.env || {}
-
 const [formError, formStatus] = await to(settingsHandler(Astro))
-const title = (await globalConfig(env)).title
+const title = Astro.locals.config.pageConfig.title ?? ''
 ---
 <DashboardLayout>
   <h1>Settings</h1>

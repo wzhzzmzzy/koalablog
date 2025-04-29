@@ -1,13 +1,12 @@
 ---
 import OnboardingForm from '@/components/onboarding/index.svelte'
-import { globalConfig } from '@/lib/kv'
 
 // #if CF_PAGES
 import sql from '../../migrations/0000_init.sql?raw'
 // #endif
 
 const env = Astro.locals.runtime?.env || {}
-const config = await globalConfig(env)
+const config = Astro.locals.config
 
 if (config._runtime?.ready) {
   return Astro.redirect('/')

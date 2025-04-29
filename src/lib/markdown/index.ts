@@ -3,6 +3,10 @@ import MarkdownIt from 'markdown-it'
 import { createHighlighterCore, type HighlighterGeneric } from 'shiki/core'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
 
+export function rawMd() {
+  return MarkdownIt()
+}
+
 export async function md() {
   const highlighter = await createHighlighterCore({
     themes: [
