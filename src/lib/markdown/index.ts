@@ -4,7 +4,18 @@ import { createHighlighterCore, type HighlighterGeneric } from 'shiki/core'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
 
 export function rawMd() {
-  return MarkdownIt()
+  const md = MarkdownIt()
+
+  const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, env, self) {
+    return self.renderToken(tokens, idx, options)
+  }
+
+  md.renderer.rules.fence = function (tokens, idx, options, env, self) {
+    const rawCodeHtml = defaultFence(tokens, idx, options, env, self)
+    return `<div class="code-block">\n${rawCodeHtml}</div>\n`
+  }
+
+  return md
 }
 
 export async function md() {
@@ -24,6 +35,13 @@ export async function md() {
 
   instance.use(fromHighlighter(highlighter as HighlighterGeneric<any, any>, {
     theme: 'vitesse-light',
+    transformers: [
+      {
+        postprocess(html, _options) {
+          return `<div class="code-block">${html}</div>`
+        },
+      },
+    ],
   }))
 
   return instance

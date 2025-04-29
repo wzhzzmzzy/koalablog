@@ -1,6 +1,7 @@
 ---
 import type { Markdown } from '@/db/types'
 import { rawMd } from '@/lib/markdown'
+import './index.css'
 
 interface Props {
   article: Markdown
@@ -24,10 +25,10 @@ class ArticleClient extends HTMLElement {
   serverArticleEl: HTMLElement | null = null
 
   async connectedCallback() {
-    const article = JSON.parse(this.dataset.article || '')
     this.articleEl = this.querySelector('#article')
     this.serverArticleEl = this.querySelector('#serverArticle')
 
+    const article = JSON.parse(this.dataset.article || '')
     const content = article ? (await md()).render(article?.content ?? '') : ''
     this.serverArticleEl?.remove()
     this.articleEl?.insertAdjacentHTML('beforeend', content)
