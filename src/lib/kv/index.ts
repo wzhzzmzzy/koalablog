@@ -1,4 +1,5 @@
 // #if !CF_PAGES
+import consola from 'consola'
 import { storage } from './local'
 // #endif
 
@@ -44,7 +45,7 @@ export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConf
       return globalConfigValue
     }
     else {
-      console.warn('globalConfig is null')
+      consola.warn('globalConfig is null')
     }
   }
   // #endif
