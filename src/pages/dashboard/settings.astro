@@ -22,22 +22,37 @@ const title = Astro.locals.config.pageConfig.title ?? ''
       </label>
 
     </form>
+
+    <h2>Utility</h2>
+
+    <section>
+      <button id="import-from">Import from ..</button>
+      <button id="export-as">Export as ..</button>
+    </section>
   </setting-form>
 </DashboardLayout>
 
 <script>
+import { exportAllFiles } from '@/lib/services/io'
+
 class SettingForm extends HTMLElement {
   titleInputEl: HTMLInputElement
+  importFromBtn: HTMLButtonElement
+  exportAsBtn: HTMLButtonElement
 
   constructor() {
     super()
     this.titleInputEl = this.querySelector('#title-input')!
+    this.importFromBtn = this.querySelector('#import-from')!
+    this.exportAsBtn = this.querySelector('#export-as')!
     this.onInputTitle = this.onInputTitle.bind(this)
     this.connectedCallback()
   }
 
   connectedCallback() {
     this.titleInputEl.addEventListener('input', this.onInputTitle)
+    this.importFromBtn.addEventListener('click', this.onImportFrom)
+    this.exportAsBtn.addEventListener('click', this.onExportAs)
   }
 
   disconnectedCallback() {
@@ -46,6 +61,16 @@ class SettingForm extends HTMLElement {
 
   onInputTitle(e: Event) {
     const value = (e.target as HTMLInputElement).value
+    // eslint-disable-next-line no-console
+    console.debug('[koala:debug] title input:', value)
+  }
+
+  onImportFrom() {
+
+  }
+
+  onExportAs() {
+    exportAllFiles()
   }
 }
 
