@@ -44,7 +44,8 @@
   let userDefinedLink = false
   let linkValue = $state(markdown.link ?? '')
   $effect(() => {
-    if (!userDefinedLink) {
+    // keep link stable if user changed link manually or markdown has published
+    if (!userDefinedLink && !markdown.id) {
       linkValue = linkGenerator(source as PostOrPage, subjectValue)
     }
   })

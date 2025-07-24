@@ -27,6 +27,8 @@ export async function md() {
       import('@shikijs/langs/jsx'),
       import('@shikijs/langs/typescript'),
       import('@shikijs/langs/javascript'),
+      import('@shikijs/langs/rust'),
+      import('@shikijs/langs/json'),
     ],
     engine: createJavaScriptRegexEngine(),
   })
