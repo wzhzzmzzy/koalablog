@@ -1,5 +1,5 @@
 import { MarkdownSource } from '@/db'
-import { add, addPreset, update, remove } from '@/db/markdown'
+import { add, addPreset, remove, update } from '@/db/markdown'
 import z from 'zod'
 
 const FormSchema = z.object({
@@ -25,7 +25,7 @@ export async function formHandler({ request, locals }: Context, { source }: { so
   if (request.method === 'POST') {
     const data = await request.formData()
     const formData = Object.fromEntries(data)
-    
+
     // 处理删除操作
     if (formData._action === 'delete') {
       const deleteForm = await DeleteFormSchema.parseAsync(formData)
@@ -39,6 +39,7 @@ export async function formHandler({ request, locals }: Context, { source }: { so
     const env = locals.runtime?.env || {}
     if (form.id) {
       await update(env, form.id, form.link, form.subject, form.content)
+      return form.link
     }
     else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
       await add(env, source, form.subject, form.content)

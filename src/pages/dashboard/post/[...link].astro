@@ -19,6 +19,10 @@ if (formStatus === 'deleted') {
   return Astro.redirect('/dashboard')
 }
 
+if (formStatus?.startsWith('/')) {
+  return Astro.redirect(`/dashboard${formStatus}`)
+}
+
 const article: Response | Markdown = mode === 'update'
   ? await readArticle(Astro, source, link!)
   : initMarkdown()
