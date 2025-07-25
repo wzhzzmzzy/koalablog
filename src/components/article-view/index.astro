@@ -1,6 +1,7 @@
 ---
 import type { Markdown } from '@/db/types'
 import { md } from '@/lib/markdown'
+import { formatDate } from 'date-fns'
 import './index.css'
 
 interface Props {
@@ -13,4 +14,5 @@ const content = article ? (await md()).render(article.content ?? '') : ''
 ---
 
 <h1>{ article.subject }</h1>
+<p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
 <article set:html={content} />

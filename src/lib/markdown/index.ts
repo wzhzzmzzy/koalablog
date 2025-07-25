@@ -28,6 +28,8 @@ export async function md() {
       import('@shikijs/langs/typescript'),
       import('@shikijs/langs/javascript'),
       import('@shikijs/langs/rust'),
+      import('@shikijs/langs/haskell'),
+      import('@shikijs/langs/python'),
       import('@shikijs/langs/json'),
     ],
     engine: createJavaScriptRegexEngine(),

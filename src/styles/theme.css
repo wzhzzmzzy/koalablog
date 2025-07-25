@@ -1,0 +1,37 @@
+:root {
+  --bg-light: #fff;
+  --bg-dark: #333;
+
+  --text-light: #333;
+  --text-dark: #f0f0f0;
+
+  --link-light: #8971c6;
+  --link-dark: #8971c6;
+
+  --blockquote-color-light: #888;
+  --blockquote-color-dark: #aaa;
+}
+
+section.page {
+  background-color: var(--bg-light);
+  color: var(--text-light);
+}
+
+section.page.dark {
+  background-color: var(--bg-dark);
+  color: var(--text-dark);
+}
+
+section.page a {
+  color: var(--link-light);
+}
+section.page.dark a {
+  color: var(--link-dark);
+}
+
+section.page blockquote {
+  border-left-color: var(--blockquote-color-light);
+}
+section.page.dark blockquote {
+  border-left-color: var(--blockquote-color-dark);
+}
