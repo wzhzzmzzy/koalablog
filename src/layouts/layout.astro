@@ -9,6 +9,11 @@ import '@/styles/theme.css'
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
+    <script>
+      const theme = window.localStorage.get('theme') || 'light'
+      document.body.classList.add(theme)
+      document.getElementById('page')!.classList.add(theme)
+    </script>
     <slot name="meta" />
   </head>
 
@@ -28,12 +33,14 @@ function handleThemeChange(event: MediaQueryList | MediaQueryListEvent) {
     body.classList.remove('light')
     pageEl!.classList.add('dark')
     pageEl!.classList.remove('light')
+    window.localStorage.set('theme', 'dark')
   }
   else {
     body.classList.add('light')
     body.classList.remove('dark')
     pageEl!.classList.add('light')
     pageEl!.classList.remove('dark')
+    window.localStorage.set('theme', 'light')
   }
 }
 const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
