@@ -1,6 +1,7 @@
 ---
 import type { Markdown } from '@/db/types'
 import { rawMd } from '@/lib/markdown'
+import { formatDate } from 'date-fns'
 import './index.css'
 
 interface Props {
@@ -13,6 +14,7 @@ const content = article ? rawMd().render(article.content ?? '') : ''
 
 <article-client data-article={JSON.stringify(article)}>
   <h1>{ article.subject }</h1>
+  <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
   <article id="article" />
   <article id="serverArticle" set:html={content} />
 </article-client>

@@ -1,0 +1,15 @@
+a {
+  @apply no-underline;
+}
+
+nav {
+  @apply my-5;
+}
+
+nav > p > a + a {
+  @apply ml-3;
+}
+
+blockquote {
+  @apply border-l border-l-solid ml-8 pl-4;
+}

@@ -24,9 +24,9 @@ const formatUpdateAt = (updateAt: Date) => format(updateAt, isSameYear(updateAt,
   <ul class="mt-3">
   {
     list.map(item => (
-      <li class="flex gap-3">
+      <li class="flex gap-3 mb-2">
         { item.updatedAt ? <span><i>{ formatUpdateAt(item.updatedAt) }</i></span> : null }
-        <a class="text-black no-underline font-medium" href={item.link}><span>{ item.subject } </span></a>
+        <a href={item.link}><span>{ item.subject } </span></a>
       </li>
     ))
   }
