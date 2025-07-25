@@ -10,7 +10,7 @@ import '@/styles/theme.css'
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <script>
-      const theme = window.localStorage.get('theme') || 'light'
+      const theme = window.localStorage.getItem('theme') || 'light'
       document.body.classList.add(theme)
       document.getElementById('page')!.classList.add(theme)
     </script>
@@ -33,19 +33,17 @@ function handleThemeChange(event: MediaQueryList | MediaQueryListEvent) {
     body.classList.remove('light')
     pageEl!.classList.add('dark')
     pageEl!.classList.remove('light')
-    window.localStorage.set('theme', 'dark')
+    window.localStorage.setItem('theme', 'dark')
   }
   else {
     body.classList.add('light')
     body.classList.remove('dark')
     pageEl!.classList.add('light')
     pageEl!.classList.remove('dark')
-    window.localStorage.set('theme', 'light')
+    window.localStorage.setItem('theme', 'light')
   }
 }
-const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-
-handleThemeChange(darkModeMediaQuery)
-
-darkModeMediaQuery.addEventListener('change', handleThemeChange)
+const query = window.matchMedia('(prefers-color-scheme: dark)')
+handleThemeChange(query)
+query.addEventListener('change', handleThemeChange)
 </script>
