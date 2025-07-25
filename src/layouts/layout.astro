@@ -13,8 +13,32 @@ import '@/styles/theme.css'
   </head>
 
   <body class="flex justify-center">
-    <section class="page box-border px-5 w-screen max-w-200 flex-1 font-[Verdana]">
+    <section id="page" class="page box-border px-5 w-screen max-w-200 flex-1 font-[Verdana]">
       <slot />
     </section>
   </body>
 </html>
+
+<script>
+function handleThemeChange(event: MediaQueryList | MediaQueryListEvent) {
+  const body = document.body
+  const pageEl = document.getElementById('page')
+  if (event.matches) {
+    body.classList.add('dark')
+    body.classList.remove('light')
+    pageEl!.classList.add('dark')
+    pageEl!.classList.remove('light')
+  }
+  else {
+    body.classList.add('light')
+    body.classList.remove('dark')
+    pageEl!.classList.add('light')
+    pageEl!.classList.remove('dark')
+  }
+}
+const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+handleThemeChange(darkModeMediaQuery)
+
+darkModeMediaQuery.addEventListener('change', handleThemeChange)
+</script>

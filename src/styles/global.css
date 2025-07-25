@@ -13,3 +13,17 @@ nav > p > a + a {
 blockquote {
   @apply border-l border-l-solid ml-8 pl-4;
 }
+
+body {
+  min-height: 100vh;
+  margin: 0;
+}
+
+#page {
+  flex: 1;
+}
+
+textarea {
+  outline: none;
+}
+
