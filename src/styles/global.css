@@ -27,3 +27,6 @@ textarea {
   outline: none;
 }
 
+.shiki {
+  background: inherit !important;
+}

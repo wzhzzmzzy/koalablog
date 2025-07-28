@@ -1,6 +1,6 @@
 :root {
   --bg-light: #fff;
-  --bg-dark: #333;
+  --bg-dark: #262937;
 
   --text-light: #333;
   --text-dark: #f0f0f0;
@@ -12,7 +12,7 @@
   --blockquote-color-dark: #aaa;
 
   --code-bg-light: #f2f2f2;
-  --code-bg-dark: #303445;
+  --code-bg-dark: #1e1e2d;
 
   --editor-bg-light: #fff;
   --editor-bg-dark: #aaa;

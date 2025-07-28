@@ -18,10 +18,18 @@ export function rawMd() {
   return md
 }
 
-export async function md() {
+const ShikiMap = new Map()
+
+async function getShiki() {
+  const shiki = ShikiMap.get('shiki')
+
+  if (shiki)
+    return shiki
+
   const highlighter = await createHighlighterCore({
     themes: [
-      import('@shikijs/themes/vitesse-light'),
+      import('@shikijs/themes/catppuccin-latte'),
+      import('@shikijs/themes/catppuccin-frappe'),
     ],
     langs: [
       import('@shikijs/langs/jsx'),
@@ -34,11 +42,11 @@ export async function md() {
     ],
     engine: createJavaScriptRegexEngine(),
   })
-
   const instance = MarkdownIt()
 
+  const theme = globalThis.window?.localStorage.getItem('theme') || 'light'
   instance.use(fromHighlighter(highlighter as HighlighterGeneric<any, any>, {
-    theme: 'vitesse-light',
+    theme: theme === 'light' ? 'catppuccin-latte' : 'catppuccin-frappe',
     transformers: [
       {
         postprocess(html, _options) {
@@ -48,5 +56,11 @@ export async function md() {
     ],
   }))
 
+  ShikiMap.set('shiki', instance)
+
   return instance
+}
+
+export function md() {
+  return getShiki()
 }
