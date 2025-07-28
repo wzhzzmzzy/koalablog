@@ -11,6 +11,9 @@
   --blockquote-color-light: #888;
   --blockquote-color-dark: #aaa;
 
+  --code-bg-light: #f2f2f2;
+  --code-bg-dark: #303445;
+
   --editor-bg-light: #fff;
   --editor-bg-dark: #aaa;
 }
@@ -48,4 +51,12 @@ body.dark {
 
 #page.dark textarea::selection {
   background-color: #888;
+}
+
+#page div.code-block {
+  background-color: var(--code-bg-light)
+}
+
+#page.dark div.code-block {
+  background-color: var(--code-bg-dark)
 }
