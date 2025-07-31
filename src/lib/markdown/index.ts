@@ -18,7 +18,7 @@ export function rawMd() {
   return md
 }
 
-const ShikiMap = new Map()
+const ShikiMap = new Map<'shiki', MarkdownIt>()
 
 async function getShiki() {
   const shiki = ShikiMap.get('shiki')
