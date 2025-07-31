@@ -29,5 +29,5 @@ if (presetSource.source === MarkdownSource.Unknown) {
 <h2>{subject}</h2>
 { formStatus === 'ok' && <div>Saved Success</div> }
 { formError && formError.message }
-{ presetSource.id === 0 && `Your blog doesn't have a ${presetSource.subject}, press [Save] to create with default content` }
+{ presetSource.id === 0 && <p class="text-[#73b56f]">Your blog doesn't have a {presetSource.subject}, press [Save] to create with default content</p> }
 { presetSource && <Editor client:load source={source} markdown={presetSource} /> }

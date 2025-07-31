@@ -30,3 +30,7 @@ textarea {
 .shiki {
   background: inherit !important;
 }
+
+ul {
+  padding-left: 0;
+}
