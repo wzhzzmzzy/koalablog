@@ -2,6 +2,7 @@ import type { Markdown } from '@/db/types'
 import { format } from 'date-fns'
 import { zip } from 'fflate'
 import { ofetch } from 'ofetch'
+import { pickFileWithFSApi, supportFSApi } from './file-reader'
 
 function createBlob(blobData: Uint8Array<ArrayBufferLike>, chunkSize = 1024 * 1024) {
   const chunks = []
@@ -52,6 +53,11 @@ export async function exportAllPosts() {
   })
 }
 
-export function importFromFile() {
-
+export function importFromFilePicker() {
+  if (supportFSApi()) {
+    return pickFileWithFSApi()
+  }
+  else {
+    return 'unsupported browser'
+  }
 }
