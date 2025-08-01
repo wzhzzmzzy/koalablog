@@ -138,9 +138,13 @@ export function read(env: Env, source: PostOrPage, link: string) {
   })
 }
 
-// DEBUG
-export function readAll(env: Env) {
-  return connectDB(env).query.markdown.findMany()
+export function readAll(env: Env, source: PostOrPage, deleted: boolean) {
+  return connectDB(env).query.markdown.findMany({
+    where: and(
+      eq(markdown.source, source),
+      eq(markdown.deleted, deleted),
+    ),
+  })
 }
 
 export function readPreset(env: Env, source: PresetSource): Promise<Markdown | undefined> {

@@ -26,14 +26,14 @@ const title = Astro.locals.config.pageConfig.title ?? ''
     <h2>Utility</h2>
 
     <section>
-      <button id="import-from">Import from ..</button>
-      <button id="export-as">Export as ..</button>
+      <button id="import-from" disabled>Import from ..</button>
+      <button id="export-as">Export posts as zip</button>
     </section>
   </setting-form>
 </DashboardLayout>
 
 <script>
-import { exportAllFiles } from '@/lib/services/io'
+import { exportAllPosts } from '@/lib/services/io'
 
 class SettingForm extends HTMLElement {
   titleInputEl: HTMLInputElement
@@ -69,8 +69,13 @@ class SettingForm extends HTMLElement {
 
   }
 
-  onExportAs() {
-    exportAllFiles()
+  async onExportAs() {
+    try {
+      await exportAllPosts()
+    }
+    catch (error) {
+      console.warn(error)
+    }
   }
 }
 
