@@ -3,8 +3,14 @@ import { format } from 'date-fns'
 import { zip } from 'fflate'
 import { ofetch } from 'ofetch'
 
-function createBlob(blobData: Uint8Array<ArrayBufferLike>) {
-  return new Blob([blobData], { type: 'application/zip' })
+function createBlob(blobData: Uint8Array<ArrayBufferLike>, chunkSize = 1024 * 1024) {
+  const chunks = []
+
+  for (let i = 0; i < blobData.length; i += chunkSize) {
+    chunks.push(blobData.slice(i, i + chunkSize))
+  }
+
+  return new Blob(chunks, { type: 'application/zip' })
 }
 
 function downloadBlob(blob: Blob, filename: string) {

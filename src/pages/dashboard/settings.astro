@@ -69,13 +69,8 @@ class SettingForm extends HTMLElement {
 
   }
 
-  async onExportAs() {
-    try {
-      await exportAllPosts()
-    }
-    catch (error) {
-      console.warn(error)
-    }
+  onExportAs() {
+    exportAllPosts()
   }
 }
 
