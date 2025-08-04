@@ -34,3 +34,7 @@ textarea {
 ul {
   padding-left: 0;
 }
+
+button {
+  cursor: pointer;
+}

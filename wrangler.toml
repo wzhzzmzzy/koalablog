@@ -21,6 +21,10 @@ database_name = "prod-koala"
 database_id = "3cc89d41-3caa-4415-a2dc-46f4af92304a"
 migrations_dir = "migrations"
 
+[[r2_buckets]]
+binding = "OSS"
+bucket_name = "koala"
+
 [vars]
 DATA_SOURCE = "d1"
 CF_PAGES = 1

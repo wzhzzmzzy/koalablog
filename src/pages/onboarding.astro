@@ -1,5 +1,6 @@
 ---
 import OnboardingForm from '@/components/onboarding/index.svelte'
+import Layout from '@/layouts/layout.astro'
 
 // #if CF_PAGES
 import sql from '../../migrations/0000_init.sql?raw'
@@ -24,6 +25,7 @@ if (env.DATA_SOURCE && env.DATA_SOURCE === 'd1') {
 // #endif
 ---
 
-<div>
+
+<Layout>
   <OnboardingForm client:load />
-</div>
+</Layout>

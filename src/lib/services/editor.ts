@@ -1,16 +1,23 @@
-import { MarkdownSource } from '@/db'
+import { MarkdownSource, type PostOrPage } from '@/db'
 import { add, addPreset, remove, update } from '@/db/markdown'
 import z from 'zod'
 
-const FormSchema = z.object({
-  id: z.preprocess(
-    a => Number.parseInt(a as string, 10),
-    z.number().gte(0),
-  ),
-  link: z.string().min(1),
-  subject: z.string().min(1),
-  content: z.string(),
-})
+function FormSchema(source: MarkdownSource) {
+  const SourceLinkPrefix: Record<PostOrPage, string> = {
+    [MarkdownSource.Page]: 'page/',
+    [MarkdownSource.Post]: '',
+  }
+
+  return z.object({
+    id: z.preprocess(
+      a => Number.parseInt(a as string, 10),
+      z.number().gte(0),
+    ),
+    link: z.string().min(1).startsWith(SourceLinkPrefix[source as PostOrPage] || ''),
+    subject: z.string().min(1),
+    content: z.string(),
+  })
+}
 
 const DeleteFormSchema = z.object({
   id: z.preprocess(
@@ -35,14 +42,14 @@ export async function formHandler({ request, locals }: Context, { source }: { so
     }
 
     // 处理保存操作
-    const form = await FormSchema.parseAsync(formData)
+    const form = await FormSchema(source).parseAsync(formData)
     const env = locals.runtime?.env || {}
     if (form.id) {
       await update(env, form.id, form.link, form.subject, form.content)
       return form.link
     }
     else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
-      await add(env, source, form.subject, form.content)
+      await add(env, source, form.subject, form.content, form.link)
     }
     else if (source === MarkdownSource.Home || source === MarkdownSource.Nav) {
       await addPreset(env, form.link, source, form.subject, form.content)

@@ -28,7 +28,6 @@ export const GET: APIRoute = async (ctx: APIContext) => {
 export const POST: APIRoute = async (ctx: APIContext) => {
   const body = await ctx.request.json() as { subject: string, content: string }
   const post = await add(ctx.locals.runtime?.env, MarkdownSource.Post, body.subject, body.content)
-  console.log('added post', post)
 
   return new Response(JSON.stringify({
     status: 'success',

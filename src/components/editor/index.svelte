@@ -145,7 +145,11 @@
               oninput={onInputLink}
               placeholder="Link"
             />
-            <textarea class="p-1 text-sm w-full min-h-90 box-border mt-3" name="content" bind:value={textareaValue}></textarea>
+            <textarea 
+              class="p-1 text-sm w-full min-h-90 box-border mt-3" 
+              name="content" 
+              bind:value={textareaValue}
+            ></textarea>
           {:else}
             {@render collapse('Editor', false)}
           {/if}

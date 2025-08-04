@@ -51,18 +51,18 @@ const handleSubmit = async (e: Event) => {
     </div>
   {/if}
 </div>
-<form method="POST" class="max-w-md mx-auto mt-10" onsubmit={handleSubmit}>
+<form method="POST" class="mt-10" onsubmit={handleSubmit}>
   <div class="mb-6">
-    <label for="blogTitle" class="block mb-2 text-sm font-medium text-gray-900">Blog Title:</label>
+    <label for="blogTitle" class="block mb-2 text-sm font-medium">Blog Title:</label>
     <input
       type="text"
       id="blogTitle"
       name="blogTitle"
       bind:value={formData.blogTitle}
-      class={`bg-gray-50 border ${
+      class={`outline-none border-none ${
         validationErrors.blogTitle ? 'border-red-500' : 'border-gray-300'
-      } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5`}
-      placeholder="Input your blog title"
+      } text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2`}
+      placeholder="Set your blog title"
       required
     />
     {#if validationErrors.blogTitle}
@@ -71,16 +71,16 @@ const handleSubmit = async (e: Event) => {
   </div>
 
   <div class="mb-6">
-    <label for="adminKey" class="block mb-2 text-sm font-medium text-gray-900">Admin Key:</label>
+    <label for="adminKey" class="block mb-2 text-sm font-medium">Admin Key:</label>
     <input
       type="password"
       id="adminKey"
       name="adminKey"
       bind:value={formData.adminKey}
-      class={`bg-gray-50 border ${
+      class={`outline-none border-none ${
         validationErrors.adminKey ? 'border-red-500' : 'border-gray-300'
-      } text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5`}
-      placeholder="Set your admin key"
+      } text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2`}
+      placeholder="Do not forget it"
       required
     />
     {#if validationErrors.adminKey}
@@ -90,7 +90,7 @@ const handleSubmit = async (e: Event) => {
 
   <button
     type="submit"
-    class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center"
+    class="outline-none font-medium text-sm py-2.5 text-center cursor-pointer"
   >
     Submit
   </button>

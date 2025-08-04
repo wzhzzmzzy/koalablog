@@ -9,13 +9,18 @@ import { to } from 'await-to-js'
 
 const { link } = Astro.params
 const source: PostOrPage = MarkdownSource.Page
-const mode = 'update'
+const url = Astro.url
+const mode = url.searchParams.has('new') ? 'create' : 'update'
 
 const [formError, formStatus] = await to(formHandler(Astro, { source }))
 
 // 如果删除成功，重定向到仪表板页面
 if (formStatus === 'deleted') {
   return Astro.redirect('/dashboard')
+}
+
+if (formStatus?.startsWith('/')) {
+  return Astro.redirect(`/dashboard${formStatus}`)
 }
 
 const article: Response | Markdown = mode === 'update'
@@ -27,11 +32,11 @@ if (article instanceof Response) {
 }
 ---
 <DashboardLayout>
-  <main class="py-3">
+  <main>
     <h1>New Page</h1>
 
-    { formStatus === 'ok' && <div>Saved Success</div> }
-    { formError && <div>{formError.message}</div> }
+    { formStatus === 'ok' && <p class="success">Saved Success</p> }
+    { formError && <p class="error">{formError.message}</p> }
 
     <Editor client:load source={source} markdown={article} />
   </main>

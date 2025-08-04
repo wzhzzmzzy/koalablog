@@ -8,8 +8,8 @@ import { formHandler } from '@/lib/services/editor'
 import { to } from 'await-to-js'
 
 const { link } = Astro.params
-const source: PostOrPage = MarkdownSource.Post
-const url: URL = Astro.url
+const source: PostOrPage = MarkdownSource.Page
+const url = Astro.url
 const mode = url.searchParams.has('new') ? 'create' : 'update'
 
 const [formError, formStatus] = await to(formHandler(Astro, { source }))
@@ -32,7 +32,7 @@ if (article instanceof Response) {
 }
 ---
 <DashboardLayout title={`[Editor] ${article.subject}`}>
-  <main class="py-3">
+  <main>
     <h2>{ mode === 'create' ? 'New Post' : 'Edit' }</h2>
 
     { formStatus === 'ok' && <div>Saved Success</div> }

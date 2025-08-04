@@ -1,34 +1,39 @@
 ---
+import Layout from '@/layouts/layout.astro'
+
 const redirectTo = Astro.url.searchParams.get('from') || '/'
 ---
-<login-form data-redirect-to={redirectTo}>
-  <form method="POST" class="max-w-md mx-auto mt-10">
-    <!-- {errorMessage && ( -->
-    <!--   <div class="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert"> -->
-    <!--     {errorMessage} -->
-    <!--   </div> -->
-    <!-- )} -->
-    <div class="mb-6">
-      <label for="adminKey" class="block mb-2 text-sm font-medium text-gray-900">Admin Key</label>
-      <input
-        type="password"
-        id="admin-key"
-        name="adminKey"
-        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
-        placeholder="Input admin key"
-        required
-      />
-    </div>
+<Layout>
+  <login-form data-redirect-to={redirectTo}>
+    <form method="POST" class="max-w-md mx-auto mt-10">
+      <!-- {errorMessage && ( -->
+      <!--   <div class="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert"> -->
+      <!--     {errorMessage} -->
+      <!--   </div> -->
+      <!-- )} -->
+      <div class="mb-6">
+        <label for="adminKey" class="block mb-2 text-sm font-medium">Admin Key</label>
+        <input
+          type="password"
+          id="admin-key"
+          name="adminKey"
+          class="outline-none border-none text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2"
+          placeholder="Input admin key"
+          required
+        />
+      </div>
 
-    <button
-      id="login-btn"
-      type="submit"
-      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center"
-    >
-      Login, then redirect to {redirectTo}
-    </button>
-  </form>
-</login-form>
+      <button
+        id="login-btn"
+        type="submit"
+        class="!w-full font-medium rounded-lg text-sm w-full px-5 py-2.5 text-center"
+      >
+        Login, then redirect to {redirectTo}
+      </button>
+    </form>
+  </login-form>
+</Layout>
+
 
 <script>
 import to from 'await-to-js'

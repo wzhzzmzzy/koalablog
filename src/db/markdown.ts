@@ -50,10 +50,11 @@ export function add(
   source: PostOrPage,
   subject: string,
   content: string,
+  link?: string,
 ) {
   const { tags, links } = collectTagsAndLinks({ content })
   return connectDB(env).insert(markdown).values({
-    link: linkGenerator(source, subject),
+    link: link || linkGenerator(source, subject),
     source,
     subject,
     content,
