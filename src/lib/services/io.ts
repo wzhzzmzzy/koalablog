@@ -1,6 +1,5 @@
 import type { Markdown } from '@/db/types'
 import { format } from 'date-fns'
-import { zip } from 'fflate'
 import { ofetch } from 'ofetch'
 import { pickFileWithFSApi, supportFSApi } from './file-reader'
 
@@ -34,8 +33,10 @@ export async function exportAllPosts() {
   })
   const posts = await ofetch<{ payload: Markdown[] }>(req, { parseResponse: JSON.parse })
 
-  return new Promise((resolve, reject) => {
-    zip({
+  const fflate = await import('fflate/browser')
+
+  return new Promise<void>((resolve, reject) => {
+    fflate.zip({
       posts: posts.payload.reduce((prev, curr) => {
         const textEncoder = new TextEncoder()
         prev[`${curr.subject}.md`] = textEncoder.encode(curr.content || '')
@@ -48,6 +49,7 @@ export async function exportAllPosts() {
       }
       else {
         downloadBlob(createBlob(data), `export-posts-${format(new Date(), 'yyyyMMdd_HH_mm_ss')}`)
+        resolve()
       }
     })
   })

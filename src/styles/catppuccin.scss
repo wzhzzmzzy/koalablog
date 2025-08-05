@@ -1,3 +1,5 @@
+@use "sass:map";
+
 // 定义主题名称数组
 $themes: "latte", "frappe", "macchiato", "mocha";
 
@@ -130,7 +132,7 @@ $color-values: (
   @each $theme in $themes {
     /* Catppuccin #{$theme} */
     @each $color in $colors {
-      --#{$theme}-#{$color}: #{map-get(map-get($color-values, $theme), $color)};
+      --#{$theme}-#{$color}: #{map.get(map.get($color-values, $theme), $color)};
     }
   }
 }
@@ -208,7 +210,7 @@ body.mocha, body.dark {
 
   textarea::selection {
     background-color: var(--koala-editor-selection-bg);
-    color: var(--koala-editor-selection-text);
+    color: var(--koala-edit-text);
   }
   
   div.code-block {
