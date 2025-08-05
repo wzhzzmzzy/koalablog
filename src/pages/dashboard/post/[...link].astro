@@ -8,7 +8,7 @@ import { formHandler } from '@/lib/services/editor'
 import { to } from 'await-to-js'
 
 const { link } = Astro.params
-const source: PostOrPage = MarkdownSource.Page
+const source: PostOrPage = MarkdownSource.Post
 const url = Astro.url
 const mode = url.searchParams.has('new') ? 'create' : 'update'
 

@@ -90,7 +90,7 @@ const handleSubmit = async (e: Event) => {
 
   <button
     type="submit"
-    class="outline-none font-medium text-sm py-2.5 text-center cursor-pointer"
+    class="outline-none font-medium text-center cursor-pointer"
   >
     Submit
   </button>
