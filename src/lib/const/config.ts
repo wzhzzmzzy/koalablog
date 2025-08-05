@@ -14,3 +14,10 @@ export const DASHBOARD_SETTINGS_ROUTE: Array<DashboardRoute> = ([
   { link: 'settings', mode: 'standalone' },
 ] as Pick<DashboardRoute, 'link' | 'mode'>[])
   .map(i => ({ ...i, name: upperFirst(i.link || 'home') }))
+
+export enum CatppuccinTheme {
+  Latte = 'latte',
+  Frappe = 'frappe',
+  Macchiato = 'macchiato',
+  Mocha = 'mocha',
+}

@@ -26,6 +26,9 @@ importers:
       '@shikijs/themes':
         specifier: ^3.2.2
         version: 3.2.2
+      '@tabler/icons-svelte':
+        specifier: ^3.34.1
+        version: 3.34.1(svelte@5.19.2)
       '@webtui/css':
         specifier: ^0.0.3
         version: 0.0.3
@@ -2171,6 +2174,14 @@ packages:
     peerDependencies:
       svelte: ^5.0.0
       vite: ^6.0.0
+
+  '@tabler/icons-svelte@3.34.1':
+    resolution: {integrity: sha512-HqPpWgAvCuR5Q5s7kBHfN0P7ULXCf+mwkcsmWhu8GuThQyfl8wR3l3zklS8IOCPwwpF9+Oox7fZhzRM+Af5Haw==}
+    peerDependencies:
+      svelte: '>=3 <6 || >=5.0.0-next.0'
+
+  '@tabler/icons@3.34.1':
+    resolution: {integrity: sha512-9gTnUvd7Fd/DmQgr3MKY+oJLa1RfNsQo8c/ir3TJAWghOuZXodbtbVp0QBY2DxWuuvrSZFys0HEbv1CoiI5y6A==}
 
   '@types/cookie@0.6.0':
     resolution: {integrity: sha512-4Kh9a6B2bQciAhf7FSuMRRkUWecJgJu9nPnx3yzpsfXX/c50REIqpHY4C82bXP90qrLtXtkDxTZosYO3UpOwlA==}
@@ -6411,6 +6422,13 @@ snapshots:
       vitefu: 1.0.4(vite@6.0.11(@types/node@22.10.1)(jiti@2.4.2)(sass@1.89.2)(tsx@4.19.2)(yaml@2.6.1))
     transitivePeerDependencies:
       - supports-color
+
+  '@tabler/icons-svelte@3.34.1(svelte@5.19.2)':
+    dependencies:
+      '@tabler/icons': 3.34.1
+      svelte: 5.19.2
+
+  '@tabler/icons@3.34.1': {}
 
   '@types/cookie@0.6.0': {}
 

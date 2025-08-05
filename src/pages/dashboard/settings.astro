@@ -1,27 +1,39 @@
 ---
 import ExportZip from '@/components/io/export-zip.svelte'
 import ImportFile from '@/components/io/import-file.svelte'
+import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import DashboardLayout from '@/layouts/dashboard.astro'
 import { settingsHandler } from '@/lib/services/settings'
 import { to } from 'await-to-js'
 
 const [formError, formStatus] = await to(settingsHandler(Astro))
-const title = Astro.locals.config.pageConfig.title ?? ''
+const pageConfig = Astro.locals.config.pageConfig
+const title = pageConfig.title ?? ''
 ---
 <DashboardLayout>
   <h1>Settings</h1>
   <setting-form>
 
-    { formStatus === 'ok' && <div>Saved Success</div> }
-    { formError && <div>{formError.message}</div> }
+    { formStatus === 'ok' && <p class="success">Saved Success</p> }
+    { formError && <p class="error">{formError.message}</p> }
 
     <form method="POST" class="flex flex-col gap-3">
       <button class="w-12">Save</button>
 
       <label>
         Blog Title:<br />
-        <input class="w-60 sm:w-80" id="title-input" name="title" value={title} />
       </label>
+      <input class="w-60 sm:w-80" id="title-input" name="title" value={title} />
+
+      <label>
+      Theme:
+      </label>
+      <div id="theme-bus" />
+      <ThemeSwitch
+        client:load
+        light={pageConfig.theme?.light}
+        dark={pageConfig.theme?.dark}
+      />
 
     </form>
 
@@ -37,10 +49,12 @@ const title = Astro.locals.config.pageConfig.title ?? ''
 <script>
 class SettingForm extends HTMLElement {
   titleInputEl: HTMLInputElement
+  themeBusEl: HTMLDivElement
 
   constructor() {
     super()
     this.titleInputEl = this.querySelector('#title-input')!
+    this.themeBusEl = this.querySelector('#theme-bus')!
     this.onInputTitle = this.onInputTitle.bind(this)
 
     this.connectedCallback()
@@ -48,6 +62,7 @@ class SettingForm extends HTMLElement {
 
   connectedCallback() {
     this.titleInputEl.addEventListener('input', this.onInputTitle)
+    this.themeBusEl.addEventListener('update-theme', console.log)
   }
 
   disconnectedCallback() {

@@ -143,6 +143,8 @@ $color-values: (
   $theme-mappings: (
     "bg": "base",
     "text": "text",
+    "light-text": "rosewater",
+    "dark-text": "teal",
     "link": "blue",
     "origin-link": "lavender",
     "warning-text": "yellow",
@@ -188,7 +190,7 @@ body.macchiato {
   @include generate-theme("macchiato");
 }
 
-body.mocha, body.dark {
+body.mocha {
   @include generate-theme("mocha");
 }
 

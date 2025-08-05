@@ -30,6 +30,8 @@ async function getShiki() {
     themes: [
       import('@shikijs/themes/catppuccin-latte'),
       import('@shikijs/themes/catppuccin-frappe'),
+      import('@shikijs/themes/catppuccin-macchiato'),
+      import('@shikijs/themes/catppuccin-mocha'),
     ],
     langs: [
       import('@shikijs/langs/jsx'),

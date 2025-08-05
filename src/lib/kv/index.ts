@@ -1,3 +1,4 @@
+import type { CatppuccinTheme } from '../const/config'
 // #if !CF_PAGES
 import consola from 'consola'
 import { storage } from './local'
@@ -6,6 +7,10 @@ import { storage } from './local'
 export interface GlobalConfig {
   pageConfig: {
     title?: string
+    theme?: {
+      light: CatppuccinTheme
+      dark: CatppuccinTheme
+    }
   }
   auth: {
     adminKey?: string
