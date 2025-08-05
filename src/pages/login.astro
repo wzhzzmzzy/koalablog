@@ -5,19 +5,14 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
 ---
 <Layout>
   <login-form data-redirect-to={redirectTo}>
-    <form method="POST" class="max-w-md mx-auto mt-10">
-      <!-- {errorMessage && ( -->
-      <!--   <div class="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert"> -->
-      <!--     {errorMessage} -->
-      <!--   </div> -->
-      <!-- )} -->
+    <form id="login-form" method="POST" class="max-w-md mx-auto mt-10">
       <div class="mb-6">
         <label for="adminKey" class="block mb-2 text-sm font-medium">Admin Key</label>
         <input
           type="password"
           id="admin-key"
           name="adminKey"
-          class="outline-none border-none text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2"
+          class="outline-none border-none text-sm block h-8 w-full bg-[--koala-code-bg] color-[--koala-code-text]"
           placeholder="Input admin key"
           required
         />
@@ -38,18 +33,42 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
 <script>
 import to from 'await-to-js'
 import consola from 'consola'
-import { ofetch } from 'ofetch'
+import { FetchError, ofetch } from 'ofetch'
 
 class LoginForm extends HTMLElement {
   loginBtn: HTMLElement | null = null
   adminKeyInput: HTMLInputElement | null = null
+  formEl: HTMLFormElement | null = null
+  errorEl: HTMLParagraphElement | null = null
 
   connectedCallback() {
     this.loginBtn = this.querySelector('#login-btn')
     this.adminKeyInput = this.querySelector('#admin-key')
+    this.formEl = this.querySelector('#login-form')
     this.loginBtn?.addEventListener('click', (e) => {
       this.login(e)
     })
+  }
+
+  showErrorMessage(message: string = '') {
+    if (!this.formEl) {
+      consola.error(message)
+      return
+    }
+
+    if (!message) {
+      this.errorEl?.remove()
+    }
+
+    if (!this.errorEl) {
+      this.errorEl = document.createElement('p')
+      this.errorEl.classList.add('error')
+      this.errorEl.textContent = message
+      this.formEl.insertAdjacentElement('beforeend', this.errorEl)
+    }
+    else {
+      this.errorEl.textContent = message
+    }
   }
 
   async login(e: Event) {
@@ -62,7 +81,15 @@ class LoginForm extends HTMLElement {
     }))
 
     if (err) {
-      consola.log(err)
+      if (err instanceof FetchError) {
+        const unauth = err.response?.status === 401
+
+        if (unauth) {
+          this.showErrorMessage('Wrong Password')
+          return
+        }
+      }
+      this.showErrorMessage(err.message)
       return
     }
 
