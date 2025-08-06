@@ -1,7 +1,7 @@
 import type { Markdown } from '@/db/types'
 import { format } from 'date-fns'
 import { ofetch } from 'ofetch'
-import { pickFileWithFSApi, supportFSApi } from './file-reader'
+import { pickImageFileWithFileInput, pickImageFileWithFSApi, pickMDFileWithFSApi, supportFSApi } from './file-reader'
 
 function createBlob(blobData: Uint8Array<ArrayBufferLike>, chunkSize = 1024 * 1024) {
   const chunks = []
@@ -57,7 +57,9 @@ export async function exportAllPosts() {
 
 export function importFromFilePicker() {
   if (supportFSApi()) {
-    return pickFileWithFSApi()
+    return pickImageFileWithFileInput()
+    // return pickImageFileWithFSApi()
+    // return pickMDFileWithFSApi()
   }
   else {
     return 'unsupported browser'

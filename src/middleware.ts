@@ -8,6 +8,8 @@ const AUTH_REQUIRED_SITE = [
 
 const AUTH_REQUIRED_API = [
   '/api/db',
+  '/api/config',
+  '/api/oss',
 ]
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
