@@ -31,6 +31,7 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
 
 
 <script>
+import { actions } from 'astro:actions'
 import to from 'await-to-js'
 import { FetchError, ofetch } from 'ofetch'
 
@@ -71,23 +72,18 @@ class LoginForm extends HTMLElement {
 
   async login(e: Event) {
     e.preventDefault()
-    const [err] = await to(ofetch('/api/auth/login', {
-      method: 'POST',
-      body: {
-        adminKey: this.adminKeyInput?.value,
-      },
-    }))
 
-    if (err) {
-      if (err instanceof FetchError) {
-        const unauth = err.response?.status === 401
+    const { error } = await actions.form.login({
+      adminKey: this.adminKeyInput?.value || '',
+    })
 
-        if (unauth) {
-          this.showErrorMessage('Wrong Password')
-          return
-        }
+    if (error) {
+      if (error.code === 'UNAUTHORIZED') {
+        this.showErrorMessage('Wrong Password')
       }
-      this.showErrorMessage(err.message)
+      else {
+        this.showErrorMessage(error.message)
+      }
       return
     }
 

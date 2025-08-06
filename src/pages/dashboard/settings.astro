@@ -4,16 +4,17 @@ import ImportFile from '@/components/io/import-file.svelte'
 import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import DashboardLayout from '@/layouts/dashboard.astro'
 import { globalConfig } from '@/lib/kv'
-import { settingsHandler } from '@/lib/services/settings'
-import { to } from 'await-to-js'
+import { actions } from 'astro:actions'
 
-const [formError, formStatus] = await to(settingsHandler(Astro))
+const saveResult = Astro.getActionResult(actions.form.settings)
 
+const saved = saveResult && !saveResult.error
 // Refresh globalConfig after POST
-if (formStatus === 'ok') {
+if (saved) {
   const config = await globalConfig(Astro.locals.runtime?.env || {})
   Astro.locals.config = config
 }
+
 const pageConfig = Astro.locals.config.pageConfig
 const title = pageConfig.title ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
@@ -24,10 +25,10 @@ const darkTheme = pageConfig.theme?.dark ?? 'mocha'
   <h1>Settings</h1>
   <setting-form>
 
-    { formStatus === 'ok' && <p class="success">Saved Success</p> }
-    { formError && <p class="error">{formError.message}</p> }
+    { saved && <p class="success">Saved Success</p> }
+    { saveResult?.error && <p class="error">{saveResult.error.message}</p> }
 
-    <form id="settings-form" method="POST" class="flex flex-col gap-3">
+    <form id="settings-form" method="POST" action={actions.form.settings} class="flex flex-col gap-3">
       <button class="w-12">Save</button>
 
       <label>

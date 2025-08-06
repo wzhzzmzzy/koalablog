@@ -1,12 +1,6 @@
 <script lang="ts">
-import z from 'zod'
-import { ofetch } from 'ofetch';
-import { to } from 'await-to-js';
-
-const OnboardingSchema = z.object({
-  blogTitle: z.string().min(1, 'Blog title cannot be empty').max(100, 'Blog title cannot exceed 100 characters'),
-  adminKey: z.string().min(6, 'Admin key must be at least 6 characters').max(256, 'Admin key cannot exceed 256 characters'),
-})
+import { actions } from 'astro:actions';
+import { navigate } from 'astro:transitions/client';
 
 let validationErrors: {
   blogTitle?: string[]
@@ -21,26 +15,20 @@ const formData = $state({
 
 const handleSubmit = async (e: Event) => {
   e.preventDefault()
-  const result = OnboardingSchema.safeParse(formData)
-  if (!result.success) {
-    validationErrors = result.error.formErrors.fieldErrors
+
+  const { error } = await actions.form.onboarding(formData)
+
+  if (error) {
+    if ((error as any).fields) {
+      validationErrors = (error as any).fields
+    } else {
+      formData.serverFail = error.message
+    }
     return
   }
 
-  const [configError, res] = await to(ofetch('/api/config/onboarding', {
-    method: 'POST',
-    body: JSON.stringify(formData),
-  }))
-  
-  if (configError) {
-    console.warn('config', configError)
-    formData.serverFail = configError.message
-    return
-  }
-  
-  setTimeout(() => {
-    window.location.pathname = '/dashboard'
-  }, 1000)
+  navigate('/dashboard')
+
 }
 </script>
 
@@ -63,7 +51,6 @@ const handleSubmit = async (e: Event) => {
         validationErrors.blogTitle ? 'border-red-500' : 'border-gray-300'
       } text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2`}
       placeholder="Set your blog title"
-      required
     />
     {#if validationErrors.blogTitle}
       <p class="mt-2 text-sm text-red-600">{validationErrors.blogTitle?.join(';')}</p>
@@ -81,7 +68,6 @@ const handleSubmit = async (e: Event) => {
         validationErrors.adminKey ? 'border-red-500' : 'border-gray-300'
       } text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2`}
       placeholder="Do not forget it"
-      required
     />
     {#if validationErrors.adminKey}
       <p class="mt-2 text-sm text-red-600">{validationErrors.adminKey?.join(';')}</p>

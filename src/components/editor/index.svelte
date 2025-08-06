@@ -6,6 +6,7 @@
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
   import type MarkdownIt from 'markdown-it';
+  import { actions } from 'astro:actions';
 
   interface Props {
 		markdown: Markdown;
@@ -94,7 +95,7 @@
           >
             取消
           </button>
-          <form method="POST" class="inline">
+          <form method="POST" action={actions.form.remove} class="inline">
             <input type="hidden" name="id" value={markdown.id} />
             <input type="hidden" name="_action" value="delete" />
             <button 
@@ -109,7 +110,8 @@
     </div>
   {/if}
 
-  <form method="POST">
+  <form method="POST" action={actions.form.save}>
+    <input type="hidden" name="source" value={source} />
     <div class="flex flex-col">
       <div class="flex justify-between items-center">
         <button id="save" class="w-12">Save</button>

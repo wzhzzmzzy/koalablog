@@ -1,3 +1,4 @@
+import { getActionContext } from 'astro:actions'
 import { defineMiddleware } from 'astro:middleware'
 import { authInterceptor } from './lib/auth'
 import { globalConfig } from './lib/kv'
@@ -18,6 +19,14 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const config = await globalConfig(env)
 
   ctx.locals.config = config
+
+  const { action } = getActionContext(ctx)
+
+  if (action?.calledFrom === 'rpc') {
+    console.log('action', action.name, action.calledFrom)
+
+    return next()
+  }
 
   if (!config._runtime?.ready) {
     if (

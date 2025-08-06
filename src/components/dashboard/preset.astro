@@ -3,8 +3,7 @@ import Editor from '@/components/editor/index.svelte'
 import { MarkdownSource, type PresetSource } from '@/db'
 import { readPreset } from '@/db/markdown'
 import { initMarkdown } from '@/db/types'
-import { formHandler } from '@/lib/services/editor'
-import { to } from 'await-to-js'
+import { actions } from 'astro:actions'
 
 interface Props {
   source: PresetSource
@@ -13,7 +12,10 @@ interface Props {
 
 const { source, subject } = Astro.props
 
-const [formError, formStatus] = await to(formHandler(Astro, { source }))
+const saveResult = Astro.getActionResult(actions.form.save)
+
+const saved = saveResult && !saveResult.error
+const actionError = saveResult?.error
 
 const env = Astro.locals.runtime?.env || {}
 const presetSource = (await readPreset(env, source)) || initMarkdown()
@@ -27,7 +29,7 @@ if (presetSource.source === MarkdownSource.Unknown) {
 ---
 
 <h2>{subject}</h2>
-{ formStatus === 'ok' && <p class="success">Saved Success</p> }
-{ formError && <p class="error">{formError.message}</p> }
+{ saved && <p class="success">Saved Success</p> }
+{ actionError && <p class="error">{actionError.message}</p> }
 { presetSource.id === 0 && <p class="warning">Your blog doesn't have a {presetSource.subject}, press [Save] to create with default content</p> }
 { presetSource && <Editor client:load source={source} markdown={presetSource} /> }

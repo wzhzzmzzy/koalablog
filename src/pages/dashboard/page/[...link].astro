@@ -4,26 +4,34 @@ import { MarkdownSource, type PostOrPage } from '@/db'
 import { initMarkdown, type Markdown } from '@/db/types'
 import DashboardLayout from '@/layouts/dashboard.astro'
 import { readArticle } from '@/lib/services/article'
-import { formHandler } from '@/lib/services/editor'
-import { to } from 'await-to-js'
+import { actions } from 'astro:actions'
 
 const { link } = Astro.params
 const source: PostOrPage = MarkdownSource.Page
 const url = Astro.url
 const mode = url.searchParams.has('new') ? 'create' : 'update'
 
-const [formError, formStatus] = await to(formHandler(Astro, { source }))
+const saveResult = Astro.getActionResult(actions.form.save)
+const removeResult = Astro.getActionResult(actions.form.remove)
 
-// 如果删除成功，重定向到仪表板页面
-if (formStatus === 'deleted') {
-  return Astro.redirect('/dashboard')
+// 如果删除成功，重定向到文章列表页面
+if (removeResult && !removeResult.error) {
+  const subpath = {
+    [MarkdownSource.Page]: 'pages',
+    [MarkdownSource.Post]: 'posts',
+  }
+  return Astro.redirect(`/dashboard/${subpath[source]}`)
 }
 
-if (formStatus?.startsWith('/')) {
-  return Astro.redirect(`/dashboard${formStatus}`)
+if (saveResult?.data?.link) {
+  return Astro.redirect(`/dashboard/${saveResult.data.link}`)
 }
 
-const article: Response | Markdown = mode === 'update'
+const noAction = !saveResult && !removeResult
+const saved = saveResult && !saveResult.error
+const actionError = saveResult?.error || removeResult?.error
+
+const article: Response | Markdown = mode === 'update' && noAction
   ? await readArticle(Astro, source, link!)
   : initMarkdown()
 
@@ -31,12 +39,12 @@ if (article instanceof Response) {
   return article
 }
 ---
-<DashboardLayout>
+<DashboardLayout title={`[Editor] ${article.subject}`}>
   <main>
-    <h1>New Page</h1>
+    <h2>{ mode === 'create' ? 'New Post' : 'Edit' }</h2>
 
-    { formStatus === 'ok' && <p class="success">Saved Success</p> }
-    { formError && <p class="error">{formError.message}</p> }
+    { saved && <p class="success">Saved Success</p> }
+    { actionError && <p class="error">{actionError.message}</p> }
 
     <Editor client:load source={source} markdown={article} />
   </main>
