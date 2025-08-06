@@ -28,8 +28,8 @@ async function getShiki() {
     return shiki
 
   let theme = globalThis.window?.localStorage.getItem('theme')
-  const pageEl = document.querySelector('#page') as HTMLDivElement
-  const { lightTheme, darkTheme } = pageEl?.dataset
+  const pageEl = globalThis.window?.document.querySelector('#page') as HTMLDivElement
+  const { lightTheme, darkTheme } = pageEl?.dataset || {}
   if (!theme || ![lightTheme, darkTheme].includes(theme as CatppuccinTheme)) {
     theme = lightTheme || 'latte'
   }
