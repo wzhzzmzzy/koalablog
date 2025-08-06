@@ -1,6 +1,16 @@
 ---
 import '@/styles/global.css'
 import '@/styles/catppuccin.scss'
+
+const pageConfig = Astro.locals.config.pageConfig
+const lightTheme = pageConfig.theme?.light ?? 'latte'
+const darkTheme = pageConfig.theme?.dark ?? 'mocha'
+
+
+function bodyClass(classList: string) {
+  return `${classList} ${lightTheme}`
+}
+
 ---
 
 <!DOCTYPE html>
@@ -9,40 +19,45 @@ import '@/styles/catppuccin.scss'
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
-    <script>
-      const theme = window.localStorage.getItem('theme') || 'light'
-      document.body.classList.add(theme)
-      document.getElementById('page')!.classList.add(theme)
-    </script>
     <slot name="meta" />
   </head>
 
-  <body class="flex justify-center">
-    <section id="page" class="page box-border px-5 w-screen max-w-200 flex-1 font-[Verdana]">
+  <body class={bodyClass('flex justify-center')}>
+    <section
+      id="page"
+      data-light-theme={lightTheme}
+      data-dark-theme={darkTheme}
+      class="page box-border px-5 w-screen max-w-200 flex-1 font-[Verdana]"
+    >
+      <script is:inline>
+        const pageEl = document.getElementById('page')
+        const { lightTheme, darkTheme } = pageEl.dataset
+        const theme = window.localStorage.getItem('theme')
+        if (theme === lightTheme || theme === darkTheme) {
+          document.body.classList.add(theme)
+        }
+        else {
+          document.body.classList.add(lightTheme)
+        }
+      </script>
       <slot />
     </section>
   </body>
 </html>
 
 <script>
+import { switchTheme } from '@/lib/utils/theme'
+
 function handleThemeChange(event: MediaQueryList | MediaQueryListEvent) {
-  const body = document.body
   const pageEl = document.getElementById('page')
-  if (event.matches) {
-    body.classList.add('dark')
-    body.classList.remove('light')
-    pageEl!.classList.add('dark')
-    pageEl!.classList.remove('light')
-    window.localStorage.setItem('theme', 'dark')
-  }
-  else {
-    body.classList.add('light')
-    body.classList.remove('dark')
-    pageEl!.classList.add('light')
-    pageEl!.classList.remove('dark')
-    window.localStorage.setItem('theme', 'light')
-  }
+  const { lightTheme, darkTheme } = pageEl!.dataset
+
+  if (lightTheme === darkTheme)
+    return
+
+  switchTheme(event.matches ? darkTheme! : lightTheme!)
 }
+
 const query = window.matchMedia('(prefers-color-scheme: dark)')
 handleThemeChange(query)
 query.addEventListener('change', handleThemeChange)

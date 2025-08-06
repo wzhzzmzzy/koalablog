@@ -88,6 +88,7 @@ export async function updateGlobalConfig<S extends keyof GlobalConfig>(env: Env,
   // #if !CF_PAGES
   else {
     await storage.set(GLOBAL_CONFIG_KEY, payload)
+    await storage.sync()
   }
   // #endif
 }

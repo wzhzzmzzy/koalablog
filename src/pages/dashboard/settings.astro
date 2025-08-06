@@ -3,12 +3,22 @@ import ExportZip from '@/components/io/export-zip.svelte'
 import ImportFile from '@/components/io/import-file.svelte'
 import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import DashboardLayout from '@/layouts/dashboard.astro'
+import { globalConfig } from '@/lib/kv'
 import { settingsHandler } from '@/lib/services/settings'
 import { to } from 'await-to-js'
 
 const [formError, formStatus] = await to(settingsHandler(Astro))
+
+// Refresh globalConfig after POST
+if (formStatus === 'ok') {
+  const config = await globalConfig(Astro.locals.runtime?.env || {})
+  Astro.locals.config = config
+}
 const pageConfig = Astro.locals.config.pageConfig
 const title = pageConfig.title ?? ''
+const lightTheme = pageConfig.theme?.light ?? 'latte'
+const darkTheme = pageConfig.theme?.dark ?? 'mocha'
+
 ---
 <DashboardLayout>
   <h1>Settings</h1>
@@ -17,7 +27,7 @@ const title = pageConfig.title ?? ''
     { formStatus === 'ok' && <p class="success">Saved Success</p> }
     { formError && <p class="error">{formError.message}</p> }
 
-    <form method="POST" class="flex flex-col gap-3">
+    <form id="settings-form" method="POST" class="flex flex-col gap-3">
       <button class="w-12">Save</button>
 
       <label>
@@ -28,11 +38,14 @@ const title = pageConfig.title ?? ''
       <label>
       Theme:
       </label>
-      <div id="theme-bus" />
+      <div id="theme-bus" class="hidden">
+        <input id="light" type="hidden" name="lightTheme" value={lightTheme} />
+        <input id="dark" type="hidden" name="darkTheme" value={darkTheme} />
+      </div>
       <ThemeSwitch
         client:load
-        light={pageConfig.theme?.light}
-        dark={pageConfig.theme?.dark}
+        light={lightTheme}
+        dark={darkTheme}
       />
 
     </form>
@@ -47,32 +60,48 @@ const title = pageConfig.title ?? ''
 </DashboardLayout>
 
 <script>
+import type { CatppuccinTheme } from '@/lib/const/config'
+
 class SettingForm extends HTMLElement {
+  formEl: HTMLFormElement
   titleInputEl: HTMLInputElement
   themeBusEl: HTMLDivElement
+  lightInputEl: HTMLInputElement
+  darkInputEl: HTMLInputElement
+
+  theme: {
+    light: CatppuccinTheme
+    dark: CatppuccinTheme
+  }
 
   constructor() {
     super()
+    this.formEl = this.querySelector('#settings-form')!
     this.titleInputEl = this.querySelector('#title-input')!
     this.themeBusEl = this.querySelector('#theme-bus')!
-    this.onInputTitle = this.onInputTitle.bind(this)
+    this.lightInputEl = this.querySelector('input#light')!
+    this.darkInputEl = this.querySelector('input#dark')!
+
+    this.onChangeTheme = this.onChangeTheme.bind(this)
+
+    const light = this.lightInputEl.value as CatppuccinTheme
+    const dark = this.darkInputEl.value as CatppuccinTheme
+    this.theme = { light, dark }
 
     this.connectedCallback()
   }
 
   connectedCallback() {
-    this.titleInputEl.addEventListener('input', this.onInputTitle)
-    this.themeBusEl.addEventListener('update-theme', console.log)
+    this.themeBusEl.addEventListener('update-theme', this.onChangeTheme)
   }
 
   disconnectedCallback() {
-    this.titleInputEl.removeEventListener('input', this.onInputTitle)
+    this.themeBusEl.removeEventListener('update-theme', this.onChangeTheme)
   }
 
-  onInputTitle(e: Event) {
-    const value = (e.target as HTMLInputElement).value
-    // eslint-disable-next-line no-console
-    console.debug('[koala:debug] title input:', value)
+  onChangeTheme(event: CustomEvent<{ light: CatppuccinTheme, dark: CatppuccinTheme }>) {
+    this.lightInputEl.value = event.detail.light
+    this.darkInputEl.value = event.detail.dark
   }
 }
 

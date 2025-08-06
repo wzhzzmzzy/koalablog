@@ -1,9 +1,16 @@
 import type { Context } from './editor'
 import z from 'zod'
+import { CatppuccinTheme } from '../const/config'
 import { updateGlobalConfig } from '../kv'
 
 const SettingsSchema = z.object({
   title: z.string().min(1, 'Title is required'),
+  lightTheme: z.nativeEnum(CatppuccinTheme, {
+    errorMap: () => ({ message: 'Invalid light theme' }),
+  }),
+  darkTheme: z.nativeEnum(CatppuccinTheme, {
+    errorMap: () => ({ message: 'Invalid dark theme' }),
+  }),
 })
 
 export async function settingsHandler({ request, locals }: Context) {
@@ -14,6 +21,10 @@ export async function settingsHandler({ request, locals }: Context) {
     const env = locals.runtime?.env || {}
     await updateGlobalConfig(env, 'pageConfig', {
       title: form.title,
+      theme: {
+        light: form.lightTheme,
+        dark: form.darkTheme,
+      },
     })
 
     return 'ok'

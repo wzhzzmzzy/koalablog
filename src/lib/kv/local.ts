@@ -48,7 +48,10 @@ class KvStore {
     }
 
     this.storage[key] = value
-    this._schedule(key)
+  }
+
+  sync() {
+    return this._flush()
   }
 
   _schedule(key: string) {
@@ -59,6 +62,8 @@ class KvStore {
   }
 
   async _flush() {
+    if (this._scheduleChange.size === 0)
+      return
     this._scheduleChange.clear()
     await fs.writeFile(DB_PATH, JSON.stringify(this.storage))
   }
