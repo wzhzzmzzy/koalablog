@@ -1,3 +1,4 @@
+import type { CatppuccinTheme } from '../const/config'
 import { fromHighlighter } from '@shikijs/markdown-it/core'
 import MarkdownIt from 'markdown-it'
 import { createHighlighterCore, type HighlighterGeneric } from 'shiki/core'
@@ -26,12 +27,17 @@ async function getShiki() {
   if (shiki)
     return shiki
 
+  let theme = globalThis.window?.localStorage.getItem('theme')
+  const pageEl = document.querySelector('#page') as HTMLDivElement
+  const { lightTheme, darkTheme } = pageEl?.dataset
+  if (!theme || ![lightTheme, darkTheme].includes(theme as CatppuccinTheme)) {
+    theme = lightTheme || 'latte'
+  }
+
   const highlighter = await createHighlighterCore({
     themes: [
-      import('@shikijs/themes/catppuccin-latte'),
-      import('@shikijs/themes/catppuccin-frappe'),
-      import('@shikijs/themes/catppuccin-macchiato'),
-      import('@shikijs/themes/catppuccin-mocha'),
+      import(`@shikijs/themes/catppuccin-${lightTheme}`),
+      import(`@shikijs/themes/catppuccin-${darkTheme}`),
     ],
     langs: [
       import('@shikijs/langs/jsx'),
@@ -46,9 +52,8 @@ async function getShiki() {
   })
   const instance = MarkdownIt()
 
-  const theme = globalThis.window?.localStorage.getItem('theme') || 'light'
   instance.use(fromHighlighter(highlighter as HighlighterGeneric<any, any>, {
-    theme: theme === 'light' ? 'catppuccin-latte' : 'catppuccin-frappe',
+    theme: `catppuccin-${theme}`,
     transformers: [
       {
         postprocess(html, _options) {
