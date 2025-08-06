@@ -1,8 +1,11 @@
 import type { CatppuccinTheme } from '../const/config'
+import type { GlobalConfig } from '../kv'
 import { fromHighlighter } from '@shikijs/markdown-it/core'
 import MarkdownIt from 'markdown-it'
 import { createHighlighterCore, type HighlighterGeneric } from 'shiki/core'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
+
+type ThemeConfig = GlobalConfig['pageConfig']['theme']
 
 export function rawMd() {
   const md = MarkdownIt()
@@ -21,17 +24,24 @@ export function rawMd() {
 
 const ShikiMap = new Map<'shiki', MarkdownIt>()
 
-async function getShiki() {
+async function getShiki(themeConfig?: ThemeConfig) {
   const shiki = ShikiMap.get('shiki')
 
   if (shiki)
     return shiki
 
-  let theme = globalThis.window?.localStorage.getItem('theme')
-  const pageEl = globalThis.window?.document.querySelector('#page') as HTMLDivElement
-  const { lightTheme, darkTheme } = pageEl?.dataset || {}
-  if (!theme || ![lightTheme, darkTheme].includes(theme as CatppuccinTheme)) {
-    theme = lightTheme || 'latte'
+  let theme: string | null = null
+
+  if (!import.meta.env.SSR) {
+    theme = globalThis.window?.localStorage.getItem('theme')
+    const pageEl = globalThis.window?.document.querySelector('#page') as HTMLDivElement
+    const { lightTheme, darkTheme } = pageEl?.dataset || {}
+    if (!theme || ![lightTheme, darkTheme].includes(theme as CatppuccinTheme)) {
+      theme = lightTheme || 'latte'
+    }
+  }
+  else {
+    theme = themeConfig?.light || 'latte'
   }
 
   const highlighter = await createHighlighterCore({
@@ -70,6 +80,6 @@ async function getShiki() {
   return instance
 }
 
-export function md() {
-  return getShiki()
+export function md(themeConfig?: ThemeConfig) {
+  return getShiki(themeConfig)
 }
