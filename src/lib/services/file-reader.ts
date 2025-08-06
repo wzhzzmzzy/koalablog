@@ -1,6 +1,5 @@
 import type { Markdown } from '@/db/types'
 import to from 'await-to-js'
-import consola from 'consola'
 import { ofetch } from 'ofetch'
 
 export function supportFSApi(): boolean {
@@ -25,12 +24,6 @@ export async function pickImageFileWithFileInput() {
   for (let i = 0; i < files.length; i++) {
     formData.append('file', files[i])
   }
-
-  const res = await ofetch(`/api/oss/test.png`, {
-    method: 'PUT',
-    body: formData,
-  })
-  consola.info(res)
 }
 
 export async function pickImageFileWithFSApi() {

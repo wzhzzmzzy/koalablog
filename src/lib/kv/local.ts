@@ -1,5 +1,4 @@
 import { promises as fs } from 'node:fs'
-import consola from 'consola'
 
 const DB_PATH = 'koala.config.json'
 
@@ -27,7 +26,7 @@ class KvStore {
         this.storage = JSON.parse(initValue)
       }
       catch {
-        consola.warn('init value parse failed, clear all', initValue)
+        console.warn('init value parse failed, clear all', initValue)
         await fs.writeFile(DB_PATH, '{}')
       }
     }

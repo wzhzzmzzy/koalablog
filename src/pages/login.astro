@@ -32,7 +32,6 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
 
 <script>
 import to from 'await-to-js'
-import consola from 'consola'
 import { FetchError, ofetch } from 'ofetch'
 
 class LoginForm extends HTMLElement {
@@ -52,7 +51,6 @@ class LoginForm extends HTMLElement {
 
   showErrorMessage(message: string = '') {
     if (!this.formEl) {
-      consola.error(message)
       return
     }
 
