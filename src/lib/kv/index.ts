@@ -15,6 +15,10 @@ export interface GlobalConfig {
   auth: {
     adminKey?: string
   }
+  oss: {
+    operateLimit?: number
+    readLimit?: number
+  }
   _runtime: {
     ready: boolean
     access_token?: string

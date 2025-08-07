@@ -1,4 +1,5 @@
 import type { Markdown } from '@/db/types'
+import { actions } from 'astro:actions'
 import to from 'await-to-js'
 import { ofetch } from 'ofetch'
 
@@ -12,18 +13,36 @@ interface ShowOpenFilePickerOptions {
 
 type showOpenFilePicker = (opt: ShowOpenFilePickerOptions) => Promise<Array<FileSystemFileHandle>>
 
-export async function pickImageFileWithFileInput() {
-  const fileInput = document.getElementById('fileInput')
-  const files = (fileInput as HTMLInputElement).files
-
-  if (!files || files.length === 0) {
-    return
-  }
-
+export function uploadFile(source: 'post' | 'page' | 'preset', file: File | FileList) {
   const formData = new FormData()
-  for (let i = 0; i < files.length; i++) {
-    formData.append('file', files[i])
+  if (file instanceof File) {
+    formData.append('file', file)
   }
+  else {
+    for (let i = 0; i < file.length; i++) {
+      formData.append('file', file[i])
+    }
+  }
+  formData.append('source', source)
+  return actions.oss.upload(formData)
+}
+
+export async function pickFileWithFileInput(accept: string = 'image/*') {
+  const fileInput = document.createElement('input')
+  fileInput.type = 'file'
+  fileInput.accept = accept
+  fileInput.style.display = 'none'
+  document.body.insertAdjacentElement('afterend', fileInput)
+  fileInput.click()
+  return new Promise<FileList>((resolve) => {
+    fileInput.addEventListener('change', (event: Event) => {
+      const files = (event.target as HTMLInputElement)!.files as FileList
+      resolve(files)
+      setTimeout(() => {
+        fileInput.remove()
+      }, 500)
+    })
+  })
 }
 
 export async function pickImageFileWithFSApi() {

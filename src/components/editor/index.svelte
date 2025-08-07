@@ -7,6 +7,7 @@
   import { md } from '@/lib/markdown';
   import type MarkdownIt from 'markdown-it';
   import { actions } from 'astro:actions';
+  import { pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
 
   interface Props {
 		markdown: Markdown;
@@ -73,6 +74,12 @@
   function closeDeleteConfirm() {
     showDeleteConfirm = false
   }
+
+  async function upload(e: Event) {
+    e.preventDefault()
+    const files = await pickFileWithFileInput()
+    const fileKey = await uploadFile('post', files)
+  }
 </script>
 
 {#snippet collapse(name: string, show: boolean)}
@@ -86,7 +93,7 @@
   {#if showDeleteConfirm}
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-white p-6 rounded-lg max-w-md w-full">
-        <h3 class="text-xl font-bold mb-4">确认删除</h3>
+        <h3 class="text-xl font-bold mb-4">Confirm</h3>
         <p class="mb-6">您确定要删除 "{subjectValue}" 吗？此操作无法撤销。</p>
         <div class="flex justify-end gap-3">
           <button 
@@ -115,13 +122,14 @@
     <div class="flex flex-col">
       <div class="flex justify-between items-center">
         <button id="save" class="w-12">Save</button>
+        <button id="upload" class="w-18" onclick={upload}>Upload</button>
         {#if !isPreset && markdown.id > 0}
           <button 
             type="button" 
             class="bg-red-600 text-white px-3 py-1 rounded-lg" 
             onclick={openDeleteConfirm}
           >
-            删除
+            Delete
           </button>
         {/if}
       </div>

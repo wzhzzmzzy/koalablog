@@ -32,32 +32,6 @@ export const GET: APIRoute = async (ctx: APIContext) => {
   })
 }
 
-export const POST: APIRoute = async (ctx: APIContext) => {
-  const { link } = ctx.params
-  const formData = await ctx.request.formData()
-  const file = formData.get('file') as any
-  if (!file) {
-    return new Response('No file uploaded', { status: 400 })
-  }
-  const fileName = file.name || `upload-${Date.now()}`
-  const key = `${link}/${fileName}`
-
-  await ctx.locals.runtime.env.OSS.put(key, file, {
-    httpMetadata: {
-      contentType: file.type,
-    },
-    customMetadata: {
-      uploadedAt: new Date().toISOString(),
-      originalName: file.name,
-      size: file.size.toString(),
-    },
-  })
-
-  return new Response('created', {
-    status: 201,
-  })
-}
-
 export const DELETE: APIRoute = async (ctx: APIContext) => {
   const { link } = ctx.params
   const key = ctx.url.searchParams.get('key')

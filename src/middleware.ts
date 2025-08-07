@@ -23,8 +23,6 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const { action } = getActionContext(ctx)
 
   if (action?.calledFrom === 'rpc') {
-    console.log('action', action.name, action.calledFrom)
-
     return next()
   }
 
