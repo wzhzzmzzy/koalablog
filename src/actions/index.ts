@@ -1,3 +1,4 @@
+import { all, save as saveMarkdown } from './db/markdown'
 import { login } from './form/login'
 import { remove, save } from './form/markdown'
 import { onboarding } from './form/onboarding'
@@ -15,5 +16,11 @@ export const server = {
     remove,
     save,
     settings,
+  },
+  db: {
+    markdown: {
+      all,
+      save: saveMarkdown,
+    },
   },
 }

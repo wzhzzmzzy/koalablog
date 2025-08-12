@@ -94,9 +94,15 @@ export function update(
   }).where(eq(markdown.id, id))
 }
 
-export function remove(env: Env, id: number) {
+export function remove(env: Env, id: number, currentLink: string) {
+  // 添加 /deleted/ 前缀到当前link
+  const deletedLink = currentLink.startsWith('/deleted/')
+    ? currentLink
+    : `/deleted${currentLink.startsWith('/') ? '' : '/'}${currentLink}`
+
   return connectDB(env).update(markdown).set({
     deleted: true,
+    link: deletedLink,
     updatedAt: new Date(),
   }).where(eq(markdown.id, id))
 }
@@ -155,4 +161,8 @@ export function readPreset(env: Env, source: PresetSource): Promise<Markdown | u
       eq(markdown.deleted, false),
     ),
   })
+}
+
+export function justReadAll(env: Env) {
+  return connectDB(env).query.markdown.findMany()
 }

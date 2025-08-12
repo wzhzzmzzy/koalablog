@@ -79,6 +79,10 @@
     e.preventDefault()
     const files = await pickFileWithFileInput()
     const fileKey = await uploadFile('post', files)
+    if (fileKey.data) {
+      const [source, key] = fileKey.data.split('/')
+      textareaValue = `${textareaValue}\n ![](/api/oss/${source}?key=${key})`
+    }
   }
 </script>
 
@@ -104,6 +108,7 @@
           </button>
           <form method="POST" action={actions.form.remove} class="inline">
             <input type="hidden" name="id" value={markdown.id} />
+            <input type="hidden" name="link" value={markdown.link} />
             <input type="hidden" name="_action" value="delete" />
             <button 
               type="submit" 
@@ -120,7 +125,7 @@
   <form method="POST" action={actions.form.save}>
     <input type="hidden" name="source" value={source} />
     <div class="flex flex-col">
-      <div class="flex justify-between items-center">
+      <div class="flex items-center gap-3">
         <button id="save" class="w-12">Save</button>
         <button id="upload" class="w-18" onclick={upload}>Upload</button>
         {#if !isPreset && markdown.id > 0}

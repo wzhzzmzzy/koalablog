@@ -2,6 +2,7 @@ import { CatppuccinTheme } from '@/lib/const/config'
 import { updateGlobalConfig } from '@/lib/kv'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
+import { authGuard } from '../utils/auth'
 
 export const settings = defineAction({
   accept: 'form',
@@ -15,6 +16,8 @@ export const settings = defineAction({
     }),
   }),
   handler: async (input, ctx) => {
+    await authGuard(ctx)
+
     const env = ctx.locals.runtime?.env || {}
     await updateGlobalConfig(env, 'pageConfig', {
       title: input.title,

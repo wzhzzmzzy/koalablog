@@ -1,5 +1,6 @@
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
+import { authGuard } from '../utils/auth'
 
 const sourceEnum = z.enum(['post', 'page', 'preset'])
 
@@ -10,6 +11,8 @@ export const upload = defineAction({
     file: z.instanceof(File),
   }),
   handler: async (input, ctx) => {
+    await authGuard(ctx)
+
     const { file, source } = input
 
     const fileName = file.name || `upload-${Date.now()}`
@@ -36,7 +39,9 @@ export const remove = defineAction({
     z.object({ key: z.string() }),
     z.object({ source: sourceEnum, fileName: z.string().min(1) }),
   ])).min(1),
-  handler: (input, ctx) => {
+  handler: async (input, ctx) => {
+    await authGuard(ctx)
+
     const keyList = input.map((item) => {
       let key = ''
       if ('key' in item) {
@@ -54,7 +59,9 @@ export const remove = defineAction({
 })
 
 export const list = defineAction({
-  handler: (_, ctx) => {
+  handler: async (_, ctx) => {
+    await authGuard(ctx)
+
     return ctx.locals.runtime.env.OSS.list()
   },
 })

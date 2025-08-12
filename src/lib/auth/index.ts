@@ -1,4 +1,5 @@
 import type { APIContext } from 'astro'
+import type { ActionAPIContext } from 'astro:actions'
 import { jwtVerify, SignJWT } from 'jose'
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../kv'
 
@@ -24,7 +25,7 @@ async function tokenVerify(token: string, adminKey: string) {
   }
 }
 
-export async function authInterceptor(ctx: APIContext) {
+export async function authInterceptor(ctx: APIContext | ActionAPIContext) {
   const config = ctx.locals.config
 
   const accessToken = ctx.cookies.get(ACCESS_TOKEN_KEY)

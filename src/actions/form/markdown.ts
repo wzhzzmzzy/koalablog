@@ -2,6 +2,7 @@ import { MarkdownSource } from '@/db'
 import { add, addPreset, remove as removeMarkdown, update } from '@/db/markdown'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
+import { authGuard } from '../utils/auth'
 
 export const save = defineAction({
   accept: 'form',
@@ -21,6 +22,8 @@ export const save = defineAction({
     return true
   }, 'invalid link'),
   handler: async (input, ctx) => {
+    await authGuard(ctx)
+
     const { id, link, subject, content, source } = input
     const env = ctx.locals.runtime?.env || {}
     if (id) {
@@ -50,10 +53,13 @@ export const remove = defineAction({
       a => Number.parseInt(a as string, 10),
       z.number().gt(0),
     ),
+    link: z.string(),
     _action: z.literal('delete'),
   }),
   handler: async (input, ctx) => {
+    await authGuard(ctx)
+
     const env = ctx.locals.runtime?.env || {}
-    await removeMarkdown(env, input.id)
+    await removeMarkdown(env, input.id, input.link)
   },
 })
