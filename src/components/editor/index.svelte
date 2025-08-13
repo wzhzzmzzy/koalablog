@@ -75,13 +75,18 @@
     showDeleteConfirm = false
   }
 
+  let uploadError = $state("")
   async function upload(e: Event) {
     e.preventDefault()
     const files = await pickFileWithFileInput()
-    const fileKey = await uploadFile('post', files)
-    if (fileKey.data) {
-      const [source, key] = fileKey.data.split('/')
-      textareaValue = `${textareaValue}\n ![](/api/oss/${source}_${key})`
+    try {
+      const fileKey = await uploadFile('post', files)
+      if (fileKey.data) {
+        const [source, key] = fileKey.data.split('/')
+        textareaValue = `${textareaValue}\n ![](/api/oss/${source}_${key})`
+      }
+    } catch(e: any) {
+      uploadError = e.message
     }
   }
 </script>
@@ -94,6 +99,10 @@
 {/snippet}
 
 <div class="w-full">
+  {#if uploadError}
+    <p class="error">{uploadError}</p>
+  {/if}
+
   {#if showDeleteConfirm}
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-white p-6 rounded-lg max-w-md w-full">
