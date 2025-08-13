@@ -12,6 +12,10 @@ export const onboarding = defineAction({
     const { blogTitle, adminKey } = input
     const env = ctx.locals.runtime?.env || {}
     await putGlobalConfig(env, {
+      oss: {
+        readLimit: 500000,
+        operateLimit: 50000,
+      },
       pageConfig: {
         title: blogTitle,
       },

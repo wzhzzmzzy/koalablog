@@ -14,17 +14,25 @@ export const settings = defineAction({
     darkTheme: z.nativeEnum(CatppuccinTheme, {
       errorMap: () => ({ message: 'Invalid dark theme' }),
     }),
+    readLimit: z.preprocess(v => Number(v), z.number().min(0)),
+    operateLimit: z.preprocess(v => Number(v), z.number().min(0)),
   }),
   handler: async (input, ctx) => {
     await authGuard(ctx)
 
     const env = ctx.locals.runtime?.env || {}
-    await updateGlobalConfig(env, 'pageConfig', {
-      title: input.title,
-      theme: {
-        light: input.lightTheme,
-        dark: input.darkTheme,
-      },
-    })
+    return Promise.all([
+      updateGlobalConfig(env, 'oss', {
+        readLimit: input.readLimit,
+        operateLimit: input.operateLimit,
+      }),
+      updateGlobalConfig(env, 'pageConfig', {
+        title: input.title,
+        theme: {
+          light: input.lightTheme,
+          dark: input.darkTheme,
+        },
+      }),
+    ])
   },
 })

@@ -19,3 +19,10 @@ export const markdown = sqliteTable('markdown', {
     .default(sql`(unixepoch())`),
   deleted: integer({ mode: 'boolean' }).default(false).notNull(),
 })
+
+export const ossAccess = sqliteTable('oss_access', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  date: text().notNull().unique(),
+  readTimes: integer().default(0),
+  operateTimes: integer().default(0),
+})

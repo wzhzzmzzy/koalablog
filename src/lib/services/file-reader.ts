@@ -65,9 +65,7 @@ export async function pickImageFileWithFSApi() {
   const file = await fileHandle![0].getFile()
   const subject = file.name
 
-  console.log(file)
-
-  const res = await ofetch(`/api/oss/${subject}`, {
+  return ofetch(`/api/oss/${subject}`, {
     method: 'POST',
     body: file,
     headers: {
@@ -75,8 +73,6 @@ export async function pickImageFileWithFSApi() {
       'Content-Length': String(file.size),
     },
   })
-
-  console.log(res)
 }
 
 export async function pickMDFileWithFSApi() {

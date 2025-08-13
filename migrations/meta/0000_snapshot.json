@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3585ca1f-03e4-44e5-a2e4-fbd862773a2f",
+  "id": "31dcc698-9fca-43f2-81ce-9d126f9024f1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "markdown": {
@@ -108,6 +108,54 @@
           "name": "markdown_subject_unique",
           "columns": [
             "subject"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "oss_access": {
+      "name": "oss_access",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "readTimes": {
+          "name": "readTimes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "operateTimes": {
+          "name": "operateTimes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "oss_access_date_unique": {
+          "name": "oss_access_date_unique",
+          "columns": [
+            "date"
           ],
           "isUnique": true
         }

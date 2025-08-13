@@ -1,19 +1,31 @@
 import type { APIContext, APIRoute } from 'astro'
+import { incrementToday } from '@/db/ossAccess'
 
 export const GET: APIRoute = async (ctx: APIContext) => {
   const { link } = ctx.params
-  const key = ctx.url.searchParams.get('key')
 
-  if (!link || !key) {
+  const [source, ...rest] = (link || '').split('_')
+  const key = rest.join('_')
+
+  if (!link || !source || !key) {
     return new Response('invalid params', {
       status: 400,
     })
   }
 
-  const object = await ctx.locals.runtime.env.OSS.get(`${link}/${key}`)
+  const readLimit = ctx.locals.config.oss.readLimit || 1
+  const todayAccess = await incrementToday(ctx.locals.runtime?.env, readLimit / 50, 'read')
+
+  if ((todayAccess[0]?.readTimes || 0) > readLimit) {
+    return new Response(`reached today's access limit`, {
+      status: 403,
+    })
+  }
+
+  const object = await ctx.locals.runtime.env.OSS.get(`${source}/${key}`)
 
   if (!object) {
-    return new Response(`cannot found object by ${link}/${key}`, {
+    return new Response(`cannot found object by ${source}/${key}`, {
       status: 404,
     })
   }
@@ -30,19 +42,4 @@ export const GET: APIRoute = async (ctx: APIContext) => {
   return new Response(object.body, {
     headers,
   })
-}
-
-export const DELETE: APIRoute = async (ctx: APIContext) => {
-  const { link } = ctx.params
-  const key = ctx.url.searchParams.get('key')
-
-  if (!link || !key) {
-    return new Response('invalid params', {
-      status: 400,
-    })
-  }
-
-  await ctx.locals.runtime.env.OSS.delete(`${link}/${key}`)
-
-  return new Response('ok')
 }

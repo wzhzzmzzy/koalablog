@@ -60,6 +60,7 @@ export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConf
   // #endif
 
   return {
+    oss: {},
     pageConfig: {},
     auth: {},
     _runtime: { ready: false },

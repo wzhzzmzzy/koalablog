@@ -1,6 +1,6 @@
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-import { authGuard } from '../utils/auth'
+import { authGuard, guards, ossGuard } from '../utils/auth'
 
 const sourceEnum = z.enum(['post', 'page', 'preset'])
 
@@ -11,7 +11,7 @@ export const upload = defineAction({
     file: z.instanceof(File),
   }),
   handler: async (input, ctx) => {
-    await authGuard(ctx)
+    await guards([authGuard(ctx), ossGuard(ctx)])
 
     const { file, source } = input
 
@@ -40,7 +40,7 @@ export const remove = defineAction({
     z.object({ source: sourceEnum, fileName: z.string().min(1) }),
   ])).min(1),
   handler: async (input, ctx) => {
-    await authGuard(ctx)
+    await guards([authGuard(ctx)])
 
     const keyList = input.map((item) => {
       let key = ''
@@ -60,7 +60,7 @@ export const remove = defineAction({
 
 export const list = defineAction({
   handler: async (_, ctx) => {
-    await authGuard(ctx)
+    await guards([authGuard(ctx), ossGuard(ctx)])
 
     return ctx.locals.runtime.env.OSS.list()
   },

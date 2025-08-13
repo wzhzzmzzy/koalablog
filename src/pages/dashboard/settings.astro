@@ -20,6 +20,8 @@ const title = pageConfig.title ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
 
+const ossConfig = Astro.locals.config.oss
+
 ---
 <DashboardLayout>
   <h1>Settings</h1>
@@ -48,6 +50,16 @@ const darkTheme = pageConfig.theme?.dark ?? 'mocha'
         light={lightTheme}
         dark={darkTheme}
       />
+
+      <label>
+        Read Limit:
+      </label>
+      <input class="w-60 sm:w-80" id="title-input" name="readLimit" value={ossConfig.readLimit} />
+
+      <label>
+        Operate Limit:
+      </label>
+      <input class="w-60 sm:w-80" id="title-input" name="operateLimit" value={ossConfig.operateLimit} />
 
     </form>
 

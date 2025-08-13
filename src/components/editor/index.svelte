@@ -64,7 +64,7 @@
   const { getSnapshot } = useMediaQuery('md', (e) => fullPreview = e.matches)
   onMount(() => fullPreview = getSnapshot())
 
-  // 删除确认对话框
+  // Delete confirm popover
   let showDeleteConfirm = $state(false)
   
   function openDeleteConfirm() {
@@ -81,7 +81,7 @@
     const fileKey = await uploadFile('post', files)
     if (fileKey.data) {
       const [source, key] = fileKey.data.split('/')
-      textareaValue = `${textareaValue}\n ![](/api/oss/${source}?key=${key})`
+      textareaValue = `${textareaValue}\n ![](/api/oss/${source}_${key})`
     }
   }
 </script>
@@ -98,13 +98,13 @@
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-white p-6 rounded-lg max-w-md w-full">
         <h3 class="text-xl font-bold mb-4">Confirm</h3>
-        <p class="mb-6">您确定要删除 "{subjectValue}" 吗？此操作无法撤销。</p>
+        <p class="mb-6">Are you sure you want to delete this article? </p>
         <div class="flex justify-end gap-3">
           <button 
             class="px-4 py-2 border border-gray-300 rounded-lg" 
             onclick={closeDeleteConfirm}
           >
-            取消
+            Cancel
           </button>
           <form method="POST" action={actions.form.remove} class="inline">
             <input type="hidden" name="id" value={markdown.id} />
