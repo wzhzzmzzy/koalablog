@@ -149,8 +149,8 @@
       </div>
       <input type="hidden" name="id" value={markdown.id} />
 
-      <div class="flex gap-3">
-        <div class="md:flex-1 {!showPreview && 'flex-1'}">
+      <div class="grid grid-cols-2 auto-cols-[minmax(0,2fr)] gap-3 h-screen">
+        <div>
           {#if !showPreview || fullPreview}
             <input
               id="subject-input"
@@ -170,7 +170,7 @@
               placeholder="Link"
             />
             <textarea 
-              class="p-1 text-sm w-full min-h-90 box-border mt-3" 
+              class="p-1 text-sm w-full h-[calc(100vh-50px)] box-border mt-3" 
               name="content" 
               bind:value={textareaValue}
             ></textarea>
@@ -179,9 +179,9 @@
           {/if}
         </div>
 
-        <div class="md:flex-1 md:shrink-0 md:flex {showPreview && 'flex-1'}">
+        <div class="h-[calc(100vh-50px)] overflow-y-auto">
           {#if showPreview || fullPreview}
-            <article id="preview-md" class="flex-1">
+            <article id="preview-md" class="w-full">
               {@html previewHtml}
             </article>
           {:else}

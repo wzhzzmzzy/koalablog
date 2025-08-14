@@ -1,7 +1,4 @@
-import type { Markdown } from '@/db/types'
 import { actions } from 'astro:actions'
-import to from 'await-to-js'
-import { ofetch } from 'ofetch'
 
 export function supportFSApi(): boolean {
   return typeof window !== 'undefined' && 'showOpenFilePicker' in window
@@ -45,71 +42,28 @@ export async function pickFileWithFileInput(accept: string = 'image/*') {
   })
 }
 
-export async function pickImageFileWithFSApi() {
-  const [err, fileHandle] = await to(((window as any).showOpenFilePicker as showOpenFilePicker)({
+export const IMAGE_EXTENSIONS = {
+  'image/*': ['.png', '.gif', '.jpeg', '.jpg', '.webp', '.heic', '.heif'],
+}
+
+export const MARKDOWN_EXTENSIONS = {
+  'text/plain': ['.txt', '.md', '.markdown', '.mdx', '.mkd', '.mdown', '.mdwn'],
+}
+
+export async function pickFileWithFilePicker(accept: Record<string, string[]> = IMAGE_EXTENSIONS) {
+  const fileHandle = await ((window as any).showOpenFilePicker as showOpenFilePicker)({
     id: 'import',
     types: [{
       description: 'Image',
-      accept: {
-        'image/*': ['.png', '.gif', '.jpeg', '.jpg', '.webp', '.heic', '.heif'],
-      },
+      accept,
     }],
     multiple: false,
-  }))
-
-  if (err) {
-    // eslint-disable-next-line no-console
-    console.log('file picker error', err)
-  }
-
-  const file = await fileHandle![0].getFile()
-  const subject = file.name
-
-  return ofetch(`/api/oss/${subject}`, {
-    method: 'POST',
-    body: file,
-    headers: {
-      'Content-Type': file.type,
-      'Content-Length': String(file.size),
-    },
   })
+  return fileHandle![0].getFile()
 }
 
-export async function pickMDFileWithFSApi() {
-  const [err, fileHandle] = await to(((window as any).showOpenFilePicker as showOpenFilePicker)({
-    id: 'import',
-    types: [{
-      description: 'Text files',
-      accept: {
-        'text/plain': ['.txt', '.md', '.markdown', '.mdx', '.mkd', '.mdown', '.mdwn'],
-      },
-    }],
-    multiple: false,
-  }))
+export async function pickDirectoryWithFilePicker() {
+  const directoryHandler = await (window as any).showDirectoryPicker()
 
-  if (err) {
-    // eslint-disable-next-line no-console
-    console.log('file picker error', err)
-    return
-  }
-
-  const file = await fileHandle![0].getFile()
-  const subject = file.name
-  const content = await file.text()
-
-  const [updateErr, res] = await to(ofetch<{ payload: Markdown }>('/api/db/post', {
-    method: 'POST',
-    body: {
-      subject,
-      content,
-    },
-  }))
-
-  if (updateErr) {
-    // eslint-disable-next-line no-console
-    console.log('Add post failed', updateErr)
-    return
-  }
-
-  return res
+  return directoryHandler
 }

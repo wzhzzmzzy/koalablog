@@ -32,6 +32,10 @@ div.code-block {
   padding: 0 10px;
 }
 
+div.code-block pre {
+  overflow: auto;
+}
+
 .shiki {
   background: inherit !important;
 }

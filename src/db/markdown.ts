@@ -7,7 +7,7 @@ import { markdown } from './schema'
 
 export function linkGenerator(source: PostOrPage, subject: string) {
   let link = kebabCase(subject.replace(/[^a-z0-9\s]/gi, ''))
-  if (source === MarkdownSource.Post) {
+  if (link && source === MarkdownSource.Post) {
     link = `post/${link}`
   }
   return link
