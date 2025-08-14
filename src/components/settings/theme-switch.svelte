@@ -1,7 +1,8 @@
 <script lang="ts">
   import { CatppuccinTheme } from '@/lib/const/config'
-    import { switchTheme } from '@/lib/utils/theme';
-    import { onMount } from 'svelte';
+  import { switchTheme } from '@/lib/utils/theme';
+  import { onMount } from 'svelte';
+
   interface Props {
     light?: CatppuccinTheme
     dark?: CatppuccinTheme
@@ -29,7 +30,7 @@
       darkTheme = theme
     }
 
-    switchTheme(theme)
+    switchTheme(theme, themeType)
   }
 
   let busEl: HTMLDivElement | null = null

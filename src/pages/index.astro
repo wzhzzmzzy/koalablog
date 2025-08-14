@@ -1,14 +1,20 @@
 ---
+import ArticleClient from '@/components/article-view/client.astro'
+import ArticleView from '@/components/article-view/index.astro'
 import { MarkdownSource } from '@/db'
 import { readPreset } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
-import { md } from '@/lib/markdown'
 
 const env = Astro.locals.runtime?.env || {}
 const presetSource = await readPreset(env, MarkdownSource.Home)
-const markup = (await md()).render(presetSource?.content ?? '')
 ---
 
 <Layout>
-  <Fragment set:html={markup} />
+  {
+    !presetSource
+  ? null
+  : (presetSource?.content || '').length < 1000
+  ? <ArticleView article={presetSource} />
+  : <ArticleClient article={presetSource} />
+  }
 </Layout>

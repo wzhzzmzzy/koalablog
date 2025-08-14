@@ -24,7 +24,7 @@ export function rawMd() {
 
 const ShikiMap = new Map<'shiki', MarkdownIt>()
 
-async function getShiki(themeConfig?: ThemeConfig) {
+async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig) {
   const shiki = ShikiMap.get('shiki')
 
   if (shiki)
@@ -33,7 +33,7 @@ async function getShiki(themeConfig?: ThemeConfig) {
   let theme: string | null = null
 
   if (!import.meta.env.SSR) {
-    theme = globalThis.window?.localStorage.getItem('theme')
+    theme = renderTheme || globalThis.window?.localStorage.getItem('theme')
     const pageEl = globalThis.window?.document.querySelector('#page') as HTMLDivElement
     const { lightTheme, darkTheme } = pageEl?.dataset || {}
     if (!theme || ![lightTheme, darkTheme].includes(theme as CatppuccinTheme)) {
@@ -41,7 +41,7 @@ async function getShiki(themeConfig?: ThemeConfig) {
     }
   }
   else {
-    theme = themeConfig?.light || 'latte'
+    theme = renderTheme || themeConfig?.light || 'latte'
   }
 
   const highlighter = await createHighlighterCore({
@@ -80,6 +80,6 @@ async function getShiki(themeConfig?: ThemeConfig) {
   return instance
 }
 
-export function md(themeConfig?: ThemeConfig) {
-  return getShiki(themeConfig)
+export function md(theme?: CatppuccinTheme, themeConfig?: ThemeConfig) {
+  return getShiki(theme, themeConfig)
 }

@@ -27,6 +27,7 @@ function bodyClass(classList: string) {
       id="page"
       data-light-theme={lightTheme}
       data-dark-theme={darkTheme}
+      data-theme="light"
       class="page box-border px-5 w-screen max-w-200 flex-1 font-[Verdana]"
     >
       <script is:inline>
@@ -55,7 +56,7 @@ function handleThemeChange(event: MediaQueryList | MediaQueryListEvent) {
   if (lightTheme === darkTheme)
     return
 
-  switchTheme(event.matches ? darkTheme! : lightTheme!)
+  switchTheme(event.matches ? darkTheme! : lightTheme!, event.matches ? 'dark' : 'light')
 }
 
 const query = window.matchMedia('(prefers-color-scheme: dark)')

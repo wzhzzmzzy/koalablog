@@ -1,5 +1,6 @@
 ---
 import type { Markdown } from '@/db/types'
+import { MarkdownSource } from '@/db'
 import { rawMd } from '@/lib/markdown'
 import { formatDate } from 'date-fns'
 import './index.css'
@@ -10,11 +11,20 @@ interface Props {
 
 const { article } = Astro.props
 const content = article ? rawMd().render(article.content ?? '') : ''
+const source = article?.source
 ---
 
 <article-client data-article={JSON.stringify(article)}>
-  <h1>{ article.subject }</h1>
-  <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
+  {
+    source === MarkdownSource.Post
+  ? (
+  <>
+    <h1>{ article.subject }</h1>
+    <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
+  </>
+  )
+  : null
+  }
   <article id="article" />
   <article id="serverArticle" set:html={content} />
 </article-client>
@@ -23,16 +33,29 @@ const content = article ? rawMd().render(article.content ?? '') : ''
 class ArticleClient extends HTMLElement {
   articleEl: HTMLElement | null = null
   serverArticleEl: HTMLElement | null = null
+  mdModulePromise: Promise<typeof import('@/lib/markdown')>
+
+  constructor() {
+    super()
+    this.mdModulePromise = import('@/lib/markdown')
+  }
 
   async connectedCallback() {
     this.articleEl = this.querySelector('#article')
     this.serverArticleEl = this.querySelector('#serverArticle')
 
     const article = JSON.parse(this.dataset.article || '')
-    const mdModule = await import('@/lib/markdown')
+    const mdModule = await this.mdModulePromise
     const content = article ? (await mdModule.md()).render(article?.content ?? '') : ''
     this.serverArticleEl?.remove()
     this.articleEl?.insertAdjacentHTML('beforeend', content)
+
+    const query = window.matchMedia('(prefers-color-scheme: dark)')
+    query.addEventListener('change', this.rerenderMd.bind(this))
+  }
+
+  async rerenderMd() {
+    window.location.reload()
   }
 }
 
