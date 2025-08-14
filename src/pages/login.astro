@@ -12,7 +12,7 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
           type="password"
           id="admin-key"
           name="adminKey"
-          class="outline-none border-none text-sm block h-8 w-full bg-[--koala-code-bg] color-[--koala-code-text]"
+          class="!w-full box-border h-12"
           placeholder="Input admin key"
           required
         />
@@ -21,7 +21,7 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
       <button
         id="login-btn"
         type="submit"
-        class="!w-full font-medium rounded-lg text-sm text-center"
+        class="!w-full font-medium text-sm text-center"
       >
         Login, then redirect to {redirectTo}
       </button>
@@ -32,8 +32,6 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
 
 <script>
 import { actions } from 'astro:actions'
-import to from 'await-to-js'
-import { FetchError, ofetch } from 'ofetch'
 
 class LoginForm extends HTMLElement {
   loginBtn: HTMLElement | null = null

@@ -1,0 +1,20 @@
+---
+import type { Markdown } from '@/db/types'
+import ArticleClient from '@/components/article-view/client.astro'
+import ArticleView from '@/components/article-view/index.astro'
+import { MarkdownSource } from '@/db'
+import { read } from '@/db/markdown'
+import Layout from '@/layouts/home.astro'
+
+const { slug } = Astro.params
+
+const maybePage: Markdown | undefined = await read(Astro.locals.runtime?.env, MarkdownSource.Page, slug || '')
+
+if (!maybePage) {
+  return Astro.redirect('/404')
+}
+---
+
+<Layout title={maybePage!.subject}>
+  { (maybePage.content || '').length < 1000 ? <ArticleView article={maybePage} /> : <ArticleClient article={maybePage} />}
+</Layout>

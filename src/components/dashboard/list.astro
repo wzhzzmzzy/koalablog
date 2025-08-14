@@ -6,9 +6,10 @@ import { format, isSameYear } from 'date-fns'
 interface Props {
   source: PostOrPage
   editable?: boolean
+  dashboard?: boolean
 }
 
-const { source, editable = false } = Astro.props
+const { source, editable = false, dashboard = false } = Astro.props
 
 const env = Astro.locals.runtime?.env || {}
 
@@ -26,7 +27,7 @@ const formatUpdateAt = (updateAt: Date) => format(updateAt, isSameYear(updateAt,
     list.map(item => (
       <li class="flex gap-3 mb-2">
         { item.updatedAt ? <span><i>{ formatUpdateAt(item.updatedAt) }</i></span> : null }
-        <a href={item.link}><span>{ item.subject } </span></a>
+      <a href={`/${dashboard ? 'dashboard/' : ''}${item.link}`}><span>{ item.subject } </span></a>
       </li>
     ))
   }

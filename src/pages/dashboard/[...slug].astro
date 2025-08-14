@@ -1,26 +1,36 @@
 ---
 import type { PostOrPage, PresetSource } from '@/db'
+import type { Markdown } from '@/db/types'
 import List from '@/components/dashboard/list.astro'
 import Preset from '@/components/dashboard/preset.astro'
 import { isPresetSource, MarkdownSource, MarkdownSourceMap, MarkdownSubjectMap } from '@/db'
+import { read } from '@/db/markdown'
 import DashboardLayout from '@/layouts/dashboard.astro'
 
 const { slug } = Astro.params
 
 type sourceKeys = keyof typeof MarkdownSourceMap
 
-const [sourcePath, ..._paths] = (slug ?? '').split('/')
+const [sourcePath, ...paths] = (slug ?? '').split('/')
 
 const source: MarkdownSource = MarkdownSourceMap[(sourcePath || 'home') as sourceKeys] ?? MarkdownSource.Unknown
 const subject = MarkdownSubjectMap[source]
 
+let maybePage: Markdown | undefined
+
 if (source === MarkdownSource.Unknown) {
-  return Astro.redirect('/404')
+  maybePage = await read(Astro.locals.runtime?.env, MarkdownSource.Page, [sourcePath].concat(paths).join('/'))
+  if (!maybePage) {
+    return Astro.redirect('/404')
+  }
+  else {
+    return Astro.redirect(`/dashboard/page/${maybePage.link}`)
+  }
 }
 ---
 
 <DashboardLayout title={`${subject} - Dashboard`}>
   {isPresetSource(source)
     ? <Preset subject={subject} source={source as PresetSource} />
-    : <List source={source as PostOrPage} editable />}
+    : <List source={source as PostOrPage} editable dashboard />}
 </DashboardLayout>

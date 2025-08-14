@@ -1,5 +1,6 @@
 ---
 import type { Markdown } from '@/db/types'
+import { MarkdownSource } from '@/db'
 import { md } from '@/lib/markdown'
 import { formatDate } from 'date-fns'
 import './index.css'
@@ -12,8 +13,17 @@ const { article } = Astro.props
 const pageConfig = Astro.locals.config.pageConfig
 
 const content = article ? (await md(pageConfig.theme)).render(article.content ?? '') : ''
+const source = article?.source
 ---
 
-<h1>{ article.subject }</h1>
-<p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
+{
+  source === MarkdownSource.Post
+? (
+<>
+  <h1>{ article.subject }</h1>
+  <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
+</>
+)
+: null
+}
 <article set:html={content} />
