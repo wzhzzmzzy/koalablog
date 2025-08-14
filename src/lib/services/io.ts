@@ -2,7 +2,7 @@ import type { AllCollection } from '@/actions/db/markdown'
 import type { Markdown } from '@/db/types'
 import { actions } from 'astro:actions'
 import { format } from 'date-fns'
-import { pickMDFileWithFSApi, supportFSApi } from './file-reader'
+import { pickDirectoryWithFilePicker, supportFSApi } from './file-reader'
 
 function createBlob(blobData: Uint8Array<ArrayBufferLike>, chunkSize = 1024 * 1024) {
   const chunks = []
@@ -123,8 +123,7 @@ meta:
 
 export function importFromFilePicker() {
   if (supportFSApi()) {
-    return pickMDFileWithFSApi()
-    // return pickMDFileWithFSApi()
+    return pickDirectoryWithFilePicker()
   }
   else {
     return 'unsupported browser'
