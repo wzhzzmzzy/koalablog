@@ -105,12 +105,12 @@
 
   {#if showDeleteConfirm}
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div class="bg-white p-6 rounded-lg max-w-md w-full">
+      <div class="bg-[--koala-input-bg] p-6 rounded-lg max-w-md w-full">
         <h3 class="text-xl font-bold mb-4">Confirm</h3>
         <p class="mb-6">Are you sure you want to delete this article? </p>
         <div class="flex justify-end gap-3">
           <button 
-            class="px-4 py-2 border border-gray-300 rounded-lg" 
+            class="!text-[--koala-editor-text]"
             onclick={closeDeleteConfirm}
           >
             Cancel
@@ -121,9 +121,9 @@
             <input type="hidden" name="_action" value="delete" />
             <button 
               type="submit" 
-              class="px-4 py-2 bg-red-600 text-white rounded-lg"
+              class="!text-[--koala-editor-text] !text-[--koala-error-text]"
             >
-              删除
+              Delete
             </button>
           </form>
         </div>
@@ -140,7 +140,7 @@
         {#if !isPreset && markdown.id > 0}
           <button 
             type="button" 
-            class="bg-red-600 text-white px-3 py-1 rounded-lg" 
+            class="!text-[--koala-error-text]" 
             onclick={openDeleteConfirm}
           >
             Delete
@@ -152,25 +152,26 @@
       <div class="grid grid-cols-2 auto-cols-[minmax(0,2fr)] gap-3 h-screen">
         <div>
           {#if !showPreview || fullPreview}
-            <input
-              id="subject-input"
-              type={isPreset ? 'hidden' : 'text'}
-              name="subject"
-              class="mt-3 w-50"
-              bind:value={subjectValue}
-              placeholder="Title"
-            />
-            <input
-              id="link-input"
-              type={isPreset ? 'hidden' : 'text'}
-              name="link"
-              class="mt-3 w-50"
-              bind:value={linkValue}
-              oninput={onInputLink}
-              placeholder="Link"
-            />
+            <div class="flex my-3">
+              <input
+                id="subject-input"
+                type={isPreset ? 'hidden' : 'text'}
+                name="subject"
+                class="border-r-2 border-r-solid border-r-[--koala-bg]"
+                bind:value={subjectValue}
+                placeholder="Title"
+              />
+              <input
+                id="link-input"
+                type={isPreset ? 'hidden' : 'text'}
+                name="link"
+                bind:value={linkValue}
+                oninput={onInputLink}
+                placeholder="Link"
+              />
+            </div>
             <textarea 
-              class="p-1 text-sm w-full h-[calc(100vh-50px)] box-border mt-3" 
+              class="p-1 text-sm w-full h-[calc(100vh-50px)] box-border" 
               name="content" 
               bind:value={textareaValue}
             ></textarea>
