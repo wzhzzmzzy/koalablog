@@ -2,7 +2,7 @@ import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard, guards, ossGuard } from '../utils/auth'
 
-const sourceEnum = z.enum(['post', 'page', 'preset'])
+const sourceEnum = z.enum(['post', 'page', 'preset', 'oss'])
 
 export const upload = defineAction({
   accept: 'form',

@@ -1,9 +1,20 @@
 ---
+import Copy from '@/components/io/copy.svelte'
+import OSSDelete from '@/components/io/oss-delete.svelte'
+import OSSUpload from '@/components/io/oss-upload.svelte'
 import { incrementToday } from '@/db/ossAccess'
 import DashboardLayout from '@/layouts/dashboard.astro'
 
 let errorMessage = ''
-const links: string[] = []
+
+interface ObjectRecord {
+  key: string
+  link: string
+  size: string
+  checksums: string
+}
+
+const records: ObjectRecord[] = []
 const operateLimit = (Astro.locals.config.oss?.operateLimit || 0) / 50
 const accessToday = await incrementToday(Astro.locals.runtime?.env, operateLimit, 'operate').catch((e: Error) => {
   errorMessage = e?.message
@@ -19,22 +30,40 @@ else {
   ossList?.objects.forEach((obj) => {
     const [source, ...fileName] = obj.key.split('/')
     const link = `/api/oss/${source}_${fileName.join('/')}`
-    links.push(link)
+    let size = `${obj.size}B`
+    if (obj.size > 1000) {
+      size = `${(obj.size / 1000).toFixed(2)}KB`
+    }
+    if (obj.size > 1000 * 1000) {
+      size = `${(obj.size / 1000000).toFixed(2)}MB`
+    }
+    records.push({
+      key: obj.key,
+      link,
+      size,
+      checksums: new TextDecoder('utf-8').decode(obj.checksums.md5),
+    })
   })
 }
 ---
 
 <DashboardLayout>
   { errorMessage ? <p class="error">{ errorMessage }</p> : null }
-  <ul>
+  <div class="flex flex-col gap-2">
+    <OSSUpload source="oss" client:load />
     {
-      links.map((link) => {
+      records.map((record) => {
         return (
-          <li>
-            <a href={link} target="_blank">{link}</a>
-          </li>
+          <div class="grid grid-cols-[1fr_100px_150px] items-center">
+            <a href={record.link} target="_blank">{record.key}</a>
+            <span class="text-sm">{record.size}</span>
+            <div>
+              <OSSDelete client:load key={record.key} />
+              <Copy client:load text="Link" content={record.link} />
+            </div>
+          </div>
         )
       })
     }
-  </ul>
+  </div>
 </DashboardLayout>

@@ -10,7 +10,7 @@ interface ShowOpenFilePickerOptions {
 
 type showOpenFilePicker = (opt: ShowOpenFilePickerOptions) => Promise<Array<FileSystemFileHandle>>
 
-export function uploadFile(source: 'post' | 'page' | 'preset', file: File | FileList) {
+export function uploadFile(source: 'post' | 'page' | 'preset' | 'oss', file: File | FileList) {
   const formData = new FormData()
   if (file instanceof File) {
     formData.append('file', file)
