@@ -80,15 +80,18 @@ export async function putGlobalConfig(env: Env, patch: Partial<GlobalConfig>) {
   // #endif
 }
 
-export async function updateGlobalConfig<S extends keyof GlobalConfig>(env: Env, scope: S, patch: Partial<GlobalConfig[S]>) {
+export async function updateGlobalConfig<S extends keyof GlobalConfig>(env: Env, payload: Record<S, Partial<GlobalConfig[S]>>) {
   const currentConfig = await globalConfig(env)
-  const updatedScopeConfig = { ...currentConfig[scope], ...patch }
-  const payload = {
-    ...currentConfig,
-    [scope]: updatedScopeConfig,
-  }
+  const updatedConfig = { ...currentConfig }
+  Object.keys(payload).forEach((scope) => {
+    const patch = payload[scope as S]
+
+    const updatedScopeConfig = { ...currentConfig[scope as S], ...patch }
+    updatedConfig[scope as S] = updatedScopeConfig
+  })
+
   if (env.CF_PAGES) {
-    await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(payload))
+    await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedConfig))
   }
   // #if !CF_PAGES
   else {

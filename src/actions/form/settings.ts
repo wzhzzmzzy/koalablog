@@ -22,15 +22,17 @@ export const settings = defineAction({
 
     const env = ctx.locals.runtime?.env || {}
     return Promise.all([
-      updateGlobalConfig(env, 'oss', {
-        readLimit: input.readLimit,
-        operateLimit: input.operateLimit,
-      }),
-      updateGlobalConfig(env, 'pageConfig', {
-        title: input.title,
-        theme: {
-          light: input.lightTheme,
-          dark: input.darkTheme,
+      updateGlobalConfig(env, {
+        oss: {
+          readLimit: input.readLimit,
+          operateLimit: input.operateLimit,
+        },
+        pageConfig: {
+          title: input.title,
+          theme: {
+            light: input.lightTheme,
+            dark: input.darkTheme,
+          },
         },
       }),
     ])

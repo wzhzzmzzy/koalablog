@@ -1,0 +1,23 @@
+---
+import DashboardLayout from '@/layouts/dashboard.astro'
+import { actions } from 'astro:actions'
+
+const { data: ossList, error } = await Astro.callAction(actions.oss.list, {})
+---
+
+<DashboardLayout>
+  { error ? <p class="error">{ error?.message }</p> : null }
+  <ul>
+    {
+      ossList?.objects.map((obj) => {
+        const [source, ...fileName] = obj.key.split('/')
+        const link = `/api/oss/${source}_${fileName.join('/')}`
+        return (
+          <li>
+            <a href={link} target="_blank">{obj.key}</a>
+          </li>
+        )
+      })
+    }
+  </ul>
+</DashboardLayout>
