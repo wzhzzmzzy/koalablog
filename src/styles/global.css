@@ -57,3 +57,7 @@ input {
   --at-apply: p-2;
   font-size: 16px;
 }
+
+img {
+  max-width: 100%
+}

@@ -40,12 +40,10 @@ if (article instanceof Response) {
 }
 ---
 <DashboardLayout title={`[Editor] ${article.subject}`}>
-  <main>
-    <h2>{ mode === 'create' ? 'New Post' : 'Edit' }</h2>
+  <h2>{ mode === 'create' ? 'New Post' : 'Edit' }</h2>
 
-    { saved && <p class="success">Saved Success</p> }
-    { actionError && <p class="error">{actionError.message}</p> }
+  { saved && <p class="success">Saved Success</p> }
+  { actionError && <p class="error">{actionError.message}</p> }
 
-    <Editor client:load source={source} markdown={article} />
-  </main>
+  <Editor client:load source={source} markdown={article} />
 </DashboardLayout>

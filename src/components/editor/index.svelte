@@ -59,11 +59,6 @@
     userDefinedLink = true
   }
 
-  let fullPreview = $state(true)
-  let showPreview = $state(false)
-  const { getSnapshot } = useMediaQuery('md', (e) => fullPreview = e.matches)
-  onMount(() => fullPreview = getSnapshot())
-
   // Delete confirm popover
   let showDeleteConfirm = $state(false)
   
@@ -89,16 +84,15 @@
       uploadError = e.message
     }
   }
+
+  let showPreview = $state(false)
+  function preview(e: Event) {
+    e.preventDefault()
+    showPreview = !showPreview
+  }
 </script>
 
-{#snippet collapse(name: string, show: boolean)}
-  <button class="bg-white outline-none border-none [writing-mode:vertical-lr] flex items-center cursor-pointer" onclick={() => showPreview = show}>
-    <div class="i-tabler:arrow-badge-{show ? 'left' : 'right'}-filled text-xl"></div>
-    <div><b>{name}</b></div>
-  </button>
-{/snippet}
-
-<div class="w-full">
+<div class="w-full flex-1 flex flex-col">
   {#if uploadError}
     <p class="error">{uploadError}</p>
   {/if}
@@ -131,65 +125,56 @@
     </div>
   {/if}
 
-  <form method="POST" action={actions.form.save}>
+  <form method="POST" action={actions.form.save} class="flex-1 flex flex-col">
     <input type="hidden" name="source" value={source} />
-    <div class="flex flex-col">
-      <div class="flex items-center gap-3">
-        <button id="save" class="w-12">Save</button>
-        <button id="upload" class="w-18" onclick={upload}>Upload</button>
-        {#if !isPreset && markdown.id > 0}
-          <button 
-            type="button" 
-            class="!text-[--koala-error-text]" 
-            onclick={openDeleteConfirm}
-          >
-            Delete
-          </button>
-        {/if}
-      </div>
-      <input type="hidden" name="id" value={markdown.id} />
+    <input type="hidden" name="id" value={markdown.id} />
 
-      <div class="grid grid-cols-2 auto-cols-[minmax(0,2fr)] gap-3 h-screen">
-        <div>
-          {#if !showPreview || fullPreview}
-            <div class="flex my-3">
-              <input
-                id="subject-input"
-                type={isPreset ? 'hidden' : 'text'}
-                name="subject"
-                class="border-r-2 border-r-solid border-r-[--koala-bg]"
-                bind:value={subjectValue}
-                placeholder="Title"
-              />
-              <input
-                id="link-input"
-                type={isPreset ? 'hidden' : 'text'}
-                name="link"
-                bind:value={linkValue}
-                oninput={onInputLink}
-                placeholder="Link"
-              />
-            </div>
-            <textarea 
-              class="p-1 text-sm w-full h-[calc(100vh-50px)] box-border" 
-              name="content" 
-              bind:value={textareaValue}
-            ></textarea>
-          {:else}
-            {@render collapse('Editor', false)}
-          {/if}
-        </div>
-
-        <div class="h-[calc(100vh-50px)] overflow-y-auto">
-          {#if showPreview || fullPreview}
-            <article id="preview-md" class="w-full">
-              {@html previewHtml}
-            </article>
-          {:else}
-            {@render collapse('Preview', true)}
-          {/if}
-        </div>
-      </div>
+    <div class="flex items-center gap-3">
+      <button id="save" class="w-12">Save</button>
+      <button id="upload" class="w-18" onclick={upload}>Upload</button>
+      <button id="preview" class="w-20" onclick={preview}>{showPreview ? 'Edit' : 'Preview'}</button>
+      {#if !isPreset && markdown.id > 0}
+        <button 
+          type="button" 
+          class="!text-[--koala-error-text]" 
+          onclick={openDeleteConfirm}
+        >
+          Delete
+        </button>
+      {/if}
     </div>
+
+    {#if !showPreview}
+      <div class="flex my-3">
+        <input
+          id="subject-input"
+          type={isPreset ? 'hidden' : 'text'}
+          name="subject"
+          class="border-r-2 border-r-solid border-r-[--koala-bg]"
+          bind:value={subjectValue}
+          placeholder="Title"
+        />
+        <input
+          id="link-input"
+          type={isPreset ? 'hidden' : 'text'}
+          name="link"
+          bind:value={linkValue}
+          oninput={onInputLink}
+          placeholder="Link"
+        />
+      </div>
+      <textarea 
+        class="p-1 text-sm w-full flex-1 box-border" 
+        name="content" 
+        bind:value={textareaValue}
+      ></textarea>
+    {:else}
+      <div class="overflow-y-auto">
+        <article id="preview-md" class="w-full">
+          {@html previewHtml}
+        </article>
+      </div>
+    {/if}
+
   </form>
 </div>
