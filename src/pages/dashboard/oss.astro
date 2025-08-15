@@ -1,20 +1,37 @@
 ---
+import { incrementToday } from '@/db/ossAccess'
 import DashboardLayout from '@/layouts/dashboard.astro'
-import { actions } from 'astro:actions'
 
-const { data: ossList, error } = await Astro.callAction(actions.oss.list, {})
+let errorMessage = ''
+const links: string[] = []
+const operateLimit = (Astro.locals.config.oss?.operateLimit || 0) / 50
+const accessToday = await incrementToday(Astro.locals.runtime?.env, operateLimit, 'operate').catch((e: Error) => {
+  errorMessage = e?.message
+})
+
+if (!accessToday?.[0] || (accessToday[0].operateTimes || 0) > operateLimit) {
+  errorMessage = `Operate reached limit today, times:${(accessToday?.[0]?.operateTimes || 0)}, limit:${operateLimit}`
+}
+else {
+  const ossList = await Astro.locals.runtime.env.OSS.list().catch((e) => {
+    errorMessage = e?.message
+  })
+  ossList?.objects.forEach((obj) => {
+    const [source, ...fileName] = obj.key.split('/')
+    const link = `/api/oss/${source}_${fileName.join('/')}`
+    links.push(link)
+  })
+}
 ---
 
 <DashboardLayout>
-  { error ? <p class="error">{ error?.message }</p> : null }
+  { errorMessage ? <p class="error">{ errorMessage }</p> : null }
   <ul>
     {
-      ossList?.objects.map((obj) => {
-        const [source, ...fileName] = obj.key.split('/')
-        const link = `/api/oss/${source}_${fileName.join('/')}`
+      links.map((link) => {
         return (
           <li>
-            <a href={link} target="_blank">{obj.key}</a>
+            <a href={link} target="_blank">{link}</a>
           </li>
         )
       })

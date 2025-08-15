@@ -2,6 +2,7 @@
 import ExportZip from '@/components/io/export-zip.svelte'
 import ImportFile from '@/components/io/import-file.svelte'
 import ThemeSwitch from '@/components/settings/theme-switch.svelte'
+import { readToday } from '@/db/ossAccess'
 import DashboardLayout from '@/layouts/dashboard.astro'
 import { globalConfig } from '@/lib/kv'
 import { actions } from 'astro:actions'
@@ -22,6 +23,7 @@ const darkTheme = pageConfig.theme?.dark ?? 'mocha'
 
 const ossConfig = Astro.locals.config.oss
 
+const ossAccess = await readToday(Astro.locals.runtime?.env)
 ---
 <DashboardLayout>
   <h1>Settings</h1>
@@ -52,12 +54,12 @@ const ossConfig = Astro.locals.config.oss
       />
 
       <label>
-        Read Limit:
+        Monthly Read Limit: (today={ossAccess?.readTimes})
       </label>
       <input class="w-60 sm:w-80" id="title-input" name="readLimit" value={ossConfig.readLimit} />
 
       <label>
-        Operate Limit:
+        Monthly Operate Limit: (today={ossAccess?.operateTimes})
       </label>
       <input class="w-60 sm:w-80" id="title-input" name="operateLimit" value={ossConfig.operateLimit} />
 
