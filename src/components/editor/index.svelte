@@ -2,7 +2,6 @@
   import type { Markdown } from '@/db/types'
   import { isPresetSource, MarkdownSource, type PostOrPage } from '@/db'
   import { linkGenerator } from '@/db/markdown'
-  import { useMediaQuery } from '@/lib/utils/media-query';
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
   import type MarkdownIt from 'markdown-it';
@@ -144,37 +143,32 @@
       {/if}
     </div>
 
-    {#if !showPreview}
-      <div class="flex my-3">
-        <input
-          id="subject-input"
-          type={isPreset ? 'hidden' : 'text'}
-          name="subject"
-          class="border-r-2 border-r-solid border-r-[--koala-bg]"
-          bind:value={subjectValue}
-          placeholder="Title"
-        />
-        <input
-          id="link-input"
-          type={isPreset ? 'hidden' : 'text'}
-          name="link"
-          bind:value={linkValue}
-          oninput={onInputLink}
-          placeholder="Link"
-        />
-      </div>
-      <textarea 
-        class="p-1 text-sm w-full flex-1 box-border" 
-        name="content" 
-        bind:value={textareaValue}
-      ></textarea>
-    {:else}
-      <div class="overflow-y-auto">
-        <article id="preview-md" class="w-full">
-          {@html previewHtml}
-        </article>
-      </div>
-    {/if}
+    <div class="flex my-3 {showPreview ? 'hidden' : ''}">
+      <input
+        id="subject-input"
+        type={isPreset ? 'hidden' : 'text'}
+        name="subject"
+        class="border-r-2 border-r-solid border-r-[--koala-bg]"
+        bind:value={subjectValue}
+        placeholder="Title"
+      />
+      <input
+        id="link-input"
+        type={isPreset ? 'hidden' : 'text'}
+        name="link"
+        bind:value={linkValue}
+        oninput={onInputLink}
+        placeholder="Link"
+      />
+    </div>
+    <textarea 
+      class="p-1 text-sm w-full flex-1 box-border {showPreview ? 'hidden' : ''}" 
+      name="content" 
+      bind:value={textareaValue}
+    ></textarea>
+    <article id="preview-md" class="w-full {showPreview ? '' : 'hidden'}">
+      {@html previewHtml}
+    </article>
 
   </form>
 </div>
