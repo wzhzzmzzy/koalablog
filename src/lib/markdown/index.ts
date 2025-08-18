@@ -1,14 +1,42 @@
+import type { Token } from 'markdown-it/index.js'
 import type { CatppuccinTheme } from '../const/config'
 import type { GlobalConfig } from '../kv'
 import { fromHighlighter } from '@shikijs/markdown-it/core'
 import MarkdownIt from 'markdown-it'
+// eslint-disable-next-line ts/ban-ts-comment
+// @ts-ignore
+import MarkdownItContainer from 'markdown-it-container'
 import { createHighlighterCore, type HighlighterGeneric } from 'shiki/core'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
 
 type ThemeConfig = GlobalConfig['pageConfig']['theme']
 
+// ::: expandable summary
+// some details
+// :::
+function expandable(mdInstance: MarkdownIt) {
+  mdInstance.use(MarkdownItContainer, 'expandable', {
+    validate(params: string) {
+      return params.trim().match(/^expandable|closable\s(.*)$/)
+    },
+    render(tokens: Token[], idx: number) {
+      const m = tokens[idx].info.trim().match(/^expandable|closable\s(.*)$/)
+      if (tokens[idx].nesting === 1) {
+        // opening tag
+        return `<details><summary>${mdInstance.utils.escapeHtml(m?.[1] || '')}</summary>\n`
+      }
+      else {
+        // closing tag
+        return '</details>\n'
+      }
+    },
+  })
+}
+
 export function rawMd() {
   const md = MarkdownIt()
+
+  expandable(md)
 
   const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, env, self) {
     return self.renderToken(tokens, idx, options)
@@ -63,6 +91,8 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
     engine: createJavaScriptRegexEngine(),
   })
   const instance = MarkdownIt()
+
+  expandable(instance)
 
   instance.use(fromHighlighter(highlighter as HighlighterGeneric<any, any>, {
     theme: `catppuccin-${theme}`,
