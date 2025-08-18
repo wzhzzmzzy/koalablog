@@ -17,10 +17,10 @@ type ThemeConfig = GlobalConfig['pageConfig']['theme']
 function expandable(mdInstance: MarkdownIt) {
   mdInstance.use(MarkdownItContainer, 'expandable', {
     validate(params: string) {
-      return params.trim().match(/^expandable|closable\s(.*)$/)
+      return params.trim().match(/^expandable\s(.*)$/)
     },
     render(tokens: Token[], idx: number) {
-      const m = tokens[idx].info.trim().match(/^expandable|closable\s(.*)$/)
+      const m = tokens[idx].info.trim().match(/^expandable\s(.*)$/)
       if (tokens[idx].nesting === 1) {
         // opening tag
         return `<details><summary>${mdInstance.utils.escapeHtml(m?.[1] || '')}</summary>\n`
