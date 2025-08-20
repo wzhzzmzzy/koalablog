@@ -31,15 +31,11 @@ const source = article?.source
 </article-view>
 
 <script>
-import { defineCodeBlockComponent } from './code-block'
-
 class ArticleView extends HTMLElement {
   articleEl: HTMLElement | null = null
-  mdModulePromise: Promise<typeof import('@/lib/markdown')>
 
   constructor() {
     super()
-    this.mdModulePromise = import('@/lib/markdown')
   }
 
   async connectedCallback() {
@@ -55,5 +51,4 @@ class ArticleView extends HTMLElement {
 }
 
 customElements.define('article-view', ArticleView)
-defineCodeBlockComponent()
 </script>
