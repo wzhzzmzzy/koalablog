@@ -16,7 +16,7 @@ const content = article ? (await md(undefined, pageConfig.theme)).render(article
 const source = article?.source
 ---
 
-<article-view>
+<article-view data-article={JSON.stringify(article)}>
   {
     source === MarkdownSource.Post
   ? (
@@ -31,6 +31,8 @@ const source = article?.source
 </article-view>
 
 <script>
+import { defineCodeBlockComponent } from './code-block'
+
 class ArticleView extends HTMLElement {
   articleEl: HTMLElement | null = null
   mdModulePromise: Promise<typeof import('@/lib/markdown')>
@@ -47,10 +49,11 @@ class ArticleView extends HTMLElement {
     query.addEventListener('change', this.rerenderMd.bind(this))
   }
 
-  async rerenderMd() {
+  rerenderMd() {
     window.location.reload()
   }
 }
 
 customElements.define('article-view', ArticleView)
+defineCodeBlockComponent()
 </script>

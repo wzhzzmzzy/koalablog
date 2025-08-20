@@ -1,6 +1,7 @@
 import type { Token } from 'markdown-it/index.js'
 import type { CatppuccinTheme } from '../const/config'
 import type { GlobalConfig } from '../kv'
+import { defineCodeBlockComponent } from '@/components/article-view/code-block'
 import { fromHighlighter } from '@shikijs/markdown-it/core'
 import MarkdownIt from 'markdown-it'
 // eslint-disable-next-line ts/ban-ts-comment
@@ -67,6 +68,8 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
     if (!theme || ![lightTheme, darkTheme].includes(theme as CatppuccinTheme)) {
       theme = lightTheme || 'latte'
     }
+
+    defineCodeBlockComponent()
   }
   else {
     theme = renderTheme || themeConfig?.light || 'latte'
@@ -98,8 +101,8 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
     theme: `catppuccin-${theme}`,
     transformers: [
       {
-        postprocess(html, _options) {
-          return `<div class="code-block">${html}</div>`
+        postprocess(html, { lang }) {
+          return `<code-block lang="${lang}">${html}</code-block>`
         },
       },
     ],
