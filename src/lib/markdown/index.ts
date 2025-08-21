@@ -43,8 +43,9 @@ export function rawMd() {
   }
 
   md.renderer.rules.fence = function (tokens, idx, options, env, self) {
+    const lang = tokens[idx].info
     const rawCodeHtml = defaultFence(tokens, idx, options, env, self)
-    return `<div class="code-block">\n${rawCodeHtml}</div>\n`
+    return `<div class="code-block"><span class="code-lang">${(lang || '').toUpperCase()}</span><div class="code-content">${rawCodeHtml}</div></div>\n`
   }
 
   return md
@@ -74,11 +75,11 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
 
   const highlighter = await createHighlighterCore({
     themes: [
-      import('@shikijs/themes/catppuccin-latte'),
-      import('@shikijs/themes/catppuccin-frappe'),
-      import('@shikijs/themes/catppuccin-macchiato'),
-      import('@shikijs/themes/catppuccin-mocha'),
-    ],
+      theme === 'latte' ? import('@shikijs/themes/catppuccin-latte') : null,
+      theme === 'frappe' ? import('@shikijs/themes/catppuccin-frappe') : null,
+      theme === 'macchiato' ? import('@shikijs/themes/catppuccin-macchiato') : null,
+      theme === 'mocha' ? import('@shikijs/themes/catppuccin-mocha') : null,
+    ].filter(i => !!i),
     langs: [
       import('@shikijs/langs/jsx'),
       import('@shikijs/langs/typescript'),

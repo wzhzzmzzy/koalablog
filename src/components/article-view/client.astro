@@ -51,7 +51,8 @@ class ArticleClient extends HTMLElement {
     this.articleEl?.insertAdjacentHTML('beforeend', content)
 
     const query = window.matchMedia('(prefers-color-scheme: dark)')
-    query.addEventListener('change', this.rerenderMd.bind(this))
+    query.addEventListener('change', this.rerenderMd.bind(this));
+    (window as any).refreshCopyListener()
   }
 
   async rerenderMd() {

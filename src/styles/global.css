@@ -38,6 +38,10 @@ div.code-block pre {
 }
 
 div.code-block span.code-lang {
+  font-family: sans;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.5;
   position: absolute;
   right: 10px;
   font-style: italic;

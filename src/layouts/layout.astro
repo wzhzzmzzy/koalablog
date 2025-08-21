@@ -65,11 +65,24 @@ query.addEventListener('change', handleThemeChange)
 </script>
 
 <script>
-document.querySelectorAll('span.code-lang').forEach((item) => {
-  item.addEventListener('click', () => {
+(window as any).refreshCopyListener = () => {
+  document.querySelectorAll('span.code-lang').forEach((item) => {
+    item.addEventListener('click', (window as any).copyCode.bind(window, item));
+    (item as HTMLSpanElement).title = 'Copy code'
+  })
+}
+(window as any).copyCode = (item: HTMLSpanElement) => {
+  const lang = item.textContent
+  const supportClipboard = navigator && 'clipboard' in navigator
+  if (supportClipboard) {
     navigator.clipboard.writeText(
       item.nextSibling?.textContent || '',
-    )
-  })
-})
+    ).then(() => {
+      item.textContent = 'Copied'
+      setTimeout(() => {
+        item.textContent = lang
+      }, 2000)
+    })
+  }
+}
 </script>
