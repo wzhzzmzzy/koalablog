@@ -19,7 +19,7 @@ const markup = (await md()).render(presetSource?.content ?? '')
 ---
 <Layout>
   <Fragment slot="meta">
-    <Head title={metaTitle} />
+    <Head title={metaTitle || title} />
     <slot name="meta" />
   </Fragment>
   <header>
