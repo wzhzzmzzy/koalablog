@@ -20,6 +20,9 @@ export default defineConfig({
       emitFile: true,
       filename: 'stats.html',
     })],
+    build: {
+      assetsInlineLimit: 10240,
+    },
   },
   integrations: [UnoCss(), svelte()],
 })
