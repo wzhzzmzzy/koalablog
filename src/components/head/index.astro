@@ -1,9 +1,35 @@
 ---
 interface Props {
   title?: string
+  desc?: string
+  keywords?: string
+  image?: string
 }
 
-const { title = 'Koalablog' } = Astro.props
+const { title = 'Koalablog', desc, keywords, image } = Astro.props
+const siteTitle = Astro.locals.config.pageConfig.title || 'Koalablog'
+const siteAuthor = Astro.locals.config.pageConfig.author
+const url = Astro.request.url
 
 ---
 <title>{title}</title>
+{ desc ? <meta name="description" content={desc} /> : null }
+{ keywords ? <meta name="keywords" content={keywords} /> : null }
+{ siteAuthor ? <meta name="author" content={siteAuthor} /> : null }
+
+<link rel="canonical" href={url} />
+
+<meta property="og:title" content={title} />
+<meta property="og:url" content={url} />
+<meta property="og:site_name" content={siteTitle} />
+<meta property="og:locale" content="zh_CN" />
+<meta property="og:type" content="website" />
+{ desc ? <meta property="og:description" content={desc} /> : null }
+{ image ? <meta property="og:image" content={image} /> : null }
+
+<meta name="twitter:title" content={title} />
+<meta name="twitter:card" content={image ? 'summary_large_card' : 'summary'} />
+{ desc ? <meta property="twitter:description" content={desc} /> : null }
+{ image ? <meta property="twitter:image" content={image} /> : null }
+{ image ? <meta property="twitter:card" content={image} /> : null }
+

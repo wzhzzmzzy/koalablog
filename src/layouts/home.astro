@@ -18,7 +18,10 @@ const presetSource = await readPreset(env, MarkdownSource.Nav)
 const markup = (await md()).render(presetSource?.content ?? '')
 ---
 <Layout>
-  <Head title={metaTitle} slot="meta" />
+  <Fragment slot="meta">
+    <Head title={metaTitle} />
+    <slot name="meta" />
+  </Fragment>
   <header>
     <h1>{title}</h1>
     <nav>

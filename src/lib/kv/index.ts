@@ -7,6 +7,7 @@ import { storage } from './local'
 export interface GlobalConfig {
   pageConfig: {
     title?: string
+    author?: string
     theme?: {
       light: CatppuccinTheme
       dark: CatppuccinTheme

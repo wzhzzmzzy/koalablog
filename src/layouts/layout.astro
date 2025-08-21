@@ -1,11 +1,20 @@
 ---
+import type { CatppuccinTheme } from '@/lib/const/config'
 import '@/styles/global.css'
 import '@/styles/catppuccin.scss'
 
 const pageConfig = Astro.locals.config.pageConfig
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
+const ThemeBaseColor: Record<CatppuccinTheme, string> = {
+  latte: '#eff1f5',
+  frappe: '#303446',
+  macchiato: '#24273a',
+  mocha: '#1e1e2e',
+}
 
+const lightThemeColor = ThemeBaseColor[lightTheme]
+const darkThemeColor = ThemeBaseColor[darkTheme]
 
 function bodyClass(classList: string) {
   return `${classList} ${lightTheme}`
@@ -19,6 +28,18 @@ function bodyClass(classList: string) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
+
+    <meta
+      name="theme-color"
+      content={lightThemeColor}
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content={darkThemeColor}
+      media="(prefers-color-scheme: dark)"
+    />
+
     <slot name="meta" />
   </head>
 

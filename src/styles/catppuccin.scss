@@ -251,6 +251,7 @@ body.mocha {
 
   @each $class, $var in $status-types {
     p.#{$class} {
+      margin-top: 0;
       color: var(--koala-#{$var});
     }
   }

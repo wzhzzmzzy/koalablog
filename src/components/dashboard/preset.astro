@@ -28,7 +28,7 @@ if (presetSource.source === MarkdownSource.Unknown) {
 }
 ---
 
-<h2>{subject}</h2>
+<h2 class="editor-title">{subject}</h2>
 { saved && <p class="success">Saved Success</p> }
 { actionError?.message && <p class="error">{actionError.message}</p> }
 { presetSource.id === 0 && <p class="warning">Your blog doesn't have a {presetSource.subject}, press [Save] to create with default content</p> }
