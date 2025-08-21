@@ -1,6 +1,7 @@
 import type { Token } from 'markdown-it/index.js'
 import type { CatppuccinTheme } from '../const/config'
 import type { GlobalConfig } from '../kv'
+import { katex } from '@mdit/plugin-katex'
 import { fromHighlighter } from '@shikijs/markdown-it/core'
 import MarkdownIt from 'markdown-it'
 // eslint-disable-next-line ts/ban-ts-comment
@@ -33,10 +34,17 @@ function expandable(mdInstance: MarkdownIt) {
   })
 }
 
+function tex(mdInstance: MarkdownIt) {
+  mdInstance.use(katex, {
+    output: 'mathml',
+  })
+}
+
 export function rawMd() {
   const md: MarkdownIt & { renderLangSet?: Set<string> } = MarkdownIt()
 
   expandable(md)
+  tex(md)
 
   const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, env, self) {
     return self.renderToken(tokens, idx, options)
@@ -100,6 +108,7 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
   const instance = MarkdownIt()
 
   expandable(instance)
+  tex(instance)
 
   instance.use(fromHighlighter(highlighter as HighlighterGeneric<any, any>, {
     theme: `catppuccin-${theme}`,
