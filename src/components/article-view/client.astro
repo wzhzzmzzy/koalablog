@@ -10,11 +10,13 @@ interface Props {
 }
 
 const { article } = Astro.props
-const content = article ? rawMd().render(article.content ?? '') : ''
+const md = rawMd()
+const content = article ? md.render(article.content ?? '') : ''
 const source = article?.source
+const langSet = Array.from(md.renderLangSet || []).join(',')
 ---
 
-<article-client data-article={JSON.stringify(article)}>
+<article-client data-article={JSON.stringify(article)} data-lang-set={langSet}>
   {
     source === MarkdownSource.Post
   ? (
@@ -45,8 +47,9 @@ class ArticleClient extends HTMLElement {
     this.serverArticleEl = this.querySelector('#serverArticle')
 
     const article = JSON.parse(this.dataset.article || '')
+    const langSet = this.dataset.langSet?.split(',') || []
     const mdModule = await this.mdModulePromise
-    const content = article ? (await mdModule.md()).render(article?.content ?? '') : ''
+    const content = article ? (await mdModule.md({ langSet })).render(article?.content ?? '') : ''
     this.serverArticleEl?.remove()
     this.articleEl?.insertAdjacentHTML('beforeend', content)
 

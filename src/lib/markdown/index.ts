@@ -34,7 +34,7 @@ function expandable(mdInstance: MarkdownIt) {
 }
 
 export function rawMd() {
-  const md = MarkdownIt()
+  const md: MarkdownIt & { renderLangSet?: Set<string> } = MarkdownIt()
 
   expandable(md)
 
@@ -42,8 +42,10 @@ export function rawMd() {
     return self.renderToken(tokens, idx, options)
   }
 
+  md.renderLangSet = new Set()
   md.renderer.rules.fence = function (tokens, idx, options, env, self) {
     const lang = tokens[idx].info
+    md.renderLangSet?.add(lang)
     const rawCodeHtml = defaultFence(tokens, idx, options, env, self)
     return `<div class="code-block"><span class="code-lang">${(lang || '').toUpperCase()}</span><div class="code-content">${rawCodeHtml}</div></div>\n`
   }
@@ -53,7 +55,7 @@ export function rawMd() {
 
 const ShikiMap = new Map<'shiki', MarkdownIt>()
 
-async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig) {
+async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig, langSet?: string[]) {
   const shiki = ShikiMap.get('shiki')
 
   if (shiki)
@@ -73,22 +75,26 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
     theme = renderTheme || themeConfig?.light || 'latte'
   }
 
+  const has = (lang: string) =>
+    !import.meta.env.SSR ? langSet?.length ? lang.split(',').some(l => langSet.includes(l)) : true : true
+
   const highlighter = await createHighlighterCore({
     themes: [
-      theme === 'latte' ? import('@shikijs/themes/catppuccin-latte') : null,
-      theme === 'frappe' ? import('@shikijs/themes/catppuccin-frappe') : null,
-      theme === 'macchiato' ? import('@shikijs/themes/catppuccin-macchiato') : null,
-      theme === 'mocha' ? import('@shikijs/themes/catppuccin-mocha') : null,
+      theme === 'latte' && import('@shikijs/themes/catppuccin-latte'),
+      theme === 'frappe' && import('@shikijs/themes/catppuccin-frappe'),
+      theme === 'macchiato' && import('@shikijs/themes/catppuccin-macchiato'),
+      theme === 'mocha' && import('@shikijs/themes/catppuccin-mocha'),
     ].filter(i => !!i),
     langs: [
-      import('@shikijs/langs/jsx'),
-      import('@shikijs/langs/typescript'),
-      import('@shikijs/langs/javascript'),
-      import('@shikijs/langs/rust'),
-      import('@shikijs/langs/haskell'),
-      import('@shikijs/langs/python'),
-      import('@shikijs/langs/json'),
-    ],
+      has('jsx') && import('@shikijs/langs/jsx'),
+      has('ts,typescript') && import('@shikijs/langs/typescript'),
+      has('js,javascript') && import('@shikijs/langs/javascript'),
+      has('rs,rust') && import('@shikijs/langs/rust'),
+      has('hs,haskell') && import('@shikijs/langs/haskell'),
+      has('py,python') && import('@shikijs/langs/python'),
+      has('json') && import('@shikijs/langs/json'),
+      has('ini') && import('@shikijs/langs/ini'),
+    ].filter(i => !!i),
     engine: createJavaScriptRegexEngine(),
   })
   const instance = MarkdownIt()
@@ -111,6 +117,10 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
   return instance
 }
 
-export function md(theme?: CatppuccinTheme, themeConfig?: ThemeConfig) {
-  return getShiki(theme, themeConfig)
+export function md({ theme, themeConfig, langSet }: {
+  theme?: CatppuccinTheme
+  themeConfig?: ThemeConfig
+  langSet?: string[]
+} = {}) {
+  return getShiki(theme, themeConfig, langSet)
 }

@@ -12,7 +12,7 @@ interface Props {
 const { article } = Astro.props
 const pageConfig = Astro.locals.config.pageConfig
 
-const content = article ? (await md(undefined, pageConfig.theme)).render(article.content ?? '') : ''
+const content = article ? (await md({ themeConfig: pageConfig.theme })).render(article.content ?? '') : ''
 const source = article?.source
 ---
 

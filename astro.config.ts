@@ -3,6 +3,7 @@ import cloudflare from '@astrojs/cloudflare'
 import svelte from '@astrojs/svelte'
 
 import { defineConfig } from 'astro/config'
+import { visualizer } from 'rollup-plugin-visualizer'
 import UnoCss from 'unocss/astro'
 import PreprocessorDirectives from 'unplugin-preprocessor-directives/vite'
 
@@ -15,7 +16,10 @@ export default defineConfig({
   ...(process.env.CF_PAGES ? cfConfig : {}),
   output: 'server',
   vite: {
-    plugins: [PreprocessorDirectives()],
+    plugins: [PreprocessorDirectives(), visualizer({
+      emitFile: true,
+      filename: 'stats.html',
+    })],
   },
   integrations: [UnoCss(), svelte()],
 })
