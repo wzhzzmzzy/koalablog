@@ -26,13 +26,19 @@ const formatUpdateAt = (updateAt: Date) => format(updateAt, isSameYear(updateAt,
   {
     list.map(item => (
       <li class="flex gap-3 mb-2">
-        { item.updatedAt ? <span><i>{ formatUpdateAt(item.updatedAt) }</i></span> : null }
-      <a href={`/${dashboard ? 'dashboard/' : ''}${item.link}`}><span>{ item.subject } </span></a>
+        { item.updatedAt ? <span class="updated-at"><i>{ formatUpdateAt(item.updatedAt) }</i></span> : null }
+        <a href={`/${dashboard ? 'dashboard/' : ''}${item.link}`}><span>{ item.subject } </span></a>
       </li>
     ))
   }
   </ul>
 </markdown-list>
+
+<style>
+.updated-at {
+  flex-shrink: 0;
+}
+</style>
 
 <script>
 import { MarkdownSource, type PostOrPage } from '@/db'
