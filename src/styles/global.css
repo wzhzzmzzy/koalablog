@@ -38,7 +38,7 @@ div.code-block pre {
 }
 
 div.code-block span.code-lang {
-  font-family: sans;
+  font-family: monospace;
   font-size: 13px;
   font-weight: 500;
   opacity: 0.5;
