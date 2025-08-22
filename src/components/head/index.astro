@@ -6,10 +6,10 @@ interface Props {
   image?: string
 }
 
-const { title = 'Koalablog', desc, keywords, image } = Astro.props
 const siteTitle = Astro.locals.config.pageConfig.title || 'Koalablog'
 const siteAuthor = Astro.locals.config.pageConfig.author
 const url = Astro.request.url
+const { title = siteTitle, desc, keywords, image } = Astro.props
 
 ---
 <title>{title}</title>

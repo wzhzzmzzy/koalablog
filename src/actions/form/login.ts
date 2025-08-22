@@ -1,5 +1,4 @@
-import { tokenSign } from '@/lib/auth'
-import { ACCESS_TOKEN_KEY } from '@/lib/kv'
+import { updateCookieToken } from '@/lib/auth'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 
@@ -12,14 +11,7 @@ export const login = defineAction({
     const { adminKey } = input
 
     if (ctx.locals.config.auth.adminKey === adminKey) {
-      const accessToken = await tokenSign({ role: 'admin' }, adminKey)
-
-      ctx.cookies.set(ACCESS_TOKEN_KEY, accessToken, {
-        httpOnly: true,
-        path: '/',
-        // TODO: support expire
-      })
-
+      await updateCookieToken(ctx, { role: 'admin' }, adminKey)
       return
     }
 

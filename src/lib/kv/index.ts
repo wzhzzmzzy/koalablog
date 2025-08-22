@@ -22,8 +22,6 @@ export interface GlobalConfig {
   }
   _runtime: {
     ready: boolean
-    access_token?: string
-    access_expired_at?: number
     refresh_token?: string
     refresh_expired_at?: number
   }
