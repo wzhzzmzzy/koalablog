@@ -84,7 +84,7 @@
       if (fileKey.data) {
         const [source, key] = fileKey.data.split('/')
         textareaValue = `${textareaValue}\n ![](/api/oss/${source}_${key})`
-        success = 'Upload Success'
+        success = 'Uploaded Successfully'
       }
     } catch(e: any) {
       formError = e.message

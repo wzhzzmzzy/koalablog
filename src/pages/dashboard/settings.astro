@@ -31,7 +31,7 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
   <h1>Settings</h1>
   <setting-form>
 
-    { saved && <p class="success">Saved Success</p> }
+    { saved && <p class="success">Saved Successfully</p> }
     { saveResult?.error && <p class="error">{saveResult.error.message}</p> }
 
     <form id="settings-form" method="POST" action={actions.form.settings} class="flex flex-col gap-3">

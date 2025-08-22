@@ -34,6 +34,7 @@ if (article instanceof Response) {
 }
 ---
 <DashboardLayout title={`[Editor] ${article.subject}`}>
+
   { actionError && <p class="error">{actionError.message}</p> }
 
   <Editor client:load source={source} markdown={article} />
