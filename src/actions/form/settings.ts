@@ -16,6 +16,7 @@ export const settings = defineAction({
     }),
     readLimit: z.preprocess(v => Number(v), z.number().min(0)),
     operateLimit: z.preprocess(v => Number(v), z.number().min(0)),
+    guestPasskey: z.string().min(1, 'Passkey is required'),
   }),
   handler: async (input, ctx) => {
     await authGuard(ctx)
@@ -23,6 +24,9 @@ export const settings = defineAction({
     const env = ctx.locals.runtime?.env || {}
     return Promise.all([
       updateGlobalConfig(env, {
+        auth: {
+          guestKey: input.guestPasskey,
+        },
         oss: {
           readLimit: input.readLimit,
           operateLimit: input.operateLimit,

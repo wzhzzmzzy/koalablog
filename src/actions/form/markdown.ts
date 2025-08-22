@@ -15,6 +15,7 @@ export const save = defineAction({
     link: z.string().min(1),
     subject: z.string().min(1),
     content: z.string(),
+    private: z.boolean(),
   }).refine((val) => {
     if (val.source === MarkdownSource.Post) {
       return val.link.startsWith('post/')
@@ -24,14 +25,14 @@ export const save = defineAction({
   handler: async (input, ctx) => {
     await authGuard(ctx)
 
-    const { id, link, subject, content, source } = input
+    const { id, link, subject, content, source, private: privated } = input
     const env = ctx.locals.runtime?.env || {}
     if (id) {
-      await update(env, id, link, subject, content)
+      await update(env, id, link, subject, content, privated)
       return { link }
     }
     else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
-      await add(env, source, subject, content, link)
+      await add(env, source, subject, content, link, privated)
       return { link }
     }
     else if (source === MarkdownSource.Home || source === MarkdownSource.Nav) {

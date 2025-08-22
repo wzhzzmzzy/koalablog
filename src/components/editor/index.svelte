@@ -18,6 +18,7 @@
 
   let subjectValue = $state(markdown.subject ?? '')
   let textareaValue = $state(markdown.content ?? '')
+  let privateValue = $state(markdown.private ?? false)
   let previewHtml = $state('')
 
   // Generate preview when subject / content changed
@@ -146,23 +147,28 @@
       {/if}
     </div>
 
-    <div class="flex my-3 {showPreview ? 'hidden' : ''}">
+    <div class="flex my-3 {showPreview ? 'hidden' : ''} flex-col sm:flex-row sm:items-center">
       <input
         id="subject-input"
         type={isPreset ? 'hidden' : 'text'}
         name="subject"
-        class="border-r-2 border-r-solid border-r-[--koala-bg]"
+        class="mb-1 sm:mb-0 sm:border-r-2 border-r-solid border-r-[--koala-bg] max-w-[150px]"
         bind:value={subjectValue}
         placeholder="Title"
       />
       <input
         id="link-input"
+        class="max-w-[150px]"
         type={isPreset ? 'hidden' : 'text'}
         name="link"
         bind:value={linkValue}
         oninput={onInputLink}
         placeholder="Link"
       />
+      <div class="mt-2 sm:mt-0">
+        <input type="checkbox" name="private" bind:checked={privateValue} />
+        <label for="private">Private</label>
+      </div>
     </div>
     <textarea 
       class="p-1 text-sm w-full flex-1 box-border {showPreview ? 'hidden' : ''}" 

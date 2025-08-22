@@ -9,6 +9,7 @@ export interface Markdown {
   tags?: string | null
   incoming_links?: string | null
   outgoing_links?: string | null
+  private: boolean
   createdAt: Date
   updatedAt: Date
   deleted: boolean
@@ -25,6 +26,7 @@ export function initMarkdown(): Markdown {
     tags: null,
     incoming_links: null,
     outgoing_links: null,
+    private: false,
     createdAt: now,
     updatedAt: now,
     deleted: false,

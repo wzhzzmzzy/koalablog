@@ -5,6 +5,7 @@ import ArticleView from '@/components/article-view/index.astro'
 import { MarkdownSource } from '@/db'
 import { read } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
+import { authInterceptor } from '@/lib/auth'
 
 const { slug } = Astro.params
 
@@ -12,6 +13,12 @@ const maybePage: Markdown | undefined = await read(Astro.locals.runtime?.env, Ma
 
 if (!maybePage) {
   return Astro.redirect('/404')
+}
+if (maybePage.private) {
+  await authInterceptor(Astro, 'guest')
+  if (!Astro.locals.session.authed) {
+    return Astro.redirect(`/guest-login?id=${maybePage.id}`)
+  }
 }
 ---
 

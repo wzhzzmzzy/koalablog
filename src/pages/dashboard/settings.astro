@@ -17,7 +17,9 @@ if (saved) {
 }
 
 const pageConfig = Astro.locals.config.pageConfig
+const authConfig = Astro.locals.config.auth
 const title = pageConfig.title ?? ''
+const guestKey = authConfig.guestKey ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
 
@@ -41,6 +43,11 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <input class="w-60 sm:w-80" id="title-input" name="title" value={title} />
 
       <label>
+        Guest Passkey:<br />
+      </label>
+      <input class="w-60 sm:w-80" type="password" id="passkey-input" name="guestPasskey" value={guestKey} />
+
+      <label>
       Theme:
       </label>
       <div id="theme-bus" class="hidden">
@@ -56,12 +63,12 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <label>
         Monthly Read Limit: (today={ossAccess?.readTimes})
       </label>
-      <input class="w-60 sm:w-80" id="title-input" name="readLimit" value={ossConfig.readLimit} />
+      <input class="w-60 sm:w-80" id="read-limit-input" name="readLimit" value={ossConfig.readLimit} />
 
       <label>
         Monthly Operate Limit: (today={ossAccess?.operateTimes})
       </label>
-      <input class="w-60 sm:w-80" id="title-input" name="operateLimit" value={ossConfig.operateLimit} />
+      <input class="w-60 sm:w-80" id="operate-limit-input" name="operateLimit" value={ossConfig.operateLimit} />
 
     </form>
 

@@ -1,19 +1,27 @@
 ---
+import { MarkdownSource } from '@/db'
+import { readById } from '@/db/markdown'
 import Layout from '@/layouts/layout.astro'
 
-const redirectTo = Astro.url.searchParams.get('from') || '/'
+const pageId = Astro.url.searchParams.get('id')
+
+const maybePage = await readById(Astro.locals.runtime?.env, MarkdownSource.Page, Number(pageId))
+
+if (!maybePage) {
+  return Astro.redirect(`/404?pageId=${pageId}`)
+}
 ---
 <Layout>
-  <login-form data-redirect-to={redirectTo}>
+  <guest-login-form data-link={maybePage.link}>
     <form id="login-form" method="POST" class="max-w-md mx-auto mt-10">
       <div class="mb-6">
-        <label for="adminKey" class="block mb-2 text-sm font-medium">Admin Key</label>
+        <label for="passkey" class="block mb-2 text-sm font-medium">Passkey</label>
         <input
           type="password"
-          id="admin-key"
-          name="adminKey"
+          id="passkey"
+          name="passkey"
           class="!w-full box-border h-12"
-          placeholder="Input admin key"
+          placeholder="Input passkey"
           required
         />
       </div>
@@ -23,25 +31,25 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
         type="submit"
         class="!w-full font-medium text-sm text-center"
       >
-        Login, then redirect to {redirectTo}
+        Continue
       </button>
     </form>
-  </login-form>
+  </guest-login-form>
 </Layout>
 
 
 <script>
 import { actions } from 'astro:actions'
 
-class LoginForm extends HTMLElement {
+class GuestLoginForm extends HTMLElement {
   loginBtn: HTMLElement | null = null
-  adminKeyInput: HTMLInputElement | null = null
+  passkeyInput: HTMLInputElement | null = null
   formEl: HTMLFormElement | null = null
   errorEl: HTMLParagraphElement | null = null
 
   connectedCallback() {
     this.loginBtn = this.querySelector('#login-btn')
-    this.adminKeyInput = this.querySelector('#admin-key')
+    this.passkeyInput = this.querySelector('#passkey')
     this.formEl = this.querySelector('#login-form')
     this.loginBtn?.addEventListener('click', (e) => {
       this.login(e)
@@ -72,12 +80,13 @@ class LoginForm extends HTMLElement {
     e.preventDefault()
 
     const { error } = await actions.form.login({
-      key: this.adminKeyInput?.value || '',
+      key: this.passkeyInput?.value || '',
+      role: 'guest',
     })
 
     if (error) {
       if (error.code === 'UNAUTHORIZED') {
-        this.showErrorMessage('Wrong Password')
+        this.showErrorMessage('Wrong Passkey')
       }
       else {
         this.showErrorMessage(error.message)
@@ -85,11 +94,10 @@ class LoginForm extends HTMLElement {
       return
     }
 
-    const searchParams = new URLSearchParams(window.location.search)
-    const redirectTo = searchParams.get('from') || '/'
-    window.location.pathname = redirectTo
+    const redirectTo = this.dataset.link
+    window.location.replace(`/${redirectTo || ''}`)
   }
 }
 
-customElements.define('login-form', LoginForm)
+customElements.define('guest-login-form', GuestLoginForm)
 </script>

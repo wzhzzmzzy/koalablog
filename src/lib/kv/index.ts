@@ -15,6 +15,7 @@ export interface GlobalConfig {
   }
   auth: {
     adminKey?: string
+    guestKey?: string
   }
   oss: {
     operateLimit?: number

@@ -51,6 +51,7 @@ export function add(
   subject: string,
   content: string,
   link?: string,
+  privated: boolean = false,
 ) {
   const { tags, links } = collectTagsAndLinks({ content })
   return connectDB(env).insert(markdown).values({
@@ -60,6 +61,7 @@ export function add(
     content,
     tags: tags.join(','),
     outgoing_links: links.join(','),
+    private: privated,
   }).returning()
 }
 export function addPreset(
@@ -82,6 +84,7 @@ export function update(
   link: string,
   subject: string,
   content: string,
+  privated: boolean = false,
 ) {
   const { tags, links } = collectTagsAndLinks({ content })
   return connectDB(env).update(markdown).set({
@@ -91,6 +94,7 @@ export function update(
     updatedAt: new Date(),
     tags: tags.join(','),
     outgoing_links: links.join(','),
+    private: privated,
   }).where(eq(markdown.id, id))
 }
 
@@ -140,6 +144,16 @@ export function read(env: Env, source: PostOrPage, link: string) {
     where: and(
       eq(markdown.source, source),
       eq(markdown.link, link),
+      eq(markdown.deleted, false),
+    ),
+  })
+}
+
+export function readById(env: Env, source: PostOrPage, id: number) {
+  return connectDB(env).query.markdown.findFirst({
+    where: and(
+      eq(markdown.source, source),
+      eq(markdown.id, id),
       eq(markdown.deleted, false),
     ),
   })

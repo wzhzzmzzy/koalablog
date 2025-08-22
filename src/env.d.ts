@@ -27,6 +27,7 @@ declare global {
       config: import('@/lib/kv').GlobalConfig
       session: {
         authed: boolean
+        asRole: 'admin' | 'guest'
       }
     }
     type Env = Env
