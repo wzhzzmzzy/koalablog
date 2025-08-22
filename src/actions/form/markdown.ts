@@ -15,7 +15,7 @@ export const save = defineAction({
     link: z.string().min(1),
     subject: z.string().min(1),
     content: z.string(),
-    private: z.boolean(),
+    private: z.boolean().default(false),
   }).refine((val) => {
     if (val.source === MarkdownSource.Post) {
       return val.link.startsWith('post/')

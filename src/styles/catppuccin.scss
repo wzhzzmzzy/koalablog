@@ -210,8 +210,10 @@ body.mocha {
   }
   
   textarea {
-    background-color: var(--koala-editor-bg);
-    border: 2px dashed var(--koala-editor-border);
+    // background-color: var(--koala-editor-bg);
+    // border: 2px dashed var(--koala-editor-border);
+    background: transparent;
+    border: none;
     color: var(--koala-editor-text);
   }
 

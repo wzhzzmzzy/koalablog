@@ -11,7 +11,6 @@ const source: PostOrPage = MarkdownSource.Post
 const url = Astro.url
 const mode = url.searchParams.has('new') ? 'create' : 'update'
 
-const saveResult = Astro.getActionResult(actions.form.save)
 const removeResult = Astro.getActionResult(actions.form.remove)
 
 // 如果删除成功，重定向到文章列表页面
@@ -23,13 +22,8 @@ if (removeResult && !removeResult.error) {
   return Astro.redirect(`/dashboard/${subpath[source]}`)
 }
 
-if (saveResult?.data?.link) {
-  return Astro.redirect(`/dashboard/${saveResult.data.link}`)
-}
-
-const noAction = !saveResult && !removeResult
-const saved = saveResult && !saveResult.error
-const actionError = saveResult?.error || removeResult?.error
+const noAction = !removeResult
+const actionError = removeResult?.error
 
 const article: Response | Markdown = mode === 'update' && noAction
   ? await readArticle(Astro, source, link!)
@@ -40,9 +34,7 @@ if (article instanceof Response) {
 }
 ---
 <DashboardLayout title={`[Editor] ${article.subject}`}>
-  <h2 class="editor-title">{ mode === 'create' ? 'New Post' : 'Edit Post' }</h2>
 
-  { saved && <p class="success">Saved Success</p> }
   { actionError && <p class="error">{actionError.message}</p> }
 
   <Editor client:load source={source} markdown={article} />
