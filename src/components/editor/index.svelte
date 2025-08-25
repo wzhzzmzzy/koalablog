@@ -172,9 +172,9 @@
   <form bind:this={editorForm} method="POST" class="flex-1 flex flex-col">
 
     <div class="flex justify-between">
-    {#if markdown.source === MarkdownSource.Post}
+    {#if source === MarkdownSource.Post}
       <h2 class="editor-title">{ markdown.id ? 'New Post' : 'Edit Post' }</h2>
-    {:else if markdown.source === MarkdownSource.Page}
+    {:else if source === MarkdownSource.Page}
       <h2 class="editor-title">{ markdown.id ? 'New Page' : 'Edit Page' }</h2>
     {:else}
       <h2 class="editor-title">{ markdown.subject }</h2>
