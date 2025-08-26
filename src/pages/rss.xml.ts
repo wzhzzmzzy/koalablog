@@ -5,6 +5,7 @@ import rss from '@astrojs/rss'
 
 export async function GET(ctx: APIContext) {
   const rssConfig = ctx.locals.config.rss || { enable: true }
+  console.log('rss', rssConfig)
   if (!rssConfig.enable) {
     return new Response(null, { status: 404 })
   }

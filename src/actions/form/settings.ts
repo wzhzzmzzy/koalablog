@@ -16,9 +16,9 @@ export const settings = defineAction({
     }),
     readLimit: z.preprocess(v => Number(v), z.number().min(0)),
     operateLimit: z.preprocess(v => Number(v), z.number().min(0)),
-    guestPasskey: z.string().min(1, 'Passkey is required'),
-    rssEnable: z.boolean().default(true),
-    rssDesc: z.string().default(''),
+    guestPasskey: z.string().optional(),
+    rssEnable: z.boolean().optional(),
+    rssDesc: z.string().optional(),
     rssLang: z.string().default('en-US'),
   }),
   handler: async (input, ctx) => {

@@ -47,7 +47,7 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <label>
         Guest Passkey:<br />
       </label>
-      <input class="w-60 sm:w-80" type="password" id="passkey-input" name="guestPasskey" value={guestKey} />
+      <input class="w-60 sm:w-80" type="password" id="passkey-input" name="guestPasskey" value={guestKey || ''} />
 
       <label>
       Theme:
@@ -74,14 +74,16 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
 
       <h3>RSS</h3>
 
-      <label>Enabled</label>
-      <input type="checkbox" name="rss-enable" checked={rssConfig?.enable || false} />
+      <div>
+        <label>Enable</label>
+        <input type="checkbox" name="rssEnable" checked={rssConfig?.enable || false} />
+      </div>
 
       <label>Description</label>
-      <input type="text" name="rss-desc" value={rssConfig?.description} />
+      <input type="text" name="rssDesc" value={rssConfig?.description} />
 
       <label>Language</label>
-      <input type="text" name="rss-lang" value={rssConfig?.lang || 'en-US'} />
+      <input type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
 
 
     </form>
