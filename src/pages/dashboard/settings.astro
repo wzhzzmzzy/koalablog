@@ -18,6 +18,8 @@ if (saved) {
 
 const pageConfig = Astro.locals.config.pageConfig
 const authConfig = Astro.locals.config.auth
+const rssConfig = Astro.locals.config.rss
+
 const title = pageConfig.title ?? ''
 const guestKey = authConfig.guestKey ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
@@ -69,6 +71,18 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
         Monthly Operate Limit: (today={ossAccess?.operateTimes})
       </label>
       <input class="w-60 sm:w-80" id="operate-limit-input" name="operateLimit" value={ossConfig.operateLimit} />
+
+      <h3>RSS</h3>
+
+      <label>Enabled</label>
+      <input type="checkbox" name="rss-enable" checked={rssConfig?.enable || false} />
+
+      <label>Description</label>
+      <input type="text" name="rss-desc" value={rssConfig?.description} />
+
+      <label>Language</label>
+      <input type="text" name="rss-lang" value={rssConfig?.lang || 'en-US'} />
+
 
     </form>
 

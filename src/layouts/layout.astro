@@ -4,8 +4,10 @@ import '@/styles/global.css'
 import '@/styles/catppuccin.scss'
 
 const pageConfig = Astro.locals.config.pageConfig
+const rssConfig = Astro.locals.config.rss || {}
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
+const blogTitle = pageConfig.title || 'Koalablog'
 const ThemeBaseColor: Record<CatppuccinTheme, string> = {
   latte: '#eff1f5',
   frappe: '#303446',
@@ -15,6 +17,7 @@ const ThemeBaseColor: Record<CatppuccinTheme, string> = {
 
 const lightThemeColor = ThemeBaseColor[lightTheme]
 const darkThemeColor = ThemeBaseColor[darkTheme]
+const site = rssConfig.site || Astro.site || Astro.url.origin
 
 function bodyClass(classList: string) {
   return `${classList} ${lightTheme}`
@@ -38,6 +41,12 @@ function bodyClass(classList: string) {
       name="theme-color"
       content={darkThemeColor}
       media="(prefers-color-scheme: dark)"
+    />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={blogTitle}
+      href={new URL('rss.xml', site)}
     />
 
     <slot name="meta" />

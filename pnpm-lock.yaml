@@ -11,6 +11,9 @@ importers:
       '@astrojs/cloudflare':
         specifier: ^12.0.1
         version: 12.0.1(@types/node@22.10.1)(astro@5.0.4(@types/node@22.10.1)(jiti@2.4.2)(sass@1.89.2)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.6.1))(jiti@2.4.2)(sass@1.89.2)(tsx@4.19.2)(yaml@2.6.1)
+      '@astrojs/rss':
+        specifier: ^4.0.12
+        version: 4.0.12
       '@astrojs/svelte':
         specifier: ^7.0.4
         version: 7.0.4(@types/node@22.10.1)(astro@5.0.4(@types/node@22.10.1)(jiti@2.4.2)(sass@1.89.2)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.6.1))(jiti@2.4.2)(sass@1.89.2)(svelte@5.19.2)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.6.1)
@@ -223,6 +226,9 @@ packages:
   '@astrojs/prism@3.2.0':
     resolution: {integrity: sha512-GilTHKGCW6HMq7y3BUv9Ac7GMe/MO9gi9GW62GzKtth0SwukCu/qp2wLiGpEujhY+VVhaG9v7kv/5vFzvf4NYw==}
     engines: {node: ^18.17.1 || ^20.3.0 || >=22.0.0}
+
+  '@astrojs/rss@4.0.12':
+    resolution: {integrity: sha512-O5yyxHuDVb6DQ6VLOrbUVFSm+NpObulPxjs6XT9q3tC+RoKbN4HXMZLpv0LvXd1qdAjzVgJ1NFD+zKHJNDXikw==}
 
   '@astrojs/svelte@7.0.4':
     resolution: {integrity: sha512-vTFhHhYNr1GkrpR63Talv8ba1HHUWoHNzBs4eJNZz4bQCihAdxw+xz/CWcWM1bfAzH3Jfc7jAKXPNAZSwN4oFg==}
@@ -3347,6 +3353,10 @@ packages:
   fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
 
+  fast-xml-parser@5.2.5:
+    resolution: {integrity: sha512-pfX9uG9Ki0yekDHx2SiuRIyFdyAr1kMIMitPvb0YBo8SUfKvia7w7FIyd/l6av85pFYRhZscS75MwMnbvY+hcQ==}
+    hasBin: true
+
   fastq@1.17.1:
     resolution: {integrity: sha512-sRVD3lWVIXWg6By68ZN7vho9a1pQcN/WBFaAAsDDFzlJjvoGx0P8z7V1t72grFJfJhu3YPZBuu25f7Kaw2jN1w==}
 
@@ -4492,6 +4502,9 @@ packages:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
 
+  strnum@2.1.1:
+    resolution: {integrity: sha512-7ZvoFTiCnGxBtDqJ//Cu6fWtZtc7Y3x+QOirG15wztbdngGSkht27o2pyGWrVy0b4WAy3jbKmnoK6g5VlVNUUw==}
+
   supports-color@7.2.0:
     resolution: {integrity: sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==}
     engines: {node: '>=8'}
@@ -5199,6 +5212,11 @@ snapshots:
   '@astrojs/prism@3.2.0':
     dependencies:
       prismjs: 1.29.0
+
+  '@astrojs/rss@4.0.12':
+    dependencies:
+      fast-xml-parser: 5.2.5
+      kleur: 4.1.5
 
   '@astrojs/svelte@7.0.4(@types/node@22.10.1)(astro@5.0.4(@types/node@22.10.1)(jiti@2.4.2)(sass@1.89.2)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.6.1))(jiti@2.4.2)(sass@1.89.2)(svelte@5.19.2)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.6.1)':
     dependencies:
@@ -7995,6 +8013,10 @@ snapshots:
 
   fast-levenshtein@2.0.6: {}
 
+  fast-xml-parser@5.2.5:
+    dependencies:
+      strnum: 2.1.1
+
   fastq@1.17.1:
     dependencies:
       reusify: 1.0.4
@@ -9514,6 +9536,8 @@ snapshots:
       min-indent: 1.0.1
 
   strip-json-comments@3.1.1: {}
+
+  strnum@2.1.1: {}
 
   supports-color@7.2.0:
     dependencies:

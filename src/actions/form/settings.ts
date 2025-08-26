@@ -17,6 +17,9 @@ export const settings = defineAction({
     readLimit: z.preprocess(v => Number(v), z.number().min(0)),
     operateLimit: z.preprocess(v => Number(v), z.number().min(0)),
     guestPasskey: z.string().min(1, 'Passkey is required'),
+    rssEnable: z.boolean().default(true),
+    rssDesc: z.string().default(''),
+    rssLang: z.string().default('en-US'),
   }),
   handler: async (input, ctx) => {
     await authGuard(ctx)
@@ -37,6 +40,11 @@ export const settings = defineAction({
             light: input.lightTheme,
             dark: input.darkTheme,
           },
+        },
+        rss: {
+          enable: input.rssEnable,
+          description: input.rssDesc,
+          lang: input.rssLang,
         },
       }),
     ])

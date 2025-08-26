@@ -13,6 +13,12 @@ export interface GlobalConfig {
       dark: CatppuccinTheme
     }
   }
+  rss?: {
+    enable?: boolean
+    description?: string
+    site?: string
+    lang?: string
+  }
   auth: {
     adminKey?: string
     guestKey?: string
