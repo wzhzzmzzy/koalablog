@@ -1,4 +1,5 @@
 import type { Token } from 'markdown-it/index.js'
+import type { RenderRule } from 'markdown-it/lib/renderer.mjs'
 import type { CatppuccinTheme } from '../const/config'
 import type { GlobalConfig } from '../kv'
 import { katex } from '@mdit/plugin-katex'
@@ -7,10 +8,46 @@ import MarkdownIt from 'markdown-it'
 // eslint-disable-next-line ts/ban-ts-comment
 // @ts-ignore
 import MarkdownItContainer from 'markdown-it-container'
+import { escapeHtml, unescapeAll } from 'markdown-it/lib/common/utils.mjs'
 import { createHighlighterCore, type HighlighterGeneric } from 'shiki/core'
 import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
 
 type ThemeConfig = GlobalConfig['pageConfig']['theme']
+
+// from: https://github.com/olets/markdown-it-wrapperless-fence-rule/blob/main/src/index.ts
+const wrapperlessFenceRule: RenderRule = (tokens, idx, options, _env, _slf) => {
+  /**
+   * Begin https://github.com/markdown-it/markdown-it/blob/14.1.0/lib/renderer.mjs#L30-L46
+   */
+  const token = tokens[idx]
+  const info = token.info ? unescapeAll(token.info).trim() : ''
+  let langName = ''
+  let langAttrs = ''
+
+  if (info) {
+    const arr = info.split(/(\s+)/g)
+    langName = arr[0]
+    langAttrs = arr.slice(2).join('')
+  }
+
+  let highlighted
+  if (options.highlight) {
+    highlighted
+      = options.highlight(token.content, langName, langAttrs)
+      || escapeHtml(token.content)
+  }
+  else {
+    highlighted = escapeHtml(token.content)
+  }
+  /**
+   * end https://github.com/markdown-it/markdown-it/blob/14.1.0/lib/renderer.mjs#L30-L46
+   */
+
+  /**
+   * https://github.com/markdown-it/markdown-it/blob/14.1.0/lib/renderer.mjs#L49
+   */
+  return `${highlighted}\n`
+}
 
 // ::: expandable summary
 // some details
@@ -106,6 +143,8 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
     engine: createJavaScriptRegexEngine(),
   })
   const instance = MarkdownIt()
+
+  instance.renderer.rules.fence = wrapperlessFenceRule
 
   expandable(instance)
   tex(instance)
