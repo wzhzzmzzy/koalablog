@@ -1,18 +1,16 @@
 ---
 import type { Markdown } from '@/db/types'
 import { MarkdownSource } from '@/db'
-import { md } from '@/lib/markdown'
 import { formatDate } from 'date-fns'
 import './index.css'
 
 interface Props {
   article: Markdown
+  content: string
 }
 
-const { article } = Astro.props
-const pageConfig = Astro.locals.config.pageConfig
+const { article, content } = Astro.props
 
-const content = article ? (await md({ themeConfig: pageConfig.theme })).render(article.content ?? '') : ''
 const source = article?.source
 ---
 

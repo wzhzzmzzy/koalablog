@@ -2,20 +2,21 @@ import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard, guards, ossGuard } from '../utils/auth'
 
-const sourceEnum = z.enum(['post', 'page', 'preset', 'oss'])
+const sourceEnum = z.enum(['article', 'post', 'page', 'preset', 'oss'])
 
 export const upload = defineAction({
   accept: 'form',
   input: z.object({
     source: sourceEnum,
+    name: z.string().optional(),
     file: z.instanceof(File),
   }),
   handler: async (input, ctx) => {
     await guards([authGuard(ctx), ossGuard(ctx)])
 
-    const { file, source } = input
+    const { file, source, name } = input
 
-    const fileName = file.name || `upload-${Date.now()}`
+    const fileName = name || `upload-${Date.now()}`
     const key = `${source}/${fileName}`
 
     await ctx.locals.runtime.env.OSS.put(key, file, {

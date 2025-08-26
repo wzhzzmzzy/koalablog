@@ -6,7 +6,7 @@
   import { md } from '@/lib/markdown';
   import type MarkdownIt from 'markdown-it';
   import { actions } from 'astro:actions';
-  import { pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
+  import { convertToWebP, pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
 
   interface Props {
 		markdown: Markdown;
@@ -80,7 +80,9 @@
     e.preventDefault()
     const files = await pickFileWithFileInput()
     try {
-      const fileKey = await uploadFile('post', files)
+      const blob = await convertToWebP(files[0])
+      const webpFileName = files[0].name.replace(/\.[^/.]+$/, '.webp')
+      const fileKey = await uploadFile('article', blob, webpFileName)
       if (fileKey.data) {
         const [source, key] = fileKey.data.split('/')
         textareaValue = `${textareaValue}\n ![](/api/oss/${source}_${key})`

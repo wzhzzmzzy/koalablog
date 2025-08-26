@@ -3,7 +3,7 @@ import { pickFileWithFileInput, uploadFile } from "@/lib/services/file-reader";
 import type { ActionError } from "astro:actions";
 
 interface Props {
-  source: 'post' | 'page' | 'preset' | 'oss'
+  source: 'article' | 'oss'
 }
 
 const { source }: Props = $props()

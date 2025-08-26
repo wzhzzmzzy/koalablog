@@ -7,9 +7,10 @@ import Layout from './layout.astro'
 
 interface Props {
   title?: string
+  desc?: string
 }
 
-const { title: metaTitle } = Astro.props
+const { title: metaTitle, desc } = Astro.props
 
 const env = Astro.locals.runtime?.env || {}
 
@@ -19,7 +20,7 @@ const markup = (await md()).render(presetSource?.content ?? '')
 ---
 <Layout>
   <Fragment slot="meta">
-    <Head title={metaTitle || title} />
+    <Head title={metaTitle || title} desc={desc} />
     <slot name="meta" />
   </Fragment>
   <header>

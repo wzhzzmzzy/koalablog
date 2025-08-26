@@ -4,17 +4,23 @@ import ArticleView from '@/components/article-view/index.astro'
 import { MarkdownSource } from '@/db'
 import { readPreset } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
+import { renderIt } from '@/lib/markdown/render-it'
 
 const env = Astro.locals.runtime?.env || {}
 const presetSource = await readPreset(env, MarkdownSource.Home)
+
+const pageConfig = Astro.locals.config.pageConfig
+const isBigArticle = (presetSource?.content || '').length > 1000
+const { content, renderLangSet } = await renderIt(isBigArticle, presetSource, pageConfig.theme)
+const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
 ---
 
-<Layout>
+<Layout desc={firstParagraph?.[1] || ''}>
   {
-    !presetSource
+  !presetSource
   ? null
-  : (presetSource?.content || '').length < 1000
-  ? <ArticleView article={presetSource} />
-  : <ArticleClient article={presetSource} />
+  : !isBigArticle
+  ? <ArticleView article={presetSource} content={content} />
+  : <ArticleClient article={presetSource} content={content} renderLangSet={renderLangSet} />
   }
 </Layout>

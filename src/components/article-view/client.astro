@@ -1,19 +1,18 @@
 ---
 import type { Markdown } from '@/db/types'
 import { MarkdownSource } from '@/db'
-import { rawMd } from '@/lib/markdown'
 import { formatDate } from 'date-fns'
 import './index.css'
 
 interface Props {
   article: Markdown
+  content: string
+  renderLangSet?: Set<string>
 }
 
-const { article } = Astro.props
-const md = rawMd({ tex: true })
-const content = article ? md.render(article.content ?? '') : ''
+const { article, content, renderLangSet } = Astro.props
 const source = article?.source
-const langSet = Array.from(md.renderLangSet || []).join(',')
+const langSet = Array.from(renderLangSet || []).join(',')
 ---
 
 <article-client data-article={JSON.stringify(article)} data-lang-set={langSet}>

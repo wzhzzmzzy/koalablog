@@ -126,6 +126,6 @@ export function importFromFilePicker() {
     return pickDirectoryWithFilePicker()
   }
   else {
-    return 'unsupported browser'
+    throw new Error('unsupported browser')
   }
 }

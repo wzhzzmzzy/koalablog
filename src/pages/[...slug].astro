@@ -6,6 +6,7 @@ import { MarkdownSource } from '@/db'
 import { read } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
 import { authInterceptor } from '@/lib/auth'
+import { renderIt } from '@/lib/markdown/render-it'
 
 const { slug } = Astro.params
 
@@ -20,8 +21,17 @@ if (maybePage.private) {
     return Astro.redirect(`/guest-login?id=${maybePage.id}`)
   }
 }
+
+const pageConfig = Astro.locals.config.pageConfig
+const isBigArticle = (maybePage?.content || '').length > 1000
+const { content, renderLangSet } = await renderIt(isBigArticle, maybePage, pageConfig.theme)
+const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
 ---
 
-<Layout title={maybePage!.subject}>
-  { (maybePage.content || '').length < 1000 ? <ArticleView article={maybePage} /> : <ArticleClient article={maybePage} />}
+<Layout title={maybePage!.subject} desc={firstParagraph?.[1]}>
+  {
+    !isBigArticle
+    ? <ArticleView article={maybePage} content={content} />
+    : <ArticleClient article={maybePage} content={content} renderLangSet={renderLangSet} />
+  }
 </Layout>
