@@ -40,11 +40,11 @@ function tex(mdInstance: MarkdownIt) {
   })
 }
 
-export function rawMd() {
+export function rawMd(opt: { tex?: boolean } = {}) {
   const md: MarkdownIt & { renderLangSet?: Set<string> } = MarkdownIt()
 
   expandable(md)
-  tex(md)
+  opt.tex && tex(md)
 
   const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, env, self) {
     return self.renderToken(tokens, idx, options)

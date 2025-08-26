@@ -10,7 +10,7 @@ interface Props {
 }
 
 const { article } = Astro.props
-const md = rawMd()
+const md = rawMd({ tex: true })
 const content = article ? md.render(article.content ?? '') : ''
 const source = article?.source
 const langSet = Array.from(md.renderLangSet || []).join(',')
