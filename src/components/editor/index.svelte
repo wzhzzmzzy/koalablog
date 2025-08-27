@@ -216,13 +216,13 @@
         id="subject-input"
         type={isPreset ? 'hidden' : 'text'}
         name="subject"
-        class="mb-1 sm:mb-0 sm:border-r-2 border-r-solid border-r-[--koala-bg] max-w-[150px]"
+        class="mb-1 sm:mb-0 sm:border-r-2 sm:border-r-solid sm:border-r-[--koala-bg] sm:flex-1"
         bind:value={subjectValue}
         placeholder="Title"
       />
       <input
         id="link-input"
-        class="max-w-[150px]"
+        class="sm:flex-1"
         type={isPreset ? 'hidden' : 'text'}
         name="link"
         bind:value={linkValue}

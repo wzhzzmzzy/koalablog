@@ -80,10 +80,10 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       </div>
 
       <label>Description</label>
-      <input type="text" name="rssDesc" value={rssConfig?.description} />
+      <input class="w-60 sm:w-80" type="text" name="rssDesc" value={rssConfig?.description} />
 
       <label>Language</label>
-      <input type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
+      <input class="w-60 sm:w-80" type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
 
 
     </form>

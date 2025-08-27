@@ -18,10 +18,7 @@ const ThemeBaseColor: Record<CatppuccinTheme, string> = {
 const lightThemeColor = ThemeBaseColor[lightTheme]
 const darkThemeColor = ThemeBaseColor[darkTheme]
 const site = rssConfig.site || Astro.site || Astro.url.origin
-
-function bodyClass(classList: string) {
-  return `${classList} ${lightTheme}`
-}
+const themeFile = `/themes/${lightTheme}-${darkTheme}.css`
 
 ---
 
@@ -32,6 +29,7 @@ function bodyClass(classList: string) {
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <link rel="shortcut icon" type="image/x-icon" href="/favicon.png" />
+    <link rel="stylesheet" href={themeFile} />
 
     <meta
       name="theme-color"
@@ -53,47 +51,15 @@ function bodyClass(classList: string) {
     <slot name="meta" />
   </head>
 
-  <body class={bodyClass('flex justify-center')}>
+  <body class="flex justify-center">
     <section
       id="page"
-      data-light-theme={lightTheme}
-      data-dark-theme={darkTheme}
-      data-theme="light"
       class="page box-border px-5 w-screen max-w-200 flex-1 font-[Verdana] flex flex-col"
     >
-      <script is:inline>
-        const pageEl = document.getElementById('page')
-        const { lightTheme, darkTheme } = pageEl.dataset
-        const theme = window.localStorage.getItem('theme')
-        if (theme === lightTheme || theme === darkTheme) {
-          document.body.classList.add(theme)
-        }
-        else {
-          document.body.classList.add(lightTheme)
-        }
-      </script>
       <slot />
     </section>
   </body>
 </html>
-
-<script>
-import { switchTheme } from '@/lib/utils/theme'
-
-function handleThemeChange(event: MediaQueryList | MediaQueryListEvent) {
-  const pageEl = document.getElementById('page')
-  const { lightTheme, darkTheme } = pageEl!.dataset
-
-  if (lightTheme === darkTheme)
-    return
-
-  switchTheme(event.matches ? darkTheme! : lightTheme!, event.matches ? 'dark' : 'light')
-}
-
-const query = window.matchMedia('(prefers-color-scheme: dark)')
-handleThemeChange(query)
-query.addEventListener('change', handleThemeChange)
-</script>
 
 <script>
 (window as any).refreshCopyListener = () => {

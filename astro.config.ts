@@ -6,8 +6,9 @@ import metaTags from 'astro-meta-tags'
 import { defineConfig } from 'astro/config'
 import Sonda from 'sonda/astro'
 import UnoCss from 'unocss/astro'
-
 import PreprocessorDirectives from 'unplugin-preprocessor-directives/vite'
+
+import { themeGenerator } from './scripts/style/theme'
 
 const cfConfig = {
   adapter: cloudflare(),
@@ -24,6 +25,18 @@ export default defineConfig({
       sourcemap: true,
     },
   },
-  integrations: [UnoCss(), svelte(), Sonda({ server: true }), metaTags()],
+  integrations: [
+    {
+      name: 'theme-generator',
+      hooks: {
+        'astro:build:start': () => {
+          themeGenerator()
+        },
+      },
+    },
+    UnoCss(),
+    svelte(),
+    Sonda({ server: true }),
+    metaTags(),
+  ],
 })
-

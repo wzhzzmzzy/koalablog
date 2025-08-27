@@ -2,8 +2,10 @@
 dist/
 
 # generated types
+.sonda/
 .astro/
 .wrangler
+public/themes/
 
 # dependencies
 node_modules/
