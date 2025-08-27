@@ -107,17 +107,21 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
     return shiki
 
   let theme: string | null = null
+  let lightTheme: string | null = null
+  let darkTheme: string | null = null
 
   if (!import.meta.env.SSR) {
-    theme = renderTheme || globalThis.window?.localStorage.getItem('theme')
     const pageEl = globalThis.window?.document.querySelector('#page') as HTMLDivElement
-    const { lightTheme, darkTheme } = pageEl?.dataset || {}
-    if (!theme || ![lightTheme, darkTheme].includes(theme as CatppuccinTheme)) {
-      theme = lightTheme || 'latte'
-    }
+    const { lightTheme: l, darkTheme: d } = pageEl?.dataset || {}
+    const query = window.matchMedia('(prefers-color-scheme: dark)')
+    lightTheme = l || null
+    darkTheme = d || null
+    theme = (query.matches ? darkTheme : lightTheme) || 'latte'
   }
   else {
     theme = renderTheme || themeConfig?.light || 'latte'
+    lightTheme = themeConfig?.light || null
+    darkTheme = themeConfig?.dark || null
   }
 
   const has = (lang: string) =>
@@ -125,10 +129,10 @@ async function getShiki(renderTheme?: CatppuccinTheme, themeConfig?: ThemeConfig
 
   const highlighter = await createHighlighterCore({
     themes: [
-      theme === 'latte' && import('@shikijs/themes/catppuccin-latte'),
-      theme === 'frappe' && import('@shikijs/themes/catppuccin-frappe'),
-      theme === 'macchiato' && import('@shikijs/themes/catppuccin-macchiato'),
-      theme === 'mocha' && import('@shikijs/themes/catppuccin-mocha'),
+      [theme, lightTheme, darkTheme].includes('latte') && import('@shikijs/themes/catppuccin-latte'),
+      [theme, lightTheme, darkTheme].includes('frappe') && import('@shikijs/themes/catppuccin-frappe'),
+      [theme, lightTheme, darkTheme].includes('macchiato') && import('@shikijs/themes/catppuccin-macchiato'),
+      [theme, lightTheme, darkTheme].includes('mocha') && import('@shikijs/themes/catppuccin-mocha'),
     ].filter(i => !!i),
     langs: [
       has('jsx') && import('@shikijs/langs/jsx'),

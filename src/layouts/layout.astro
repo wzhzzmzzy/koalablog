@@ -54,6 +54,8 @@ const themeFile = `/themes/${lightTheme}-${darkTheme}.css`
   <body class="flex justify-center">
     <section
       id="page"
+      data-light-theme={lightTheme}
+      data-dark-theme={darkTheme}
       class="page box-border px-5 w-screen max-w-200 flex-1 font-[Verdana] flex flex-col"
     >
       <slot />

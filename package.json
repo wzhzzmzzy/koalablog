@@ -61,6 +61,7 @@
     "@cloudflare/vitest-pool-workers": "^0.8.0",
     "@cloudflare/workers-types": "^4.20250424.0",
     "@iconify-json/tabler": "^1.2.15",
+    "@types/markdown-it": "^14.1.2",
     "@unocss/preset-icons": "^65.4.3",
     "@unocss/preset-rem-to-px": "^65.4.3",
     "cross-env": "^7.0.3",
