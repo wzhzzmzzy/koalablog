@@ -14,7 +14,7 @@ const { source, editable = false, dashboard = false } = Astro.props
 const env = Astro.locals.runtime?.env || {}
 
 const list = await readList(env, source)
-const formatUpdateAt = (updateAt: Date) => format(updateAt, isSameYear(updateAt, new Date()) ? 'MM-dd (HH:mm)' : 'yyyy-MM-dd')
+const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? 'MM-dd (HH:mm)' : 'yyyy-MM-dd')
 ---
 
 <markdown-list data-source={source} data-editable={editable}>
@@ -26,7 +26,7 @@ const formatUpdateAt = (updateAt: Date) => format(updateAt, isSameYear(updateAt,
   {
     list.map(item => (
       <li class="flex gap-3 mb-2">
-        { item.updatedAt ? <span class="updated-at"><i>{ formatUpdateAt(item.updatedAt) }</i></span> : null }
+        { item.createdAt ? <span class="datetime"><i>{ formatDate(item.createdAt) }</i></span> : null }
         <a href={`/${dashboard ? 'dashboard/' : ''}${item.link}`}><span>{ item.subject } </span></a>
       </li>
     ))
@@ -35,7 +35,7 @@ const formatUpdateAt = (updateAt: Date) => format(updateAt, isSameYear(updateAt,
 </markdown-list>
 
 <style>
-.updated-at {
+.datetime {
   flex-shrink: 0;
 }
 </style>
