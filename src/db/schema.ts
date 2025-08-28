@@ -8,6 +8,8 @@ export const markdown = sqliteTable('markdown', {
   subject: text().unique().notNull(),
   content: text(),
   tags: text(),
+  // format:
+  // [{subject,link},]
   incoming_links: text(),
   outgoing_links: text(),
   private: integer({ mode: 'boolean' }).default(false).notNull(),

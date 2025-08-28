@@ -1,3 +1,4 @@
+import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
 import type { PostOrPage, PresetSource } from '.'
 import type { Markdown } from './types'
 import { and, desc, eq, like } from 'drizzle-orm'
@@ -13,54 +14,21 @@ export function linkGenerator(source: PostOrPage, subject: string) {
   return link
 }
 
-interface TagAndLinkCollection { tags: string[], links: string[] }
-/**
- * 读取 Markdown content，从其中提取 tag 和 双向链接
- */
-export function collectTagsAndLinks(markdown: { content?: string | null }): TagAndLinkCollection {
-  const tagAndLinkCollection: TagAndLinkCollection = {
-    tags: [],
-    links: [],
-  }
-
-  const content = markdown.content || ''
-  const tagRegex = /#([\w\-]+)/g
-  const linkRegex = /\[\[([\w\- ]+)\]\]/g
-
-  let tagMatch = tagRegex.exec(content)
-  while (tagMatch !== null) {
-    if (!tagAndLinkCollection.tags.includes(tagMatch[1])) {
-      tagAndLinkCollection.tags.push(tagMatch[1])
-    }
-    tagMatch = tagRegex.exec(content)
-  }
-
-  let linkMatch = linkRegex.exec(content)
-  while (linkMatch !== null) {
-    if (!tagAndLinkCollection.links.includes(linkMatch[1])) {
-      tagAndLinkCollection.links.push(linkMatch[1])
-    }
-    linkMatch = linkRegex.exec(content)
-  }
-
-  return tagAndLinkCollection
-}
 export function add(
   env: Env,
   source: PostOrPage,
   subject: string,
   content: string,
   link?: string,
+  outgoing_links?: string,
   privated: boolean = false,
 ) {
-  const { tags, links } = collectTagsAndLinks({ content })
   return connectDB(env).insert(markdown).values({
     link: link || linkGenerator(source, subject),
     source,
     subject,
     content,
-    tags: tags.join(','),
-    outgoing_links: links.join(','),
+    outgoing_links,
     private: privated,
   }).returning()
 }
@@ -84,16 +52,15 @@ export function update(
   link: string,
   subject: string,
   content: string,
+  outgoing_links?: string,
   privated: boolean = false,
 ) {
-  const { tags, links } = collectTagsAndLinks({ content })
   return connectDB(env).update(markdown).set({
     link,
     subject,
     content,
     updatedAt: new Date(),
-    tags: tags.join(','),
-    outgoing_links: links.join(','),
+    outgoing_links,
     private: privated,
   }).where(eq(markdown.id, id))
 }

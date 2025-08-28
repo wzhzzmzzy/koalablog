@@ -67,6 +67,10 @@ export const save = defineAction({
   input: z.object({
     subject: z.string(),
     content: z.string(),
+    outgoingLinks: z.array(z.object({
+      subject: z.string(),
+      link: z.string(),
+    })).default([]),
   }),
   handler: async (input, ctx) => {
     const post = await add(ctx.locals.runtime?.env, MarkdownSource.Post, input.subject, input.content)

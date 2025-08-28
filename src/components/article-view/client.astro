@@ -2,7 +2,6 @@
 import type { Markdown } from '@/db/types'
 import { MarkdownSource } from '@/db'
 import { formatDate } from 'date-fns'
-import './index.css'
 
 interface Props {
   article: Markdown
@@ -31,6 +30,9 @@ const langSet = Array.from(renderLangSet || []).join(',')
 </article-client>
 
 <script>
+import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
+import { parseJson } from '@/lib/utils/parse-json'
+
 class ArticleClient extends HTMLElement {
   articleEl: HTMLElement | null = null
   serverArticleEl: HTMLElement | null = null
@@ -47,18 +49,14 @@ class ArticleClient extends HTMLElement {
 
     const article = JSON.parse(this.dataset.article || '')
     const langSet = this.dataset.langSet?.split(',') || []
-    const mdModule = await this.mdModulePromise
-    const content = article ? (await mdModule.md({ langSet })).render(article?.content ?? '') : ''
+    let outgoingLinks: DoubleLinkPluginOptions['allPostLinks'] | null = null
+    outgoingLinks = parseJson(article.outgoing_links)
+
+    const [mdModule] = await Promise.all([this.mdModulePromise])
+
+    const content = article ? (await mdModule.md({ langSet, allPostLinks: outgoingLinks || [] })).render(article?.content ?? '') : ''
     this.serverArticleEl?.remove()
     this.articleEl?.insertAdjacentHTML('beforeend', content)
-
-    const query = window.matchMedia('(prefers-color-scheme: dark)')
-    query.addEventListener('change', this.rerenderMd.bind(this));
-    (window as any).refreshCopyListener()
-  }
-
-  async rerenderMd() {
-    window.location.reload()
   }
 }
 

@@ -15,7 +15,9 @@ export async function GET(ctx: APIContext) {
 
   const allPosts = await readAll(ctx.locals.runtime?.env, MarkdownSource.Post, false)
   const site = rssConfig.site ?? ctx.site ?? ctx.url.origin
-  const md = rawMd()
+  const md = rawMd({
+    allPostLinks: allPosts,
+  })
 
   return rss({
     title,

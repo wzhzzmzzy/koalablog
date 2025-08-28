@@ -29,7 +29,8 @@
 
   let mdInstance: MarkdownIt | null = null
   onMount(async () => {
-    mdInstance = await md()
+    const allPosts = await actions.db.markdown.all({ source: 'post' })
+    mdInstance = await md({ allPostLinks: allPosts.data?.posts })
     refreshPreview()
   })
 
@@ -123,7 +124,14 @@
   async function save(e: Event) {
     e.preventDefault()
 
+    const previewEl = document.getElementById('preview-md')
+    const outgoingLinkEls: HTMLAnchorElement[] = Array.from(previewEl?.querySelectorAll('a.outgoing-link') || [])
+
     const formData = new FormData(editorForm)
+    formData.append('outgoingLinks', JSON.stringify(outgoingLinkEls.map(i => ({
+      subject: i.textContent,
+      link: i.dataset.link
+    })).filter(i => !!i.link)))
     const result = await actions.form.save(formData)
 
     if (result.error) {

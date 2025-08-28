@@ -45,6 +45,7 @@ body {
 
 // 组件样式
 #page {
+
   a {
     color: var(--koala-link);
   }
@@ -73,6 +74,11 @@ body {
   div.code-block {
     background-color: var(--koala-code-bg);
     border: 1px solid var(--koala-code-border);
+  }
+
+  code:not([class]) {
+    background-color: var(--koala-editor-bg);
+    color: var(--koala-editor-text)
   }
   
   button {

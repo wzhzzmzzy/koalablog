@@ -1,5 +1,6 @@
 import { MarkdownSource } from '@/db'
 import { add, addPreset, remove as removeMarkdown, update } from '@/db/markdown'
+import { parseJson } from '@/lib/utils/parse-json'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
@@ -15,6 +16,13 @@ export const save = defineAction({
     link: z.string().min(1),
     subject: z.string().min(1),
     content: z.string(),
+    outgoingLinks: z.preprocess(
+      o => parseJson(o as string || null),
+      z.array(z.object({
+        subject: z.string(),
+        link: z.string(),
+      })).default([]),
+    ).default([]),
     private: z.boolean().default(false),
   }).refine((val) => {
     if (val.source === MarkdownSource.Post) {
@@ -25,14 +33,14 @@ export const save = defineAction({
   handler: async (input, ctx) => {
     await authGuard(ctx)
 
-    const { id, link, subject, content, source, private: privated } = input
+    const { id, link, subject, content, source, outgoingLinks, private: privated } = input
     const env = ctx.locals.runtime?.env || {}
     if (id) {
-      await update(env, id, link, subject, content, privated)
+      await update(env, id, link, subject, content, JSON.stringify(outgoingLinks), privated)
       return { link }
     }
     else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
-      await add(env, source, subject, content, link, privated)
+      await add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated)
       return { link }
     }
     else if (source === MarkdownSource.Home || source === MarkdownSource.Nav) {

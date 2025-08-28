@@ -1,17 +1,21 @@
 a {
-  @apply no-underline;
+  --at-apply: no-underline;
 }
 
 nav {
-  @apply my-5;
+  --at-apply: my-5;
 }
 
 nav > p > a + a {
-  @apply ml-3;
+  --at-apply: ml-3;
 }
 
 blockquote {
-  @apply border-l border-l-solid ml-8 pl-4;
+  --at-apply: border-l border-l-solid ml-8 pl-4;
+}
+
+.code-block {
+  --at-apply: overflow-x-auto max-w-[760px] px-2 box-border;
 }
 
 body {
@@ -21,6 +25,11 @@ body {
 
 #page {
   flex: 1;
+  padding-bottom: 50px;
+}
+
+p, li {
+  line-height: 26px;
 }
 
 textarea {
@@ -75,5 +84,11 @@ h2.editor-title {
 }
 
 img {
-  max-width: 100%
+  max-width: 100%;
+}
+
+code:not([class]) {
+  font-size: 16px;
+  padding: 2px 4px;
+  border-radius: 5px;
 }

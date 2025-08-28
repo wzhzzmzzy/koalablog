@@ -2,7 +2,6 @@
 import type { Markdown } from '@/db/types'
 import { MarkdownSource } from '@/db'
 import { formatDate } from 'date-fns'
-import './index.css'
 
 interface Props {
   article: Markdown
@@ -13,40 +12,15 @@ const { article, content } = Astro.props
 
 const source = article?.source
 ---
-
-<article-view data-article={JSON.stringify(article)}>
-  {
-    source === MarkdownSource.Post
-  ? (
-  <>
-    <h1>{ article.subject }</h1>
-    <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
-  </>
-  )
-  : null
-  }
-  <article id="article" set:html={content} />
-</article-view>
-
-<script>
-class ArticleView extends HTMLElement {
-  articleEl: HTMLElement | null = null
-
-  constructor() {
-    super()
-  }
-
-  async connectedCallback() {
-    this.articleEl = this.querySelector('#article')
-
-    const query = window.matchMedia('(prefers-color-scheme: dark)')
-    query.addEventListener('change', this.rerenderMd.bind(this))
-  }
-
-  rerenderMd() {
-    window.location.reload()
-  }
+{
+  source === MarkdownSource.Post
+? (
+<>
+  <h1>{ article.subject }</h1>
+  <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
+</>
+)
+: null
 }
+<article id="article" set:html={content} />
 
-customElements.define('article-view', ArticleView)
-</script>
