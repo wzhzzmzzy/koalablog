@@ -7,6 +7,8 @@
   import type MarkdownIt from 'markdown-it';
   import { actions } from 'astro:actions';
   import { convertToWebP, pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
+  import { parseJson } from '@/lib/utils/parse-json';
+  import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
 
   interface Props {
 		markdown: Markdown;
@@ -28,9 +30,11 @@
   })
 
   let mdInstance: MarkdownIt | null = null
+  let allPosts: Markdown[] = []
   onMount(async () => {
-    const allPosts = await actions.db.markdown.all({ source: 'post' })
-    mdInstance = await md({ allPostLinks: allPosts.data?.posts })
+    const allPostsFromDB = await actions.db.markdown.all({ source: 'post' })
+    allPosts = allPostsFromDB.data?.posts || [];
+    mdInstance = await md({ allPostLinks: allPosts })
     refreshPreview()
 
     if (isPreset && markdown.id === 0) {
@@ -137,6 +141,28 @@
       subject: i.textContent,
       link: i.dataset.link
     })).filter(i => !!i.link)))
+
+    if (source === MarkdownSource.Post) {
+      const oldLink = markdown.link
+      const newLink = formData.get('link') as string
+      const refs = allPosts.map(p => {
+        const outgoing = parseJson<DoubleLinkPluginOptions['allPostLinks']>(p.outgoing_links || null) || []
+        return { ...p, outgoing_links: outgoing}
+      }).filter(p => {
+        return p.outgoing_links.some(i => i.link === oldLink)
+      })
+      if (refs.length) {
+        await actions.db.markdown.updateRefs(
+          refs.map(
+            ref => ({ 
+              id: ref.id,
+              outgoingLinks: ref.outgoing_links.map(i => ({ ...i, link: i.link === oldLink ? newLink : i.link })) 
+            })
+          )
+        )
+      }
+    }
+
     const result = await actions.form.save(formData)
 
     if (result.error) {

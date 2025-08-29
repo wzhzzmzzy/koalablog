@@ -65,6 +65,19 @@ export function update(
   }).where(eq(markdown.id, id)).returning()
 }
 
+export function updateRefs(
+  env: Env,
+  refs: {
+    id: number
+    outgoing_links?: string
+  }[],
+) {
+  const db = connectDB(env)
+  return Promise.all(refs.map(({ id, outgoing_links }) => db.update(markdown).set({
+    outgoing_links,
+  }).where(eq(markdown.id, id))))
+}
+
 export function remove(env: Env, id: number, currentLink: string) {
   // 添加 /deleted/ 前缀到当前link
   const deletedLink = currentLink.startsWith('/deleted/')

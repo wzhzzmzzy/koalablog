@@ -1,6 +1,6 @@
 import type { Markdown } from '@/db/types'
 import { MarkdownSource } from '@/db'
-import { add, justReadAll } from '@/db/markdown'
+import { justReadAll, updateRefs as updateRefsDB } from '@/db/markdown'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
@@ -72,9 +72,28 @@ export const save = defineAction({
       link: z.string(),
     })).default([]),
   }),
-  handler: async (input, ctx) => {
-    const post = await add(ctx.locals.runtime?.env, MarkdownSource.Post, input.subject, input.content)
+  handler: async (_input, _ctx) => {
+    // const post = await add(ctx.locals.runtime?.env, MarkdownSource.Post, input.subject, input.content)
+    //
+    // return post
+  },
+})
 
-    return post
+export const updateRefs = defineAction({
+  input: z.array(z.object({
+    id: z.number(),
+    outgoingLinks: z.array(z.object({
+      subject: z.string(),
+      link: z.string(),
+    })).default([]),
+  })),
+  accept: 'json',
+  handler: async (input, ctx) => {
+    await authGuard(ctx)
+
+    return updateRefsDB(
+      ctx.locals.runtime?.env,
+      input.map(i => ({ id: i.id, outgoing_links: JSON.stringify(i.outgoingLinks) })),
+    )
   },
 })
