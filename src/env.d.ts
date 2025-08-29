@@ -32,4 +32,9 @@ declare global {
     }
     type Env = Env
   }
+
+  interface Window {
+    refreshCopyListener: () => void
+    copyCode: (el: HTMLSpanElement) => void
+  }
 }

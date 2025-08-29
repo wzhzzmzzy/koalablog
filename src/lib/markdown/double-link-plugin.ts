@@ -59,7 +59,8 @@ function doubleLinkPlugin(md: MarkdownIt, options: DoubleLinkPluginOptions = {})
   md.renderer.rules.double_link = function (tokens, idx, _options, _env, _renderer) {
     const token = tokens[idx]
     const title = token.content
-    const post = opts.allPostLinks?.find(i => i.subject === title)
+    const allPostLinks: DoubleLinkPluginOptions['allPostLinks'] = (md as any).allPostLinks || opts.allPostLinks
+    const post = allPostLinks?.find(i => i.subject === title)
     const href = post ? post.link.startsWith('http') ? post.link : `/${post.link}` : ''
     const link = post?.link
 

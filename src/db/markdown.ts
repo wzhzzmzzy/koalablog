@@ -62,7 +62,7 @@ export function update(
     updatedAt: new Date(),
     outgoing_links,
     private: privated,
-  }).where(eq(markdown.id, id))
+  }).where(eq(markdown.id, id)).returning()
 }
 
 export function remove(env: Env, id: number, currentLink: string) {

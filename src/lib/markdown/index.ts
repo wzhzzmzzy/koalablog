@@ -36,18 +36,31 @@ function tex(mdInstance: MarkdownIt) {
   })
 }
 
+type KoalaMdInstance = MarkdownIt & { renderLangSet?: Set<string>, allPostLinks?: DoubleLinkPluginOptions['allPostLinks'] }
+const MdCacheMap: Map<'md' | 'rawMd', KoalaMdInstance> = new Map()
+
 export async function md(opt: {
   theme?: CatppuccinTheme
   themeConfig?: ThemeConfig
   langSet?: string[]
   allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
 } = {}) {
-  const md = MarkdownIt()
+  const cacheMd = MdCacheMap.get('md')
+  const md: KoalaMdInstance = cacheMd || MarkdownIt()
 
-  expandable(md)
-  useDoubleLink(md, { allPostLinks: opt.allPostLinks })
-  tex(md)
-  await useShiki(md, opt)
+  if (!cacheMd) {
+    expandable(md)
+    tex(md)
+    // FIXME:
+    // if cached instance can't cover current langSet meanwhile using server side
+    // highlighter will crashed
+    await useShiki(md, opt)
+    useDoubleLink(md, { allPostLinks: opt.allPostLinks })
+    MdCacheMap.set('md', md)
+  }
+  else {
+    md.allPostLinks = opt.allPostLinks
+  }
 
   return md
 }
@@ -56,22 +69,30 @@ export function rawMd(opt: {
   tex?: boolean
   allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
 } = {}) {
-  const md: MarkdownIt & { renderLangSet?: Set<string> } = MarkdownIt()
+  const cacheMd = MdCacheMap.get('rawMd')
+  const md: KoalaMdInstance = cacheMd || MarkdownIt()
 
-  expandable(md)
-  useDoubleLink(md, { allPostLinks: opt.allPostLinks })
-  opt.tex && tex(md)
+  if (!cacheMd) {
+    expandable(md)
+    opt.tex && tex(md)
 
-  const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, env, self) {
-    return self.renderToken(tokens, idx, options)
+    useDoubleLink(md, { allPostLinks: opt.allPostLinks })
+
+    const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, env, self) {
+      return self.renderToken(tokens, idx, options)
+    }
+
+    md.renderLangSet = new Set()
+    md.renderer.rules.fence = function (tokens, idx, options, env, self) {
+      const lang = tokens[idx].info
+      md.renderLangSet?.add(lang)
+      const rawCodeHtml = defaultFence(tokens, idx, options, env, self)
+      return `<div class="code-block"><span class="code-lang">${(lang || '').toUpperCase()}</span><div class="code-content">${rawCodeHtml}</div></div>\n`
+    }
+    MdCacheMap.set('rawMd', md)
   }
-
-  md.renderLangSet = new Set()
-  md.renderer.rules.fence = function (tokens, idx, options, env, self) {
-    const lang = tokens[idx].info
-    md.renderLangSet?.add(lang)
-    const rawCodeHtml = defaultFence(tokens, idx, options, env, self)
-    return `<div class="code-block"><span class="code-lang">${(lang || '').toUpperCase()}</span><div class="code-content">${rawCodeHtml}</div></div>\n`
+  else {
+    md.allPostLinks = opt.allPostLinks
   }
 
   return md

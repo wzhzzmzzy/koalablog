@@ -5,8 +5,6 @@ import { fromHighlighter } from '@shikijs/markdown-it/core'
 import { createHighlighterCore, createJavaScriptRegexEngine, type HighlighterGeneric } from 'shiki'
 import { wrapperlessFenceRule } from './wrapperless-fence-rule'
 
-const ShikiMap = new Map<'shiki', MarkdownIt>()
-
 export interface HighlightOptions {
   theme?: CatppuccinTheme
   themeConfig?: ThemeConfig
@@ -17,10 +15,6 @@ export type ThemeConfig = GlobalConfig['pageConfig']['theme']
 
 export async function useShiki(instance: MarkdownIt, options: HighlightOptions) {
   const { theme: renderTheme, themeConfig, langSet } = options
-
-  const shiki = ShikiMap.get('shiki')
-  if (shiki)
-    return shiki
 
   let theme: string | null = null
   let lightTheme: string | null = null
@@ -51,6 +45,7 @@ export async function useShiki(instance: MarkdownIt, options: HighlightOptions) 
       [theme, lightTheme, darkTheme].includes('mocha') && import('@shikijs/themes/catppuccin-mocha'),
     ].filter(i => !!i),
     langs: [
+      has('md,markdown') && import('@shikijs/langs/markdown'),
       has('jsx') && import('@shikijs/langs/jsx'),
       has('ts,typescript') && import('@shikijs/langs/typescript'),
       has('js,javascript') && import('@shikijs/langs/javascript'),
@@ -75,6 +70,4 @@ export async function useShiki(instance: MarkdownIt, options: HighlightOptions) 
       },
     ],
   }))
-
-  ShikiMap.set('shiki', instance)
 }

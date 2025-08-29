@@ -36,12 +36,10 @@ export const save = defineAction({
     const { id, link, subject, content, source, outgoingLinks, private: privated } = input
     const env = ctx.locals.runtime?.env || {}
     if (id) {
-      await update(env, id, link, subject, content, JSON.stringify(outgoingLinks), privated)
-      return { link }
+      return update(env, id, link, subject, content, JSON.stringify(outgoingLinks), privated)
     }
     else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
-      await add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated)
-      return { link }
+      return add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated)
     }
     else if (source === MarkdownSource.Home || source === MarkdownSource.Nav) {
       await addPreset(env, link, source, subject, content)

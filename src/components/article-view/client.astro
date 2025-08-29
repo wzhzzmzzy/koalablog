@@ -57,6 +57,7 @@ class ArticleClient extends HTMLElement {
     const content = article ? (await mdModule.md({ langSet, allPostLinks: outgoingLinks || [] })).render(article?.content ?? '') : ''
     this.serverArticleEl?.remove()
     this.articleEl?.insertAdjacentHTML('beforeend', content)
+    window.refreshCopyListener()
   }
 }
 

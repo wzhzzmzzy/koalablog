@@ -22,5 +22,4 @@ if (presetSource.source === MarkdownSource.Unknown) {
 }
 ---
 
-{ presetSource.id === 0 && <p class="warning">Your blog doesn't have a {presetSource.subject}, press [Save] to create with default content</p> }
 { presetSource && <Editor client:load source={source} markdown={presetSource} /> }

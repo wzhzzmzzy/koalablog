@@ -64,13 +64,13 @@ const themeFile = `/themes/${lightTheme}-${darkTheme}.css`
 </html>
 
 <script>
-(window as any).refreshCopyListener = () => {
+window.refreshCopyListener = () => {
   document.querySelectorAll('span.code-lang').forEach((item) => {
     item.addEventListener('click', (window as any).copyCode.bind(window, item));
     (item as HTMLSpanElement).title = 'Copy code'
   })
 }
-(window as any).copyCode = (item: HTMLSpanElement) => {
+window.copyCode = (item: HTMLSpanElement) => {
   const lang = item.textContent
   const supportClipboard = navigator && 'clipboard' in navigator
   if (supportClipboard) {
@@ -84,4 +84,8 @@ const themeFile = `/themes/${lightTheme}-${darkTheme}.css`
     })
   }
 }
+
+window.requestIdleCallback(() => {
+  window.refreshCopyListener()
+})
 </script>

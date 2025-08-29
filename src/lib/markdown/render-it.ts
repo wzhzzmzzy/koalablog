@@ -10,8 +10,9 @@ export async function renderIt(
   allPostLinks?: DoubleLinkPluginOptions['allPostLinks'],
 ) {
   if (!raw) {
+    const renderer = (await md({ themeConfig, allPostLinks }))
     return {
-      content: article ? (await md({ themeConfig, allPostLinks })).render(article.content ?? '') : '',
+      content: article ? renderer.render(article.content ?? '') : '',
     }
   }
 

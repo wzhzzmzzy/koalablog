@@ -32,6 +32,10 @@
     const allPosts = await actions.db.markdown.all({ source: 'post' })
     mdInstance = await md({ allPostLinks: allPosts.data?.posts })
     refreshPreview()
+
+    if (isPreset && markdown.id === 0) {
+      formWarn = `Your blog doesn't have a ${markdown.subject}, press [Save] to create it with default content`
+    }
   })
 
   async function refreshPreview() {
@@ -76,6 +80,7 @@
   }
 
   let formError = $state('')
+  let formWarn = $state('')
   let success = $state('')
   async function upload(e: Event) {
     e.preventDefault()
@@ -136,13 +141,22 @@
 
     if (result.error) {
       formError = result.error.message
+      success = ''
     } else {
+      formWarn = ''
+      formError = ''
       success = 'Saved Success'
+      if (result.data?.[0])
+      markdown = result.data[0]
     }
   }
 </script>
 
 <div class="w-full flex-1 flex flex-col">
+  {#if formWarn}
+    <p class="warning">{formWarn}</p>
+  {/if}
+
   {#if formError}
     <p class="error">{formError}</p>
   {/if}
@@ -183,9 +197,9 @@
 
     <div class="flex justify-between">
     {#if source === MarkdownSource.Post}
-      <h2 class="editor-title">{ markdown.id ? 'New Post' : 'Edit Post' }</h2>
+      <h2 class="editor-title">{ !markdown.id ? 'New Post' : 'Edit Post' }</h2>
     {:else if source === MarkdownSource.Page}
-      <h2 class="editor-title">{ markdown.id ? 'New Page' : 'Edit Page' }</h2>
+      <h2 class="editor-title">{ !markdown.id ? 'New Page' : 'Edit Page' }</h2>
     {:else}
       <h2 class="editor-title">{ markdown.subject }</h2>
     {/if}
