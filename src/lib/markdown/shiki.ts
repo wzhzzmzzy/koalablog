@@ -2,7 +2,7 @@ import type MarkdownIt from 'markdown-it'
 import type { CatppuccinTheme } from '../const/config'
 import type { GlobalConfig } from '../kv'
 import { fromHighlighter } from '@shikijs/markdown-it/core'
-import { createHighlighterCore, createJavaScriptRegexEngine, type HighlighterGeneric } from 'shiki'
+import { createHighlighterCore, createJavaScriptRegexEngine, createOnigurumaEngine, type HighlighterGeneric } from 'shiki'
 import { wrapperlessFenceRule } from './wrapperless-fence-rule'
 
 export interface HighlightOptions {
@@ -55,7 +55,7 @@ export async function useShiki(instance: MarkdownIt, options: HighlightOptions) 
       has('json') && import('@shikijs/langs/json'),
       has('ini') && import('@shikijs/langs/ini'),
     ].filter(i => !!i),
-    engine: createJavaScriptRegexEngine(),
+    engine: createOnigurumaEngine(),
   })
 
   instance.renderer.rules.fence = wrapperlessFenceRule
