@@ -2,7 +2,7 @@ import type MarkdownIt from 'markdown-it'
 import type { CatppuccinTheme } from '../const/config'
 import type { GlobalConfig } from '../kv'
 import { fromHighlighter } from '@shikijs/markdown-it/core'
-import { createHighlighterCore, createJavaScriptRegexEngine, createOnigurumaEngine, type HighlighterGeneric, loadWasm } from 'shiki'
+import { createHighlighterCore, createJavaScriptRegexEngine, type HighlighterGeneric } from 'shiki'
 import { wrapperlessFenceRule } from './wrapperless-fence-rule'
 
 export interface HighlightOptions {
@@ -37,9 +37,6 @@ export async function useShiki(instance: MarkdownIt, options: HighlightOptions) 
   const has = (lang: string) =>
     !import.meta.env.SSR ? langSet?.length ? lang.split(',').some(l => langSet.includes(l)) : true : true
 
-  // @ts-expect-error WASM file has no declaration
-  await loadWasm(import('shiki/onig.wasm'))
-
   const highlighter = await createHighlighterCore({
     themes: [
       () => import('@shikijs/themes/catppuccin-latte'),
@@ -53,12 +50,12 @@ export async function useShiki(instance: MarkdownIt, options: HighlightOptions) 
       () => import('@shikijs/langs/typescript'),
       () => import('@shikijs/langs/javascript'),
       () => import('@shikijs/langs/rust'),
-      has('hs,haskell') && import('@shikijs/langs/haskell'),
-      has('py,python') && import('@shikijs/langs/python'),
-      has('json') && import('@shikijs/langs/json'),
-      has('ini') && import('@shikijs/langs/ini'),
+      () => import('@shikijs/langs/haskell'),
+      () => import('@shikijs/langs/python'),
+      () => import('@shikijs/langs/json'),
+      () => import('@shikijs/langs/ini'),
     ].filter(i => !!i),
-    engine: createOnigurumaEngine(),
+    engine: createJavaScriptRegexEngine(),
   })
 
   instance.renderer.rules.fence = wrapperlessFenceRule
