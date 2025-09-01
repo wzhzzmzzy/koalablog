@@ -2,7 +2,7 @@ import type MarkdownIt from 'markdown-it'
 import type { CatppuccinTheme } from '../const/config'
 import type { GlobalConfig } from '../kv'
 import { fromHighlighter } from '@shikijs/markdown-it/core'
-import { createHighlighterCore, createJavaScriptRegexEngine, createOnigurumaEngine, type HighlighterGeneric } from 'shiki'
+import { createHighlighterCore, createJavaScriptRegexEngine, createOnigurumaEngine, type HighlighterGeneric, loadWasm } from 'shiki'
 import { wrapperlessFenceRule } from './wrapperless-fence-rule'
 
 export interface HighlightOptions {
@@ -37,19 +37,22 @@ export async function useShiki(instance: MarkdownIt, options: HighlightOptions) 
   const has = (lang: string) =>
     !import.meta.env.SSR ? langSet?.length ? lang.split(',').some(l => langSet.includes(l)) : true : true
 
+  // @ts-expect-error WASM file has no declaration
+  await loadWasm(import('shiki/onig.wasm'))
+
   const highlighter = await createHighlighterCore({
     themes: [
-      [theme, lightTheme, darkTheme].includes('latte') && import('@shikijs/themes/catppuccin-latte'),
-      [theme, lightTheme, darkTheme].includes('frappe') && import('@shikijs/themes/catppuccin-frappe'),
-      [theme, lightTheme, darkTheme].includes('macchiato') && import('@shikijs/themes/catppuccin-macchiato'),
-      [theme, lightTheme, darkTheme].includes('mocha') && import('@shikijs/themes/catppuccin-mocha'),
+      () => import('@shikijs/themes/catppuccin-latte'),
+      () => import('@shikijs/themes/catppuccin-frappe'),
+      () => import('@shikijs/themes/catppuccin-macchiato'),
+      () => import('@shikijs/themes/catppuccin-mocha'),
     ].filter(i => !!i),
     langs: [
-      has('md,markdown') && import('@shikijs/langs/markdown'),
-      has('jsx') && import('@shikijs/langs/jsx'),
-      has('ts,typescript') && import('@shikijs/langs/typescript'),
-      has('js,javascript') && import('@shikijs/langs/javascript'),
-      has('rs,rust') && import('@shikijs/langs/rust'),
+      () => import('@shikijs/langs/markdown'),
+      () => import('@shikijs/langs/jsx'),
+      () => import('@shikijs/langs/typescript'),
+      () => import('@shikijs/langs/javascript'),
+      () => import('@shikijs/langs/rust'),
       has('hs,haskell') && import('@shikijs/langs/haskell'),
       has('py,python') && import('@shikijs/langs/python'),
       has('json') && import('@shikijs/langs/json'),
