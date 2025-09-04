@@ -44,7 +44,7 @@
 
   async function refreshPreview() {
     let previewMd = textareaValue
-    if (subjectValue && !isPreset) {
+    if (subjectValue && !isPreset && source !== MarkdownSource.Page) {
       previewMd = `# ${subjectValue}\n\n${textareaValue}`
     }
     if (mdInstance) {

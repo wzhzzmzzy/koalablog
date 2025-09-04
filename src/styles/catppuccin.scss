@@ -76,6 +76,14 @@ body {
     border: 1px solid var(--koala-code-border);
   }
 
+  details {
+    border: 1px solid var(--koala-code-border);
+  }
+
+  details[open] summary {
+    color: var(--koala-editor-text)
+  }
+
   code:not([class]) {
     background-color: var(--koala-editor-bg);
     color: var(--koala-editor-text)
