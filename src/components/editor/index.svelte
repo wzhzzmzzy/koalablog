@@ -174,6 +174,10 @@
       success = 'Saved Success'
       if (result.data?.[0])
       markdown = result.data[0]
+
+      setTimeout(() => {
+        success = ''
+      }, 3000)
     }
   }
 </script>
