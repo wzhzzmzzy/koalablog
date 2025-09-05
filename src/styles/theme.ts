@@ -1,6 +1,3 @@
-import fs from 'node:fs'
-import path from 'node:path'
-
 export const CatppuccinLatte = {
   'rosewater': '#dc8a78',
   'flamingo': '#dd7878',
