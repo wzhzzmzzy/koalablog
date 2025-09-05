@@ -1,5 +1,6 @@
 ---
 import type { CatppuccinTheme } from '@/lib/const/config'
+import { generateThemeCSS } from '@/styles/theme'
 import '@/styles/global.css'
 import '@/styles/catppuccin.scss'
 
@@ -18,8 +19,7 @@ const ThemeBaseColor: Record<CatppuccinTheme, string> = {
 const lightThemeColor = ThemeBaseColor[lightTheme]
 const darkThemeColor = ThemeBaseColor[darkTheme]
 const site = rssConfig.site || Astro.site || Astro.url.origin
-const themeFile = `/themes/${lightTheme}-${darkTheme}.css`
-
+const themeCss = generateThemeCSS(lightTheme, darkTheme)
 ---
 
 <!DOCTYPE html>
@@ -29,7 +29,6 @@ const themeFile = `/themes/${lightTheme}-${darkTheme}.css`
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <link rel="shortcut icon" type="image/x-icon" href="/favicon.png" />
-    <link rel="preload" as="style" href={themeFile} onload="this.rel='stylesheet'" />
 
     <meta
       name="theme-color"
@@ -47,6 +46,7 @@ const themeFile = `/themes/${lightTheme}-${darkTheme}.css`
       title={blogTitle}
       href={new URL('rss.xml', site)}
     />
+    <Fragment set:html={themeCss} />
 
     <slot name="meta" />
   </head>

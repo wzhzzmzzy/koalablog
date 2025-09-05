@@ -134,6 +134,7 @@ export function generateThemeCSS(lightTheme: keyof typeof Themes, darkTheme: key
     .join('\n')
 
   return `
+<style>
 :root {
 ${lightVars}
 }
@@ -151,23 +152,6 @@ ${lightVars}
 [data-theme="dark"] {
 ${darkVars}
 }
+</style>
 `
-}
-
-export function themeGenerator() {
-  // 生成所有可能的主题组合
-  const themeKeys = Object.keys(Themes) as (keyof typeof Themes)[]
-  const outputDir = 'public/themes'
-
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true })
-  }
-
-  themeKeys.forEach((lightTheme) => {
-    themeKeys.forEach((darkTheme) => {
-      const css = generateThemeCSS(lightTheme, darkTheme)
-      const filename = `${lightTheme}-${darkTheme}.css`
-      fs.writeFileSync(path.join(outputDir, filename), css)
-    })
-  })
 }
