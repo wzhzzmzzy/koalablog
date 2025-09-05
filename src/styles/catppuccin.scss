@@ -13,6 +13,7 @@
     "error-text": "red",
     "code-bg": "base",
     "code-border": "overlay-1",
+    "code-border-nest": "surface-1",
     "editor-bg": "crust",
     "editor-text": "subtext-0",
     "editor-border": "overlay-0",
@@ -74,6 +75,10 @@ body {
   div.code-block {
     background-color: var(--koala-code-bg);
     border: 1px solid var(--koala-code-border);
+  }
+
+  details div.code-block {
+    border-color: var(--koala-code-border-nest)
   }
 
   details {
