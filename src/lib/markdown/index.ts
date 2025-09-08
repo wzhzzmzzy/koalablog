@@ -46,7 +46,7 @@ export async function md(opt: {
   allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
 } = {}) {
   const cacheMd = MdCacheMap.get('md')
-  const md: KoalaMdInstance = cacheMd || MarkdownIt()
+  const md: KoalaMdInstance = cacheMd || MarkdownIt({ html: true })
 
   if (!cacheMd) {
     expandable(md)
@@ -70,7 +70,7 @@ export function rawMd(opt: {
   allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
 } = {}) {
   const cacheMd = MdCacheMap.get('rawMd')
-  const md: KoalaMdInstance = cacheMd || MarkdownIt()
+  const md: KoalaMdInstance = cacheMd || MarkdownIt({ html: true })
 
   if (!cacheMd) {
     expandable(md)
