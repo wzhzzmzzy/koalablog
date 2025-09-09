@@ -28,6 +28,8 @@
     "popup-btn-bg": "overlay-1",
     "input-bg": "surface-0",
     "input-text": "subtext-1",
+    "tag-bg": "surface-1",
+    "tag-text": "subtext-0",
   );
 
   @each $koala-var, $theme-color in $theme-mappings {
@@ -122,6 +124,27 @@ body {
     p.#{$class} {
       margin-top: 0;
       color: var(--koala-#{$var});
+    }
+  }
+
+  span.tag {
+    background-color: var(--koala-tag-bg);
+    color: var(--koala-tag-text);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+
+    &:hover {
+      background-color: var(--koala-button-hover-bg);
+      color: var(--koala-text);
+    }
+
+    &:focus {
+      outline: 2px solid var(--koala-link);
+      outline-offset: 1px;
+    }
+
+    &:active {
+      background-color: var(--koala-button-active-bg);
     }
   }
 }

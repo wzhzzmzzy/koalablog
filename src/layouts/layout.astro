@@ -70,6 +70,27 @@ window.refreshCopyListener = () => {
     (item as HTMLSpanElement).title = 'Copy code'
   })
 }
+
+window.refreshTagListener = () => {
+  document.querySelectorAll('span.tag').forEach((item) => {
+    item.addEventListener('click', (window as any).handleTagClick.bind(window, item))
+    item.addEventListener('keydown', (window as any).handleTagKeydown.bind(window, item))
+  })
+}
+window.handleTagClick = (item: HTMLSpanElement) => {
+  const tagName = item.getAttribute('data-tag')
+  if (tagName) {
+    window.location.href = `/posts?tag=${encodeURIComponent(tagName)}`
+  }
+}
+
+window.handleTagKeydown = (item: HTMLSpanElement, event: KeyboardEvent) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    window.handleTagClick(item)
+  }
+}
+
 window.copyCode = (item: HTMLSpanElement) => {
   const lang = item.textContent
   const supportClipboard = navigator && 'clipboard' in navigator
@@ -87,5 +108,6 @@ window.copyCode = (item: HTMLSpanElement) => {
 
 window.requestIdleCallback(() => {
   window.refreshCopyListener()
+  window.refreshTagListener()
 })
 </script>

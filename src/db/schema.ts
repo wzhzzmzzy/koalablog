@@ -7,6 +7,8 @@ export const markdown = sqliteTable('markdown', {
   link: text().unique().notNull(),
   subject: text().unique().notNull(),
   content: text(),
+  // format:
+  // tag1,tag2,tag3
   tags: text(),
   // format:
   // [{subject,link},]

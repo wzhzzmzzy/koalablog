@@ -51,6 +51,7 @@
       previewHtml = mdInstance.render(previewMd)
       setTimeout(() => {
         (window as any).refreshCopyListener()
+        (window as any).refreshTagListener()
       }, 100)
     }
   }
@@ -135,12 +136,17 @@
 
     const previewEl = document.getElementById('preview-md')
     const outgoingLinkEls: HTMLAnchorElement[] = Array.from(previewEl?.querySelectorAll('a.outgoing-link') || [])
+    const tagEls: HTMLSpanElement[] = Array.from(previewEl?.querySelectorAll('span.tag') || [])
 
     const formData = new FormData(editorForm)
     formData.append('outgoingLinks', JSON.stringify(outgoingLinkEls.map(i => ({
       subject: i.textContent,
       link: i.dataset.link
     })).filter(i => !!i.link)))
+    
+    // 收集tags数据，去重并转为逗号分隔的字符串
+    const tags = [...new Set(tagEls.map(el => el.getAttribute('data-tag')).filter(Boolean))]
+    formData.append('tags', tags.join(','))
 
     if (source === MarkdownSource.Post) {
       const oldLink = markdown.link

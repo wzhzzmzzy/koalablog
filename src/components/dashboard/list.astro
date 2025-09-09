@@ -7,13 +7,14 @@ interface Props {
   source: PostOrPage
   editable?: boolean
   dashboard?: boolean
+  tag?: string | null
 }
 
-const { source, editable = false, dashboard = false } = Astro.props
+const { source, editable = false, dashboard = false, tag } = Astro.props
 
 const env = Astro.locals.runtime?.env || {}
 
-const list = await readList(env, source)
+const list = await readList(env, source, tag || undefined)
 const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? 'MM-dd (HH:mm)' : 'yyyy-MM-dd')
 ---
 

@@ -21,6 +21,7 @@ export function add(
   link?: string,
   outgoing_links?: string,
   privated: boolean = false,
+  tags?: string,
 ) {
   return connectDB(env).insert(markdown).values({
     link: link || linkGenerator(source, subject),
@@ -29,6 +30,7 @@ export function add(
     content,
     outgoing_links,
     private: privated,
+    tags,
   }).returning()
 }
 export function addPreset(
@@ -53,6 +55,7 @@ export function update(
   content: string,
   outgoing_links?: string,
   privated: boolean = false,
+  tags?: string,
 ) {
   return connectDB(env).update(markdown).set({
     link,
@@ -61,6 +64,7 @@ export function update(
     updatedAt: new Date(),
     outgoing_links,
     private: privated,
+    tags,
   }).where(eq(markdown.id, id)).returning()
 }
 
@@ -158,4 +162,21 @@ export function readPreset(env: Env, source: PresetSource): Promise<Markdown | u
 
 export function justReadAll(env: Env) {
   return connectDB(env).query.markdown.findMany()
+}
+
+/**
+ * Extract tags and links from markdown content
+ */
+export function collectTagsAndLinks(markdown: { content: string, tags?: string | null, incoming_links?: string, outgoing_links?: string }) {
+  const content = markdown.content
+
+  // Extract tags (#tagname format)
+  const tagMatches = content.match(/#([\w-]+)/g) || []
+  const tags = [...new Set(tagMatches.map(match => match.slice(1)))] // Remove # and deduplicate
+
+  // Extract links ([[linkname]] format)
+  const linkMatches = content.match(/\[\[([^\]]+)\]\]/g) || []
+  const links = [...new Set(linkMatches.map(match => match.slice(2, -2)))] // Remove [[ ]] and deduplicate
+
+  return { tags, links }
 }

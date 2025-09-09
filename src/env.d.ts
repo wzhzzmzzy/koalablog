@@ -36,5 +36,8 @@ declare global {
   interface Window {
     refreshCopyListener: () => void
     copyCode: (el: HTMLSpanElement) => void
+    refreshTagListener: () => void
+    handleTagClick: (el: HTMLSpanElement) => void
+    handleTagKeydown: (el: HTMLSpanElement, event: KeyboardEvent) => void
   }
 }

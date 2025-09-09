@@ -90,7 +90,7 @@ function tagPlugin(md: MarkdownIt, options: TagPluginOptions = {}) {
     const tagName = token.content
     const className = token.attrGet('class') || 'tag'
 
-    return `<span class="${className}">${md.utils.escapeHtml(tagName)}</span>`
+    return `<span class="${className}" role="button" tabindex="0" data-tag="${md.utils.escapeHtml(tagName)}" title="Click to search tag: ${md.utils.escapeHtml(tagName)}">${md.utils.escapeHtml(tagName)}</span>`
   }
 }
 
