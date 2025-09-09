@@ -1,4 +1,3 @@
-import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
 import type { PostOrPage, PresetSource } from '.'
 import type { Markdown } from './types'
 import { and, desc, eq, like } from 'drizzle-orm'

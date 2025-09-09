@@ -11,7 +11,7 @@ import { parseJson } from '@/lib/utils/parse-json'
 const { link } = Astro.params
 
 if (!link) {
-  return Astro.redirect('/404')
+  return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
 }
 
 const source = MarkdownSource.Post

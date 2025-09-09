@@ -4,8 +4,12 @@ import HomeLayout from '@/layouts/home.astro'
 
 const isDashboard = Astro.url.pathname.includes('dashboard')
 const LayoutElement = isDashboard ? DashboardLayout : HomeLayout
+
+const sourcePath = Astro.url.searchParams.get('source') || Astro.url.pathname
 ---
 
 <LayoutElement>
-404
+  <h1>404 - Page Not Found</h1>
+  <p class="error">The requested path <code>{sourcePath}</code> could not be found.</p>
+  <a href="/">Return to Home</a>
 </LayoutElement>

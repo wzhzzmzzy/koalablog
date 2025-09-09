@@ -3,9 +3,13 @@ import { MarkdownSource, type PostOrPage } from '@/db'
 import { read } from '@/db/markdown'
 import { to } from 'await-to-js'
 
-interface AppInject { locals: App.Locals, redirect: (path: string, status?: ValidRedirectStatus) => Response }
+interface AppInject { 
+  locals: App.Locals, 
+  redirect: (path: string, status?: ValidRedirectStatus) => Response,
+  url: URL
+}
 
-export async function readArticle({ locals, redirect }: AppInject, source: PostOrPage, link: string) {
+export async function readArticle({ locals, redirect, url }: AppInject, source: PostOrPage, link: string) {
   const env = locals.runtime?.env || {}
   const [error, article] = await to(read(env, source, `${source === MarkdownSource.Post ? 'post/' : ''}${link}`))
 
@@ -13,7 +17,7 @@ export async function readArticle({ locals, redirect }: AppInject, source: PostO
     return redirect('/500')
   }
   else if (!article) {
-    return redirect('/404')
+    return redirect(`/404?source=${encodeURIComponent(url.pathname)}`)
   }
 
   return article

@@ -13,7 +13,7 @@ const { slug } = Astro.params
 const maybePage: Markdown | undefined = await read(Astro.locals.runtime?.env, MarkdownSource.Page, slug || '')
 
 if (!maybePage) {
-  return Astro.redirect('/404')
+  return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
 }
 if (maybePage.private) {
   await authInterceptor(Astro, 'guest')

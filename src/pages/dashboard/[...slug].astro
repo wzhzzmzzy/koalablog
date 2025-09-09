@@ -21,7 +21,7 @@ let maybePage: Markdown | undefined
 if (source === MarkdownSource.Unknown) {
   maybePage = await read(Astro.locals.runtime?.env, MarkdownSource.Page, [sourcePath].concat(paths).join('/'))
   if (!maybePage) {
-    return Astro.redirect('/404')
+    return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
   }
   else {
     return Astro.redirect(`/dashboard/page/${maybePage.link}`)
