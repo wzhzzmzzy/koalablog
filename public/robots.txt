@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Allow indexing of all posts and pages
+Allow: /post/
+Allow: /posts
+
+# Allow RSS feed
+Allow: /rss.xml
+
+# Block admin dashboard
+Disallow: /dashboard/
+Disallow: /api/
+
+# Reference to sitemap (replace with your actual domain)
+Sitemap: /sitemap.xml
