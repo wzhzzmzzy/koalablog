@@ -11,6 +11,7 @@ import { retriveRss } from '@/lib/utils/rss'
 
 const { slug } = Astro.params
 
+console.log('all slug', slug)
 if (slug === 'rss.xml') {
   return retriveRss(Astro)
 }
