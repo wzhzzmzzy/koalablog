@@ -4,7 +4,7 @@ import { readAll } from '@/db/markdown'
 import { rawMd } from '@/lib/markdown'
 import rss from '@astrojs/rss'
 
-export async function GET(ctx: APIContext) {
+export async function retriveRss(ctx: APIContext) {
   const rssConfig = ctx.locals.config.rss || { enable: true }
   if (!rssConfig.enable) {
     return new Response(null, { status: 404 })

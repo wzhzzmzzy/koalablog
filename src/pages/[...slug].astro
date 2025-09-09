@@ -7,8 +7,13 @@ import { read } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
 import { authInterceptor } from '@/lib/auth'
 import { renderIt } from '@/lib/markdown/render-it'
+import { retriveRss } from '@/lib/utils/rss'
 
 const { slug } = Astro.params
+
+if (slug === 'rss.xml') {
+  return retriveRss(Astro)
+}
 
 const maybePage: Markdown | undefined = await read(Astro.locals.runtime?.env, MarkdownSource.Page, slug || '')
 
