@@ -13,6 +13,7 @@ const { slug } = Astro.params
 
 console.log('all slug', slug)
 if (slug === 'rss.xml') {
+  console.log('all slug is rss', slug)
   return retriveRss(Astro)
 }
 
