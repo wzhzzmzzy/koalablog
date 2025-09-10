@@ -1,4 +1,4 @@
-import { all, save as saveMarkdown, updateRefs } from './db/markdown'
+import { all, batchImport, updateRefs } from './db/markdown'
 import { login } from './form/login'
 import { remove, save } from './form/markdown'
 import { onboarding } from './form/onboarding'
@@ -21,7 +21,7 @@ export const server = {
   db: {
     markdown: {
       all,
-      save: saveMarkdown,
+      batchImport,
       updateRefs,
     },
   },

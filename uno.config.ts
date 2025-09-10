@@ -1,5 +1,4 @@
 import presetIcons from '@unocss/preset-icons'
-import { presetRemToPx } from '@unocss/preset-rem-to-px'
 import { defineConfig, presetUno, transformerDirectives } from 'unocss'
 
 export default defineConfig({

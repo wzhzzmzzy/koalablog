@@ -52,12 +52,11 @@ export async function exportAllPosts() {
     }
 
     const metaHeader = `---
-meta:
-  link: "${meta.link}"
-  tags: ${meta.tags ? `"${meta.tags}"` : 'null'}
-  createdAt: "${meta.createdAt.toISOString()}"
-  updatedAt: "${meta.updatedAt.toISOString()}"
-  deleted: ${meta.deleted}
+link: "${meta.link}"
+tags: ${meta.tags ? `"${meta.tags}"` : 'null'}
+createdAt: "${meta.createdAt.toISOString()}"
+updatedAt: "${meta.updatedAt.toISOString()}"
+deleted: ${meta.deleted}
 ---
 
 `

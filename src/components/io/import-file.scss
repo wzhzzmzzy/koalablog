@@ -1,0 +1,98 @@
+@use '../../styles/theme-utils' as theme;
+
+.import-drawer {
+  @include theme.theme-drawer();
+  
+  .drawer-overlay {
+    background-color: rgba(0, 0, 0, 0.5);
+    // Prevent scrolling on overlay
+    overscroll-behavior: contain;
+  }
+  
+  .drawer-content {
+    @include theme.theme-drawer();
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    // Ensure drawer content can scroll independently
+    overscroll-behavior: contain;
+    overflow: hidden; // Prevent overflow on the container
+  }
+  
+  .drawer-header {
+    border-bottom: 1px solid theme.theme-color('code-border');
+    
+    h3 {
+      color: theme.theme-color('text');
+    }
+    
+    .close-button {
+      color: theme.theme-color('blockquote-text');
+      
+      &:hover {
+        color: theme.theme-color('text');
+      }
+    }
+  }
+  
+  .drawer-controls {
+    border-bottom: 1px solid theme.theme-color('code-border');
+    
+    .select-all-button {
+      @include theme.theme-button();
+    }
+    
+    .save-button {
+      @include theme.theme-button('link', 'button-hover-bg', 'button-active-bg', 'bg');
+      
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+    
+    .selection-count {
+      color: theme.theme-color('blockquote-text');
+    }
+  }
+  
+  .file-list {
+    // Ensure file list can scroll properly
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    
+    .file-item {
+      border-bottom: 1px solid theme.theme-color('code-border');
+      
+      &:hover {
+        background-color: theme.theme-color('button-bg');
+      }
+      
+      &:focus {
+        background-color: theme.theme-color('button-hover-bg');
+        outline: 2px solid theme.theme-color('link');
+        outline-offset: -2px;
+      }
+      
+      
+      .file-name {
+        color: theme.theme-color('text');
+      }
+      
+      .file-info {
+        color: theme.theme-color('blockquote-text');
+      }
+      
+      input[type="checkbox"] {
+        accent-color: theme.theme-color('link');
+      }
+    }
+  }
+}
+
+// Dark mode specific adjustments
+@media (prefers-color-scheme: dark) {
+  .import-drawer {
+    .drawer-overlay {
+      background-color: rgba(0, 0, 0, 0.7);
+    }
+  }
+}

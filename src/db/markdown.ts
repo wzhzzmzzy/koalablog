@@ -47,6 +47,36 @@ export function addPreset(
     content,
   }).returning()
 }
+
+export function batchAdd(
+  env: Env,
+  posts: Array<{
+    source: PostOrPage
+    subject: string
+    content: string
+    link?: string
+    createdAt?: Date
+    updatedAt?: Date
+    outgoing_links?: string
+    private?: boolean
+    tags?: string
+  }>,
+) {
+  const values = posts.map(post => ({
+    link: post.link || linkGenerator(post.source, post.subject),
+    source: post.source,
+    subject: post.subject,
+    content: post.content,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
+    outgoing_links: post.outgoing_links,
+    private: post.private || false,
+    tags: post.tags,
+  }))
+
+  return connectDB(env).insert(markdown).values(values).returning()
+}
+
 export function update(
   env: Env,
   id: number,

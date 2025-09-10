@@ -3,9 +3,9 @@ import { MarkdownSource, type PostOrPage } from '@/db'
 import { read } from '@/db/markdown'
 import { to } from 'await-to-js'
 
-interface AppInject { 
-  locals: App.Locals, 
-  redirect: (path: string, status?: ValidRedirectStatus) => Response,
+interface AppInject {
+  locals: App.Locals
+  redirect: (path: string, status?: ValidRedirectStatus) => Response
   url: URL
 }
 

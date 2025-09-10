@@ -6,8 +6,8 @@ import MarkdownIt from 'markdown-it'
 // @ts-ignore
 import MarkdownItContainer from 'markdown-it-container'
 import { type DoubleLinkPluginOptions, useDoubleLink } from './double-link-plugin'
+import { type ParsedMeta, useMetaPlugin } from './meta-plugin'
 import { type ThemeConfig, useShiki } from './shiki'
-import { useTagPlugin } from './tag-plugin'
 
 // ::: expandable summary
 // some details
@@ -37,7 +37,11 @@ function tex(mdInstance: MarkdownIt) {
   })
 }
 
-type KoalaMdInstance = MarkdownIt & { renderLangSet?: Set<string>, allPostLinks?: DoubleLinkPluginOptions['allPostLinks'] }
+type KoalaMdInstance = MarkdownIt & {
+  renderLangSet?: Set<string>
+  allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
+  meta?: ParsedMeta
+}
 const MdCacheMap: Map<'md' | 'rawMd', KoalaMdInstance> = new Map()
 
 export async function md(opt: {
@@ -50,6 +54,7 @@ export async function md(opt: {
   const md: KoalaMdInstance = cacheMd || MarkdownIt({ html: true })
 
   if (!cacheMd) {
+    // Register meta plugin first to process frontmatter before other plugins
     expandable(md)
     tex(md)
     // FIXME:
@@ -69,12 +74,15 @@ export async function md(opt: {
 
 export function rawMd(opt: {
   tex?: boolean
+  meta?: boolean
   allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
 } = {}) {
   const cacheMd = MdCacheMap.get('rawMd')
   const md: KoalaMdInstance = cacheMd || MarkdownIt({ html: true })
 
   if (!cacheMd) {
+    // Register meta plugin first to process frontmatter before other plugins
+    opt.meta && useMetaPlugin(md)
     expandable(md)
     opt.tex && tex(md)
 

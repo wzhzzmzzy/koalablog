@@ -1,0 +1,96 @@
+// Theme utilities for generating CSS custom properties and accessing theme colors
+
+// Function to generate theme variables from a mapping
+@function generate-theme-vars($theme-mappings) {
+  $vars: ();
+  @each $koala-var, $theme-color in $theme-mappings {
+    $vars: map-merge($vars, (
+      '--koala-#{$koala-var}': 'var(--koala-catppuccin-#{$theme-color})'
+    ));
+  }
+  @return $vars;
+}
+
+// Mixin to apply theme variables
+@mixin apply-theme-vars($theme-mappings) {
+  @each $koala-var, $theme-color in $theme-mappings {
+    --koala-#{$koala-var}: var(--koala-catppuccin-#{$theme-color});
+  }
+}
+
+// Function to get a theme color variable
+@function theme-color($color-name) {
+  @return var(--koala-#{$color-name});
+}
+
+// Mixin for component theming with common UI patterns
+@mixin theme-component($component-map) {
+  @each $property, $theme-var in $component-map {
+    #{$property}: theme-color($theme-var);
+  }
+}
+
+// Mixin for button theming
+@mixin theme-button($base: 'button-bg', $hover: 'button-hover-bg', $active: 'button-active-bg', $text: 'button-text') {
+  background-color: theme-color($base);
+  color: theme-color($text);
+  
+  &:hover {
+    background-color: theme-color($hover);
+  }
+  
+  &:active {
+    background-color: theme-color($active);
+  }
+}
+
+// Mixin for input theming
+@mixin theme-input($bg: 'input-bg', $text: 'input-text', $border: 'code-border') {
+  background-color: theme-color($bg);
+  color: theme-color($text);
+  border-color: theme-color($border);
+}
+
+// Mixin for drawer/modal theming
+@mixin theme-drawer($bg: 'bg', $border: 'code-border', $text: 'text') {
+  background-color: theme-color($bg);
+  border-color: theme-color($border);
+  color: theme-color($text);
+}
+
+// Default theme mappings (can be overridden)
+$default-theme-mappings: (
+  "bg": "base",
+  "text": "text",
+  "light-text": "rosewater",
+  "dark-text": "teal",
+  "link": "blue",
+  "origin-link": "lavender",
+  "warning-text": "yellow",
+  "success-text": "green",
+  "error-text": "red",
+  "code-bg": "base",
+  "code-border": "overlay-1",
+  "code-border-nest": "surface-1",
+  "editor-bg": "crust",
+  "editor-text": "subtext-0",
+  "editor-border": "overlay-0",
+  "editor-selection-bg": "overlay-2",
+  "editor-selection-text": "crust",
+  "button-bg": "surface-0",
+  "button-hover-bg": "surface-1",
+  "button-active-bg": "surface-2",
+  "button-text": "text",
+  "blockquote-bg": "surface-0",
+  "blockquote-text": "subtext-0",
+  "popup-btn-bg": "overlay-1",
+  "input-bg": "surface-0",
+  "input-text": "subtext-1",
+  "tag-bg": "surface-1",
+  "tag-text": "subtext-0",
+) !default;
+
+// Mixin for generating the complete theme (for use in main theme files)
+@mixin generate-theme($mappings: $default-theme-mappings) {
+  @include apply-theme-vars($mappings);
+}
