@@ -100,4 +100,12 @@ body {
       background-color: var(--koala-button-active-bg);
     }
   }
+
+  table thead tr {
+    background-color: var(--koala-blockquote-bg)
+  }
+
+  table td, table th {
+    border: 1px solid var(--koala-code-border);
+  }
 }

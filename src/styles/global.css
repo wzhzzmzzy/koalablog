@@ -106,3 +106,18 @@ span.tag {
   display: inline-block;
   margin: 0 2px;
 }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+thead tr {
+  text-align: left;
+  font-weight: 600;
+}
+
+th, td {
+  padding: 12px 15px;
+}
+
