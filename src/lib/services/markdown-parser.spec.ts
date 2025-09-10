@@ -3,7 +3,7 @@ import { parseMarkdownContent } from './markdown-parser'
 
 // Mock DOM for testing
 beforeAll(() => {
-  global.document = {
+  globalThis.document = {
     createElement: (tag: string) => {
       if (tag === 'div') {
         return {

@@ -14,7 +14,7 @@
     "astro": "astro",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest",
+    "test": "vitest run",
     "migration:d1:local": "pnpx wrangler d1 migrations apply DB --local",
     "migration:d1:remote": "pnpx wrangler d1 migrations apply DB --remote",
     "migration:sqlite": "./node_modules/.bin/drizzle-kit migrate && rm -f ./koala.config.json",
