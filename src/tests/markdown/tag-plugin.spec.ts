@@ -1,6 +1,8 @@
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { useTagPlugin } from '@/lib/markdown/tag-plugin'
 import MarkdownIt from 'markdown-it'
 import { describe, expect, it } from 'vitest'
-import { useTagPlugin } from './tag-plugin'
 
 describe('tag-plugin', () => {
   const createMd = (options?: { className?: string }) => {
@@ -224,6 +226,18 @@ describe('tag-plugin', () => {
       expect(result).toContain('>tag</span>')
     })
 
+    it('should work in fence', () => {
+      const md = createMd()
+      const result = md.render(
+        '```\n'
+        + 'some code\n'
+        + '#some comment\n'
+        + '```',
+      )
+
+      expect(result).not.toContain('data-tag')
+    })
+
     it('should handle multiple consecutive tags', () => {
       const md = createMd()
       const result = md.render('#first#second#third')
@@ -257,6 +271,14 @@ describe('tag-plugin', () => {
       expect(result).not.toContain('data-tag="notag"')
       expect(result).toContain('<code>')
     })
+
+    it('should work in links (should not parse)', () => {
+      const md = createMd()
+      const result = md.render('[test #tag](/some/link)')
+
+      expect(result).not.toContain('data-tag')
+      expect(result).toContain('<a')
+    })
   })
 
   describe('performance and boundary conditions', () => {
@@ -279,4 +301,3 @@ describe('tag-plugin', () => {
     })
   })
 })
-

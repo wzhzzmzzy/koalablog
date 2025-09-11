@@ -8,6 +8,7 @@ import MarkdownItContainer from 'markdown-it-container'
 import { type DoubleLinkPluginOptions, useDoubleLink } from './double-link-plugin'
 import { type ParsedMeta, useMetaPlugin } from './meta-plugin'
 import { type ThemeConfig, useShiki } from './shiki'
+import { useTagPlugin } from './tag-plugin'
 
 // ::: expandable summary
 // some details
@@ -62,7 +63,7 @@ export async function md(opt: {
     // highlighter will crashed
     await useShiki(md, opt)
     useDoubleLink(md, { allPostLinks: opt.allPostLinks })
-    // useTagPlugin(md)
+    useTagPlugin(md)
     MdCacheMap.set('md', md)
   }
   else {
@@ -87,7 +88,7 @@ export function rawMd(opt: {
     opt.tex && tex(md)
 
     useDoubleLink(md, { allPostLinks: opt.allPostLinks })
-    // useTagPlugin(md)
+    useTagPlugin(md)
 
     const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, env, self) {
       return self.renderToken(tokens, idx, options)

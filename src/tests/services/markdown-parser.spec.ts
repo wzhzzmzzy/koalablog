@@ -1,5 +1,5 @@
+import { parseMarkdownContent } from '@/lib/services/markdown-parser'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { parseMarkdownContent } from './markdown-parser'
 
 // Mock DOM for testing
 beforeAll(() => {

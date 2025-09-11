@@ -1,6 +1,6 @@
+import { type DoubleLinkPluginOptions, useDoubleLink } from '@/lib/markdown/double-link-plugin'
 import MarkdownIt from 'markdown-it'
 import { describe, expect, it } from 'vitest'
-import { type DoubleLinkPluginOptions, useDoubleLink } from './double-link-plugin'
 
 describe('double-link-plugin', () => {
   const createMd = (options?: DoubleLinkPluginOptions) => {

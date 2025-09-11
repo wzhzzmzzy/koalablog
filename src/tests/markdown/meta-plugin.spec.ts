@@ -1,6 +1,6 @@
+import { useMetaPlugin } from '@/lib/markdown/meta-plugin'
 import MarkdownIt from 'markdown-it'
 import { describe, expect, it } from 'vitest'
-import { useMetaPlugin } from './meta-plugin'
 
 describe('meta-plugin', () => {
   it('should parse basic frontmatter with string values', () => {

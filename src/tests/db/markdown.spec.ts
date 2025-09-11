@@ -1,6 +1,6 @@
+import { MarkdownSource } from '@/db/index'
+import { collectTagsAndLinks, linkGenerator } from '@/db/markdown'
 import { describe, expect, it } from 'vitest'
-import { MarkdownSource } from '.'
-import { collectTagsAndLinks, linkGenerator } from './markdown'
 
 describe('linkGenerator', () => {
   it('should generate basic kebab-case link', () => {
