@@ -26,7 +26,7 @@ export default defineConfig({
   integrations: [
     UnoCss(),
     svelte(),
-    Sonda({ server: true }),
+    process.env.SONDA_ENABLED === '1' ? Sonda({ server: true }) : null,
     metaTags(),
-  ],
+  ].filter(i => !!i),
 })

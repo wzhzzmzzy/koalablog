@@ -73,8 +73,12 @@ window.refreshCopyListener = () => {
 
 window.refreshTagListener = () => {
   document.querySelectorAll('span.tag').forEach((item) => {
-    item.addEventListener('click', (window as any).handleTagClick.bind(window, item))
-    item.addEventListener('keydown', (window as any).handleTagKeydown.bind(window, item))
+    item.addEventListener('click', () => {
+      window.handleTagClick(item as HTMLSpanElement)
+    })
+    item.addEventListener('keydown', (e) => {
+      window.handleTagKeydown(item as HTMLSpanElement, e as KeyboardEvent)
+    })
   })
 }
 window.handleTagClick = (item: HTMLSpanElement) => {
