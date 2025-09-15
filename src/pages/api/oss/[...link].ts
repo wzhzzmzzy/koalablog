@@ -1,4 +1,3 @@
-import type { BlobObject } from '@/lib/blob-storage'
 import type { APIContext, APIRoute } from 'astro'
 import { incrementToday } from '@/db/ossAccess'
 

@@ -1,7 +1,9 @@
 import { getActionContext } from 'astro:actions'
 import { defineMiddleware } from 'astro:middleware'
 import { authInterceptor } from './lib/auth'
+// #if !CF_PAGES
 import { SQLiteBlobStorage } from './lib/blob-storage'
+// #endif
 import { globalConfig } from './lib/kv'
 
 const AUTH_REQUIRED_SITE = [
