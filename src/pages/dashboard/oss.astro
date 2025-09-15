@@ -11,7 +11,6 @@ interface ObjectRecord {
   key: string
   link: string
   size: string
-  checksums: string
 }
 
 const records: ObjectRecord[] = []
@@ -24,7 +23,8 @@ if (!accessToday?.[0] || (accessToday[0].operateTimes || 0) > operateLimit) {
   errorMessage = `Operate reached limit today, times:${(accessToday?.[0]?.operateTimes || 0)}, limit:${operateLimit}`
 }
 else {
-  const ossList = await Astro.locals.runtime.env.OSS.list().catch((e) => {
+  const OSS = Astro.locals.OSS || Astro.locals.runtime.env.OSS
+  const ossList = await OSS.list().catch((e) => {
     errorMessage = e?.message
   })
   ossList?.objects.forEach((obj) => {
@@ -41,7 +41,6 @@ else {
       key: obj.key,
       link,
       size,
-      checksums: new TextDecoder('utf-8').decode(obj.checksums.md5),
     })
   })
 }

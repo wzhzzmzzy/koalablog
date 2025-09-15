@@ -19,7 +19,8 @@ export const upload = defineAction({
     const fileName = name || `upload-${Date.now()}`
     const key = `${source}/${fileName}`
 
-    await ctx.locals.runtime.env.OSS.put(key, file, {
+    const OSS = ctx.locals.OSS || ctx.locals.runtime.env.OSS
+    await OSS.put(key, file, {
       httpMetadata: {
         contentType: file.type,
       },
@@ -55,7 +56,8 @@ export const remove = defineAction({
       return key
     })
 
-    return ctx.locals.runtime.env.OSS.delete(keyList)
+    const OSS = ctx.locals.OSS || ctx.locals.runtime.env.OSS
+    return OSS.delete(keyList)
   },
 })
 
@@ -63,6 +65,7 @@ export const list = defineAction({
   handler: async (_, ctx) => {
     await guards([authGuard(ctx), ossGuard(ctx)])
 
-    return ctx.locals.runtime.env.OSS.list()
+    const OSS = ctx.locals.OSS || ctx.locals.runtime.env.OSS
+    return OSS.list()
   },
 })

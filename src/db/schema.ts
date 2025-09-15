@@ -30,3 +30,20 @@ export const ossAccess = sqliteTable('oss_access', {
   readTimes: integer().default(0),
   operateTimes: integer().default(0),
 })
+
+// #if !CF_PAGES
+export const blobStorage = sqliteTable('blob_storage', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  key: text().notNull().unique(),
+  contentType: text().notNull(),
+  size: integer().notNull(),
+  data: text({ mode: 'json' }).notNull(), // base64 encoded blob data
+  metadata: text({ mode: 'json' }), // custom metadata as JSON
+  uploadedAt: integer({ mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer({ mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+// #endif

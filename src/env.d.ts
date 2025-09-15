@@ -1,5 +1,6 @@
 /// <reference types="astro/client" />
 
+import type { SQLiteBlobStorage } from './lib/blob-storage'
 import type { CatppuccinTheme } from './lib/const/config'
 
 // use a default runtime configuration (advanced mode).
@@ -29,6 +30,7 @@ declare global {
         authed: boolean
         asRole: 'admin' | 'guest'
       }
+      OSS?: SQLiteBlobStorage
     }
     type Env = Env
   }

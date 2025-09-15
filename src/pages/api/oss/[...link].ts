@@ -1,3 +1,4 @@
+import type { BlobObject } from '@/lib/blob-storage'
 import type { APIContext, APIRoute } from 'astro'
 import { incrementToday } from '@/db/ossAccess'
 
@@ -22,7 +23,8 @@ export const GET: APIRoute = async (ctx: APIContext) => {
     })
   }
 
-  const object = await ctx.locals.runtime.env.OSS.get(`${source}/${key}`)
+  const OSS = ctx.locals.OSS || ctx.locals.runtime.env.OSS
+  const object = await OSS.get(`${source}/${key}`)
 
   if (!object) {
     return new Response(`cannot found object by ${source}/${key}`, {
@@ -31,15 +33,28 @@ export const GET: APIRoute = async (ctx: APIContext) => {
   }
 
   const headers = new Headers()
-  // 这个方法会报错 non-POJO, 暂时手动实现
-  // object.writeHttpMetadata(headers)
-  Object.entries(object.httpMetadata || {}).forEach((i) => {
-    headers.append(i[0], i[1] as string)
-  })
-  headers.append('Content-Length', String(object.size))
-  headers.set('etag', object.httpEtag)
+  // Handle both Cloudflare R2 objects and SQLite blob objects
+  if (object.httpMetadata) {
+    Object.entries(object.httpMetadata).forEach(([key, value]) => {
+      if (value) {
+        headers.set(key, value as string)
+      }
+    })
+  }
+  headers.set('Content-Length', String(object.size))
 
-  return new Response(object.body, {
+  // For SQLite storage, we don't have etag, so generate one based on key
+  if ('httpEtag' in object && typeof object.httpEtag === 'string') {
+    headers.set('etag', object.httpEtag)
+  }
+  else {
+    headers.set('etag', `"${key.replace(/\W/g, '')}"`)
+  }
+
+  // Return blob data for SQLite or object.body for R2
+  const responseBody = 'body' in object ? object.body : null
+
+  return new Response(responseBody, {
     headers,
   })
 }

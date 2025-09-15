@@ -38,10 +38,10 @@ const GLOBAL_CONFIG_KEY = '_KoalaConfig_'
 export const ACCESS_TOKEN_KEY = 'koala-access-token'
 export const REFRESH_TOKEN_KEY = 'koala-refresh-token'
 
-export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConfig> {
+export async function globalConfig(env?: Env): Promise<GlobalConfig> {
   // use cloudflare kv
-  if (CF_PAGES) {
-    const globalConfigValue = await KOALA.get(GLOBAL_CONFIG_KEY)
+  if (env?.CF_PAGES) {
+    const globalConfigValue = await env.KOALA.get(GLOBAL_CONFIG_KEY)
 
     if (globalConfigValue) {
       try {
@@ -60,7 +60,7 @@ export async function globalConfig({ KOALA, CF_PAGES }: Env): Promise<GlobalConf
       return globalConfigValue
     }
     else {
-      consola.warn('globalConfig is null')
+      console.warn('globalConfig is null')
     }
   }
   // #endif

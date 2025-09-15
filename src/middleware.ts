@@ -1,6 +1,7 @@
 import { getActionContext } from 'astro:actions'
 import { defineMiddleware } from 'astro:middleware'
 import { authInterceptor } from './lib/auth'
+import { SQLiteBlobStorage } from './lib/blob-storage'
 import { globalConfig } from './lib/kv'
 
 const AUTH_REQUIRED_SITE = [
@@ -13,6 +14,11 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const config = await globalConfig(env)
 
   ctx.locals.config = config
+
+  // #if !CF_PAGES
+  // Initialize blob storage for SQLite mode
+  ctx.locals.OSS = new SQLiteBlobStorage(env)
+  // #endif
 
   const { action } = getActionContext(ctx)
 

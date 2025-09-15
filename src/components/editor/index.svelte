@@ -50,8 +50,8 @@
     if (mdInstance) {
       previewHtml = mdInstance.render(previewMd)
       setTimeout(() => {
-        (window as any).refreshCopyListener()
-        (window as any).refreshTagListener()
+        window.refreshCopyListener();
+        window.refreshTagListener();
       }, 100)
     }
   }

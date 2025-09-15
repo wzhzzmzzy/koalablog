@@ -19,8 +19,10 @@ if (env.DATA_SOURCE && env.DATA_SOURCE === 'd1') {
     DROP INDEX IF EXISTS markdown_link_unique;
     DROP INDEX IF EXISTS markdown_subject_unique;
     DROP TABLE IF EXISTS markdown;
-    DROP INDEX iF EXISTS oss_access_date_unique;
+    DROP INDEX IF EXISTS oss_access_date_unique;
     DROP TABLE IF EXISTS oss_access;
+    DROP INDEX IF EXISTS blob_storage_key_unique;
+    DROP TABLE IF EXISTS blob_storage;
   `)
   await env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
 }
