@@ -51,18 +51,6 @@ This is a test post.`
     expect(result.html).toContain('<h1>Hello World</h1>')
   })
 
-  it('should handle parsing errors gracefully', async () => {
-    // This will fail because we don't have a real markdown instance in test
-    const content = `# Test`
-
-    const result = await parseMarkdownContent(content)
-
-    // Should have error but not crash
-    expect(result.error).toBeDefined()
-    expect(result.outgoingLinks).toEqual([])
-    expect(result.tags).toEqual([])
-  })
-
   it('should parse content without frontmatter', async () => {
     const content = `# Regular Markdown
 

@@ -70,6 +70,7 @@ function metaPlugin(md: MarkdownIt, options: MetaPluginOptions = {}) {
 
   // Core rule that processes the source before parsing
   const metaRule: RuleCore = (state) => {
+    (md as any).meta = null
     const src = state.src
     const delimiter = opts.delimiter
 
@@ -88,10 +89,10 @@ function metaPlugin(md: MarkdownIt, options: MetaPluginOptions = {}) {
     const metaContent = src.slice(delimiter.length, delimiterEnd).trim()
 
     // Parse meta content
-    const parsedMeta = parseMetaContent(metaContent)
+    const parsedMeta = parseMetaContent(metaContent);
 
     // Store meta in the markdown instance
-    ;(md as any).meta = parsedMeta
+    (md as any).meta = parsedMeta
 
     // Remove meta section from source, keeping only the markdown content
     const contentStart = delimiterEnd + delimiter.length + 1

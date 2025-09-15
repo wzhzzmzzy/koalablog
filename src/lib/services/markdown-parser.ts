@@ -88,7 +88,6 @@ function extractLinksAndTags(html: string): {
     const outgoingLinkEls: HTMLAnchorElement[] = Array.from(
       tempDiv.querySelectorAll('a.outgoing-link'),
     )
-
     const outgoingLinks = outgoingLinkEls
       .map(el => ({
         subject: el.textContent || '',
@@ -100,6 +99,8 @@ function extractLinksAndTags(html: string): {
     const tagEls: HTMLSpanElement[] = Array.from(
       tempDiv.querySelectorAll('span.tag'),
     )
+
+    tempDiv.remove()
 
     const tags = [...new Set(
       tagEls
