@@ -1,33 +1,46 @@
 ---
 import type { Markdown } from '@/db/types'
 import { MarkdownSource } from '@/db'
+import { addHeadingIds, extractHeadings } from '@/lib/utils/heading-id'
 import { formatDate } from 'date-fns'
+import Outline from './outline.svelte'
 
 interface Props {
   article: Markdown
   content: string
   renderLangSet?: Set<string>
+  showOutline?: boolean
 }
 
 const { article, content, renderLangSet } = Astro.props
+
 const source = article?.source
+const showOutline = Astro.props.showOutline || source === MarkdownSource.Post
 const langSet = Array.from(renderLangSet || []).join(',')
+const contentWithIds = await addHeadingIds(content)
+const headings = showOutline ? await extractHeadings(contentWithIds) : []
 ---
 
-<article-client data-article={JSON.stringify(article)} data-lang-set={langSet}>
-  {
-    source === MarkdownSource.Post
-  ? (
-  <>
-    <h1>{ article.subject }</h1>
-    <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
-  </>
-  )
-  : null
-  }
-  <article id="article" />
-  <article id="serverArticle" set:html={content} />
-</article-client>
+{showOutline && (
+  <Outline client:load title={article.subject} headings={headings} />
+)}
+
+<main class="article-main">
+  <article-client data-article={JSON.stringify(article)} data-lang-set={langSet}>
+    {
+      source === MarkdownSource.Post
+    ? (
+    <>
+      <h1>{ article.subject }</h1>
+      <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
+    </>
+    )
+    : null
+    }
+    <article id="article" />
+    <article id="serverArticle" set:html={contentWithIds} />
+  </article-client>
+</main>
 
 <script>
 import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
@@ -52,11 +65,16 @@ class ArticleClient extends HTMLElement {
     let outgoingLinks: DoubleLinkPluginOptions['allPostLinks'] | null = null
     outgoingLinks = parseJson(article.outgoing_links)
 
-    const [mdModule] = await Promise.all([this.mdModulePromise])
+    const [mdModule, headingIdModule] = await Promise.all([
+      this.mdModulePromise,
+      import('@/lib/utils/heading-id'),
+    ])
 
     const content = article ? (await mdModule.md({ langSet, allPostLinks: outgoingLinks || [] })).render(article?.content ?? '') : ''
+    const contentWithIds = await headingIdModule.addHeadingIds(content)
+
     this.serverArticleEl?.remove()
-    this.articleEl?.insertAdjacentHTML('beforeend', content)
+    this.articleEl?.insertAdjacentHTML('beforeend', contentWithIds)
     window.requestIdleCallback(() => {
       window.refreshCopyListener()
       window.refreshTagListener()
@@ -66,3 +84,4 @@ class ArticleClient extends HTMLElement {
 
 customElements.define('article-client', ArticleClient)
 </script>
+

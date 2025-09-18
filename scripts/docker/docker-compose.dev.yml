@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  koalablog-dev:
+    build:
+      context: ../../
+      dockerfile: scripts/docker/Dockerfile.dev
+      target: development
+    container_name: koalablog-dev
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    environment:
+      - NODE_ENV=development
+      - DATA_SOURCE=sqlite
+      - DEPLOY_MODE=standalone
+      - SQLITE_URL=/app/local.db
+      - HOST=0.0.0.0
+      - PORT=4321
+    volumes:
+      # Mount source code for hot reload
+      - ../../:/app
+      - /app/node_modules
+      - koalablog-dev-data:/app/data
+    working_dir: /app
+    command: pnpm run dev
+    networks:
+      - koalablog-dev-network
+
+volumes:
+  koalablog-dev-data:
+    driver: local
+
+networks:
+  koalablog-dev-network:
+    driver: bridge
