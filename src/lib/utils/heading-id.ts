@@ -1,14 +1,26 @@
 /**
  * Generate a unique ID for a heading based on its text content
+ * Supports CJK characters by using URL encoding
  */
 export function generateHeadingId(text: string, index: number = 0): string {
-  const baseId = text
+  // First try to create a clean ASCII-only ID for better readability
+  const asciiId = text
     .toLowerCase()
     .replace(/[^\w\s]/g, '')
     .replace(/\s+/g, '-')
     .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
 
-  return index > 0 ? `${baseId}-${index}` : baseId
+  // If we have a meaningful ASCII ID (not empty), use it
+  if (asciiId.length > 0) {
+    return index > 0 ? `${asciiId}-${index}` : asciiId
+  }
+
+  // Fallback to URL encoding for non-ASCII content (like CJK characters)
+  const encodedId = encodeURIComponent(text.trim())
+    .replace(/%/g, '') // Remove % symbols for cleaner URLs
+    .toLowerCase()
+
+  return index > 0 ? `${encodedId}-${index}` : encodedId
 }
 
 /**

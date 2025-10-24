@@ -15,7 +15,25 @@ const { source, editable = false, dashboard = false, tag } = Astro.props
 const env = Astro.locals.runtime?.env || {}
 
 const list = await readList(env, source, tag || undefined)
-const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? 'MM-dd (HH:mm)' : 'yyyy-MM-dd')
+const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? dashboard ? 'MM-dd (HH:mm)' : 'MM-dd' : 'yyyy-MM-dd')
+
+// Group posts by year
+const groupedByYear = list.reduce((groups, item) => {
+  if (!item.createdAt)
+    return groups
+
+  const year = item.createdAt.getFullYear()
+  if (!groups[year]) {
+    groups[year] = []
+  }
+  groups[year].push(item)
+  return groups
+}, {} as Record<number, typeof list>)
+
+// Sort years in descending order (newest first)
+const sortedYears = Object.keys(groupedByYear)
+  .map(year => Number.parseInt(year))
+  .sort((a, b) => b - a)
 ---
 
 <markdown-list data-source={source} data-editable={editable}>
@@ -23,23 +41,25 @@ const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? '
   {
     !list.length ? <div class="mt-3">Nothing here.</div> : null
   }
-  <ul class="mt-3">
   {
-    list.map(item => (
-      <li class="flex gap-3 mb-2">
-        { item.createdAt ? <span class="datetime"><i>{ formatDate(item.createdAt) }</i></span> : null }
-        <a href={`/${dashboard ? 'dashboard/' : ''}${item.link}`}><span>{ item.subject } </span></a>
-      </li>
+    sortedYears.map(year => (
+      <div class="mt-6 first:mt-3">
+      <h3 class="text-lg font-light mb-3 mt-0" style="color: var(--koala-editor-text);"><i>{year}</i></h3>
+        <ul class="ml-4">
+          {
+            groupedByYear[year].map(item => (
+              <li class="flex gap-3 mb-2">
+                { item.createdAt ? <span class="flex-shrink-0"><i>{ formatDate(item.createdAt) }</i></span> : null }
+                <a href={`/${dashboard ? 'dashboard/' : ''}${item.link}`}><span>{ item.subject } </span></a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
     ))
   }
-  </ul>
 </markdown-list>
 
-<style>
-.datetime {
-  flex-shrink: 0;
-}
-</style>
 
 <script>
 import { MarkdownSource, type PostOrPage } from '@/db'

@@ -86,13 +86,27 @@
 // Font family configurations
 $default-font-families: (
   "sans": (
-    'Roboto', 'Helvetica', 'Tahoma', 'Arial', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 'Noto Sans CJK', 'sans-serif'
+    'PingFang SC',
+    'Tahoma',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    'Noto Sans CJK',
+    'Noto Sans',
+    'sans-serif'
   ),
   "serif": (
-    'Georgia', 'Times New Roman', 'PMingLiu', 'STSong', 'SimSun', 'WenQuanYi Bitmap Song', 'Noto Serif CJK', 'serif'
+    'Georgia',
+    'WenQuanYi Bitmap Song',
+    'Noto Serif CJK',
+    'serif'
   ),
   "mono": (
-    'JetBrainsMono', 'Source Code Pro', 'Monaco', 'Menlo', 'Consolas', 'Courier New', 'Courier', 'monospace'
+    'Source Code Pro',
+    'Monaco',
+    'Menlo',
+    'Consolas',
+    'Courier New',
+    'monospace'
   ),
 ) !default;
 

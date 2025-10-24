@@ -3,6 +3,7 @@ import Head from '@/components/head/index.astro'
 import { MarkdownSource } from '@/db'
 import { readPreset } from '@/db/markdown'
 import { rawMd } from '@/lib/markdown'
+import { CircleChevronRight } from '@lucide/astro'
 import Layout from './layout.astro'
 
 interface Props {
@@ -23,7 +24,7 @@ const markup = rawMd().render(presetSource?.content ?? '')
     <Head title={metaTitle || title} desc={desc} />
     <slot name="meta" />
   </Fragment>
-  <header>
+  <header class="px-3">
     <h2>
       <a href="/" class="home-title">{title}</a>
     </h2>

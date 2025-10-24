@@ -77,7 +77,7 @@ export async function globalConfig(env?: Env): Promise<GlobalConfig> {
 export async function putGlobalConfig(env: Env, patch: Partial<GlobalConfig>) {
   const currentConfig = await globalConfig(env)
   const updatedScopeConfig = { ...currentConfig, ...patch }
-  if (env.CF_PAGES) {
+  if (env?.CF_PAGES) {
     await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedScopeConfig))
   }
   // #if !CF_PAGES
@@ -97,7 +97,7 @@ export async function updateGlobalConfig<S extends keyof GlobalConfig>(env: Env,
     updatedConfig[scope as S] = updatedScopeConfig
   })
 
-  if (env.CF_PAGES) {
+  if (env?.CF_PAGES) {
     await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedConfig))
   }
   // #if !CF_PAGES

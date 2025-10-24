@@ -41,7 +41,7 @@ body {
   }
 
   // 导航和 UI 元素保持 Sans-serif（继承自 body）
-  nav, button, input, label {
+  nav, nav p, button, input, label {
     font-family: theme.font-family('sans');
   }
 
@@ -49,21 +49,15 @@ body {
     color: theme.theme-color('link');
   }
 
-  a.origin {
+  a.origin, a.home-title {
     color: theme.theme-color('origin-link');
   }
 
-  a.home-title {
-    color: theme.theme-color('origin-link')
-  }
-  
   blockquote {
     border-left-color: var(--koala-blockquote-text);
   }
   
   textarea {
-    // background-color: var(--koala-editor-bg);
-    // border: 2px dashed var(--koala-editor-border);
     background: transparent;
     border: none;
     color: var(--koala-editor-text);

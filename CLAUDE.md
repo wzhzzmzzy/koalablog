@@ -92,6 +92,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Use UnoCSS classes for layout, spacing, responsive design, and utility styling
 - Prefer utility-first approach for component styling
 
+**Tailwind CSS for New Components**
+
+- **All new styles must use Tailwind CSS classes** instead of custom CSS or SCSS
+- **Colors must use CSS custom properties** from `@src/styles/_theme-utils.scss` theme system
+- Example: `style="color: var(--koala-text); background-color: var(--koala-surface-0)"`
+- Avoid writing new SCSS mixins or custom styles when Tailwind utilities are available
+
 **Pure CSS for Markdown Rendering**
 
 - Use pure CSS in `global.css` for markdown content rendering
@@ -102,6 +109,53 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Use Sass only when CSS variables and mixins provide clear benefits
 - All colors must use CSS custom properties following Catppuccin theme system
 - Theme utilities should be reusable across components
+
+#### Icon Usage
+
+**Lucide Icons (Required)**
+
+- **Svelte Components**: MUST use `@lucide/svelte` package - DO NOT use `lucide-svelte`
+- **Astro Components**: Use `@lucide/astro` package for server-side rendering
+- **Consistent Sizing**: Use `size={20}` as the standard size for UI icons
+- **Semantic Selection**: Choose icons that clearly represent their function
+
+**Import Patterns**
+
+```typescript
+// ✅ Correct - Svelte components
+import { Save, Upload, Eye, Edit, Trash2 } from '@lucide/svelte';
+
+// ❌ Wrong - Do not use
+import { Save } from 'lucide-svelte';
+
+// ✅ Correct - Astro components
+import { Save } from '@lucide/astro';
+```
+
+**Usage Examples**
+
+```svelte
+<!-- Svelte component -->
+<button class="icon" onclick={save}>
+  <Save size={20} />
+</button>
+
+<!-- With conditional logic -->
+<button class="icon" onclick={togglePreview}>
+  {#if showPreview}
+    <Edit size={20} />
+  {:else}
+    <Eye size={20} />
+  {/if}
+</button>
+```
+
+**Styling Guidelines**
+
+- Use `class="icon"` for consistent button styling
+- Icons inherit color from parent element - use theme colors for consistency
+- Ensure adequate contrast ratios for accessibility
+- Add `aria-label` attributes for icon-only buttons
 
 #### Accessibility Standards
 

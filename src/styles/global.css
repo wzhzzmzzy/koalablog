@@ -15,7 +15,7 @@ blockquote {
 }
 
 .code-block {
-  --at-apply: overflow-x-auto max-w-[760px] px-2 box-border;
+  --at-apply: overflow-x-auto max-w-[800px] px-2 box-border;
 }
 
 body {
@@ -123,20 +123,11 @@ th, td {
 
 /* Article layout styles */
 .article-main {
-  transition: margin-right 0.3s ease;
   max-width: 800px;
   margin: 0 auto;
-  padding: 0 1rem;
 }
 
 .article-header {
   margin-bottom: 2rem;
-}
-
-/* Responsive adjustments for outline */
-@media (max-width: 767px) {
-  .article-main {
-    padding-bottom: 80px; /* Space for mobile footer */
-  }
 }
 
