@@ -20,6 +20,12 @@ importers:
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
+      '@lucide/astro':
+        specifier: ^0.546.0
+        version: 0.546.0(astro@5.0.4(@types/node@22.10.1)(jiti@2.4.2)(sass@1.89.2)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.6.1))
+      '@lucide/svelte':
+        specifier: ^0.546.0
+        version: 0.546.0(svelte@5.19.2)
       '@mdit/plugin-katex':
         specifier: ^0.23.1
         version: 0.23.1(markdown-it@14.1.0)
@@ -1873,6 +1879,16 @@ packages:
     resolution: {integrity: sha512-7pJzOWzPm6oJUxml+PCDRzYQ4A1hTMHAciTAHfFK4fkbDZX33nWPVG7Y3vqdKtslcwAzwmrNDc6sXy2nwWnbiw==}
     cpu: [x64]
     os: [win32]
+
+  '@lucide/astro@0.546.0':
+    resolution: {integrity: sha512-yHAL5eRQh8RBggN0y7ier88K2PpggKqEBjC5RhNvQGNLB+u7VlbzCRRNVfebzo9Q0L2nhylC/PcDAu+ZZt0FNg==}
+    peerDependencies:
+      astro: ^4 || ^5
+
+  '@lucide/svelte@0.546.0':
+    resolution: {integrity: sha512-qFVQ+BUJH9Swns7cag3Wik7VqKZfN2hwDZ2VazbZJc8VSqI0kgOZCZ2OVwrvNxdkl8Mw9M9H1ROB0BXh/WH/sA==}
+    peerDependencies:
+      svelte: ^5
 
   '@mdit/helper@0.22.1':
     resolution: {integrity: sha512-lDpajcdAk84aYCNAM/Mi3djw38DJq7ocLw5VOSMu/u2YKX3/OD37a6Qb59in8Uyp4SiAbQoSHa8px6hgHEpB5g==}
@@ -6280,6 +6296,14 @@ snapshots:
 
   '@libsql/win32-x64-msvc@0.4.7':
     optional: true
+
+  '@lucide/astro@0.546.0(astro@5.0.4(@types/node@22.10.1)(jiti@2.4.2)(sass@1.89.2)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.6.1))':
+    dependencies:
+      astro: 5.0.4(@types/node@22.10.1)(jiti@2.4.2)(sass@1.89.2)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.6.1)
+
+  '@lucide/svelte@0.546.0(svelte@5.19.2)':
+    dependencies:
+      svelte: 5.19.2
 
   '@mdit/helper@0.22.1(markdown-it@14.1.0)':
     dependencies:

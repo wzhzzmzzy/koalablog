@@ -12,4 +12,17 @@ export default defineConfig({
   transformers: [
     transformerDirectives(),
   ],
+  theme: {
+    fontFamily: {
+      'sans': 'var(--koala-font-sans)',
+      'serif': 'var(--koala-font-serif)',
+      'mono': 'var(--koala-font-mono)',
+    },
+  },
+  shortcuts: {
+    // Font family shortcuts
+    'font-ui': 'font-sans',
+    'font-content': 'font-serif',
+    'font-code': 'font-mono',
+  },
 })

@@ -24,7 +24,9 @@ const markup = rawMd().render(presetSource?.content ?? '')
     <slot name="meta" />
   </Fragment>
   <header>
-    <h1>{title}</h1>
+    <h2>
+      <a href="/" class="home-title">{title}</a>
+    </h2>
     <nav>
       <Fragment set:html={markup} />
     </nav>

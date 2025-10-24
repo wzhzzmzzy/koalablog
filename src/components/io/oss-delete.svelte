@@ -1,5 +1,6 @@
 <script lang="ts">
 import { actions } from "astro:actions";
+import { Trash } from '@lucide/svelte'
 
 interface Props {
   key: string
@@ -13,4 +14,4 @@ async function del() {
 }
 </script>
 
-<button onclick={del}>Delete</button>
+<button class="icon" onclick={del}><Trash /></button>

@@ -47,7 +47,7 @@ div.code-block pre {
 }
 
 div.code-block span.code-lang {
-  font-family: monospace;
+  font-family: var(--koala-font-mono);
   font-size: 13px;
   font-weight: 500;
   opacity: 0.5;
@@ -119,5 +119,24 @@ thead tr {
 
 th, td {
   padding: 12px 15px;
+}
+
+/* Article layout styles */
+.article-main {
+  transition: margin-right 0.3s ease;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.article-header {
+  margin-bottom: 2rem;
+}
+
+/* Responsive adjustments for outline */
+@media (max-width: 767px) {
+  .article-main {
+    padding-bottom: 80px; /* Space for mobile footer */
+  }
 }
 

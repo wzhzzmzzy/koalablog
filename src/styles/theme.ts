@@ -22,7 +22,7 @@ export const CatppuccinLatte = {
   'surface-2': '#acb0be',
   'surface-1': '#bcc0cc',
   'surface-0': '#ccd0da',
-  'base': '#eff1f5',
+  'base': '#ffffff',
   'mantle': '#e6e9ef',
   'crust': '#dce0e8',
 }

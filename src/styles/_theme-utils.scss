@@ -23,6 +23,31 @@
   @return var(--koala-#{$color-name});
 }
 
+// Function to convert font list to comma-separated string
+@function font-list-to-string($font-list) {
+  $result: "";
+  @each $font in $font-list {
+    @if $result == "" {
+      $result: $font;
+    } @else {
+      $result: $result + ', ' + $font;
+    }
+  }
+  @return $result;
+}
+
+// Function to get a font family variable
+@function font-family($family-name) {
+  @return var(--koala-font-#{$family-name});
+}
+
+// Mixin to apply font families
+@mixin apply-font-families($font-families: $default-font-families) {
+  @each $family-name, $font-list in $font-families {
+    --koala-font-#{$family-name}: #{font-list-to-string($font-list)};
+  }
+}
+
 // Mixin for component theming with common UI patterns
 @mixin theme-component($component-map) {
   @each $property, $theme-var in $component-map {
@@ -58,6 +83,19 @@
   color: theme-color($text);
 }
 
+// Font family configurations
+$default-font-families: (
+  "sans": (
+    'Roboto', 'Helvetica', 'Tahoma', 'Arial', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 'Noto Sans CJK', 'sans-serif'
+  ),
+  "serif": (
+    'Georgia', 'Times New Roman', 'PMingLiu', 'STSong', 'SimSun', 'WenQuanYi Bitmap Song', 'Noto Serif CJK', 'serif'
+  ),
+  "mono": (
+    'JetBrainsMono', 'Source Code Pro', 'Monaco', 'Menlo', 'Consolas', 'Courier New', 'Courier', 'monospace'
+  ),
+) !default;
+
 // Default theme mappings (can be overridden)
 $default-theme-mappings: (
   "bg": "base",
@@ -91,6 +129,7 @@ $default-theme-mappings: (
 ) !default;
 
 // Mixin for generating the complete theme (for use in main theme files)
-@mixin generate-theme($mappings: $default-theme-mappings) {
+@mixin generate-theme($mappings: $default-theme-mappings, $font-families: $default-font-families) {
   @include apply-theme-vars($mappings);
+  @include apply-font-families($font-families);
 }

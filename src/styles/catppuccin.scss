@@ -3,14 +3,47 @@
 // 默认主题 (Latte)
 body {
   @include theme.generate-theme();
-  
+
   /* 应用变量 */
   background-color: theme.theme-color('bg');
   color: theme.theme-color('text');
+
+  /* 默认字体 - Sans-serif for UI */
+  font-family: theme.font-family('sans');
 }
 
 // 组件样式
 #page {
+
+  // 文章标题使用 Serif 字体
+  h1, h2, h3, h4, h5, h6 {
+    font-family: theme.font-family('sans');
+  }
+
+  // 代码相关元素使用 Monospace 字体
+  code, pre, .code-block, span.code-lang {
+    font-family: theme.font-family('mono');
+  }
+
+  // 编辑器文本区域使用 Monospace 字体
+  textarea {
+    font-family: theme.font-family('mono');
+  }
+
+  // 文章内容段落使用 Serif 字体以增强阅读体验
+  article p, article li {
+    font-family: theme.font-family('serif');
+  }
+
+  // 表格内容使用 Sans-serif 字体
+  table, th, td {
+    font-family: theme.font-family('sans');
+  }
+
+  // 导航和 UI 元素保持 Sans-serif（继承自 body）
+  nav, button, input, label {
+    font-family: theme.font-family('sans');
+  }
 
   a {
     color: theme.theme-color('link');
@@ -18,6 +51,10 @@ body {
 
   a.origin {
     color: theme.theme-color('origin-link');
+  }
+
+  a.home-title {
+    color: theme.theme-color('origin-link')
   }
   
   blockquote {

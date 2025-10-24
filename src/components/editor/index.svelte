@@ -9,6 +9,7 @@
   import { convertToWebP, pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
   import { parseJson } from '@/lib/utils/parse-json';
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
+  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X } from '@lucide/svelte';
 
   interface Props {
 		markdown: Markdown;
@@ -207,21 +208,21 @@
         <h3 class="text-xl font-bold mb-4">Confirm</h3>
         <p class="mb-6">Are you sure you want to delete this article? </p>
         <div class="flex justify-end gap-3">
-          <button 
-            class="!text-[--koala-editor-text]"
+          <button
+            class="icon !text-[--koala-editor-text]"
             onclick={closeDeleteConfirm}
           >
-            Cancel
+            <X size={20} />
           </button>
           <form method="POST" action={actions.form.remove} class="inline">
             <input type="hidden" name="id" value={markdown.id} />
             <input type="hidden" name="link" value={markdown.link} />
             <input type="hidden" name="_action" value="delete" />
-            <button 
-              type="submit" 
-              class="!text-[--koala-editor-text] !text-[--koala-error-text]"
+            <button
+              type="submit"
+              class="icon !text-[--koala-editor-text] !text-[--koala-error-text]"
             >
-              Delete
+              <Trash2 size={20} />
             </button>
           </form>
         </div>
@@ -240,8 +241,8 @@
       <h2 class="editor-title">{ markdown.subject }</h2>
     {/if}
       <div>
-        <button id="save" class="w-12" onclick={save}>Save</button>
-        <button onclick={toggleToolbar}>Actions</button>
+        <button id="save" class="icon" onclick={save}><Save size={20} /></button>
+        <button class="icon" onclick={toggleToolbar}><Ellipsis size={20} /></button>
       </div>
     </div>
     <input type="hidden" name="source" value={source} />
@@ -249,21 +250,32 @@
 
     <div class="flex items-center gap-3">
     {#if toolbarVisible}
-      <button id="upload" class="w-18" onclick={upload}>Upload</button>
-      <button id="preview" class="w-20" onclick={preview}>{showPreview ? 'Edit' : 'Preview'}</button>
+      <button id="upload" class="icon" onclick={upload}><Upload size={20} /></button>
+      <button id="preview" class="icon" onclick={preview}>
+        {#if showPreview}
+          <SquarePen size={20} />
+        {:else}
+          <Eye size={20} />
+        {/if}
+      </button>
       {#if !isPreset && markdown.id > 0}
-        <button 
-          type="button" 
-          class="!text-[--koala-error-text]" 
+        <button
+          type="button"
+          class="icon !text-[--koala-error-text]"
           onclick={openDeleteConfirm}
         >
-          Delete
+          <Trash2 size={20} />
         </button>
-        <button 
-          type="button" 
+        <button
+          type="button"
+          class="icon"
           onclick={copyLink}
         >
-          {copyBtnText}
+          {#if copyBtnText === 'Copied'}
+            <Check size={20} />
+          {:else}
+            <Link size={20} />
+          {/if}
         </button>
       {/if}
     {/if}

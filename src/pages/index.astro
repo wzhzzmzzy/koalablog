@@ -1,8 +1,9 @@
 ---
 import ArticleClient from '@/components/article-view/client.astro'
 import ArticleView from '@/components/article-view/index.astro'
+import List from '@/components/dashboard/list.astro'
 import { MarkdownSource } from '@/db'
-import { readPreset } from '@/db/markdown'
+import { readList, readPreset } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
 import { renderIt } from '@/lib/markdown/render-it'
 
@@ -13,6 +14,10 @@ const pageConfig = Astro.locals.config.pageConfig
 const isBigArticle = (presetSource?.content || '').length > 1000
 const { content, renderLangSet } = await renderIt(isBigArticle, presetSource, pageConfig.theme)
 const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
+
+// Check if we should show posts at home
+const showPostsAtHome = pageConfig.showPostsAtHome ?? false
+const postsList = showPostsAtHome ? await readList(env, MarkdownSource.Post) : []
 ---
 
 <Layout desc={firstParagraph?.[1] || ''}>
@@ -23,4 +28,12 @@ const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
   ? <ArticleView article={presetSource} content={content} />
   : <ArticleClient article={presetSource} content={content} renderLangSet={renderLangSet} />
   }
+
+  {showPostsAtHome && postsList.length > 0 && (
+    <>
+      <section>
+        <List source={MarkdownSource.Post} />
+      </section>
+    </>
+  )}
 </Layout>

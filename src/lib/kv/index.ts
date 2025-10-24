@@ -8,6 +8,7 @@ export interface GlobalConfig {
   pageConfig: {
     title?: string
     author?: string
+    showPostsAtHome?: boolean
     theme?: {
       light: CatppuccinTheme
       dark: CatppuccinTheme

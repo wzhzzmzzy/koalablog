@@ -1,4 +1,6 @@
 <script lang="ts">
+import { Link } from '@lucide/svelte'
+
 interface Props {
   text: string;
   content: string;
@@ -37,4 +39,4 @@ async function copy() {
 </script>
 
 
-<button disabled={copied} onclick={copy}>{copied ? 'Copied' : text}</button>
+<button class="icon" disabled={copied} onclick={copy}><Link /></button>
