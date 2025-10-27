@@ -3,7 +3,6 @@ import Head from '@/components/head/index.astro'
 import { MarkdownSource } from '@/db'
 import { readPreset } from '@/db/markdown'
 import { rawMd } from '@/lib/markdown'
-import { CircleChevronRight } from '@lucide/astro'
 import Layout from './layout.astro'
 
 interface Props {
@@ -17,20 +16,30 @@ const env = Astro.locals.runtime?.env || {}
 
 const title = Astro.locals.config.pageConfig.title ?? ''
 const presetSource = await readPreset(env, MarkdownSource.Nav)
-const markup = rawMd().render(presetSource?.content ?? '')
+
+let markup = ''
+if (presetSource?.content?.trim()) {
+  markup = rawMd().render(presetSource?.content ?? '')
+}
 ---
 <Layout>
   <Fragment slot="meta">
     <Head title={metaTitle || title} desc={desc} />
     <slot name="meta" />
   </Fragment>
-  <header class="px-3">
-    <h2>
+  <header>
+    <h2 class="px-6">
       <a href="/" class="home-title">{title}</a>
     </h2>
-    <nav>
-      <Fragment set:html={markup} />
-    </nav>
+    {
+      markup
+        ? (
+        <nav>
+          <Fragment set:html={markup} />
+        </nav>
+        )
+        : ''
+    }
   </header>
   <main>
     <slot />

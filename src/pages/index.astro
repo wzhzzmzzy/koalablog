@@ -12,6 +12,7 @@ const presetSource = await readPreset(env, MarkdownSource.Home)
 
 const pageConfig = Astro.locals.config.pageConfig
 const isBigArticle = (presetSource?.content || '').length > 1000
+const isEmptyArticle = (presetSource?.content || '').trim()
 const { content, renderLangSet } = await renderIt(isBigArticle, presetSource, pageConfig.theme)
 const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
 
@@ -22,7 +23,7 @@ const postsList = showPostsAtHome ? await readList(env, MarkdownSource.Post) : [
 
 <Layout desc={firstParagraph?.[1] || ''}>
   {
-  !presetSource
+  !presetSource || isEmptyArticle
   ? null
   : !isBigArticle
   ? <ArticleView article={presetSource} content={content} />
