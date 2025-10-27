@@ -25,16 +25,18 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
     <>
       <h1>{ article.subject }</h1>
       <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
+      {showOutline && (
+        <Outline client:load title={article.subject} headings={headings} />
+      )}
     </>
     )
-    : (
-      <h1>{ article.subject }</h1>
-    )
+    : source === MarkdownSource.Page
+    ? (
+          <h1>{ article.subject }</h1>
+        )
+    : <div></div>
     }
   </div>
-  {showOutline && (
-    <Outline client:load title={article.subject} headings={headings} />
-  )}
   <article id="article" set:html={contentWithIds} />
 </main>
 
