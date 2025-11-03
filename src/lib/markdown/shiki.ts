@@ -54,6 +54,9 @@ export async function useShiki(instance: MarkdownIt, options: HighlightOptions) 
       has('py,python') && import('@shikijs/langs/python'),
       has('json') && import('@shikijs/langs/json'),
       has('ini') && import('@shikijs/langs/ini'),
+      has('kotlin') && import('@shikijs/langs/kotlin'),
+      has('yaml') && import('@shikijs/langs/yaml'),
+      has('shell') && import('@shikijs/langs/shell'),
     ].filter(i => !!i),
     engine: createJavaScriptRegexEngine(),
   })
