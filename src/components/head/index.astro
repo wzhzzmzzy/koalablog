@@ -11,11 +11,21 @@ const siteAuthor = Astro.locals.config.pageConfig.author
 const url = Astro.request.url
 const { title = siteTitle, desc, keywords, image } = Astro.props
 
+const fontConfig = Astro.locals.config.font
 ---
 <title>{title}</title>
 { desc ? <meta name="description" content={desc} /> : null }
 { keywords ? <meta name="keywords" content={keywords} /> : null }
 { siteAuthor ? <meta name="author" content={siteAuthor} /> : null }
+
+<!-- Dynamic Font Configuration -->
+{fontConfig?.cdn && <link rel="stylesheet" href={fontConfig.cdn} />}
+<style define:vars={{
+  'koala-font-sans': fontConfig?.sans,
+  'koala-font-serif': fontConfig?.serif,
+  'koala-font-mono': fontConfig?.mono,
+}}>
+</style>
 
 <link rel="canonical" href={url} />
 

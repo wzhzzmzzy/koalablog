@@ -20,6 +20,7 @@ if (saved) {
 const pageConfig = Astro.locals.config.pageConfig
 const authConfig = Astro.locals.config.auth
 const rssConfig = Astro.locals.config.rss
+const fontConfig = Astro.locals.config.font
 
 const title = pageConfig.title ?? ''
 const guestKey = authConfig.guestKey ?? ''
@@ -97,6 +98,24 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <label>Language</label>
       <input class="w-60 sm:w-80" type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
 
+      <h3>Fonts</h3>
+      <label>CDN URL (e.g. Google Fonts CSS link)</label>
+      <input class="w-full" type="text" name="fontCDN" value={fontConfig?.cdn} placeholder="https://fonts.googleapis.com/css2?..." />
+      
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label>Sans (UI/Body)</label>
+          <input class="w-full" type="text" name="fontSans" value={fontConfig?.sans} placeholder="'Noto Sans SC', sans-serif" />
+        </div>
+        <div>
+          <label>Serif (Content)</label>
+          <input class="w-full" type="text" name="fontSerif" value={fontConfig?.serif} placeholder="'Noto Serif SC', serif" />
+        </div>
+        <div>
+          <label>Mono (Code)</label>
+          <input class="w-full" type="text" name="fontMono" value={fontConfig?.mono} placeholder="'JetBrains Mono', monospace" />
+        </div>
+      </div>
 
     </form>
 

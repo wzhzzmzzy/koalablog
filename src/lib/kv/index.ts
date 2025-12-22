@@ -20,6 +20,12 @@ export interface GlobalConfig {
     site?: string
     lang?: string
   }
+  font?: {
+    sans?: string
+    serif?: string
+    mono?: string
+    cdn?: string
+  }
   auth: {
     adminKey?: string
     guestKey?: string
@@ -70,6 +76,7 @@ export async function globalConfig(env?: Env): Promise<GlobalConfig> {
     oss: {},
     pageConfig: {},
     auth: {},
+    font: {},
     _runtime: { ready: false },
   }
 }

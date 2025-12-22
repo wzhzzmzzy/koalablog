@@ -21,6 +21,10 @@ export const settings = defineAction({
     rssEnable: z.boolean().optional(),
     rssDesc: z.string().optional(),
     rssLang: z.string().default('en-US'),
+    fontSans: z.string().optional(),
+    fontSerif: z.string().optional(),
+    fontMono: z.string().optional(),
+    fontCDN: z.string().optional(),
   }),
   handler: async (input, ctx) => {
     await authGuard(ctx)
@@ -47,6 +51,12 @@ export const settings = defineAction({
           enable: input.rssEnable,
           description: input.rssDesc,
           lang: input.rssLang,
+        },
+        font: {
+          sans: input.fontSans,
+          serif: input.fontSerif,
+          mono: input.fontMono,
+          cdn: input.fontCDN,
         },
       }),
     ])
