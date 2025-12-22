@@ -7,9 +7,10 @@ import '@/styles/dashboard.css'
 
 interface Props {
   title?: string
+  showHeader?: boolean
 }
 
-const { title: metaTitle } = Astro.props
+const { title: metaTitle, showHeader = true } = Astro.props
 
 let host = Astro.url.hostname
 const origin = Astro.url.origin
@@ -25,19 +26,21 @@ if (host === 'localhost') {
     <slot name="meta" />
   </Fragment>
 
-  <header>
-    <h2 class="mb-1">(・∀・) {title}</h2>
-    <a class="origin" target="_blank" href={origin}>
-      <pre class="mt-1">{host}</pre>
-    </a>
-    <nav>
-      {DASHBOARD_SETTINGS_ROUTE.map(route => (
-      <a href={`/dashboard/${route.link}`} class="no-underline">
-        {route.name}
+  {showHeader && (
+    <header>
+      <h2 class="mb-1">(・∀・) {title}</h2>
+      <a class="origin" target="_blank" href={origin}>
+        <pre class="mt-1">{host}</pre>
       </a>
-      ))}
-    </nav>
-  </header>
+      <nav>
+        {DASHBOARD_SETTINGS_ROUTE.map(route => (
+        <a href={`/dashboard/${route.link}`} class="no-underline">
+          {route.name}
+        </a>
+        ))}
+      </nav>
+    </header>
+  )}
   <main class="flex-1 flex flex-col">
     <slot />
   </main>

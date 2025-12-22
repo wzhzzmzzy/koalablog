@@ -9,8 +9,9 @@
   import { convertToWebP, pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
   import { parseJson } from '@/lib/utils/parse-json';
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
-  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X } from '@lucide/svelte';
+  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
+  import TagsInput from './tags-input.svelte';
 
   interface Props {
 		markdown: Markdown;
@@ -33,9 +34,22 @@
 
   let mdInstance: MarkdownIt | null = null
   let allPosts: Markdown[] = []
+  let existingTags: string[] = []
+  let currentTags = $state(markdown.tags ?? '')
+
   onMount(async () => {
     const allPostsFromDB = await actions.db.markdown.all({ source: 'post' })
     allPosts = allPostsFromDB.data?.posts || [];
+    
+    // Extract unique tags from all posts for autocomplete
+    const tagSet = new Set<string>();
+    allPosts.forEach(post => {
+      if (post.tags) {
+        post.tags.split(',').forEach(t => tagSet.add(t.trim()));
+      }
+    });
+    existingTags = Array.from(tagSet).sort();
+
     mdInstance = await md({ allPostLinks: allPosts })
     refreshPreview()
 
@@ -199,6 +213,14 @@
     toolbarVisible = !toolbarVisible
   }
 
+  function back(e: Event) {
+    e.preventDefault()
+    if (isPreset) return
+    
+    const target = source === MarkdownSource.Page ? '/dashboard/pages' : '/dashboard/posts'
+    window.location.href = target
+  }
+
   async function save(e: Event) {
     e.preventDefault()
 
@@ -212,9 +234,12 @@
       link: i.dataset.link
     })).filter(i => !!i.link)))
     
-    // 收集tags数据，去重并转为逗号分隔的字符串
-    const tags = [...new Set(tagEls.map(el => el.getAttribute('data-tag')).filter(Boolean))]
-    formData.append('tags', tags.join(','))
+    // Merge manual tags (from input) and content tags (from #hashtags)
+    const contentTags = tagEls.map(el => el.getAttribute('data-tag')).filter(Boolean) as string[];
+    const manualTags = currentTags ? currentTags.split(',').filter(Boolean) : [];
+    const mergedTags = [...new Set([...manualTags, ...contentTags])];
+    
+    formData.append('tags', mergedTags.join(','))
 
     if (source === MarkdownSource.Post) {
       const oldLink = markdown.link
@@ -256,7 +281,7 @@
   }
 </script>
 
-<div class="w-full flex-1 flex flex-col">
+<div class="w-full flex-1 flex flex-col pt-5">
   {#if formWarn}
     <p class="warning">{formWarn}</p>
   {/if}
@@ -308,6 +333,9 @@
       <h2 class="editor-title">{ markdown.subject }</h2>
     {/if}
       <div>
+        {#if !isPreset}
+          <button class="icon" onclick={back}><ArrowLeft size={20} /></button>
+        {/if}
         <button id="save" class="icon" onclick={save}><Save size={20} /></button>
         <button class="icon" onclick={toggleToolbar}><Ellipsis size={20} /></button>
       </div>
@@ -315,40 +343,48 @@
     <input type="hidden" name="source" value={source} />
     <input type="hidden" name="id" value={markdown.id} />
 
-    <div class="flex items-center gap-3">
     {#if toolbarVisible}
-      <button id="upload" class="icon" onclick={upload}><Upload size={20} /></button>
-      <button id="preview" class="icon" onclick={preview}>
-        {#if showPreview}
-          <SquarePen size={20} />
-        {:else}
-          <Eye size={20} />
-        {/if}
-      </button>
-      {#if !isPreset && markdown.id > 0}
-        <button
-          type="button"
-          class="icon !text-[--koala-error-text]"
-          onclick={openDeleteConfirm}
-        >
-          <Trash2 size={20} />
-        </button>
-        <button
-          type="button"
-          class="icon"
-          onclick={copyLink}
-        >
-          {#if copyBtnText === 'Copied'}
-            <Check size={20} />
+    <div class="flex flex-col gap-2 my-2 py-2 bg-[--koala-bg] rounded border border-[--koala-border]">
+      <div class="flex items-center gap-3">
+        <button id="upload" class="icon" onclick={upload}><Upload size={20} /></button>
+        <button id="preview" class="icon" onclick={preview}>
+          {#if showPreview}
+            <SquarePen size={20} />
           {:else}
-            <Link size={20} />
+            <Eye size={20} />
           {/if}
         </button>
-      {/if}
-    {/if}
+        {#if !isPreset && markdown.id > 0}
+          <button
+            type="button"
+            class="icon !text-[--koala-error-text]"
+            onclick={openDeleteConfirm}
+          >
+            <Trash2 size={20} />
+          </button>
+          <button
+            type="button"
+            class="icon"
+            onclick={copyLink}
+          >
+            {#if copyBtnText === 'Copied'}
+              <Check size={20} />
+            {:else}
+              <Link size={20} />
+            {/if}
+          </button>
+        {/if}
+      </div>
+      
+      <TagsInput 
+        value={currentTags} 
+        existingTags={existingTags} 
+        onChange={(val) => currentTags = val} 
+      />
     </div>
+    {/if}
 
-    <div class="flex mb-2 {toolbarVisible ? 'mt-2' : ''} {showPreview ? 'hidden' : ''} flex-col sm:flex-row sm:items-center">
+    <div class="flex mb-2 {showPreview ? 'hidden' : ''} flex-col sm:flex-row sm:items-center">
       <input
         id="subject-input"
         type={isPreset ? 'hidden' : 'text'}

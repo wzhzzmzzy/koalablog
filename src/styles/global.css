@@ -78,6 +78,14 @@ button {
   --at-apply: h-10 w-18 text-[16px];
 }
 
+button.btn-ghost {
+  height: auto;
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
 input {
   border: none;
   outline: none;

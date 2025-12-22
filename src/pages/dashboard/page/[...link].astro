@@ -33,7 +33,7 @@ if (article instanceof Response) {
   return article
 }
 ---
-<DashboardLayout title={`[Editor] ${article.subject}`}>
+<DashboardLayout title={`[Editor] ${article.subject}`} showHeader={false}>
 
   { actionError && <p class="error">{actionError.message}</p> }
 
