@@ -10,6 +10,7 @@
   import { parseJson } from '@/lib/utils/parse-json';
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
   import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X } from '@lucide/svelte';
+  import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
 
   interface Props {
 		markdown: Markdown;
@@ -88,20 +89,86 @@
   let formError = $state('')
   let formWarn = $state('')
   let success = $state('')
-  async function upload(e: Event) {
-    e.preventDefault()
-    const files = await pickFileWithFileInput()
+
+  async function processFileUpload(file: File, placeholder?: string) {
     try {
-      const blob = await convertToWebP(files[0])
-      const webpFileName = files[0].name.replace(/\.[^/.]+$/, '.webp')
-      const fileKey = await uploadFile('article', blob, webpFileName)
+      const blob = await convertToWebP(file)
+      // Compatibility Check: If browser doesn't support WebP encoding, it falls back to PNG.
+      // We must check the actual blob type to set the correct extension.
+      const ext = blob.type === 'image/webp' ? '.webp' : '.png'
+      const fileName = file.name.replace(/\.[^/.]+$/, ext)
+      
+      const fileKey = await uploadFile('article', blob, fileName)
+      
       if (fileKey.data) {
         const [source, key] = fileKey.data.split('/')
-        textareaValue = `${textareaValue}\n ![](/api/oss/${source}_${key})`
+        const markdownLink = `![](/api/oss/${source}_${key})`
+        
+        if (placeholder) {
+          // Replace placeholder with actual link
+          textareaValue = textareaValue.replace(placeholder, markdownLink)
+        } else {
+          // Append to end if no placeholder
+          textareaValue = `${textareaValue}\n${markdownLink}`
+        }
         success = 'Uploaded Successfully'
+        
+        // Auto clear success message
+        setTimeout(() => {
+           if (success === 'Uploaded Successfully') success = ''
+        }, 3000)
+      } else if (fileKey.error) {
+        throw new Error(fileKey.error.message)
       }
     } catch(e: any) {
       formError = e.message
+      if (placeholder) {
+        // Remove placeholder on error
+        textareaValue = textareaValue.replace(placeholder, '')
+      }
+    }
+  }
+
+  async function upload(e: Event) {
+    e.preventDefault()
+    const files = await pickFileWithFileInput()
+    if (files.length > 0) {
+      await processFileUpload(files[0])
+    }
+  }
+
+  function handlePaste(e: ClipboardEvent) {
+    const files = getImagesFromClipboard(e)
+    if (files.length > 0) {
+      e.preventDefault()
+      const textarea = e.target as HTMLTextAreaElement
+      const startPos = textarea.selectionStart
+      
+      files.forEach(file => {
+        const placeholder = generatePlaceholder(file.name)
+        textareaValue = insertTextAtPosition(textareaValue, placeholder, startPos)
+        
+        // Start upload process
+        processFileUpload(file, placeholder)
+      })
+    }
+  }
+
+  function handleDrop(e: DragEvent) {
+    const files = getImagesFromDrop(e)
+    if (files.length > 0) {
+      e.preventDefault()
+      const textarea = e.target as HTMLTextAreaElement
+      // Note: Drop position calculation is complex, here we simplify to inserting at current cursor or end
+      // For better UX, we could use document.caretPositionFromPoint but it's not standard
+      // So we fallback to selectionStart (where user clicked before drag) or simply append
+      const startPos = textarea.selectionStart || textareaValue.length
+      
+      files.forEach(file => {
+        const placeholder = generatePlaceholder(file.name)
+        textareaValue = insertTextAtPosition(textareaValue, placeholder, startPos)
+        processFileUpload(file, placeholder)
+      })
     }
   }
 
@@ -311,6 +378,8 @@
       name="content" 
       placeholder="Type here..."
       bind:value={textareaValue}
+      onpaste={handlePaste}
+      ondrop={handleDrop}
     ></textarea>
     <article id="preview-md" class="w-full {showPreview ? '' : 'hidden'}">
       {@html previewHtml}
