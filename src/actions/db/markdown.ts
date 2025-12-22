@@ -90,6 +90,7 @@ export const batchImport = defineAction({
     tags: z.string().optional(),
     source: z.nativeEnum(MarkdownSource).default(MarkdownSource.Post),
     link: z.string().optional(),
+    private: z.boolean().optional(),
     createdAt: z.preprocess((val) => {
       if (typeof val === 'string') {
         const date = new Date(val)
@@ -121,6 +122,7 @@ export const batchImport = defineAction({
         content: post.content,
         tags: post.tags,
         link: post.link,
+        private: post.private,
         createdAt: post.createdAt,
         updatedAt: post.updatedAt,
         outgoing_links: post.outgoingLinks ? JSON.stringify(post.outgoingLinks) : undefined,

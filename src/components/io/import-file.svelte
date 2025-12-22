@@ -237,12 +237,17 @@ const onSave = async () => {
     const createdAt = meta?.createdAt as string | undefined
     const updatedAt = meta?.updatedAt as string | undefined
     const link = meta?.link as string | undefined
+    const metaSubject = meta?.subject as string | undefined
+    const source = meta?.source as number | undefined
+    const isPrivate = meta?.private as boolean | undefined
     
     return {
-      subject: originalFile.subject,
+      subject: metaSubject || originalFile.subject,
       content: stripMetaBlock(originalFile.content),
       tags,
       link,
+      source,
+      private: isPrivate,
       createdAt,
       updatedAt,
       outgoingLinks: parsedFile?.outgoingLinks || []

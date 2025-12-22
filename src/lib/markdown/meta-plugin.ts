@@ -34,11 +34,26 @@ function parseMetaValue(value: string): string | boolean | null {
     return trimmed.slice(1, -1)
   }
 
+  // 处理数组 (简单的 JSON 风格数组)
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      // 尝试作为 JSON 解析
+      // 注意：标准的 YAML 列表不一定是 JSON，但我们导出时使用了 JSON 兼容格式
+      // 如果包含单引号，先替换为双引号（简易处理，非严谨）
+      const jsonStr = trimmed.replace(/'/g, '"')
+      return JSON.parse(jsonStr)
+    }
+    catch {
+      // 解析失败则返回原字符串
+      return trimmed
+    }
+  }
+
   // 默认返回原始字符串（去除空格）
   return trimmed
 }
 
-function parseMetaContent(content: string): ParsedMeta {
+export function parseMetaContent(content: string): ParsedMeta {
   const meta: ParsedMeta = {}
   const lines = content.split('\n')
 

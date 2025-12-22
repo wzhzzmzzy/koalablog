@@ -44,19 +44,33 @@ export async function exportAllPosts() {
   // 创建包含meta数据的内容函数
   const createContentWithMeta = (markdown: Markdown) => {
     const meta = {
+      subject: markdown.subject,
       link: markdown.link,
       tags: markdown.tags,
+      source: markdown.source, // 0=post, 1=page, etc (based on enum or value in DB)
       createdAt: markdown.createdAt,
       updatedAt: markdown.updatedAt,
+      private: markdown.private,
       deleted: markdown.deleted,
     }
 
+    const formatTags = (tags: string | null) => {
+      if (!tags) return '[]'
+      // 假设 tags 是逗号分隔的字符串
+      const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
+      if (tagList.length === 0) return '[]'
+      return `[${tagList.map(t => `"${t}"`).join(', ')}]`
+    }
+
     const metaHeader = `---
+subject: "${meta.subject.replace(/"/g, '\\"')}"
 link: "${meta.link}"
-tags: ${meta.tags ? `"${meta.tags}"` : 'null'}
+tags: ${formatTags(meta.tags)}
+source: ${meta.source}
 createdAt: "${meta.createdAt.toISOString()}"
 updatedAt: "${meta.updatedAt.toISOString()}"
-deleted: ${meta.deleted}
+private: ${!!meta.private}
+deleted: ${!!meta.deleted}
 ---
 
 `
