@@ -15,7 +15,7 @@ body {
 // 组件样式
 #page {
 
-  // 文章标题使用 Serif 字体
+  // 文章标题使用 Sans-serif 字体
   h1, h2, h3, h4, h5, h6 {
     font-family: theme.font-family('sans');
   }
@@ -30,9 +30,14 @@ body {
     font-family: theme.font-family('mono');
   }
 
-  // 文章内容段落使用 Serif 字体以增强阅读体验
-  article p, article li {
+  // 文章内容段落默认使用 Sans-serif (继承自 body)，引用块使用 Serif 增加层次感
+  article blockquote {
     font-family: theme.font-family('serif');
+  }
+  
+  // 文章内容列表
+  article li {
+    font-family: theme.font-family('sans');
   }
 
   // 表格内容使用 Sans-serif 字体
