@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro'
 import { updateCookieToken } from '@/lib/auth'
 
-export const POST: APIRoute = async (ctx) => {
+export const GET: APIRoute = async (ctx) => {
   const passkey = ctx.request.headers.get('X-Guest-Passkey')
   const { config } = ctx.locals
 
