@@ -34,7 +34,7 @@
 
   let mdInstance: MarkdownIt | null = null
   let allPosts: Markdown[] = []
-  let existingTags: string[] = []
+  let existingTags: string[] = $state([])
   let currentTags = $state(markdown.tags ?? '')
 
   onMount(async () => {
