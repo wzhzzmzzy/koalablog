@@ -1,0 +1,27 @@
+---
+import PlaygroundClient from '../components/playground/Playground.svelte'
+import Layout from '../layouts/layout.astro';
+---
+
+<Layout title="Svelte 5 Playground">
+  <Fragment slot="head">
+    <script type="importmap">
+      {
+        "imports": {
+          "svelte": "https://esm.sh/svelte@5.19.2",
+          "svelte/internal/client": "https://esm.sh/svelte@5.19.2/internal/client",
+          "svelte/internal/disclose-version": "https://esm.sh/svelte@5.19.2/internal/disclose-version",
+          "esm-env": "https://esm.sh/esm-env"
+        }
+      }
+    </script>
+  </Fragment>
+
+  <main class="w-full h-[calc(100vh-64px)] p-4 flex flex-col gap-4">
+    <h1 class="text-2xl font-bold">Svelte 5 Playground</h1>
+    <p class="text-sm text-gray-600 dark:text-gray-400">
+      Simple Svelte 5 compiler running in browser (No Iframe, Shadow DOM Sandbox).
+    </p>
+    <PlaygroundClient client:only="svelte" />
+  </main>
+</Layout>
