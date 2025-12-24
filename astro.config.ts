@@ -16,6 +16,9 @@ const cfConfig = {
 export default defineConfig({
   ...(process.env.CF_PAGES ? cfConfig : {}),
   output: 'server',
+  build: {
+    inlineStylesheets: 'always',
+  },
   vite: {
     plugins: [PreprocessorDirectives()],
     build: {
