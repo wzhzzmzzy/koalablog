@@ -9,6 +9,7 @@ import { type DoubleLinkPluginOptions, useDoubleLink } from './double-link-plugi
 import { type ParsedMeta, useMetaPlugin } from './meta-plugin'
 import { type ThemeConfig, useShiki } from './shiki'
 import { useTagPlugin } from './tag-plugin'
+import { useTodoPlugin } from './todo-plugin'
 
 // ::: expandable summary
 // some details
@@ -64,6 +65,7 @@ export async function md(opt: {
     await useShiki(md, opt)
     useDoubleLink(md, { allPostLinks: opt.allPostLinks })
     useTagPlugin(md)
+    useTodoPlugin(md)
     MdCacheMap.set('md', md)
   }
   else {
@@ -89,6 +91,7 @@ export function rawMd(opt: {
 
     useDoubleLink(md, { allPostLinks: opt.allPostLinks })
     useTagPlugin(md)
+    useTodoPlugin(md)
 
     const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, env, self) {
       return self.renderToken(tokens, idx, options)

@@ -1,7 +1,12 @@
 :root {
-  --koala-font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-  --koala-font-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
-  --koala-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --koala-font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --koala-font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
+  --koala-font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 
 a {
@@ -34,7 +39,8 @@ body {
   padding-bottom: 50px;
 }
 
-p, li {
+p,
+li {
   line-height: 26px;
 }
 
@@ -131,7 +137,8 @@ thead tr {
   font-weight: 600;
 }
 
-th, td {
+th,
+td {
   padding: 12px 15px;
 }
 
@@ -141,3 +148,22 @@ th, td {
   margin: 0 auto;
 }
 
+/* Task List Styles */
+ul .task-list-item {
+  list-style-type: none;
+  margin-bottom: 4px;
+}
+
+.task-list-marker {
+  position: relative;
+  top: 3px;
+  margin-right: 8px;
+}
+
+.task-list-item.checked {
+  opacity: 0.8;
+}
+
+.task-list-item.checked .task-list-marker {
+  color: var(--koala-catppuccin-green);
+}
