@@ -1,67 +1,81 @@
-@use 'theme-utils' as theme;
+@use "theme-utils" as theme;
 
 // 默认主题 (Latte)
 body {
   @include theme.generate-theme();
 
   /* 应用变量 */
-  background-color: theme.theme-color('bg');
-  color: theme.theme-color('text');
+  background-color: theme.theme-color("bg");
+  color: theme.theme-color("text");
 
   /* 默认字体 - Sans-serif for UI */
-  font-family: theme.font-family('sans');
+  font-family: theme.font-family("sans");
 }
 
 // 组件样式
 #page {
-
   // 文章标题使用 Sans-serif 字体
-  h1, h2, h3, h4, h5, h6 {
-    font-family: theme.font-family('sans');
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: theme.font-family("sans");
   }
 
   // 代码相关元素使用 Monospace 字体
-  code, pre, .code-block, span.code-lang {
-    font-family: theme.font-family('mono');
+  code,
+  pre,
+  .code-block,
+  span.code-lang {
+    font-family: theme.font-family("mono");
   }
 
   // 编辑器文本区域使用 Monospace 字体
   textarea {
-    font-family: theme.font-family('mono');
+    font-family: theme.font-family("mono");
   }
 
   // 文章内容段落默认使用 Sans-serif (继承自 body)，引用块使用 Serif 增加层次感
   article blockquote {
-    font-family: theme.font-family('serif');
+    font-family: theme.font-family("serif");
   }
-  
+
   // 文章内容列表
   article li {
-    font-family: theme.font-family('sans');
+    font-family: theme.font-family("sans");
   }
 
   // 表格内容使用 Sans-serif 字体
-  table, th, td {
-    font-family: theme.font-family('sans');
+  table,
+  th,
+  td {
+    font-family: theme.font-family("sans");
   }
 
   // 导航和 UI 元素保持 Sans-serif（继承自 body）
-  nav, nav p, button, input, label {
-    font-family: theme.font-family('sans');
+  nav,
+  nav p,
+  button,
+  input,
+  label {
+    font-family: theme.font-family("sans");
   }
 
   a {
-    color: theme.theme-color('link');
+    color: theme.theme-color("link");
   }
 
-  a.origin, a.home-title {
-    color: theme.theme-color('origin-link');
+  a.origin,
+  a.home-title {
+    color: theme.theme-color("origin-link");
   }
 
   blockquote {
     border-left-color: var(--koala-blockquote-text);
   }
-  
+
   textarea {
     background: transparent;
     border: none;
@@ -72,14 +86,14 @@ body {
     background-color: var(--koala-editor-selection-bg);
     color: var(--koala-edit-text);
   }
-  
+
   div.code-block {
     background-color: var(--koala-code-bg);
     border: 1px solid var(--koala-code-border);
   }
 
   details div.code-block {
-    border-color: var(--koala-code-border-nest)
+    border-color: var(--koala-code-border-nest);
   }
 
   details {
@@ -87,15 +101,15 @@ body {
   }
 
   details[open] summary {
-    color: var(--koala-editor-text)
+    color: var(--koala-editor-text);
   }
 
   code:not([class]) {
     background-color: var(--koala-editor-bg);
-    color: var(--koala-editor-text)
+    color: var(--koala-editor-text);
   }
-  
-  button {
+
+  button:not([ghost]) {
     @include theme.theme-button();
   }
 
@@ -106,7 +120,7 @@ body {
   $status-types: (
     "warning": "warning-text",
     "error": "error-text",
-    "success": "success-text"
+    "success": "success-text",
   );
 
   @each $class, $var in $status-types {
@@ -120,7 +134,9 @@ body {
     background-color: var(--koala-tag-bg);
     color: var(--koala-tag-text);
     cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
 
     &:hover {
       background-color: var(--koala-button-hover-bg);
@@ -138,10 +154,11 @@ body {
   }
 
   table thead tr {
-    background-color: var(--koala-blockquote-bg)
+    background-color: var(--koala-blockquote-bg);
   }
 
-  table td, table th {
+  table td,
+  table th {
     border: 1px solid var(--koala-code-border);
   }
 }

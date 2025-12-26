@@ -8,6 +8,7 @@ export const settings = defineAction({
   accept: 'form',
   input: z.object({
     title: z.string().min(1, 'Title is required'),
+    avatar: z.string().optional(),
     showPostsAtHome: z.boolean().optional(),
     lightTheme: z.nativeEnum(CatppuccinTheme, {
       errorMap: () => ({ message: 'Invalid light theme' }),
@@ -41,6 +42,7 @@ export const settings = defineAction({
         },
         pageConfig: {
           title: input.title,
+          avatar: input.avatar,
           showPostsAtHome: input.showPostsAtHome,
           theme: {
             light: input.lightTheme,

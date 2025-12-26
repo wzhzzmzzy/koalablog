@@ -5,7 +5,7 @@ import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import { readToday } from '@/db/ossAccess'
 import DashboardLayout from '@/layouts/dashboard.astro'
 import { globalConfig } from '@/lib/kv'
-import { Save } from '@lucide/astro'
+import { Save, Upload } from '@lucide/astro'
 import { actions } from 'astro:actions'
 
 const saveResult = Astro.getActionResult(actions.form.settings)
@@ -23,6 +23,7 @@ const rssConfig = Astro.locals.config.rss
 const fontConfig = Astro.locals.config.font
 
 const title = pageConfig.title ?? ''
+const avatar = pageConfig.avatar ?? ''
 const guestKey = authConfig.guestKey ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
@@ -51,6 +52,16 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
         Blog Title:<br />
       </label>
       <input class="w-60 sm:w-80" id="title-input" name="title" value={title} />
+
+      <label>
+        Avatar:<br />
+      </label>
+      <div class="flex items-center gap-2">
+        <input class="w-60 sm:w-80" id="avatar-input" name="avatar" value={avatar} />
+        <button type="button" id="upload-avatar-btn" class="inline-flex items-center justify-center">
+           <Upload size={20} />
+        </button>
+      </div>
 
       <div>
         <label>Show Posts at Home</label>
@@ -130,10 +141,13 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
 
 <script>
 import type { CatppuccinTheme } from '@/lib/const/config'
+import { pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader'
 
 class SettingForm extends HTMLElement {
   formEl: HTMLFormElement
   titleInputEl: HTMLInputElement
+  avatarInputEl: HTMLInputElement
+  uploadAvatarBtn: HTMLButtonElement
   themeBusEl: HTMLDivElement
   lightInputEl: HTMLInputElement
   darkInputEl: HTMLInputElement
@@ -147,11 +161,16 @@ class SettingForm extends HTMLElement {
     super()
     this.formEl = this.querySelector('#settings-form')!
     this.titleInputEl = this.querySelector('#title-input')!
+    this.avatarInputEl = this.querySelector('#avatar-input')!
+    this.uploadAvatarBtn = this.querySelector('#upload-avatar-btn')!
     this.themeBusEl = this.querySelector('#theme-bus')!
     this.lightInputEl = this.querySelector('input#light')!
     this.darkInputEl = this.querySelector('input#dark')!
 
     this.onChangeTheme = this.onChangeTheme.bind(this)
+    this.uploadAvatar = this.uploadAvatar.bind(this)
+
+    this.uploadAvatarBtn.addEventListener('click', this.uploadAvatar)
 
     const light = this.lightInputEl.value as CatppuccinTheme
     const dark = this.darkInputEl.value as CatppuccinTheme
@@ -171,6 +190,29 @@ class SettingForm extends HTMLElement {
   onChangeTheme(event: CustomEvent<{ light: CatppuccinTheme, dark: CatppuccinTheme }>) {
     this.lightInputEl.value = event.detail.light
     this.darkInputEl.value = event.detail.dark
+  }
+
+  async uploadAvatar() {
+    try {
+      const files = await pickFileWithFileInput()
+      if (!files || files.length === 0) return
+      
+      this.uploadAvatarBtn.disabled = true
+      const { data, error } = await uploadFile('oss', files)
+      
+      if (error) {
+        console.error(error)
+        alert('Upload failed: ' + error.message)
+      } else if (data) {
+        const url = `/api/oss/${data.replace('/', '_')}`
+        this.avatarInputEl.value = url
+      }
+    } catch (e) {
+      console.error(e)
+      alert('Upload failed')
+    } finally {
+      this.uploadAvatarBtn.disabled = false
+    }
   }
 }
 

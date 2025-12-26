@@ -14,7 +14,8 @@ const { title: metaTitle, desc } = Astro.props
 
 const env = Astro.locals.runtime?.env || {}
 
-const title = Astro.locals.config.pageConfig.title ?? ''
+const title = Astro.locals.config.pageConfig?.title ?? ''
+const avatar = Astro.locals.config.pageConfig?.avatar ?? ''
 const presetSource = await readPreset(env, MarkdownSource.Nav)
 
 let markup = ''
@@ -28,8 +29,23 @@ if (presetSource?.content?.trim()) {
     <slot name="meta" />
   </Fragment>
   <header>
-    <h2 class="px-6">
+    <h2 class="px-6 flex justify-between items-center">
       <a href="/" class="home-title">{title}</a>
+      {
+        avatar
+          ? (
+            <>
+              <button ghost popovertarget="menu-popover" >
+                <img class="w-10 h-10 object-cover object-center rounded-[50%] cursor-pointer hover:scale-[1.1] transition-scale" src={avatar} />
+              </button>
+              <div id="menu-popover" popover>
+                <a href="/memos">Memos</a>
+                <a href="/projects">Projects</a>
+              </div>
+            </>
+          )
+          : ''
+      }
     </h2>
     {
       markup
@@ -48,3 +64,4 @@ if (presetSource?.content?.trim()) {
     <slot name="footer" />
   </footer>
 </Layout>
+
