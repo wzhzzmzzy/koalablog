@@ -11,7 +11,6 @@
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
   import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
-  import TagsInput from './tags-input.svelte';
 
   interface Props {
 		markdown: Markdown;
@@ -34,22 +33,11 @@
 
   let mdInstance: MarkdownIt | null = null
   let allPosts: Markdown[] = []
-  let existingTags: string[] = $state([])
-  let currentTags = $state(markdown.tags ?? '')
 
   onMount(async () => {
     const allPostsFromDB = await actions.db.markdown.all({ source: 'post' })
     allPosts = allPostsFromDB.data?.posts || [];
     
-    // Extract unique tags from all posts for autocomplete
-    const tagSet = new Set<string>();
-    allPosts.forEach(post => {
-      if (post.tags) {
-        post.tags.split(',').forEach(t => tagSet.add(t.trim()));
-      }
-    });
-    existingTags = Array.from(tagSet).sort();
-
     mdInstance = await md({ allPostLinks: allPosts })
     refreshPreview()
 
@@ -234,12 +222,9 @@
       link: i.dataset.link
     })).filter(i => !!i.link)))
     
-    // Merge manual tags (from input) and content tags (from #hashtags)
     const contentTags = tagEls.map(el => el.getAttribute('data-tag')).filter(Boolean) as string[];
-    const manualTags = currentTags ? currentTags.split(',').filter(Boolean) : [];
-    const mergedTags = [...new Set([...manualTags, ...contentTags])];
     
-    formData.append('tags', mergedTags.join(','))
+    formData.append('tags', contentTags.join(','))
 
     if (source === MarkdownSource.Post) {
       const oldLink = markdown.link
@@ -376,11 +361,6 @@
         {/if}
       </div>
       
-      <TagsInput 
-        value={currentTags} 
-        existingTags={existingTags} 
-        onChange={(val) => currentTags = val} 
-      />
     </div>
     {/if}
 
