@@ -8,6 +8,7 @@ import { globalConfig } from './lib/kv'
 
 const AUTH_REQUIRED_SITE = [
   '/dashboard',
+  '/memos',
 ]
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
