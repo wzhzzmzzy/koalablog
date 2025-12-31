@@ -34,15 +34,9 @@ if (presetSource?.content?.trim()) {
       {
         avatar
           ? (
-            <>
-              <button ghost popovertarget="menu-popover" >
-                <img class="w-10 h-10 object-cover object-center rounded-[50%] cursor-pointer hover:scale-[1.1] transition-scale" src={avatar} />
-              </button>
-              <div id="menu-popover" popover>
-                <a href="/memos">Memos</a>
-                <a href="/projects">Projects</a>
-              </div>
-            </>
+            <button ghost>
+              <img class="w-10 h-10 object-cover object-center rounded-[50%] cursor-pointer" src={avatar} />
+            </button>
           )
           : ''
       }
