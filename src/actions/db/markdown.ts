@@ -1,7 +1,7 @@
 import type { PostOrPage } from '@/db'
 import type { Markdown } from '@/db/types'
-import { MarkdownSource } from '@/db'
-import { batchAdd, justReadAll, updateRefs as updateRefsDB } from '@/db/markdown'
+import { getMarkdownSourceKey, MarkdownSource } from '@/db'
+import { batchAdd, generateMemoSubject, justReadAll, readAll, updateRefs as updateRefsDB } from '@/db/markdown'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
@@ -9,17 +9,44 @@ import { authGuard } from '../utils/auth'
 export interface AllCollection {
   posts?: Markdown[]
   pages?: Markdown[]
+  memos?: Markdown[]
   home?: Markdown
   nav?: Markdown
 }
 
+export const getNewMemoSubject = defineAction({
+  handler: async (_, ctx) => {
+    await authGuard(ctx)
+    return generateMemoSubject(ctx.locals.runtime?.env)
+  },
+})
+
 export const all = defineAction({
   input: z.optional(z.object({
-    source: z.enum(['all', 'post', 'page']).default('all'),
+    source: z.enum(['all', 'post', 'page', 'memo']).default('all'),
     deleted: z.boolean().default(false),
+    limit: z.number().optional(),
+    offset: z.number().optional(),
   })).default({}),
   handler: async (input, ctx) => {
     await authGuard(ctx)
+
+    // Optimization: If specific source and not including deleted, use DB pagination
+    if (input.source !== 'all' && !input.deleted) {
+      const sourceEnum = input.source === 'post'
+        ? MarkdownSource.Post
+        : input.source === 'page' ? MarkdownSource.Page : MarkdownSource.Memo
+      const records = await readAll(
+        ctx.locals.runtime?.env,
+        sourceEnum,
+        false,
+        { limit: input.limit, offset: input.offset },
+      )
+
+      return {
+        [getMarkdownSourceKey(sourceEnum)!]: records,
+      }
+    }
 
     const allMarkdowns = await justReadAll(ctx.locals.runtime?.env)
 
@@ -32,9 +59,8 @@ export const all = defineAction({
         prev.recycleBin = {}
       }
 
-      const sourceType = curr.source === MarkdownSource.Post
-        ? 'posts'
-        : curr.source === MarkdownSource.Page ? 'pages' : null
+      const key = getMarkdownSourceKey(curr.source)
+      const sourceType = (key === 'posts' || key === 'pages' || key === 'memos') ? key : null
 
       if (sourceType && (input.source === 'all' || input.source === sourceType.slice(0, -1))) {
         if (!prev[sourceType])

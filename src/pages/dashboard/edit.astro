@@ -1,0 +1,36 @@
+---
+import Page from '@/components/editor/Page.svelte'
+import { MarkdownSource, type PostOrPage } from '@/db'
+import { initMarkdown } from '@/db/types'
+import { readById, read, generateMemoSubject } from '@/db/markdown'
+import DashboardLayout from '@/layouts/dashboard.astro'
+
+const url = Astro.url
+const source = Number(url.searchParams.get('source') || String(MarkdownSource.Unknown))
+const id = Number(url.searchParams.get('id') || '0')
+const link = url.searchParams.get('link')
+
+let article = initMarkdown(source)
+
+if (id) {
+
+  const result = await readById(Astro.locals.runtime?.env, source as PostOrPage, id)
+
+  if (result) article = result
+
+} else if (link) {
+
+  const result = await read(Astro.locals.runtime?.env, source as PostOrPage, link)
+
+  if (result) article = result
+
+} else if (source === MarkdownSource.Memo) {
+
+  article.subject = await generateMemoSubject(Astro.locals.runtime?.env)
+
+}
+---
+
+<DashboardLayout title={`[Editor] ${article.subject}`} showHeader={false}>
+  <Page client:load source={source} initialMarkdown={article} />
+</DashboardLayout>

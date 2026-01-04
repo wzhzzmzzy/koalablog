@@ -4,8 +4,8 @@
   "version": "0.0.1",
   "packageManager": "pnpm@10.14.0",
   "scripts": {
-    "dev:d1": "pnpm run db:clean && wrangler types && cross-env CF_PAGES=1 astro dev",
-    "dev:sqlite": "pnpm run sqlite:init && astro dev",
+    "dev:d1": "pnpm run db:clean && wrangler types && cross-env CF_PAGES=1 astro dev --host 192.168.31.3",
+    "dev:sqlite": "pnpm run sqlite:init && astro dev --host 192.168.31.3",
     "dev": "astro dev",
     "build": "astro build",
     "build:cf": "wrangler types && cross-env CF_PAGES=1 astro build",

@@ -4,7 +4,7 @@ import { generateThemeCSS } from '@/styles/theme'
 import '@/styles/global.css'
 import '@/styles/catppuccin.scss'
 
-const pageConfig = Astro.locals.config.pageConfig
+const pageConfig = Astro.locals.config.pageConfig || {}
 const rssConfig = Astro.locals.config.rss || {}
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'

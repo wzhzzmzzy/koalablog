@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Markdown } from '@/db/types'
-  import { isPresetSource, MarkdownSource, type PostOrPage } from '@/db'
+  import { isPresetSource, MarkdownSource, getMarkdownSourceKey, type PostOrPage } from '@/db'
   import { linkGenerator } from '@/db/markdown'
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
@@ -72,6 +72,9 @@
   function onInputLink(e: Event) {
     if (source === MarkdownSource.Post && !(e.target! as HTMLInputElement).value.startsWith('post/')) {
       linkValue = 'post/'
+    }
+    if (source === MarkdownSource.Memo && !(e.target! as HTMLInputElement).value.startsWith('memo/')) {
+      linkValue = 'memo/'
     }
     
     userDefinedLink = true
@@ -205,7 +208,7 @@
     e.preventDefault()
     if (isPreset) return
     
-    const target = source === MarkdownSource.Page ? '/dashboard/pages' : '/dashboard/posts'
+    const target = `/dashboard/${getMarkdownSourceKey(source)}`
     window.location.href = target
   }
 
@@ -314,6 +317,8 @@
       <h2 class="editor-title">{ !markdown.id ? 'New Post' : 'Edit Post' }</h2>
     {:else if source === MarkdownSource.Page}
       <h2 class="editor-title">{ !markdown.id ? 'New Page' : 'Edit Page' }</h2>
+    {:else if source === MarkdownSource.Memo}
+      <h2 class="editor-title">{ !markdown.id ? 'New Memo' : 'Edit Memo' }</h2>
     {:else}
       <h2 class="editor-title">{ markdown.subject }</h2>
     {/if}

@@ -34,9 +34,7 @@ if (presetSource?.content?.trim()) {
       {
         avatar
           ? (
-            <a href="/memos">
-              <img class="w-10 h-10 object-cover object-center rounded-[50%] cursor-pointer" src={avatar} />
-            </a>
+            <img id="avatar" class="w-10 h-10 object-cover object-center rounded-[50%] cursor-pointer" src={avatar} />
           )
           : ''
       }
@@ -57,5 +55,20 @@ if (presetSource?.content?.trim()) {
   <footer>
     <slot name="footer" />
   </footer>
+  <script is:inline>
+  const avatarImg = document.querySelector('img#avatar')
+  function eventCall(event) {
+    if (event.key === 'l') {
+      window.open('/memos')
+    }
+  }
+  avatarImg.addEventListener('mouseover', () => {
+    document.removeEventListener('keypress', eventCall)
+    document.addEventListener('keypress', eventCall)
+    setTimeout(() => {
+      document.removeEventListener('keypress', eventCall)
+    }, 3000)
+  })
+  </script>
 </Layout>
 

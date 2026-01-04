@@ -77,22 +77,29 @@ export async function updateCookieToken(ctx: APIContext | ActionAPIContext, acce
     tokenSign(accessTokenPayload, key, refresh ? '1h' : '3d'),
     refresh && refreshTokenSign(key),
   ].filter(i => !!i))
+
+  const prodCookieParams = import.meta.env.MODE === 'development'
+    ? {}
+    : {
+        secure: true,
+      }
+
   ctx.cookies.set(ACCESS_TOKEN_KEY, accessToken, {
     httpOnly: true,
-    secure: true,
     sameSite: true,
     path: '/',
     expires: refresh ? addHours(tokenSignTime, 1) : addDays(tokenSignTime, 3),
+    ...prodCookieParams,
   })
 
   if (refresh) {
     const refreshTokenExpires = addDays(tokenSignTime, 7)
     ctx.cookies.set(REFRESH_TOKEN_KEY, refreshToken, {
       httpOnly: true,
-      secure: true,
       sameSite: true,
       path: '/',
       expires: refreshTokenExpires,
+      ...prodCookieParams,
     })
 
     await updateGlobalConfig(ctx.locals.runtime?.env, {

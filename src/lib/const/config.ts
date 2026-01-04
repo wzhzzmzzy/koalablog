@@ -11,6 +11,7 @@ export const DASHBOARD_SETTINGS_ROUTE: Array<DashboardRoute> = ([
   { link: 'nav', mode: 'editor' },
   { link: 'posts', mode: 'editor' },
   { link: 'pages', mode: 'editor' },
+  { link: 'memos', mode: 'editor' },
   { link: 'oss', name: 'OSS', mode: 'standalong' },
   { link: 'settings', mode: 'standalone' },
 ] as Pick<DashboardRoute, 'link' | 'mode' | 'name'>[])

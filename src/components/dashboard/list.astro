@@ -50,7 +50,7 @@ const sortedYears = Object.keys(groupedByYear)
             groupedByYear[year].map(item => (
               <li class="flex gap-3 mb-2">
                 { item.createdAt ? <span class="flex-shrink-0"><i>{ formatDate(item.createdAt) }</i></span> : null }
-                <a href={`/${dashboard ? 'dashboard/' : ''}${item.link}`}><span>{ item.subject } </span></a>
+                <a href={dashboard ? `/dashboard/edit?id=${item.id}&source=${item.source}` : `/${item.link}`}><span>{ item.subject } </span></a>
               </li>
             ))
           }
@@ -62,7 +62,7 @@ const sortedYears = Object.keys(groupedByYear)
 
 
 <script>
-import { MarkdownSource, type PostOrPage } from '@/db'
+import type { PostOrPage } from '@/db'
 
 class MarkdownList extends HTMLElement {
   addBtnEl?: HTMLButtonElement
@@ -80,8 +80,7 @@ class MarkdownList extends HTMLElement {
   }
 
   createNew() {
-    const createSuffix = '?new'
-    window.location.href = this.source === MarkdownSource.Post ? `/dashboard/post/${createSuffix}` : `/dashboard/page/${createSuffix}`
+    window.location.href = `/dashboard/edit?source=${this.source}`
   }
 }
 

@@ -29,6 +29,9 @@ export const save = defineAction({
     if (val.source === MarkdownSource.Post) {
       return val.link.startsWith('post/')
     }
+    if (val.source === MarkdownSource.Memo) {
+      return val.link.startsWith('memo/')
+    }
     return true
   }, 'invalid link'),
   handler: async (input, ctx) => {
@@ -39,7 +42,7 @@ export const save = defineAction({
     if (id) {
       return update(env, id, link, subject, content, JSON.stringify(outgoingLinks), privated, tags)
     }
-    else if (source === MarkdownSource.Page || source === MarkdownSource.Post) {
+    else if (source === MarkdownSource.Page || source === MarkdownSource.Post || source === MarkdownSource.Memo) {
       return add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated, tags)
     }
     else if (source === MarkdownSource.Home || source === MarkdownSource.Nav) {

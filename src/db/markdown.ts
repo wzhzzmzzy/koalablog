@@ -2,13 +2,48 @@ import type { PostOrPage, PresetSource } from '.'
 import type { Markdown } from './types'
 import { and, desc, eq, like } from 'drizzle-orm'
 import { kebabCase } from 'es-toolkit'
+import { format } from 'date-fns'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
+
+export async function generateMemoSubject(env: Env) {
+  const now = new Date()
+  const base = format(now, 'yyyyMMddHHmm')
+  
+  // Find all subjects starting with base for Memos
+  const pattern = `${base}%`
+  const existing = await connectDB(env).query.markdown.findMany({
+    columns: { subject: true },
+    where: and(
+        eq(markdown.source, MarkdownSource.Memo),
+        like(markdown.subject, pattern)
+    )
+  })
+
+  const existingSubjects = new Set(existing.map(e => e.subject))
+  
+  if (!existingSubjects.has(base)) {
+    return base
+  }
+
+  let i = 1
+  while (true) {
+    const suffix = i.toString().padStart(2, '0')
+    const candidate = `${base}${suffix}`
+    if (!existingSubjects.has(candidate)) {
+      return candidate
+    }
+    i++
+  }
+}
 
 export function linkGenerator(source: PostOrPage, subject: string) {
   let link = kebabCase(subject.replace(/[^a-z0-9\s]/gi, ''))
   if (link && source === MarkdownSource.Post) {
     link = `post/${link}`
+  }
+  if (link && source === MarkdownSource.Memo) {
+    link = `memo/${link}`
   }
   return link
 }
@@ -172,12 +207,15 @@ export function readById(env: Env, source: PostOrPage, id: number) {
   })
 }
 
-export function readAll(env: Env, source: PostOrPage, deleted: boolean) {
+export function readAll(env: Env, source: PostOrPage, deleted: boolean, pagination: { limit?: number, offset?: number } = {}) {
   return connectDB(env).query.markdown.findMany({
     where: and(
       eq(markdown.source, source),
       eq(markdown.deleted, deleted),
     ),
+    limit: pagination.limit,
+    offset: pagination.offset,
+    orderBy: desc(markdown.createdAt),
   })
 }
 

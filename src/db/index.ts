@@ -12,11 +12,12 @@ export enum MarkdownSource {
   Nav = 2,
   Post = 10,
   Page = 20,
+  Memo = 30,
   Unknown = 99,
 }
 
 export const isPresetSource = (source: MarkdownSource) => source === MarkdownSource.Home || source === MarkdownSource.Nav
-export type PostOrPage = MarkdownSource.Post | MarkdownSource.Page
+export type PostOrPage = MarkdownSource.Post | MarkdownSource.Page | MarkdownSource.Memo
 export type PresetSource = MarkdownSource.Home | MarkdownSource.Nav
 
 export const MarkdownSourceMap = {
@@ -24,6 +25,7 @@ export const MarkdownSourceMap = {
   nav: MarkdownSource.Nav,
   posts: MarkdownSource.Post,
   pages: MarkdownSource.Page,
+  memos: MarkdownSource.Memo,
 }
 
 export const MarkdownSubjectMap: Record<MarkdownSource, string> = {
@@ -31,7 +33,12 @@ export const MarkdownSubjectMap: Record<MarkdownSource, string> = {
   [MarkdownSource.Nav]: 'Nav',
   [MarkdownSource.Post]: 'Posts',
   [MarkdownSource.Page]: 'Pages',
+  [MarkdownSource.Memo]: 'Memos',
   [MarkdownSource.Unknown]: '404',
+}
+
+export function getMarkdownSourceKey(source: MarkdownSource) {
+  return Object.keys(MarkdownSourceMap).find(key => MarkdownSourceMap[key as keyof typeof MarkdownSourceMap] === source) as keyof typeof MarkdownSourceMap
 }
 
 export function connectD1(DB: D1Database) {

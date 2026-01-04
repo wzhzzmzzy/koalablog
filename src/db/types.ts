@@ -15,11 +15,11 @@ export interface Markdown {
   deleted: boolean
 }
 
-export function initMarkdown(): Markdown {
+export function initMarkdown(source = MarkdownSource.Unknown): Markdown {
   const now = new Date()
   return {
     id: 0,
-    source: MarkdownSource.Unknown,
+    source,
     link: '',
     subject: '',
     content: null,

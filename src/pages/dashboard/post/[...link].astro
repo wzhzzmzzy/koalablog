@@ -1,6 +1,6 @@
 ---
 import Editor from '@/components/editor/index.svelte'
-import { MarkdownSource, type PostOrPage } from '@/db'
+import { getMarkdownSourceKey, MarkdownSource, type PostOrPage } from '@/db'
 import { initMarkdown, type Markdown } from '@/db/types'
 import DashboardLayout from '@/layouts/dashboard.astro'
 import { readArticle } from '@/lib/services/article'
@@ -15,11 +15,8 @@ const removeResult = Astro.getActionResult(actions.form.remove)
 
 // 如果删除成功，重定向到文章列表页面
 if (removeResult && !removeResult.error) {
-  const subpath = {
-    [MarkdownSource.Page]: 'pages',
-    [MarkdownSource.Post]: 'posts',
-  }
-  return Astro.redirect(`/dashboard/${subpath[source]}`)
+  const subpath = getMarkdownSourceKey(source)
+  return Astro.redirect(`/dashboard/${subpath}`)
 }
 
 const noAction = !removeResult
