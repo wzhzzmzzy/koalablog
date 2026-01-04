@@ -9,16 +9,18 @@
   import { convertToWebP, pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
   import { parseJson } from '@/lib/utils/parse-json';
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
-  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft } from '@lucide/svelte';
+  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
 
   interface Props {
 		markdown: Markdown;
-    source: MarkdownSource
+    source: MarkdownSource;
+    toggleSidebar?: () => void;
+    allPosts?: Markdown[];
 	}
 
   let editorForm: HTMLFormElement
-  let { markdown, source }: Props = $props()
+  let { markdown, source, toggleSidebar, allPosts: initialAllPosts = [] }: Props = $props()
   const isPreset = isPresetSource(source)
 
   let subjectValue = $state(markdown.subject ?? '')
@@ -32,11 +34,13 @@
   })
 
   let mdInstance: MarkdownIt | null = null
-  let allPosts: Markdown[] = []
+  let allPosts = $state<Markdown[]>(initialAllPosts)
 
   onMount(async () => {
-    const allPostsFromDB = await actions.db.markdown.all({ source: 'post' })
-    allPosts = allPostsFromDB.data?.posts || [];
+    if (allPosts.length === 0) {
+      const allPostsFromDB = await actions.db.markdown.all({ source: 'post' })
+      allPosts = allPostsFromDB.data?.posts || [];
+    }
     
     mdInstance = await md({ allPostLinks: allPosts })
     refreshPreview()
@@ -289,7 +293,7 @@
         <p class="mb-6">Are you sure you want to delete this article? </p>
         <div class="flex justify-end gap-3">
           <button
-            class="icon !text-[--koala-editor-text]"
+            class="icon !text-[--koala-editor-text] btn"
             onclick={closeDeleteConfirm}
           >
             <X size={20} />
@@ -300,7 +304,7 @@
             <input type="hidden" name="_action" value="delete" />
             <button
               type="submit"
-              class="icon !text-[--koala-editor-text] !text-[--koala-error-text]"
+              class="icon !text-[--koala-editor-text] !text-[--koala-error-text] btn"
             >
               <Trash2 size={20} />
             </button>
@@ -312,22 +316,36 @@
 
   <form bind:this={editorForm} method="POST" class="flex-1 flex flex-col">
 
-    <div class="flex justify-between">
-    {#if source === MarkdownSource.Post}
-      <h2 class="editor-title">{ !markdown.id ? 'New Post' : 'Edit Post' }</h2>
-    {:else if source === MarkdownSource.Page}
-      <h2 class="editor-title">{ !markdown.id ? 'New Page' : 'Edit Page' }</h2>
-    {:else if source === MarkdownSource.Memo}
-      <h2 class="editor-title">{ !markdown.id ? 'New Memo' : 'Edit Memo' }</h2>
-    {:else}
-      <h2 class="editor-title">{ markdown.subject }</h2>
-    {/if}
-      <div>
-        {#if !isPreset}
-          <button class="icon" onclick={back}><ArrowLeft size={20} /></button>
+    <div class="flex justify-between items-center mb-4">
+      <div class="flex items-center gap-2">
+        {#if toggleSidebar}
+          <button 
+            type="button"
+            class="p-2 hover:bg-[--koala-surface-1] rounded-md transition-colors"
+            onclick={toggleSidebar}
+            aria-label="Toggle Sidebar"
+          >
+            <Menu size={20} />
+          </button>
         {/if}
-        <button id="save" class="icon" onclick={save}><Save size={20} /></button>
-        <button class="icon" onclick={toggleToolbar}><Ellipsis size={20} /></button>
+
+        {#if source === MarkdownSource.Post}
+          <h2 class="editor-title mb-0">{ !markdown.id ? 'New Post' : 'Edit Post' }</h2>
+        {:else if source === MarkdownSource.Page}
+          <h2 class="editor-title mb-0">{ !markdown.id ? 'New Page' : 'Edit Page' }</h2>
+        {:else if source === MarkdownSource.Memo}
+          <h2 class="editor-title mb-0">{ !markdown.id ? 'New Memo' : 'Edit Memo' }</h2>
+        {:else}
+          <h2 class="editor-title mb-0">{ markdown.subject }</h2>
+        {/if}
+      </div>
+
+      <div class="flex items-center gap-1">
+        {#if !isPreset}
+          <button class="icon btn" onclick={back}><ArrowLeft size={20} /></button>
+        {/if}
+        <button id="save" class="icon btn" onclick={save}><Save size={20} /></button>
+        <button class="icon btn" onclick={toggleToolbar}><Ellipsis size={20} /></button>
       </div>
     </div>
     <input type="hidden" name="source" value={source} />
@@ -336,8 +354,8 @@
     {#if toolbarVisible}
     <div class="flex flex-col gap-2 my-2 py-2 bg-[--koala-bg] rounded border border-[--koala-border]">
       <div class="flex items-center gap-3">
-        <button id="upload" class="icon" onclick={upload}><Upload size={20} /></button>
-        <button id="preview" class="icon" onclick={preview}>
+        <button id="upload" class="icon btn" onclick={upload}><Upload size={20} /></button>
+        <button id="preview" class="icon btn" onclick={preview}>
           {#if showPreview}
             <SquarePen size={20} />
           {:else}
@@ -347,14 +365,14 @@
         {#if !isPreset && markdown.id > 0}
           <button
             type="button"
-            class="icon !text-[--koala-error-text]"
+            class="icon !text-[--koala-error-text] btn"
             onclick={openDeleteConfirm}
           >
             <Trash2 size={20} />
           </button>
           <button
             type="button"
-            class="icon"
+            class="icon btn"
             onclick={copyLink}
           >
             {#if copyBtnText === 'Copied'}

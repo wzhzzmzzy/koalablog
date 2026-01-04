@@ -1,4 +1,4 @@
-import { all, batchImport, updateRefs } from './db/markdown'
+import { all, batchImport, getNewMemoSubject, updateRefs } from './db/markdown'
 import { login } from './form/login'
 import { remove, save } from './form/markdown'
 import { onboarding } from './form/onboarding'
@@ -23,6 +23,7 @@ export const server = {
       all,
       batchImport,
       updateRefs,
+      getNewMemoSubject,
     },
   },
 }

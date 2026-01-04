@@ -276,7 +276,7 @@ const onSave = async () => {
   </span>
   <button 
     id="import-from" 
-    class="!w-30"
+    class="!w-30 btn"
     disabled={!supportFilePicker || status !== ImportStatus.IDLE}
     onclick={onImport}
     bind:this={triggerButton}
@@ -320,7 +320,7 @@ const onSave = async () => {
           <h3 id="import-dialog-title" class="text-lg font-semibold">Import Files</h3>
           <button 
             onclick={closeDrawer}
-            class="close-button p-1 hover:bg-opacity-10 rounded"
+            class="close-button p-1 hover:bg-opacity-10 rounded btn"
             aria-label="Close import dialog"
           >
             ✕
@@ -330,13 +330,13 @@ const onSave = async () => {
         <!-- Controls -->
         <nav class="drawer-controls m-0 flex items-center gap-2 p-4" aria-label="Import actions">
           <button
-            class="select-all-button !w-28 shrink-0 text-sm px-3 py-1 rounded"
+            class="select-all-button !w-28 shrink-0 text-sm px-3 py-1 rounded btn"
             onclick={selectAll}
           >
             {selectedFiles.size === foundFiles.length - duplicateFiles.size ? 'Deselect All' : 'Select All'}
           </button>
           <button
-            class="save-button !w-20 text-sm px-3 py-1 rounded"
+            class="save-button !w-20 text-sm px-3 py-1 rounded btn"
             onclick={onSave}
             disabled={selectedFiles.size === 0 || status === ImportStatus.SAVING}
           >

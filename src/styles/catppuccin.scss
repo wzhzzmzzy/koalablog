@@ -109,7 +109,7 @@ body {
     color: var(--koala-editor-text);
   }
 
-  button:not([ghost]) {
+  .btn {
     @include theme.theme-button();
   }
 

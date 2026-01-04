@@ -14,4 +14,4 @@ async function del() {
 }
 </script>
 
-<button class="icon" onclick={del}><Trash /></button>
+<button class="icon btn" onclick={del}><Trash /></button>

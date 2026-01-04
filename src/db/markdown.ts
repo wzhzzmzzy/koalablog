@@ -207,6 +207,15 @@ export function readById(env: Env, source: PostOrPage, id: number) {
   })
 }
 
+export function readAnyById(env: Env, id: number) {
+  return connectDB(env).query.markdown.findFirst({
+    where: and(
+      eq(markdown.id, id),
+      eq(markdown.deleted, false),
+    ),
+  })
+}
+
 export function readAll(env: Env, source: PostOrPage, deleted: boolean, pagination: { limit?: number, offset?: number } = {}) {
   return connectDB(env).query.markdown.findMany({
     where: and(

@@ -39,4 +39,4 @@ async function copy() {
 </script>
 
 
-<button class="icon" disabled={copied} onclick={copy}><Link /></button>
+<button class="icon btn" disabled={copied} onclick={copy}><Link /></button>

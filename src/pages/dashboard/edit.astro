@@ -1,36 +1,52 @@
 ---
 import Page from '@/components/editor/Page.svelte'
 import { MarkdownSource, type PostOrPage } from '@/db'
+import { generateMemoSubject, read, readAll, readAnyById, readById } from '@/db/markdown'
 import { initMarkdown } from '@/db/types'
-import { readById, read, generateMemoSubject } from '@/db/markdown'
 import DashboardLayout from '@/layouts/dashboard.astro'
 
 const url = Astro.url
-const source = Number(url.searchParams.get('source') || String(MarkdownSource.Unknown))
+let source = Number(url.searchParams.get('source') || String(MarkdownSource.Unknown))
 const id = Number(url.searchParams.get('id') || '0')
 const link = url.searchParams.get('link')
 
 let article = initMarkdown(source)
 
 if (id) {
+  const result = source
+    ? await readById(Astro.locals.runtime?.env, source as PostOrPage, id)
+    : await readAnyById(Astro.locals.runtime?.env, id)
 
-  const result = await readById(Astro.locals.runtime?.env, source as PostOrPage, id)
-
-  if (result) article = result
-
-} else if (link) {
-
+  if (result) {
+    article = result
+    source = result.source
+  }
+}
+else if (link) {
   const result = await read(Astro.locals.runtime?.env, source as PostOrPage, link)
 
-  if (result) article = result
-
-} else if (source === MarkdownSource.Memo) {
-
+  if (result)
+    article = result
+}
+else if (source === MarkdownSource.Memo) {
   article.subject = await generateMemoSubject(Astro.locals.runtime?.env)
+}
 
+let initialItems: any[] | null = null
+if (source !== MarkdownSource.Unknown && source !== MarkdownSource.Home && source !== MarkdownSource.Nav) {
+  initialItems = await readAll(Astro.locals.runtime?.env, source as PostOrPage, false)
+}
+console.log('[Editor SSR]', { source, initialItemsCount: initialItems?.length });
+
+let allPosts: any[] = []
+if (source === MarkdownSource.Post) {
+  allPosts = initialItems
+}
+else {
+  allPosts = await readAll(Astro.locals.runtime?.env, MarkdownSource.Post, false)
 }
 ---
 
 <DashboardLayout title={`[Editor] ${article.subject}`} showHeader={false}>
-  <Page client:load source={source} initialMarkdown={article} />
+  <Page client:load source={source} initialMarkdown={article} initialItems={initialItems} allPosts={allPosts} />
 </DashboardLayout>

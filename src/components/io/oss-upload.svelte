@@ -24,7 +24,7 @@ async function upload() {
 {#if error}
   <p class="error">{error.message}</p>
 {/if}
-<button class="icon" disabled={uploading} onclick={upload}>
+<button class="icon btn" disabled={uploading} onclick={upload}>
   {#if uploading}
     <Loader />
   {:else}

@@ -76,7 +76,7 @@ const handleSubmit = async (e: Event) => {
 
   <button
     type="submit"
-    class="outline-none font-medium text-center cursor-pointer"
+    class="outline-none font-medium text-center cursor-pointer btn"
   >
     Submit
   </button>

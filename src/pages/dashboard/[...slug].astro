@@ -1,7 +1,6 @@
 ---
-import type { PostOrPage, PresetSource } from '@/db'
+import type { PresetSource } from '@/db'
 import type { Markdown } from '@/db/types'
-import List from '@/components/dashboard/list.astro'
 import Preset from '@/components/dashboard/preset.astro'
 import { isPresetSource, MarkdownSource, MarkdownSourceMap, MarkdownSubjectMap } from '@/db'
 import { read } from '@/db/markdown'
@@ -27,10 +26,12 @@ if (source === MarkdownSource.Unknown) {
     return Astro.redirect(`/dashboard/page/${maybePage.link}`)
   }
 }
+
+if (!isPresetSource(source)) {
+  return Astro.redirect(`/dashboard/edit?source=${source}`)
+}
 ---
 
 <DashboardLayout title={`${subject} - Dashboard`}>
-  {isPresetSource(source)
-    ? <Preset subject={subject} source={source as PresetSource} />
-    : <List source={source as PostOrPage} editable dashboard />}
+  <Preset subject={subject} source={source as PresetSource} />
 </DashboardLayout>

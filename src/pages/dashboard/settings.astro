@@ -38,7 +38,7 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
     <form id="settings-form" method="POST" action={actions.form.settings} class="flex flex-col gap-3">
       <header class="flex items-center gap-3">
         <h1 class="my-3">Settings</h1>
-        <button class="w-12 py-2">
+        <button class="w-12 py-2 btn">
           <Save />
         </button>
       </header>
@@ -58,7 +58,7 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       </label>
       <div class="flex items-center gap-2">
         <input class="w-60 sm:w-80" id="avatar-input" name="avatar" value={avatar} />
-        <button type="button" id="upload-avatar-btn" class="inline-flex items-center justify-center">
+        <button type="button" id="upload-avatar-btn" class="inline-flex items-center justify-center btn">
            <Upload size={20} />
         </button>
       </div>

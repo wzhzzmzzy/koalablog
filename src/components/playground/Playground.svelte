@@ -121,7 +121,7 @@
 			<button 
 				onclick={handleRun}
 				disabled={isCompiling}
-				class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+				class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium disabled:opacity-50 transition-colors btn"
 			>
 				{isCompiling ? 'Compiling...' : 'Run Code'}
 			</button>
