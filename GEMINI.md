@@ -1,146 +1,155 @@
-# CLAUDE.md
+# GEMINI.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+此文件为 Gemini（及其他智能体）在处理本仓库代码时提供指导。
 
-## Architecture Overview
+## 架构概览
 
-### Tech Stack
+### 技术栈
 
-- **Framework**: Astro 5 with Svelte 5 components
-- **Database**: Dual-mode (Cloudflare D1 or SQLite) with Drizzle ORM
-- **Styling**: UnoCSS + Sass with Catppuccin theming
-- **Deployment**: Cloudflare Pages or standalone
+- **框架**: Astro 5 配合 Svelte 5 组件
+- **数据库**: 双模式 (Cloudflare D1 或 SQLite)，使用 Drizzle ORM
+- **样式**: UnoCSS + Sass，支持 Catppuccin 主题
+- **部署**: Cloudflare Pages 或独立部署
 
-### Project Structure
+### 项目结构
 
-#### Core Directories
+#### 核心目录
 
-- `src/actions/` - Astro actions (API endpoints) organized by domain (db, form, oss)
-- `src/components/` - Svelte 5 components with reactive state (`$state`, `$props`)
-- `src/db/` - Database schema, models, and operations (Drizzle-based)
-- `src/lib/` - Reusable utilities organized by domain
-- `src/pages/` - Astro pages and API routes
-- `src/styles/` - Theming system with Catppuccin support
+- `src/actions/` - Astro actions (API 端点)，按领域组织 (db, form, oss)
+- `src/components/` - Svelte 5 组件，使用响应式状态 (`$state`, `$props`)
+- `src/db/` - 数据库 schema、模型和操作 (基于 Drizzle)
+- `src/lib/` - 按领域组织的可复用工具
+- `src/pages/` - Astro 页面和 API 路由
+- `src/styles/` - 包含 Catppuccin 支持的主题系统
 
-#### Key Subsystems
+#### 关键子系统
 
-**Markdown Processing** (`src/lib/markdown/`)
+**Markdown 处理** (`src/lib/markdown/`)
 
-- Custom markdown-it plugins with meta frontmatter support
-- `meta-plugin.ts` - Parses `key: value` frontmatter
-- `markdown-parser.ts` - Unified parsing utility for content, links, tags
-- `double-link-plugin.ts` - Handles `[[link]]` syntax for bidirectional linking
+- 自定义 markdown-it 插件，支持 meta frontmatter
+- `meta-plugin.ts` - 解析 `key: value` frontmatter
+- `markdown-parser.ts` - 统一的内容、链接、标签解析工具
+- `double-link-plugin.ts` - 处理双向链接的 `[[link]]` 语法
 
-**Database Layer** (`src/db/`)
+**数据库层** (`src/db/`)
 
-- Multi-backend support (D1/SQLite) via environment config
-- `schema.ts` - Drizzle schema definitions
-- `markdown.ts` - Core content operations with link resolution
-- Batch operations for import/export functionality
+- 通过环境配置支持多后端 (D1/SQLite)
+- `schema.ts` - Drizzle schema 定义
+- `markdown.ts` - 核心内容操作及链接解析。包含支持分页的 `readAll`。
+- 用于导入/导出功能的批量操作
+- **Memos 支持**: 对 `MarkdownSource.Memo` (30) 的专门支持，包含自动生成的主题 (`YYYYMMDDHHmm`)。
 
-**Authentication** (`src/lib/auth/`)
+**认证** (`src/lib/auth/`)
 
-- JWT-based auth system
-- Middleware integration at `src/middleware.ts`
+- 基于 JWT 的认证系统
+- 在 `src/middleware.ts` 集成中间件
 
-**Theming** (`src/styles/`)
+**主题** (`src/styles/`)
 
-- `catppuccin.scss` - Main theme implementation
-- `_theme-utils.scss` - Reusable theme mixins and functions
-- CSS custom properties for dynamic theming
+- `catppuccin.scss` - 主要主题实现
+- `_theme-utils.scss` - 可复用的主题 mixin 和函数
+- 用于动态主题的 CSS 自定义属性
 
-**Import/Export System**
+**编辑器系统** (`src/components/editor/`)
 
-- **File picker import**: Browser-native file selection with markdown parsing
-- **Batch processing**: Multi-file import with progress states (loading/parsing/saving)
-- **Frontmatter handling**: Extract meta fields (`createdAt`, `updatedAt`, `link`) and strip from content
-- **Link resolution**: Resolve `[[links]]` against existing posts during import
-- **Error display**: Show import/save errors directly to users
-- **ZIP export**: Batch export with metadata preservation
+- **统一编辑器**: `Page.svelte` 结合了 `Sidebar.svelte` (文件列表) 和 `index.svelte` (编辑器)。
+- **侧边栏**: 列出文件，支持分页 ("加载更多") 和按来源筛选。
+- **路由**: `/dashboard/edit` 统一处理所有类型 (Post, Page, Memo) 的创建和编辑。
+  - 参数: `id` (现有 ID 或 'new'), `source` (枚举值), `link` (可选查找)。
 
-## Development Guidelines
+**导入/导出系统**
 
-### API Design Principles
+- **文件选择器导入**: 浏览器原生文件选择，带 Markdown 解析
+- **批量处理**: 带进度状态（加载/解析/保存）的多文件导入
+- **Frontmatter 处理**: 提取元字段 (`createdAt`, `updatedAt`, `link`) 并从内容中剥离
+- **链接解析**: 导入期间针对现有文章解析 `[[links]]`
+- **错误显示**: 直接向用户显示导入/保存错误
+- **ZIP 导出**: 保留元数据的批量导出
 
-- **Client interfaces**: Use Astro Actions instead of API endpoints when providing interfaces to clients
-- **Server-side data access**: Use `src/db` functions directly on the server, do not call actions
+## 开发指南
 
-### Component Architecture
+### API 设计原则
 
-- Svelte 5 with modern reactivity (`$state`, `$derived`, `$effect`)
-- TypeScript throughout with strict typing
-- Component-scoped SCSS with theme utilities
+- **客户端接口**: 为客户端提供接口时使用 Astro Actions 而非 API 端点
+- **服务端数据访问**: 在服务端直接使用 `src/db` 函数，不要调用 actions
+- **Source Keys**: 使用 `@src/db/index.ts` 中的 `getMarkdownSourceKey(source)` 将 `MarkdownSource` 枚举转换为 'posts'/'pages'/'memos' 字符串。不要硬编码这些字符串。
 
-### Code Quality Standards
+### 组件架构
 
-#### General Principles
+- Svelte 5 及其现代响应式特性 (`$state`, `$derived`, `$effect`)
+- 全程使用 TypeScript 且类型严格
+- 组件作用域的 SCSS 配合主题工具
 
-- Before writing code, consider if there's a simpler, clearer implementation approach
-- Before implementing complex logic, check if similar implementations exist in the project and consider reusability
-- Split components/functions if they exceed 400 lines (components) or 100 lines (functions)
+### 代码质量标准
 
-#### TypeScript Patterns
+#### 通用原则
 
-- Use `const` objects with `as const` instead of enums for better compatibility
-- Type unions from `typeof Object[keyof typeof Object]` for type safety
-- **Astro Actions**: Do NOT use `await-to-js` or try-catch blocks - actions return `{error, data}` objects where `error` contains thrown exceptions and `data` contains successful results
+- 编写代码前，考虑是否有更简单、清晰的实现方式
+- 实现复杂逻辑前，检查项目中是否存在类似实现并考虑复用
+- 如果组件超过 400 行或函数超过 100 行，进行拆分
 
-#### Style Guidelines
+#### TypeScript 模式
 
-**UnoCSS for Layouts and Utilities**
+- 使用带有 `as const` 的 `const` 对象代替枚举以获得更好的兼容性
+- 使用 `typeof Object[keyof typeof Object]` 获取类型联合以保证类型安全
+- **Astro Actions**: 不要使用 `await-to-js` 或 try-catch 块 - actions 会自动返回 `{error, data}` 对象，其中 `error` 包含抛出的异常，`data` 包含成功结果
 
-- Use UnoCSS classes for layout, spacing, responsive design, and utility styling
-- Prefer utility-first approach for component styling
+#### 样式指南
 
-**Tailwind CSS for New Components**
+**UnoCSS 用于布局和工具类**
 
-- **All new styles must use Tailwind CSS classes** instead of custom CSS or SCSS
-- **Colors must use CSS custom properties** from `@src/styles/_theme-utils.scss` theme system
-- Example: `style="color: var(--koala-text); background-color: var(--koala-surface-0)"`
-- Avoid writing new SCSS mixins or custom styles when Tailwind utilities are available
+- 使用 UnoCSS 类进行布局、间距、响应式设计和工具样式
+- 组件样式首选 utility-first 方法
 
-**Pure CSS for Markdown Rendering**
+**新组件使用 Tailwind CSS**
 
-- Use pure CSS in `global.css` for markdown content rendering
-- Avoid framework-specific styling for content that needs to be portable
+- **所有新样式必须使用 Tailwind CSS 类**，而不是自定义 CSS 或 SCSS
+- **颜色必须使用 CSS 自定义属性**，源自 `@src/styles/_theme-utils.scss` 主题系统
+- 示例: `style="color: var(--koala-text); background-color: var(--koala-surface-0)"`
+- 当有 Tailwind 工具类可用时，避免编写新的 SCSS mixin 或自定义样式
 
-**Sass with CSS Variables**
+**Markdown 渲染使用纯 CSS**
 
-- Use Sass only when CSS variables and mixins provide clear benefits
-- All colors must use CSS custom properties following Catppuccin theme system
-- Theme utilities should be reusable across components
+- 在 `global.css` 中使用纯 CSS 进行 Markdown 内容渲染
+- 避免对需要移植的内容使用特定于框架的样式
 
-#### Icon Usage
+**Sass 配合 CSS 变量**
 
-**Lucide Icons (Required)**
+- 仅当 CSS 变量和 mixin 能提供明显优势时使用 Sass
+- 所有颜色必须使用遵循 Catppuccin 主题系统的 CSS 自定义属性
+- 主题工具应在组件间可复用
 
-- **Svelte Components**: MUST use `@lucide/svelte` package - DO NOT use `lucide-svelte`
-- **Astro Components**: Use `@lucide/astro` package for server-side rendering
-- **Consistent Sizing**: Use `size={20}` as the standard size for UI icons
-- **Semantic Selection**: Choose icons that clearly represent their function
+#### 图标使用
 
-**Import Patterns**
+**Lucide Icons (必须)**
+
+- **Svelte 组件**: 必须使用 `@lucide/svelte` 包 - **不要**使用 `lucide-svelte`
+- **Astro 组件**: 使用 `@lucide/astro` 包进行服务端渲染
+- **尺寸一致**: 使用 `size={20}` 作为 UI 图标的标准尺寸
+- **语义化选择**: 选择能清晰表达其功能的图标
+
+**导入模式**
 
 ```typescript
-// ✅ Correct - Svelte components
+// ✅ 正确 - Svelte 组件
 import { Save, Upload, Eye, Edit, Trash2 } from '@lucide/svelte';
 
-// ❌ Wrong - Do not use
+// ❌ 错误 - 不要使用
 import { Save } from 'lucide-svelte';
 
-// ✅ Correct - Astro components
+// ✅ 正确 - Astro 组件
 import { Save } from '@lucide/astro';
 ```
 
-**Usage Examples**
+**使用示例**
 
 ```svelte
-<!-- Svelte component -->
+<!-- Svelte 组件 -->
 <button class="icon" onclick={save}>
   <Save size={20} />
 </button>
 
-<!-- With conditional logic -->
+<!-- 带条件逻辑 -->
 <button class="icon" onclick={togglePreview}>
   {#if showPreview}
     <Edit size={20} />
@@ -150,89 +159,89 @@ import { Save } from '@lucide/astro';
 </button>
 ```
 
-**Styling Guidelines**
+**样式指南**
 
-- Use `class="icon"` for consistent button styling
-- Icons inherit color from parent element - use theme colors for consistency
-- Ensure adequate contrast ratios for accessibility
-- Add `aria-label` attributes for icon-only buttons
+- 使用 `class="icon"` 保持按钮样式一致
+- 图标继承父元素颜色 - 使用主题颜色保持一致性
+- 确保无障碍性的对比度足够
+- 为仅包含图标的按钮添加 `aria-label` 属性
 
-#### Accessibility Standards
+#### 无障碍标准
 
-**Semantic HTML**
+**语义化 HTML**
 
-- Use proper semantic elements: `<button>` for actions, `<nav>` for navigation, `<main>` for primary content
-- Avoid `<div>` and `<span>` abuse - prefer semantic alternatives
+- 使用正确的语义元素：`<button>` 用于操作，`<nav>` 用于导航，`<main>` 用于主要内容
+- 避免滥用 `<div>` 和 `<span>` - 优先使用语义化替代方案
 
-**ARIA Attributes**
+**ARIA 属性**
 
-- Add proper `aria-label`, `aria-describedby`, `role` attributes for interactive elements
-- Use `aria-modal="true"` for modals, `role="dialog"` for dialogs
-- Implement proper focus management and keyboard navigation
+- 为交互元素添加适当的 `aria-label`, `aria-describedby`, `role` 属性
+- 模态框使用 `aria-modal="true"`，对话框使用 `role="dialog"`
+- 实现正确的焦点管理和键盘导航
 
-### Database Operations
+### 数据库操作
 
-- All DB operations through Drizzle ORM
-- Astro actions for client-facing server operations
-- Direct `src/db` function calls for server-side data access
-- Batch operations for performance (import/export)
+- 所有 DB 操作通过 Drizzle ORM 进行
+- 面向客户端的服务端操作使用 Astro actions
+- 服务端数据访问直接调用 `src/db` 函数
+- 为了性能使用批量操作 (导入/导出)
 
-### Astro Actions Best Practices
+### Astro Actions 最佳实践
 
-- **Return format**: Actions return `{error, data}` objects automatically
-- **Error handling**: Check `result.error` for exceptions, `result.data` for success
-- **No wrapping needed**: Don't use `await-to-js` or try-catch around action calls
-- **Schema preprocessing**: Use `z.preprocess()` for type transformations (e.g., string dates to Date objects)
-- **Example**: `const result = await actions.db.markdown.all(); if (result.error) { ... } else { use result.data }`
+- **返回格式**: Actions 自动返回 `{error, data}` 对象
+- **错误处理**: 检查 `result.error` 获取异常，`result.data` 获取成功数据
+- **无需包装**: 不要在 action 调用周围使用 `await-to-js` 或 try-catch
+- **Schema 预处理**: 使用 `z.preprocess()` 进行类型转换 (例如，字符串日期转 Date 对象)
+- **示例**: `const result = await actions.db.markdown.all(); if (result.error) { ... } else { use result.data }`
 
-### Markdown Ecosystem
+### Markdown 生态
 
-- **YAML Frontmatter**: Standard `---` delimited blocks for metadata
-- **Meta extraction**: Parse frontmatter for `createdAt`, `updatedAt`, `link`, `tags`, etc.
-- **Content stripping**: Use `stripMetaBlock()` to remove frontmatter from saved content
-- **Bidirectional linking**: `[[link]]` syntax for interconnected notes
-- **Tag extraction**: From both content (#tag) and frontmatter
-- **Unified parsing**: `parseMarkdownContent()` and `batchParseMarkdown()` utilities
+- **YAML Frontmatter**: 标准的 `---` 分隔块用于元数据
+- **元数据提取**: 解析 frontmatter 获取 `createdAt`, `updatedAt`, `link`, `tags` 等
+- **内容剥离**: 使用 `stripMetaBlock()` 从保存的内容中移除 frontmatter
+- **双向链接**: 用于互连笔记的 `[[link]]` 语法
+- **标签提取**: 从内容 (#tag) 和 frontmatter 中提取
+- **统一解析**: `parseMarkdownContent()` 和 `batchParseMarkdown()` 工具
 
-## Environment Configuration
+## 环境配置
 
-Required `.env` variables:
+必需的 `.env` 变量:
 
 - `DATA_SOURCE`: 'sqlite' | 'd1'
 - `DEPLOY_MODE`: 'cloudflare' | 'standalone'
-- Cloudflare-specific: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID`, `CLOUDFLARE_D1_TOKEN`
-- SQLite-specific: `SQLITE_URL`
+- Cloudflare 专属: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_DATABASE_ID`, `CLOUDFLARE_D1_TOKEN`
+- SQLite 专属: `SQLITE_URL`
 
-## Key Commands
+## 关键命令
 
-### Development
+### 开发
 
-- **Cloudflare Pages mode**: `pnpm run dev:d1` (requires CF D1 setup)
-- **Standalone mode**: `pnpm run dev:sqlite` (local SQLite)
-- **Standard dev**: `pnpm run dev`
+- **Cloudflare Pages 模式**: `pnpm run dev:d1` (需要 CF D1 设置)
+- **独立模式**: `pnpm run dev:sqlite` (本地 SQLite)
+- **标准开发**: `pnpm run dev`
 
-### Database Operations
+### 数据库操作
 
-- **Initialize D1**: `pnpm run d1:init`
-- **Initialize SQLite**: `pnpm run sqlite:init`
-- **Clean DB**: `pnpm run db:clean`
-- **Generate migrations**: `pnpm run migration:generate`
-- **Apply D1 migrations**: `pnpm run migration:d1:local` (local) or `pnpm run migration:d1:remote` (remote)
+- **初始化 D1**: `pnpm run d1:init`
+- **初始化 SQLite**: `pnpm run sqlite:init`
+- **清理 DB**: `pnpm run db:clean`
+- **生成迁移**: `pnpm run migration:generate`
+- **应用 D1 迁移**: `pnpm run migration:d1:local` (本地) 或 `pnpm run migration:d1:remote` (远程)
 
-### Build & Deploy
+### 构建与部署
 
-- **Build for Cloudflare**: `pnpm run build:cf`
-- **Preview Cloudflare**: `pnpm run preview` or `pnpm run preview:pages`
-- **Standard build**: `pnpm run build`
+- **构建 Cloudflare 版本**: `pnpm run build:cf`
+- **预览 Cloudflare**: `pnpm run preview` 或 `pnpm run preview:pages`
+- **标准构建**: `pnpm run build`
 
-### Code Quality
+### 代码质量
 
-- **Lint**: `pnpm run lint` or `pnpm run lint:fix`
-- **Test**: `pnpm test` (uses Vitest)
-- **Single test**: `pnpm test <filename>`
+- **Lint**: `pnpm run lint` 或 `pnpm run lint:fix`
+- **测试**: `pnpm test` (使用 Vitest)
+- **单个测试**: `pnpm test <filename>`
 
-## Testing
+## 测试
 
-- Vitest for unit tests
-- Component tests for utilities
-- Database operation tests with mock environments
+- 单元测试使用 Vitest
+- 工具类的组件测试
+- 使用模拟环境的数据库操作测试
