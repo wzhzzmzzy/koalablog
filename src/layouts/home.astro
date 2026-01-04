@@ -28,8 +28,9 @@ if (presetSource?.content?.trim()) {
     <Head title={metaTitle || title} desc={desc} />
     <slot name="meta" />
   </Fragment>
-  <header>
-    <h2 class="px-6 flex justify-between items-center">
+  <div class="max-w-200 mx-auto w-full flex-1 flex flex-col">
+    <header>
+      <h2 class="px-6 flex justify-between items-center">
       <a href="/" class="home-title">{title}</a>
       {
         avatar
@@ -70,5 +71,6 @@ if (presetSource?.content?.trim()) {
     }, 3000)
   })
   </script>
+  </div>
 </Layout>
 

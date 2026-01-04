@@ -19,9 +19,15 @@
   let source = $state(initialSource);
   let currentMarkdown = $state<Markdown>(initialMarkdown);
   let showSidebar = $state(true);
+  let sidebar: any;
 
   function handleSelect(m: Markdown) {
     currentMarkdown = m;
+  }
+
+  function handleSave(m: Markdown) {
+    currentMarkdown = m;
+    sidebar?.upsertItem(m);
   }
 
   async function createNew(targetSource: MarkdownSource) {
@@ -60,6 +66,7 @@
         </div>
         <div class="flex-1 overflow-hidden">
              <Sidebar 
+                bind:this={sidebar}
                 {source} 
                 currentId={currentMarkdown.id} 
                 onSelect={handleSelect} 
@@ -72,7 +79,7 @@
     <div class="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         {#key currentMarkdown}
              <!-- Pass currentMarkdown to Editor -->
-             <div class="flex-1 h-full overflow-y-auto px-4 md:px-8">
+             <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
                  <!-- Add padding-top to avoid overlap with toggle button if necessary, 
                       but Editor usually has its own header. 
                       The toggle button is absolute.
@@ -89,7 +96,13 @@
                       
                       For now, I'll place it. If it overlaps, I'll adjust.
                  -->
-                 <Editor markdown={currentMarkdown} {source} {allPosts} toggleSidebar={() => showSidebar = !showSidebar} />
+                 <Editor 
+                    markdown={currentMarkdown} 
+                    {source} 
+                    {allPosts} 
+                    toggleSidebar={() => showSidebar = !showSidebar}
+                    onSave={handleSave}
+                 />
              </div>
         {/key}
     </div>

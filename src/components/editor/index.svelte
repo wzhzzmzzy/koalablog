@@ -17,10 +17,11 @@
     source: MarkdownSource;
     toggleSidebar?: () => void;
     allPosts?: Markdown[];
+    onSave?: (m: Markdown) => void;
 	}
 
   let editorForm: HTMLFormElement
-  let { markdown, source, toggleSidebar, allPosts: initialAllPosts = [] }: Props = $props()
+  let { markdown, source, toggleSidebar, allPosts: initialAllPosts = [], onSave }: Props = $props()
   const isPreset = isPresetSource(source)
 
   let subjectValue = $state(markdown.subject ?? '')
@@ -263,8 +264,10 @@
       formWarn = ''
       formError = ''
       success = 'Saved Success'
-      if (result.data?.[0])
-      markdown = result.data[0]
+      if (result.data?.[0]) {
+        markdown = result.data[0]
+        onSave?.(markdown)
+      }
 
       setTimeout(() => {
         success = ''

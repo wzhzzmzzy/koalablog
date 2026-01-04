@@ -76,6 +76,15 @@
     if (!content) return '';
     return content.slice(0, 30) + (content.length > 30 ? '...' : '');
   }
+
+  export function upsertItem(item: Markdown) {
+    const index = items.findIndex(i => i.id === item.id);
+    if (index >= 0) {
+      items[index] = item;
+    } else {
+      items = [item, ...items];
+    }
+  }
 </script>
 
 <div class="h-full flex flex-col w-full">
