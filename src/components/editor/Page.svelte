@@ -5,7 +5,7 @@
   import { initMarkdown } from '@/db/types';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
-  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory } from './store.svelte';
+  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, drafts } from './store.svelte';
 
   interface Props {
     initialMarkdown: Markdown;
@@ -17,7 +17,7 @@
 
   // 统一初始化 Store
   if (initialItems) {
-      setItems(initialItems);
+    setItems(initialItems);
   }
   
   // Init History and Current
@@ -28,22 +28,26 @@
 
   // Sync URL with currentMarkdown
   $effect(() => {
-      if (editorStore.currentMarkdown) {
-          const url = new URL(window.location.href);
-          const currentLink = url.searchParams.get('link');
-          const currentId = url.searchParams.get('id');
-          
-          if (currentLink !== editorStore.currentMarkdown.link || currentId) {
-             url.searchParams.set('link', editorStore.currentMarkdown.link);
-             url.searchParams.delete('id');
-             window.history.pushState({}, '', url);
-          }
+    if (editorStore.currentMarkdown) {
+      const url = new URL(window.location.href);
+      const currentLink = url.searchParams.get('link');
+      const currentId = url.searchParams.get('id');
+      
+      if (currentLink !== editorStore.currentMarkdown.link || currentId) {
+        url.searchParams.set('link', editorStore.currentMarkdown.link);
+        url.searchParams.delete('id');
+        window.history.pushState({}, '', url);
       }
+    }
   });
 
   function handleSelect(m: Markdown) {
     if (m.link) pushHistory(m.link);
-    setCurrentMarkdown(m);
+    if (drafts.has(m.link)) {
+      setCurrentMarkdown(drafts.get(m.link)!)
+    } else {
+      setCurrentMarkdown(m);
+    }
 
     if (window.innerWidth < 768) {
       showSidebar = false;
@@ -57,20 +61,20 @@
   }
 
   async function createNew(prefix: string) {
-      const targetSource = getSourceFromLink(prefix);
-      const newMd = initMarkdown(targetSource);
-      newMd.link = prefix;
-      
-      if (targetSource === MarkdownSource.Memo) {
-         const result = await actions.db.markdown.getNewMemoSubject();
-         if (result.data) {
-            newMd.subject = result.data;
-            newMd.link = `${prefix}${result.data}`
-         } else if (result.error) {
-             console.error('Error fetching memo subject', result.error);
-         }
+    const targetSource = getSourceFromLink(prefix);
+    const newMd = initMarkdown(targetSource);
+    newMd.link = prefix;
+    
+    if (targetSource === MarkdownSource.Memo) {
+      const result = await actions.db.markdown.getNewMemoSubject();
+      if (result.data) {
+        newMd.subject = result.data;
+        newMd.link = `${prefix}${result.data}`
+      } else if (result.error) {
+          console.error('Error fetching memo subject', result.error);
       }
-      setCurrentMarkdown(newMd);
+    }
+    setCurrentMarkdown(newMd);
   }
 </script>
 

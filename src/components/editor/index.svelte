@@ -10,7 +10,7 @@
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
   import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
-  import { editorStore, upsertItem, popHistory, setCurrentMarkdown } from './store.svelte';
+  import { editorStore, upsertItem, popHistory, setCurrentMarkdown, setDraft, removeDraft, drafts } from './store.svelte';
 
   interface Props {
 		markdown: Markdown;
@@ -27,14 +27,28 @@
   let previewHtml = $state('')
   let linkValue = $state(markdown.link ?? '')
   let source = $derived(getSourceFromLink(linkValue))
-  let changed = $derived(subjectValue !== markdown.subject || textareaValue !== markdown.content)
+  let changed = $derived(drafts.has(markdown.link))
+
+  $effect(() => {
+    const rawData = editorStore.items.find(i => i.link === markdown.link)
+    if (!rawData) return;
+
+    const isDirty = subjectValue !== (rawData.subject ?? '') || textareaValue !== (rawData.content ?? '')
+    if (isDirty) {
+      setDraft(markdown.link, { ...markdown, subject: subjectValue, content: textareaValue, link: linkValue })
+    } else {
+      removeDraft(markdown.link)
+    }
+  })
 
   // Sync state when markdown prop changes
   $effect(() => {
-    subjectValue = markdown.subject ?? '';
-    textareaValue = markdown.content ?? '';
-    privateValue = markdown.private ?? false;
-    linkValue = markdown.link ?? '';
+    const data = markdown
+
+    subjectValue = data.subject ?? '';
+    textareaValue = data.content ?? '';
+    privateValue = data.private ?? false;
+    linkValue = data.link ?? '';
     formError = '';
     success = '';
   });
@@ -232,7 +246,6 @@
   async function togglePrivate(e: Event) {
     e.preventDefault()
     const newPrivateValue = !privateValue
-    privateValue = newPrivateValue
 
     if (markdown.id > 0) {
       const formData = new FormData()
@@ -257,8 +270,7 @@
           upsertItem(preserved)
           setCurrentMarkdown(preserved)
         }
-        success = 'Private status updated'
-        setTimeout(() => success = '', 2000)
+        privateValue = newPrivateValue
       }
     }
   }
@@ -312,6 +324,7 @@
         markdown = result.data[0]
         onSave?.(markdown)
         upsertItem(markdown)
+        removeDraft(oldLink)
       }
 
       setTimeout(() => {
@@ -322,6 +335,14 @@
 </script>
 
 <div class="w-full flex-1 flex flex-col pt-5">
+  {#if success || formError || formWarn}
+    <div class="fixed top-20 right-8 z-[100] px-6 py-4 bg-[--koala-blockquote-bg] border-4 border-[--koala-text]">
+      <span class="font-bold font-mono text-lg {formError ? 'text-[--koala-error-text]' : 'text-[--koala-text]'}">
+        {success || formError || formWarn}
+      </span>
+    </div>
+  {/if}
+
   {#if showDeleteConfirm}
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-[--koala-input-bg] px-5 py-2 sm:p-6 rounded-lg max-w-[50vw] sm:max-w-md sm:w-full">

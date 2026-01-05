@@ -2,6 +2,7 @@
   import type { Markdown } from '@/db/types';
   import { Plus, ChevronRight, ChevronDown, Folder, FileText } from '@lucide/svelte';
   import { editorStore } from './store.svelte';
+  import FileItem from './FileItem.svelte';
 
   interface Props {
     onSelect: (m: Markdown) => void;
@@ -88,18 +89,6 @@
   }
 </script>
 
-{#snippet fileItem(item: Markdown)}
-  <button
-    class="outline-none border-none w-full text-left p-2 hover:bg-[--koala-hover-block] transition-colors
-           {item.id === currentId ? 'bg-[--koala-focusing-block]' : 'bg-transparent'}
-           relative flex items-center gap-1.5 rounded"
-    onclick={() => onSelect(item)}
-  >
-      <FileText size={14} class="opacity-70 shrink-0 text-[--koala-text]" />
-      <span class="truncate text-sm text-[--koala-text]">{item.link.split('/').pop() || item.link}.md</span>
-  </button>
-{/snippet}
-
 {#snippet folderNode(node: TreeNode)}
   <div>
     {#if node.name}
@@ -134,7 +123,7 @@
                 {@render folderNode(child)}
             {/each}
             {#each node.items as item}
-                {@render fileItem(item)}
+                <FileItem {item} {currentId} {onSelect} />
             {/each}
         </div>
     {/if}
@@ -150,7 +139,7 @@
             {@render folderNode(child)}
       {/each}
       {#each tree.items as item}
-            {@render fileItem(item)}
+            <FileItem {item} {currentId} {onSelect} />
       {/each}
   {/if}
 

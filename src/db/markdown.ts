@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { and, desc, eq, like } from 'drizzle-orm'
+import { and, desc, eq, like, or } from 'drizzle-orm'
 import { kebabCase } from 'es-toolkit'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
@@ -234,6 +234,10 @@ export function readAll(env: Env, source: MarkdownSource, deleted: boolean) {
 export function readAllPublic(env: Env) {
   return connectDB(env).query.markdown.findMany({
     where: and(
+      or(
+        eq(markdown.source, MarkdownSource.Memo),
+        eq(markdown.source, MarkdownSource.Post),
+      ),
       eq(markdown.deleted, false),
       eq(markdown.private, false),
     ),

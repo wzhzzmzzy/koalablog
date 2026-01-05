@@ -1,4 +1,5 @@
 import type { Markdown } from '@/db/types'
+import { SvelteMap } from 'svelte/reactivity'
 
 export const editorStore = $state<{
   items: Markdown[]
@@ -13,6 +14,16 @@ export const editorStore = $state<{
   hasAttemptedLoad: false,
   history: [],
 })
+
+export const drafts = new SvelteMap<string, Markdown>()
+
+export function setDraft(link: string, markdown: Markdown) {
+  drafts.set(link, markdown)
+}
+
+export function removeDraft(link: string) {
+  drafts.delete(link)
+}
 
 export function setItems(newItems: Markdown[]) {
   editorStore.items = newItems
