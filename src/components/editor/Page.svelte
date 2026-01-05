@@ -6,13 +6,15 @@
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import { setItems, upsertItem } from './store.svelte';
+  import { onMount } from 'svelte';
 
   interface Props {
     initialMarkdown: Markdown;
     initialItems?: Markdown[] | null;
+    isMobile?: boolean;
   }
 
-  let { initialMarkdown, initialItems = null }: Props = $props();
+  let { initialMarkdown, initialItems = null, isMobile = false }: Props = $props();
   const initialSource = initialMarkdown.source;
 
   if (initialItems) {
@@ -20,11 +22,18 @@
   }
 
   let currentMarkdown = $state<Markdown>(initialMarkdown);
-  let showSidebar = $state(true);
+  let showSidebar = $state(!isMobile);
   let sidebar: Sidebar;
+
+  onMount(() => {
+    // Client-side refinement could happen here if needed, but we rely on server-side isMobile for initial state
+  });
 
   function handleSelect(m: Markdown) {
     currentMarkdown = m;
+    if (window.innerWidth < 768) {
+      showSidebar = false;
+    }
   }
 
   function handleSave(m: Markdown) {

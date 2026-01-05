@@ -1,12 +1,14 @@
 ---
 import Page from '@/components/editor/Page.svelte'
-import { justReadAll } from '@/db/markdown'
+import { generateMemoSubject, justReadAll } from '@/db/markdown'
+import { MarkdownSource } from '@/db'
 import { initMarkdown } from '@/db/types'
 import DashboardLayout from '@/layouts/dashboard.astro'
 
 const url = Astro.url
 const id = Number(url.searchParams.get('id') || '0')
 const link = url.searchParams.get('link')
+const isMemo = url.searchParams.has('memo')
 
 let article = initMarkdown()
 
@@ -25,8 +27,17 @@ else if (link) {
     article = found
   }
 }
+else if (isMemo) {
+  article = initMarkdown(MarkdownSource.Memo)
+  const memoSubject = await generateMemoSubject(Astro.locals.runtime?.env)
+  article.subject = memoSubject
+  article.link = memoSubject
+}
+
+const userAgent = Astro.request.headers.get('user-agent') || '';
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 ---
 
 <DashboardLayout title={`[Editor] ${article.subject}`} showHeader={false}>
-  <Page client:load initialMarkdown={article} initialItems={initialItems} />
+  <Page client:load initialMarkdown={article} initialItems={initialItems} isMobile={isMobile} />
 </DashboardLayout>

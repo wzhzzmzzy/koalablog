@@ -172,4 +172,13 @@
             {@render fileItem(item)}
       {/each}
   {/if}
+
+  <button
+    class="outline-none border-none w-full text-left p-2 hover:bg-[--koala-hover-block] transition-colors
+           bg-transparent relative flex items-center gap-1.5 rounded opacity-60 italic shrink-0"
+    onclick={() => onCreate('')}
+  >
+      <Plus size={14} class="shrink-0" />
+      <span class="truncate text-sm text-[--koala-text]">New file...</span>
+  </button>
 </div>
