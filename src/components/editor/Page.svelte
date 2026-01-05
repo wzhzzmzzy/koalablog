@@ -31,11 +31,9 @@
   }
 
   async function createNew(targetSource: MarkdownSource) {
-      console.log('createNew called', targetSource);
       source = targetSource;
       const newMd = initMarkdown(source);
       if (source === MarkdownSource.Memo) {
-         console.log('Fetching new memo subject');
          const result = await actions.db.markdown.getNewMemoSubject();
          if (result.data) {
              newMd.subject = result.data;
@@ -49,17 +47,17 @@
 
 <div class="flex flex-1 h-full overflow-hidden w-full">
     <!-- Sidebar Container -->
-    <div class="{showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col border-r border-[--koala-border] bg-[--koala-surface-0] shrink-0">
-        <div class="p-2 border-b border-[--koala-border] flex gap-2">
-             <button class="flex-1 py-2 px-1 bg-[--koala-primary] text-white rounded hover:opacity-90 flex items-center justify-center gap-1 btn text-xs" onclick={() => createNew(MarkdownSource.Post)} title="New Post">
+    <div class="{showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
+        <div class="pt-5 flex gap-1">
+             <button class="btn flex-1" onclick={() => createNew(MarkdownSource.Post)} title="New Post">
                 <FileText size={14} />
                 <span>Post</span>
              </button>
-             <button class="flex-1 py-2 px-1 bg-[--koala-primary] text-white rounded hover:opacity-90 flex items-center justify-center gap-1 btn text-xs" onclick={() => createNew(MarkdownSource.Memo)} title="New Memo">
+             <button class="btn flex-1" onclick={() => createNew(MarkdownSource.Memo)} title="New Memo">
                 <StickyNote size={14} />
                 <span>Memo</span>
              </button>
-             <button class="flex-1 py-2 px-1 bg-[--koala-primary] text-white rounded hover:opacity-90 flex items-center justify-center gap-1 btn text-xs" onclick={() => createNew(MarkdownSource.Page)} title="New Page">
+             <button class="btn flex-1" onclick={() => createNew(MarkdownSource.Page)} title="New Page">
                 <Layout size={14} />
                 <span>Page</span>
              </button>
@@ -78,24 +76,7 @@
     <!-- Main Content -->
     <div class="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         {#key currentMarkdown}
-             <!-- Pass currentMarkdown to Editor -->
              <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
-                 <!-- Add padding-top to avoid overlap with toggle button if necessary, 
-                      but Editor usually has its own header. 
-                      The toggle button is absolute.
-                      We might want to push the editor content down or to the right?
-                      Actually, the editor header has title and buttons.
-                      The toggle button might overlap with the title.
-                      Let's check Editor layout.
-                      Editor starts with <div class="w-full flex-1 flex flex-col pt-5">
-                      The toggle button is top-5 left-5.
-                      It will overlap with the header "New Post" / "Edit Post".
-                      
-                      Maybe I should put the toggle button IN the Sidebar when open, and floating when closed?
-                      Or just make it part of the layout.
-                      
-                      For now, I'll place it. If it overlaps, I'll adjust.
-                 -->
                  <Editor 
                     markdown={currentMarkdown} 
                     {source} 

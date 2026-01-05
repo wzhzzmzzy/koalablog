@@ -323,10 +323,8 @@
       <div class="flex items-center gap-2">
         {#if toggleSidebar}
           <button 
-            type="button"
-            class="p-2 hover:bg-[--koala-surface-1] rounded-md transition-colors"
+            class="icon btn"
             onclick={toggleSidebar}
-            aria-label="Toggle Sidebar"
           >
             <Menu size={20} />
           </button>

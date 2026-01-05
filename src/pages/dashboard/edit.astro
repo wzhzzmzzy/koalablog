@@ -36,11 +36,10 @@ let initialItems: any[] | null = null
 if (source !== MarkdownSource.Unknown && source !== MarkdownSource.Home && source !== MarkdownSource.Nav) {
   initialItems = await readAll(Astro.locals.runtime?.env, source as PostOrPage, false)
 }
-console.log('[Editor SSR]', { source, initialItemsCount: initialItems?.length });
 
 let allPosts: any[] = []
 if (source === MarkdownSource.Post) {
-  allPosts = initialItems
+  allPosts = initialItems || []
 }
 else {
   allPosts = await readAll(Astro.locals.runtime?.env, MarkdownSource.Post, false)
