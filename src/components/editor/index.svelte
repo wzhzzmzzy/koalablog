@@ -8,9 +8,9 @@
   import { convertToWebP, pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
   import { parseJson } from '@/lib/utils/parse-json';
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
-  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu } from '@lucide/svelte';
+  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
-  import { editorStore, loadAll, upsertItem } from './store.svelte';
+  import { editorStore, upsertItem } from './store.svelte';
 
   interface Props {
 		markdown: Markdown;
@@ -28,6 +28,16 @@
   let linkValue = $state(markdown.link ?? '')
   let source = $derived(getSourceFromLink(linkValue))
 
+  // Sync state when markdown prop changes
+  $effect(() => {
+    subjectValue = markdown.subject ?? '';
+    textareaValue = markdown.content ?? '';
+    privateValue = markdown.private ?? false;
+    linkValue = markdown.link ?? '';
+    formError = '';
+    success = '';
+  });
+
   // Generate preview when subject / content changed
   $effect(() => {
      refreshPreview()
@@ -40,7 +50,6 @@
   let mdInstance: MarkdownIt | null = null
   
   onMount(async () => {
-    await loadAll();
     mdInstance = await md({ allPostLinks: editorStore.items })
     refreshPreview()
   })
@@ -383,12 +392,21 @@
             {/if}
         </div>
         
-        {#if source === MarkdownSource.Page}
-          <div class="flex items-center gap-2">
-            <input type="checkbox" id="private-check" name="private" bind:checked={privateValue} />
-            <label for="private-check" class="text-sm">Private</label>
-          </div>
-        {/if}
+        <div class="flex items-center gap-2">
+          <button
+              type="button"
+              class="icon btn"
+              onclick={() => privateValue = !privateValue}
+              title={privateValue ? "Private" : "Public"}
+          >
+              {#if privateValue}
+                  <Lock size={20} />
+              {:else}
+                  <LockOpen size={20} />
+              {/if}
+          </button>
+          <input type="checkbox" class="hidden" name="private" bind:checked={privateValue} />
+        </div>
       </div>
     </div>
     {/if}

@@ -1,7 +1,7 @@
 ---
 import Page from '@/components/editor/Page.svelte'
-import { generateMemoSubject, justReadAll } from '@/db/markdown'
 import { MarkdownSource } from '@/db'
+import { generateMemoSubject, justReadAll } from '@/db/markdown'
 import { initMarkdown } from '@/db/types'
 import DashboardLayout from '@/layouts/dashboard.astro'
 
@@ -34,7 +34,7 @@ else if (isMemo) {
   article.link = memoSubject
 }
 
-const userAgent = Astro.request.headers.get('user-agent') || '';
+const userAgent = Astro.request.headers.get('user-agent') || ''
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 ---
 

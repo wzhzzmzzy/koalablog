@@ -1,24 +1,15 @@
 <script lang="ts">
   import type { Markdown } from '@/db/types';
-  import { Calendar, Plus, ChevronRight, ChevronDown, Folder, FileText } from '@lucide/svelte';
-  import { editorStore, loadAll, setItems } from './store.svelte';
+  import { Plus, ChevronRight, ChevronDown, Folder, FileText } from '@lucide/svelte';
+  import { editorStore } from './store.svelte';
 
   interface Props {
     onSelect: (m: Markdown) => void;
     onCreate: (prefix: string) => void;
     currentId: number;
-    initialItems?: Markdown[] | null;
   }
 
-  let { onSelect, onCreate, currentId, initialItems = null }: Props = $props();
-
-  $effect(() => {
-    if (initialItems && initialItems.length > 0) {
-      setItems(initialItems);
-    } else if (!editorStore.hasAttemptedLoad && !editorStore.loading) {
-      loadAll();
-    }
-  });
+  let { onSelect, onCreate, currentId }: Props = $props();
 
   type TreeNode = {
     name: string;
@@ -85,16 +76,6 @@
          }
      }
   });
-  
-  // Helper to ensure initial expansion of top level (optional, or based on preference)
-  $effect(() => {
-      // expand root level folders by default if not set
-      Object.values(tree.children).forEach(child => {
-          if (expandedFolders[child.fullPath] === undefined) {
-               expandedFolders[child.fullPath] = true;
-          }
-      })
-  })
 
   function formatDate(date: Date | string) {
     if (!date) return '';

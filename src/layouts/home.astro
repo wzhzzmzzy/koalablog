@@ -42,7 +42,7 @@ const avatar = Astro.locals.config.pageConfig?.avatar ?? ''
   const avatarImg = document.querySelector('img#avatar')
   function eventCall(event) {
     if (event.key === 'l') {
-      window.open('/memos')
+      window.open('/dashboard')
     }
   }
   avatarImg.addEventListener('mouseover', () => {

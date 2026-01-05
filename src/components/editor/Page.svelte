@@ -5,8 +5,7 @@
   import { initMarkdown } from '@/db/types';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
-  import { setItems, upsertItem } from './store.svelte';
-  import { onMount } from 'svelte';
+  import { editorStore, setItems, setCurrentMarkdown, upsertItem } from './store.svelte';
 
   interface Props {
     initialMarkdown: Markdown;
@@ -15,29 +14,30 @@
   }
 
   let { initialMarkdown, initialItems = null, isMobile = false }: Props = $props();
-  const initialSource = initialMarkdown.source;
 
+  // 统一初始化 Store
   if (initialItems) {
       setItems(initialItems);
   }
+  setCurrentMarkdown(initialMarkdown);
 
-  let currentMarkdown = $state<Markdown>(initialMarkdown);
   let showSidebar = $state(!isMobile);
-  let sidebar: Sidebar;
-
-  onMount(() => {
-    // Client-side refinement could happen here if needed, but we rely on server-side isMobile for initial state
-  });
 
   function handleSelect(m: Markdown) {
-    currentMarkdown = m;
+    setCurrentMarkdown(m);
+    
+    const url = new URL(window.location.href);
+    url.searchParams.set('link', m.link);
+    url.searchParams.delete('id');
+    window.history.pushState({}, '', url);
+
     if (window.innerWidth < 768) {
       showSidebar = false;
     }
   }
 
   function handleSave(m: Markdown) {
-    currentMarkdown = m;
+    setCurrentMarkdown(m);
     upsertItem(m);
   }
 
@@ -55,7 +55,7 @@
              console.error('Error fetching memo subject', result.error);
          }
       }
-      currentMarkdown = newMd;
+      setCurrentMarkdown(newMd);
   }
 </script>
 
@@ -64,24 +64,23 @@
     <div class="{showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
         <div class="flex-1 overflow-hidden pt-5">
              <Sidebar
-                currentId={currentMarkdown.id}
+                currentId={editorStore.currentMarkdown?.id || 0}
                 onSelect={handleSelect}
                 onCreate={createNew}
-                initialItems={currentMarkdown.source === initialSource ? initialItems : null}
              />
         </div>
     </div>
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        {#key currentMarkdown}
+        {#if editorStore.currentMarkdown}
              <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
                  <Editor 
-                    markdown={currentMarkdown} 
+                    markdown={editorStore.currentMarkdown} 
                     toggleSidebar={() => showSidebar = !showSidebar}
                     onSave={handleSave}
                  />
              </div>
-        {/key}
+        {/if}
     </div>
 </div>
