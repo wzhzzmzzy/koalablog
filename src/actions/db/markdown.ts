@@ -1,4 +1,3 @@
-import type { MarkdownSource } from '@/db'
 import type { Markdown } from '@/db/types'
 import { getMarkdownSourceKey, MarkdownSource } from '@/db'
 import { batchAdd, generateMemoSubject, justReadAll, readAll, updateRefs as updateRefsDB } from '@/db/markdown'
@@ -25,13 +24,10 @@ export const all = defineAction({
   input: z.optional(z.object({
     source: z.enum(['all', 'post', 'page', 'memo']).default('all'),
     deleted: z.boolean().default(false),
-    limit: z.number().optional(),
-    offset: z.number().optional(),
   })).default({}),
   handler: async (input, ctx) => {
     await authGuard(ctx)
 
-    // Optimization: If specific source and not including deleted, use DB pagination
     if (input.source !== 'all' && !input.deleted) {
       const sourceEnum = input.source === 'post'
         ? MarkdownSource.Post
@@ -39,8 +35,7 @@ export const all = defineAction({
       const records = await readAll(
         ctx.locals.runtime?.env,
         sourceEnum,
-        false,
-        { limit: input.limit, offset: input.offset },
+        input.deleted,
       )
 
       return {
@@ -73,15 +68,6 @@ export const all = defineAction({
         }
         else {
           prev[sourceType].push(curr)
-        }
-      }
-
-      if (input.source === 'all') {
-        if (curr.source === MarkdownSource.Home) {
-          prev.home = curr
-        }
-        if (curr.source === MarkdownSource.Nav) {
-          prev.nav = curr
         }
       }
 

@@ -28,34 +28,33 @@ export async function refreshTokenSign(adminKey: string) {
   return jwt
 }
 
-async function tokenVerify(token: string, adminKey: string, role: 'admin' | 'guest') {
+async function tokenVerify(token: string, adminKey: string) {
   const secret = new TextEncoder().encode(adminKey)
   try {
     const result = await jwtVerify(token, secret)
-    return (role === 'guest' ? ['guest', 'admin'] : ['admin']).includes(result.payload.role as string)
+    return result.payload.role as string
   }
   catch {
     return false
   }
 }
 
-export async function authInterceptor(ctx: APIContext | ActionAPIContext, role: 'admin' | 'guest' = 'admin') {
+export async function authInterceptor(ctx: APIContext | ActionAPIContext) {
   const config = ctx.locals.config
 
   const accessToken = ctx.cookies.get(ACCESS_TOKEN_KEY)
   const refreshToken = ctx.cookies.get(REFRESH_TOKEN_KEY)
 
-  const authed = accessToken && await tokenVerify(accessToken.value, config.auth.adminKey!, role)
+  const tokenRole = (accessToken && await tokenVerify(accessToken.value, config.auth.adminKey!)) || ''
+  const authed = tokenRole === ''
   const needRefresh = !authed && refreshToken && refreshToken?.value === config._runtime.refresh_token && isBefore(new Date(), config._runtime.refresh_expired_at || 0)
 
   if (needRefresh) {
-    await updateCookieToken(ctx, { role }, { key: config.auth.adminKey, refresh: role === 'admin' })
+    await updateCookieToken(ctx, { role: tokenRole }, { key: config.auth.adminKey, refresh: tokenRole === 'admin' })
   }
 
   ctx.locals.session = {
-    authed: authed || needRefresh || false,
-    // verified as this role, not the real role
-    asRole: role,
+    role: tokenRole as ('admin' | 'guest' | ''),
   }
 }
 

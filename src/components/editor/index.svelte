@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MarkdownSource, getSourceFromLink, getMarkdownSourceKey } from '@/db'
+  import { getSourceFromLink, getMarkdownSourceKey } from '@/db'
   import type { Markdown } from '@/db/types';
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
@@ -27,6 +27,7 @@
   let previewHtml = $state('')
   let linkValue = $state(markdown.link ?? '')
   let source = $derived(getSourceFromLink(linkValue))
+  let changed = $derived(subjectValue !== markdown.subject || textareaValue !== markdown.content)
 
   // Sync state when markdown prop changes
   $effect(() => {
@@ -215,10 +216,10 @@
     e.preventDefault()
     
     if (editorStore.history.length > 1) {
-        popHistory();
-        const prevLink = editorStore.history[editorStore.history.length - 1];
+        const prevLink = editorStore.history[editorStore.history.length - 2];
         const prevItem = editorStore.items.find(i => i.link === prevLink);
         if (prevItem) {
+            popHistory(); // Confirm pop
             setCurrentMarkdown(prevItem);
             return;
         }
@@ -226,6 +227,40 @@
 
     const target = `/dashboard/${getMarkdownSourceKey(source)}`
     window.location.href = target
+  }
+
+  async function togglePrivate(e: Event) {
+    e.preventDefault()
+    const newPrivateValue = !privateValue
+    privateValue = newPrivateValue
+
+    if (markdown.id > 0) {
+      const formData = new FormData()
+      formData.append('id', markdown.id.toString())
+      formData.append('private', newPrivateValue.toString())
+      
+      const result = await actions.form.setPrivate(formData)
+      
+      if (result.error) {
+        formError = result.error.message
+        privateValue = !newPrivateValue // Revert
+      } else {
+        if (result.data?.[0]) {
+          const updated = result.data[0]
+          // Preserve current draft content when updating store
+          const preserved = {
+            ...updated,
+            subject: subjectValue,
+            content: textareaValue,
+            link: linkValue,
+          }
+          upsertItem(preserved)
+          setCurrentMarkdown(preserved)
+        }
+        success = 'Private status updated'
+        setTimeout(() => success = '', 2000)
+      }
+    }
   }
 
   async function save(e: Event) {
@@ -245,25 +280,23 @@
     
     formData.append('tags', contentTags.join(','))
 
-    if (source === MarkdownSource.Post) {
-      const oldLink = markdown.link
-      const newLink = formData.get('link') as string
-      const refs = editorStore.items.map(p => {
-        const outgoing = parseJson<DoubleLinkPluginOptions['allPostLinks']>(p.outgoing_links || null) || []
-        return { ...p, outgoing_links: outgoing}
-      }).filter(p => {
-        return p.outgoing_links.some(i => i.link === oldLink)
-      })
-      if (refs.length) {
-        await actions.db.markdown.updateRefs(
-          refs.map(
-            ref => ({ 
-              id: ref.id,
-              outgoingLinks: ref.outgoing_links.map(i => ({ ...i, link: i.link === oldLink ? newLink : i.link })) 
-            })
-          )
+    const oldLink = markdown.link
+    const newLink = formData.get('link') as string
+    const refs = editorStore.items.map(p => {
+      const outgoing = parseJson<DoubleLinkPluginOptions['allPostLinks']>(p.outgoing_links || null) || []
+      return { ...p, outgoing_links: outgoing}
+    }).filter(p => {
+      return p.outgoing_links.some(i => i.link === oldLink)
+    })
+    if (refs.length) {
+      await actions.db.markdown.updateRefs(
+        refs.map(
+          ref => ({ 
+            id: ref.id,
+            outgoingLinks: ref.outgoing_links.map(i => ({ ...i, link: i.link === oldLink ? newLink : i.link })) 
+          })
         )
-      }
+      )
     }
 
     const result = await actions.form.save(formData)
@@ -289,18 +322,6 @@
 </script>
 
 <div class="w-full flex-1 flex flex-col pt-5">
-  {#if formWarn}
-    <p class="warning">{formWarn}</p>
-  {/if}
-
-  {#if formError}
-    <p class="error">{formError}</p>
-  {/if}
-
-  {#if success}
-    <p class="success">{success}</p>
-  {/if}
-
   {#if showDeleteConfirm}
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-[--koala-input-bg] px-5 py-2 sm:p-6 rounded-lg max-w-[50vw] sm:max-w-md sm:w-full">
@@ -361,7 +382,7 @@
         <button
           type="button"
           class="icon btn"
-          onclick={() => privateValue = !privateValue}
+          onclick={togglePrivate}
           title={privateValue ? "Private" : "Public"}
         >
           {#if privateValue}
@@ -370,7 +391,7 @@
             <LockOpen size={20} />
           {/if}
         </button>
-        <button id="save" class="icon btn" onclick={save}><Save size={20} /></button>
+        <button id="save" class="icon btn {changed ? '!text-[--koala-success-text]' : '' }" onclick={save}><Save size={20} /></button>
         <button class="icon btn" onclick={toggleToolbar}><Ellipsis size={20} /></button>
       </div>
     </div>
@@ -425,7 +446,7 @@
       id="subject-input"
       type="text"
       name="subject"
-      class="{showPreview ? 'hidden' : ''} w-full text-2xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
+      class="text-[--koala-text] {showPreview ? 'hidden' : ''} w-full text-2xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
       bind:value={subjectValue}
       placeholder="Title"
     />

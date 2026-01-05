@@ -119,6 +119,17 @@ export function update(
   }).where(eq(markdown.id, id)).returning()
 }
 
+export function updatePrivate(
+  env: Env,
+  id: number,
+  privated: boolean,
+) {
+  return connectDB(env).update(markdown).set({
+    private: privated,
+    updatedAt: new Date(),
+  }).where(eq(markdown.id, id)).returning()
+}
+
 export function updateRefs(
   env: Env,
   refs: {
@@ -149,27 +160,27 @@ export function remove(env: Env, id: number, currentLink: string) {
  * @param env CloudFlare Env
  * @param source
  * @param tag query by tag
- * @param pagination query pagination params, default read all
- * @param pagination.pageSize read all if 0
- * @param pagination.pageNum read all if 0
+ * @param options.includePrivate whether to include private posts, default false
  */
-export function readList(env: Env, source: MarkdownSource, tag?: string, pagination: { pageSize?: number, pageNum?: number } = {}) {
-  const { pageSize = 0, pageNum = 0 } = pagination
-  const paginationQuery: { limit?: number, offset?: number } = {}
-  if (pageSize && pageNum) {
-    paginationQuery.limit = pageSize
-    paginationQuery.offset = (pageNum - 1) * pageSize
-  }
+export function readList(
+  env: Env,
+  source: MarkdownSource,
+  tag?: string,
+  options: {
+    includePrivate?: boolean
+  } = {},
+) {
+  const { includePrivate = false } = options
 
   const ops = [
     eq(markdown.source, source),
     eq(markdown.deleted, false),
     tag ? like(markdown.tags, `%${tag}%`) : null,
+    !includePrivate ? eq(markdown.private, false) : null,
   ].filter(i => !!i)
   return connectDB(env).query.markdown.findMany({
     where: and(...ops),
     orderBy: desc(markdown.createdAt),
-    ...paginationQuery,
   })
 }
 
@@ -183,10 +194,9 @@ export function read(env: Env, source: MarkdownSource, link: string) {
   })
 }
 
-export function readById(env: Env, source: MarkdownSource, id: number) {
+export function readById(env: Env, id: number) {
   return connectDB(env).query.markdown.findFirst({
     where: and(
-      eq(markdown.source, source),
       eq(markdown.id, id),
       eq(markdown.deleted, false),
     ),
@@ -211,14 +221,22 @@ export function readAnyByLink(env: Env, link: string) {
   })
 }
 
-export function readAll(env: Env, source: MarkdownSource, deleted: boolean, pagination: { limit?: number, offset?: number } = {}) {
+export function readAll(env: Env, source: MarkdownSource, deleted: boolean) {
   return connectDB(env).query.markdown.findMany({
     where: and(
       eq(markdown.source, source),
       eq(markdown.deleted, deleted),
     ),
-    limit: pagination.limit,
-    offset: pagination.offset,
+    orderBy: desc(markdown.createdAt),
+  })
+}
+
+export function readAllPublic(env: Env) {
+  return connectDB(env).query.markdown.findMany({
+    where: and(
+      eq(markdown.deleted, false),
+      eq(markdown.private, false),
+    ),
     orderBy: desc(markdown.createdAt),
   })
 }

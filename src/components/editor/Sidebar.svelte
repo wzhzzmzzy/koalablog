@@ -95,7 +95,7 @@
            relative flex items-center gap-1.5 rounded"
     onclick={() => onSelect(item)}
   >
-      <FileText size={14} class="opacity-70 shrink-0" />
+      <FileText size={14} class="opacity-70 shrink-0 text-[--koala-text]" />
       <span class="truncate text-sm text-[--koala-text]">{item.link.split('/').pop() || item.link}.md</span>
   </button>
 {/snippet}
@@ -123,7 +123,7 @@
                 onclick={(e) => { e.stopPropagation(); onCreate(node.fullPath); }}
                 title="Create new file in {node.name}"
             >
-                <Plus size={14} />
+                <Plus size={14} class="text-[--koala-text]" />
             </button>
         </div>
     {/if}
@@ -159,7 +159,7 @@
            bg-transparent relative flex items-center gap-1.5 rounded opacity-60 italic shrink-0"
     onclick={() => onCreate('')}
   >
-      <Plus size={14} class="shrink-0" />
+      <Plus size={14} class="shrink-0 text-[--koala-text]" />
       <span class="truncate text-sm text-[--koala-text]">New file...</span>
   </button>
 </div>

@@ -3,8 +3,8 @@ import { authInterceptor } from '@/lib/auth'
 import { getConfig, putConfig } from '@/lib/kv/custom'
 
 export const GET: APIRoute = async (context) => {
-  await authInterceptor(context, 'guest')
-  if (!context.locals.session?.authed) {
+  await authInterceptor(context)
+  if (!context.locals.session?.role) {
     return new Response('Unauthorized', { status: 401 })
   }
 
@@ -50,8 +50,8 @@ export const GET: APIRoute = async (context) => {
 }
 
 export const PUT: APIRoute = async (context) => {
-  await authInterceptor(context, 'guest')
-  if (!context.locals.session?.authed) {
+  await authInterceptor(context)
+  if (!context.locals.session?.role) {
     return new Response('Unauthorized', { status: 401 })
   }
 

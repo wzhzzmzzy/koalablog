@@ -13,8 +13,10 @@ interface Props {
 const { source, editable = false, dashboard = false, tag } = Astro.props
 
 const env = Astro.locals.runtime?.env || {}
+const session = Astro.locals.session
 
-const list = await readList(env, source, tag || undefined)
+const includePrivate = !!session?.role || false
+const list = await readList(env, source, tag || undefined, { includePrivate })
 const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? dashboard ? 'MM-dd (HH:mm)' : 'MM-dd' : 'yyyy-MM-dd')
 
 // Group posts by year
@@ -34,8 +36,11 @@ const groupedByYear = list.reduce((groups, item) => {
 const sortedYears = Object.keys(groupedByYear)
   .map(year => Number.parseInt(year))
   .sort((a, b) => b - a)
+
+const count = list.length
 ---
 
+{tag && <p class="mb-3">Searching tag: <span class="tag" role="button" tabindex="0" data-tag={tag} title={`Click to search tag: ${tag}`}>{tag}</span> ({count}&nbsp;{count === 1 ? 'article' : 'articles'})</p>}
 <markdown-list data-source={source} data-editable={editable}>
   { editable && <button id="add-btn" class="btn">New</button> }
   {

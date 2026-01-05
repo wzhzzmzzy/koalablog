@@ -42,7 +42,7 @@
   });
 
   function handleSelect(m: Markdown) {
-    pushHistory(m.link);
+    if (m.link) pushHistory(m.link);
     setCurrentMarkdown(m);
 
     if (window.innerWidth < 768) {
@@ -70,7 +70,6 @@
              console.error('Error fetching memo subject', result.error);
          }
       }
-      pushHistory(newMd.link);
       setCurrentMarkdown(newMd);
   }
 </script>

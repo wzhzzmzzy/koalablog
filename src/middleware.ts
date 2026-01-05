@@ -8,7 +8,6 @@ import { globalConfig } from './lib/kv'
 
 const AUTH_REQUIRED_SITE = [
   '/dashboard',
-  '/memos',
 ]
 
 export const onRequest = defineMiddleware(async (ctx, next) => {
@@ -22,6 +21,9 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   // Initialize blob storage for SQLite mode
   ctx.locals.OSS = new SQLiteBlobStorage(env)
   // #endif
+
+  // Identify session for all requests
+  await authInterceptor(ctx)
 
   const { action } = getActionContext(ctx)
 
@@ -40,13 +42,11 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   }
 
   if (AUTH_REQUIRED_SITE.some(path => pathname.startsWith(path)) || pathname === '/login') {
-    await authInterceptor(ctx)
-
-    if (pathname === '/login' && ctx.locals.session.authed) {
+    if (pathname === '/login' && ctx.locals.session.role === 'admin') {
       return ctx.redirect('/dashboard')
     }
 
-    if (!ctx.locals.session.authed && AUTH_REQUIRED_SITE.some(path => pathname.startsWith(path))) {
+    if (ctx.locals.session.role !== 'admin' && AUTH_REQUIRED_SITE.some(path => pathname.startsWith(path))) {
       return ctx.redirect(
         `/login?from=${encodeURIComponent(ctx.url.pathname + ctx.url.search)}`,
       )

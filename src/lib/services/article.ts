@@ -21,5 +21,11 @@ export async function readArticle({ locals, redirect, url }: AppInject, source: 
     return redirect(`/404?source=${encodeURIComponent(url.pathname)}&no-article`)
   }
 
+  if (article.private) {
+    if (!locals.session?.role) {
+      return redirect(`/guest-login?id=${article.id}`)
+    }
+  }
+
   return article
 }

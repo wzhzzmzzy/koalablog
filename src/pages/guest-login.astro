@@ -1,11 +1,10 @@
 ---
-import { MarkdownSource } from '@/db'
 import { readById } from '@/db/markdown'
 import Layout from '@/layouts/layout.astro'
 
 const pageId = Astro.url.searchParams.get('id')
 
-const maybePage = await readById(Astro.locals.runtime?.env, MarkdownSource.Page, Number(pageId))
+const maybePage = await readById(Astro.locals.runtime?.env, Number(pageId))
 
 if (!maybePage) {
   return Astro.redirect(`/404?pageId=${pageId}`)

@@ -5,7 +5,6 @@ import ArticleView from '@/components/article-view/index.astro'
 import { MarkdownSource } from '@/db'
 import { read } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
-import { authInterceptor } from '@/lib/auth'
 import { renderIt } from '@/lib/markdown/render-it'
 import { retriveRss } from '@/lib/utils/rss'
 
@@ -21,8 +20,7 @@ if (!maybePage) {
   return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
 }
 if (maybePage.private) {
-  await authInterceptor(Astro, 'guest')
-  if (!Astro.locals.session.authed) {
+  if (!Astro.locals.session.role) {
     return Astro.redirect(`/guest-login?id=${maybePage.id}`)
   }
 }

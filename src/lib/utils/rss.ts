@@ -1,6 +1,5 @@
 import type { APIContext } from 'astro'
-import { MarkdownSource } from '@/db'
-import { readAll } from '@/db/markdown'
+import { readAllPublic } from '@/db/markdown'
 import { rawMd } from '@/lib/markdown'
 import rss from '@astrojs/rss'
 
@@ -13,7 +12,7 @@ export async function retriveRss(ctx: APIContext) {
   const pageConfig = ctx.locals.config.pageConfig
   const title = pageConfig.title ?? 'Koalablog'
 
-  const allPosts = await readAll(ctx.locals.runtime?.env, MarkdownSource.Post, false)
+  const allPosts = await readAllPublic(ctx.locals.runtime?.env)
   const site = rssConfig.site ?? ctx.site ?? ctx.url.origin
   const md = rawMd({
     allPostLinks: allPosts,

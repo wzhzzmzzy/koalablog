@@ -1,20 +1,13 @@
 ---
 import List from '@/components/dashboard/list.astro'
 import { MarkdownSource } from '@/db'
-import { readList } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
 
 const tag = Astro.url.searchParams.get('tag')
 const pageTitle = tag ? `Posts - #${tag}` : 'Posts'
-
-// 获取文章数量用于显示
-const env = Astro.locals.runtime?.env || {}
-const list = await readList(env, MarkdownSource.Post, tag || undefined)
-const count = list.length
 ---
 
 <Layout title={pageTitle}>
-  {tag && <p class="mb-3">Searching tag: <span class="tag" role="button" tabindex="0" data-tag={tag} title={`Click to search tag: ${tag}`}>{tag}</span> ({count} {count === 1 ? 'article' : 'articles'})</p>}
   <List source={MarkdownSource.Post} tag={tag} />
 </Layout>
 
