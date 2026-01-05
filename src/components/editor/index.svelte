@@ -332,6 +332,7 @@
           name="link"
           bind:value={linkValue}
           oninput={onInputLink}
+          onkeydown={(e) => e.key === 'Enter' && e.preventDefault()}
           placeholder="File Path"
         />
       </div>
