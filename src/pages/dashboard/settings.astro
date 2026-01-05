@@ -27,7 +27,6 @@ const avatar = pageConfig.avatar ?? ''
 const guestKey = authConfig.guestKey ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
-const showPostsAtHome = pageConfig.showPostsAtHome ?? false
 
 const ossConfig = Astro.locals.config.oss
 
@@ -61,11 +60,6 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
         <button type="button" id="upload-avatar-btn" class="inline-flex items-center justify-center btn">
            <Upload size={20} />
         </button>
-      </div>
-
-      <div>
-        <label>Show Posts at Home</label>
-        <input type="checkbox" name="showPostsAtHome" checked={showPostsAtHome} />
       </div>
 
       <label>

@@ -1,4 +1,4 @@
-import type { PostOrPage } from '@/db'
+import type { MarkdownSource } from '@/db'
 import type { Markdown } from '@/db/types'
 import { getMarkdownSourceKey, MarkdownSource } from '@/db'
 import { batchAdd, generateMemoSubject, justReadAll, readAll, updateRefs as updateRefsDB } from '@/db/markdown'
@@ -143,7 +143,7 @@ export const batchImport = defineAction({
     return batchAdd(
       ctx.locals.runtime?.env,
       input.map(post => ({
-        source: post.source as PostOrPage,
+        source: post.source as MarkdownSource,
         subject: post.subject,
         content: post.content,
         tags: post.tags,

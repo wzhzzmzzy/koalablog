@@ -1,27 +1,25 @@
-import type { PostOrPage, PresetSource } from '.'
-import type { Markdown } from './types'
+import { format } from 'date-fns'
 import { and, desc, eq, like } from 'drizzle-orm'
 import { kebabCase } from 'es-toolkit'
-import { format } from 'date-fns'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
 
 export async function generateMemoSubject(env: Env) {
   const now = new Date()
   const base = format(now, 'yyyyMMddHHmm')
-  
+
   // Find all subjects starting with base for Memos
   const pattern = `${base}%`
   const existing = await connectDB(env).query.markdown.findMany({
     columns: { subject: true },
     where: and(
-        eq(markdown.source, MarkdownSource.Memo),
-        like(markdown.subject, pattern)
-    )
+      eq(markdown.source, MarkdownSource.Memo),
+      like(markdown.subject, pattern),
+    ),
   })
 
   const existingSubjects = new Set(existing.map(e => e.subject))
-  
+
   if (!existingSubjects.has(base)) {
     return base
   }
@@ -37,7 +35,7 @@ export async function generateMemoSubject(env: Env) {
   }
 }
 
-export function linkGenerator(source: PostOrPage, subject: string) {
+export function linkGenerator(source: MarkdownSource, subject: string) {
   let link = kebabCase(subject.replace(/[^a-z0-9\s]/gi, ''))
   if (link && source === MarkdownSource.Post) {
     link = `post/${link}`
@@ -50,7 +48,7 @@ export function linkGenerator(source: PostOrPage, subject: string) {
 
 export function add(
   env: Env,
-  source: PostOrPage,
+  source: MarkdownSource,
   subject: string,
   content: string,
   link?: string,
@@ -68,25 +66,11 @@ export function add(
     tags,
   }).returning()
 }
-export function addPreset(
-  env: Env,
-  link: string,
-  source: PresetSource,
-  subject: string,
-  content: string,
-) {
-  return connectDB(env).insert(markdown).values({
-    link,
-    source,
-    subject,
-    content,
-  }).returning()
-}
 
 export function batchAdd(
   env: Env,
   posts: Array<{
-    source: PostOrPage
+    source: MarkdownSource
     subject: string
     content: string
     link?: string
@@ -167,7 +151,7 @@ export function remove(env: Env, id: number, currentLink: string) {
  * @param pagination.pageSize read all if 0
  * @param pagination.pageNum read all if 0
  */
-export function readList(env: Env, source: PostOrPage, tag?: string, pagination: { pageSize?: number, pageNum?: number } = {}) {
+export function readList(env: Env, source: MarkdownSource, tag?: string, pagination: { pageSize?: number, pageNum?: number } = {}) {
   const { pageSize = 0, pageNum = 0 } = pagination
   const paginationQuery: { limit?: number, offset?: number } = {}
   if (pageSize && pageNum) {
@@ -187,7 +171,7 @@ export function readList(env: Env, source: PostOrPage, tag?: string, pagination:
   })
 }
 
-export function read(env: Env, source: PostOrPage, link: string) {
+export function read(env: Env, source: MarkdownSource, link: string) {
   return connectDB(env).query.markdown.findFirst({
     where: and(
       eq(markdown.source, source),
@@ -197,7 +181,7 @@ export function read(env: Env, source: PostOrPage, link: string) {
   })
 }
 
-export function readById(env: Env, source: PostOrPage, id: number) {
+export function readById(env: Env, source: MarkdownSource, id: number) {
   return connectDB(env).query.markdown.findFirst({
     where: and(
       eq(markdown.source, source),
@@ -216,7 +200,7 @@ export function readAnyById(env: Env, id: number) {
   })
 }
 
-export function readAll(env: Env, source: PostOrPage, deleted: boolean, pagination: { limit?: number, offset?: number } = {}) {
+export function readAll(env: Env, source: MarkdownSource, deleted: boolean, pagination: { limit?: number, offset?: number } = {}) {
   return connectDB(env).query.markdown.findMany({
     where: and(
       eq(markdown.source, source),
@@ -225,15 +209,6 @@ export function readAll(env: Env, source: PostOrPage, deleted: boolean, paginati
     limit: pagination.limit,
     offset: pagination.offset,
     orderBy: desc(markdown.createdAt),
-  })
-}
-
-export function readPreset(env: Env, source: PresetSource): Promise<Markdown | undefined> {
-  return connectDB(env).query.markdown.findFirst({
-    where: and(
-      eq(markdown.source, source),
-      eq(markdown.deleted, false),
-    ),
   })
 }
 

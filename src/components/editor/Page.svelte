@@ -19,7 +19,7 @@
   let source = $state(initialSource);
   let currentMarkdown = $state<Markdown>(initialMarkdown);
   let showSidebar = $state(true);
-  let sidebar: any;
+  let sidebar: Sidebar;
 
   function handleSelect(m: Markdown) {
     currentMarkdown = m;
@@ -63,13 +63,14 @@
              </button>
         </div>
         <div class="flex-1 overflow-hidden">
-             <Sidebar 
+            {#key source}
+             <Sidebar
                 bind:this={sidebar}
-                {source} 
-                currentId={currentMarkdown.id} 
-                onSelect={handleSelect} 
+                currentId={currentMarkdown.id}
+                onSelect={handleSelect}
                 initialItems={source === initialSource ? initialItems : null}
              />
+            {/key}
         </div>
     </div>
 

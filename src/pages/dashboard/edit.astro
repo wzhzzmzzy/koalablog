@@ -1,7 +1,7 @@
 ---
 import Page from '@/components/editor/Page.svelte'
-import { MarkdownSource, type PostOrPage } from '@/db'
-import { generateMemoSubject, read, readAll, readAnyById, readById } from '@/db/markdown'
+import { MarkdownSource } from '@/db'
+import { generateMemoSubject, justReadAll, read, readAnyById, readById } from '@/db/markdown'
 import { initMarkdown } from '@/db/types'
 import DashboardLayout from '@/layouts/dashboard.astro'
 
@@ -14,7 +14,7 @@ let article = initMarkdown(source)
 
 if (id) {
   const result = source
-    ? await readById(Astro.locals.runtime?.env, source as PostOrPage, id)
+    ? await readById(Astro.locals.runtime?.env, source as MarkdownSource, id)
     : await readAnyById(Astro.locals.runtime?.env, id)
 
   if (result) {
@@ -23,7 +23,7 @@ if (id) {
   }
 }
 else if (link) {
-  const result = await read(Astro.locals.runtime?.env, source as PostOrPage, link)
+  const result = await read(Astro.locals.runtime?.env, source as MarkdownSource, link)
 
   if (result)
     article = result
@@ -32,20 +32,12 @@ else if (source === MarkdownSource.Memo) {
   article.subject = await generateMemoSubject(Astro.locals.runtime?.env)
 }
 
-let initialItems: any[] | null = null
-if (source !== MarkdownSource.Unknown && source !== MarkdownSource.Home && source !== MarkdownSource.Nav) {
-  initialItems = await readAll(Astro.locals.runtime?.env, source as PostOrPage, false)
-}
-
-let allPosts: any[] = []
-if (source === MarkdownSource.Post) {
-  allPosts = initialItems || []
-}
-else {
-  allPosts = await readAll(Astro.locals.runtime?.env, MarkdownSource.Post, false)
+let initialItems: Awaited<ReturnType<typeof justReadAll>> = []
+if (source !== MarkdownSource.Unknown) {
+  initialItems = await justReadAll(Astro.locals.runtime?.env)
 }
 ---
 
 <DashboardLayout title={`[Editor] ${article.subject}`} showHeader={false}>
-  <Page client:load source={source} initialMarkdown={article} initialItems={initialItems} allPosts={allPosts} />
+  <Page client:load source={source} initialMarkdown={article} initialItems={initialItems} allPosts={initialItems} />
 </DashboardLayout>

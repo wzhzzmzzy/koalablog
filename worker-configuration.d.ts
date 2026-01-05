@@ -5408,8 +5408,7 @@ type VectorizeIndexConfig = {
     dimensions: number;
     metric: VectorizeDistanceMetric;
 } | {
-    preset: string; // keep this generic, as we'll be adding more presets in the future and this is only in a read capacity
-};
+    };
 /**
  * Metadata about an existing index.
  *

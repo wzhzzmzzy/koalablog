@@ -1,10 +1,6 @@
 ---
-import type { PresetSource } from '@/db'
-import type { Markdown } from '@/db/types'
-import Preset from '@/components/dashboard/preset.astro'
-import { isPresetSource, MarkdownSource, MarkdownSourceMap, MarkdownSubjectMap } from '@/db'
+import { MarkdownSource, MarkdownSourceMap } from '@/db'
 import { read } from '@/db/markdown'
-import DashboardLayout from '@/layouts/dashboard.astro'
 
 const { slug } = Astro.params
 
@@ -12,8 +8,7 @@ type sourceKeys = keyof typeof MarkdownSourceMap
 
 const [sourcePath, ...paths] = (slug ?? '').split('/')
 
-const source: MarkdownSource = MarkdownSourceMap[(sourcePath || 'home') as sourceKeys] ?? MarkdownSource.Unknown
-const subject = MarkdownSubjectMap[source]
+const source: MarkdownSource = MarkdownSourceMap[(sourcePath || 'posts') as sourceKeys] ?? MarkdownSource.Unknown
 
 let maybePage: Markdown | undefined
 
@@ -27,11 +22,5 @@ if (source === MarkdownSource.Unknown) {
   }
 }
 
-if (!isPresetSource(source)) {
-  return Astro.redirect(`/dashboard/edit?source=${source}`)
-}
+return Astro.redirect(`/dashboard/edit?source=${source}`)
 ---
-
-<DashboardLayout title={`${subject} - Dashboard`}>
-  <Preset subject={subject} source={source as PresetSource} />
-</DashboardLayout>

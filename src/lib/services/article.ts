@@ -1,5 +1,5 @@
 import type { ValidRedirectStatus } from 'astro'
-import { MarkdownSource, type PostOrPage } from '@/db'
+import { MarkdownSource } from '@/db'
 import { read } from '@/db/markdown'
 import { to } from 'await-to-js'
 
@@ -9,7 +9,7 @@ interface AppInject {
   url: URL
 }
 
-export async function readArticle({ locals, redirect, url }: AppInject, source: PostOrPage, link: string) {
+export async function readArticle({ locals, redirect, url }: AppInject, source: MarkdownSource, link: string) {
   const env = locals.runtime?.env || {}
   const prefix = source === MarkdownSource.Post ? 'post/' : source === MarkdownSource.Memo ? 'memo/' : ''
   const [error, article] = await to(read(env, source, `${prefix}${link}`))

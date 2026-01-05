@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Markdown } from '@/db/types'
-  import { isPresetSource, MarkdownSource, getMarkdownSourceKey, type PostOrPage } from '@/db'
+  import { MarkdownSource, getMarkdownSourceKey } from '@/db'
   import { linkGenerator } from '@/db/markdown'
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
@@ -22,7 +22,6 @@
 
   let editorForm: HTMLFormElement
   let { markdown, source, toggleSidebar, allPosts: initialAllPosts = [], onSave }: Props = $props()
-  const isPreset = isPresetSource(source)
 
   let subjectValue = $state(markdown.subject ?? '')
   let textareaValue = $state(markdown.content ?? '')
@@ -45,15 +44,11 @@
     
     mdInstance = await md({ allPostLinks: allPosts })
     refreshPreview()
-
-    if (isPreset && markdown.id === 0) {
-      formWarn = `Your blog doesn't have a ${markdown.subject}, press [Save] to create it with default content`
-    }
   })
 
   async function refreshPreview() {
     let previewMd = textareaValue
-    if (subjectValue && !isPreset && source !== MarkdownSource.Page) {
+    if (subjectValue && source !== MarkdownSource.Page) {
       previewMd = `# ${subjectValue}\n\n${textareaValue}`
     }
     if (mdInstance) {
@@ -71,7 +66,7 @@
   $effect(() => {
     // keep link stable if user changed link manually or markdown has published
     if (!userDefinedLink && !markdown.id) {
-      linkValue = linkGenerator(source as PostOrPage, subjectValue)
+      linkValue = linkGenerator(source, subjectValue)
     }
   })
   function onInputLink(e: Event) {
@@ -211,7 +206,6 @@
 
   function back(e: Event) {
     e.preventDefault()
-    if (isPreset) return
     
     const target = `/dashboard/${getMarkdownSourceKey(source)}`
     window.location.href = target
@@ -329,22 +323,10 @@
             <Menu size={20} />
           </button>
         {/if}
-
-        {#if source === MarkdownSource.Post}
-          <h2 class="editor-title mb-0">{ !markdown.id ? 'New Post' : 'Edit Post' }</h2>
-        {:else if source === MarkdownSource.Page}
-          <h2 class="editor-title mb-0">{ !markdown.id ? 'New Page' : 'Edit Page' }</h2>
-        {:else if source === MarkdownSource.Memo}
-          <h2 class="editor-title mb-0">{ !markdown.id ? 'New Memo' : 'Edit Memo' }</h2>
-        {:else}
-          <h2 class="editor-title mb-0">{ markdown.subject }</h2>
-        {/if}
       </div>
 
       <div class="flex items-center gap-1">
-        {#if !isPreset}
-          <button class="icon btn" onclick={back}><ArrowLeft size={20} /></button>
-        {/if}
+        <button class="icon btn" onclick={back}><ArrowLeft size={20} /></button>
         <button id="save" class="icon btn" onclick={save}><Save size={20} /></button>
         <button class="icon btn" onclick={toggleToolbar}><Ellipsis size={20} /></button>
       </div>
@@ -363,7 +345,7 @@
             <Eye size={20} />
           {/if}
         </button>
-        {#if !isPreset && markdown.id > 0}
+        {#if markdown.id > 0}
           <button
             type="button"
             class="icon !text-[--koala-error-text] btn"
@@ -391,7 +373,7 @@
     <div class="flex mb-2 {showPreview ? 'hidden' : ''} flex-col sm:flex-row sm:items-center">
       <input
         id="subject-input"
-        type={isPreset ? 'hidden' : 'text'}
+        type="text"
         name="subject"
         class="mb-1 sm:mb-0 sm:border-r-2 sm:border-r-solid sm:border-r-[--koala-bg] sm:flex-1"
         bind:value={subjectValue}
@@ -400,7 +382,7 @@
       <input
         id="link-input"
         class="sm:flex-1"
-        type={isPreset ? 'hidden' : 'text'}
+        type="text"
         name="link"
         bind:value={linkValue}
         oninput={onInputLink}

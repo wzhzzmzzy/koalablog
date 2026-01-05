@@ -1,8 +1,5 @@
 ---
 import Head from '@/components/head/index.astro'
-import { MarkdownSource } from '@/db'
-import { readPreset } from '@/db/markdown'
-import { rawMd } from '@/lib/markdown'
 import Layout from './layout.astro'
 
 interface Props {
@@ -12,16 +9,8 @@ interface Props {
 
 const { title: metaTitle, desc } = Astro.props
 
-const env = Astro.locals.runtime?.env || {}
-
 const title = Astro.locals.config.pageConfig?.title ?? ''
 const avatar = Astro.locals.config.pageConfig?.avatar ?? ''
-const presetSource = await readPreset(env, MarkdownSource.Nav)
-
-let markup = ''
-if (presetSource?.content?.trim()) {
-  markup = rawMd().render(presetSource?.content ?? '')
-}
 ---
 <Layout>
   <Fragment slot="meta">
@@ -35,20 +24,13 @@ if (presetSource?.content?.trim()) {
       {
         avatar
           ? (
-            <img id="avatar" class="w-10 h-10 object-cover object-center rounded-[50%] cursor-pointer" src={avatar} />
+            <a href="/about">
+              <img id="avatar" class="w-10 h-10 object-cover object-center rounded-[50%] cursor-pointer" src={avatar} />
+            </a>
           )
           : ''
       }
     </h2>
-    {
-      markup
-        ? (
-        <nav>
-          <Fragment set:html={markup} />
-        </nav>
-        )
-        : ''
-    }
   </header>
   <main>
     <slot />

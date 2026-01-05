@@ -1,7 +1,7 @@
 import { MarkdownSource } from '@/db'
-import { add, addPreset, remove as removeMarkdown, update } from '@/db/markdown'
+import { add, remove as removeMarkdown, update } from '@/db/markdown'
 import { parseJson } from '@/lib/utils/parse-json'
-import { ActionError, defineAction } from 'astro:actions'
+import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
 
@@ -42,17 +42,8 @@ export const save = defineAction({
     if (id) {
       return update(env, id, link, subject, content, JSON.stringify(outgoingLinks), privated, tags)
     }
-    else if (source === MarkdownSource.Page || source === MarkdownSource.Post || source === MarkdownSource.Memo) {
-      return add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated, tags)
-    }
-    else if (source === MarkdownSource.Home || source === MarkdownSource.Nav) {
-      await addPreset(env, link, source, subject, content)
-    }
     else {
-      throw new ActionError({
-        message: `Preset page source '${source}' cannot be create`,
-        code: 'BAD_REQUEST',
-      })
+      return add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated, tags)
     }
   },
 })

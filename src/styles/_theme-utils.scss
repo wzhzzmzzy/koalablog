@@ -140,6 +140,8 @@ $default-theme-mappings: (
   "input-text": "subtext-1",
   "tag-bg": "surface-1",
   "tag-text": "subtext-0",
+  "hover-block": "surface-0",
+  "focusing-block": "crust"
 ) !default;
 
 // Mixin for generating the complete theme (for use in main theme files)

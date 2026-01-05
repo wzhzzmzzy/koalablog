@@ -8,29 +8,19 @@ export function getDataSource(env?: Env) {
 }
 
 export enum MarkdownSource {
-  Home = 1,
-  Nav = 2,
   Post = 10,
   Page = 20,
   Memo = 30,
   Unknown = 99,
 }
 
-export const isPresetSource = (source: MarkdownSource) => source === MarkdownSource.Home || source === MarkdownSource.Nav
-export type PostOrPage = MarkdownSource.Post | MarkdownSource.Page | MarkdownSource.Memo
-export type PresetSource = MarkdownSource.Home | MarkdownSource.Nav
-
 export const MarkdownSourceMap = {
-  home: MarkdownSource.Home,
-  nav: MarkdownSource.Nav,
   posts: MarkdownSource.Post,
   pages: MarkdownSource.Page,
   memos: MarkdownSource.Memo,
 }
 
 export const MarkdownSubjectMap: Record<MarkdownSource, string> = {
-  [MarkdownSource.Home]: 'Home',
-  [MarkdownSource.Nav]: 'Nav',
   [MarkdownSource.Post]: 'Posts',
   [MarkdownSource.Page]: 'Pages',
   [MarkdownSource.Memo]: 'Memos',

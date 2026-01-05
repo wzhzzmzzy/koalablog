@@ -1,10 +1,10 @@
 ---
-import type { PostOrPage } from '@/db'
+import type { MarkdownSource } from '@/db'
 import { readList } from '@/db/markdown'
 import { format, isSameYear } from 'date-fns'
 
 interface Props {
-  source: PostOrPage
+  source: MarkdownSource
   editable?: boolean
   dashboard?: boolean
   tag?: string | null
@@ -62,15 +62,15 @@ const sortedYears = Object.keys(groupedByYear)
 
 
 <script>
-import type { PostOrPage } from '@/db'
+import type { MarkdownSource } from '@/db'
 
 class MarkdownList extends HTMLElement {
   addBtnEl?: HTMLButtonElement
-  source: PostOrPage
+  source: MarkdownSource
 
   constructor() {
     super()
-    this.source = Number(this.dataset.source || '10') as PostOrPage
+    this.source = Number(this.dataset.source || '10') as MarkdownSource
 
     if (this.dataset.editable === 'true') {
       this.createNew = this.createNew.bind(this)
