@@ -5,19 +5,17 @@ import { format, isSameYear } from 'date-fns'
 
 interface Props {
   source: MarkdownSource
-  editable?: boolean
-  dashboard?: boolean
   tag?: string | null
 }
 
-const { source, editable = false, dashboard = false, tag } = Astro.props
+const { source, tag } = Astro.props
 
 const env = Astro.locals.runtime?.env || {}
 const session = Astro.locals.session
 
 const includePrivate = !!session?.role || false
 const list = await readList(env, source, tag || undefined, { includePrivate })
-const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? dashboard ? 'MM-dd (HH:mm)' : 'MM-dd' : 'yyyy-MM-dd')
+const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? 'MM-dd' : 'yyyy-MM-dd')
 
 // Group posts by year
 const groupedByYear = list.reduce((groups, item) => {
@@ -41,21 +39,23 @@ const count = list.length
 ---
 
 {tag && <p class="mb-3">Searching tag: <span class="tag" role="button" tabindex="0" data-tag={tag} title={`Click to search tag: ${tag}`}>{tag}</span> ({count}&nbsp;{count === 1 ? 'article' : 'articles'})</p>}
-<markdown-list data-source={source} data-editable={editable}>
-  { editable && <button id="add-btn" class="btn">New</button> }
+<markdown-list data-source={source}>
   {
     !list.length ? <div class="mt-3">Nothing here.</div> : null
   }
   {
     sortedYears.map(year => (
       <div>
-      <h3 class="text-lg font-light mb-3 mt-0" style="color: var(--koala-editor-text);"><i>{year}</i></h3>
+        <h3 class="text-lg font-light mb-3 mt-0" style="color: var(--koala-editor-text);">
+          <i>{year}</i>
+          <a class="ml-2" href={`/?s=memo&y=${year}`} title="My Gossips">...</a>
+        </h3>
         <ul class="ml-4">
           {
             groupedByYear[year].map(item => (
               <li class="flex gap-3 mb-2">
                 { item.createdAt ? <span class="flex-shrink-0"><i>{ formatDate(item.createdAt) }</i></span> : null }
-                <a href={dashboard ? `/dashboard/edit?id=${item.id}&source=${item.source}` : `/${item.link}`}><span>{ item.subject } </span></a>
+                <a href={`/${item.link}`}><span>{ item.subject } </span></a>
               </li>
             ))
           }
@@ -67,25 +67,9 @@ const count = list.length
 
 
 <script>
-import type { MarkdownSource } from '@/db'
-
 class MarkdownList extends HTMLElement {
-  addBtnEl?: HTMLButtonElement
-  source: MarkdownSource
-
   constructor() {
     super()
-    this.source = Number(this.dataset.source || '10') as MarkdownSource
-
-    if (this.dataset.editable === 'true') {
-      this.createNew = this.createNew.bind(this)
-      this.addBtnEl = this.querySelector('#add-btn')!
-      this.addBtnEl.addEventListener('click', this.createNew)
-    }
-  }
-
-  createNew() {
-    window.location.href = `/dashboard/edit?source=${this.source}`
   }
 }
 

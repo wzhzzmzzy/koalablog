@@ -2,10 +2,10 @@
 import List from '@/components/dashboard/list.astro'
 import { MarkdownSource } from '@/db'
 import Layout from '@/layouts/home.astro'
+
+const source = Astro.url.searchParams.get('s')
 ---
 
 <Layout>
-  <section>
-    <List source={MarkdownSource.Post} />
-  </section>
+  <List source={source === 'memo' ? MarkdownSource.Memo : MarkdownSource.Post} />
 </Layout>
