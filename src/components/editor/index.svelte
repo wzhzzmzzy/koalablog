@@ -33,6 +33,10 @@
      refreshPreview()
   })
 
+  $effect(() => {
+    document.title = `[Editor] ${subjectValue || 'New File'}`
+  })
+
   let mdInstance: MarkdownIt | null = null
   let allPosts = $state<Markdown[]>(initialAllPosts)
 
