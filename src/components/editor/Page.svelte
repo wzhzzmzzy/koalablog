@@ -5,7 +5,7 @@
   import { initMarkdown } from '@/db/types';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
-  import { editorStore, setItems, setCurrentMarkdown, upsertItem } from './store.svelte';
+  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory } from './store.svelte';
 
   interface Props {
     initialMarkdown: Markdown;
@@ -19,17 +19,31 @@
   if (initialItems) {
       setItems(initialItems);
   }
+  
+  // Init History and Current
+  pushHistory(initialMarkdown.link);
   setCurrentMarkdown(initialMarkdown);
 
   let showSidebar = $state(!isMobile);
 
+  // Sync URL with currentMarkdown
+  $effect(() => {
+      if (editorStore.currentMarkdown) {
+          const url = new URL(window.location.href);
+          const currentLink = url.searchParams.get('link');
+          const currentId = url.searchParams.get('id');
+          
+          if (currentLink !== editorStore.currentMarkdown.link || currentId) {
+             url.searchParams.set('link', editorStore.currentMarkdown.link);
+             url.searchParams.delete('id');
+             window.history.pushState({}, '', url);
+          }
+      }
+  });
+
   function handleSelect(m: Markdown) {
+    pushHistory(m.link);
     setCurrentMarkdown(m);
-    
-    const url = new URL(window.location.href);
-    url.searchParams.set('link', m.link);
-    url.searchParams.delete('id');
-    window.history.pushState({}, '', url);
 
     if (window.innerWidth < 768) {
       showSidebar = false;
@@ -37,6 +51,7 @@
   }
 
   function handleSave(m: Markdown) {
+    updateLastHistory(m.link);
     setCurrentMarkdown(m);
     upsertItem(m);
   }
@@ -55,6 +70,7 @@
              console.error('Error fetching memo subject', result.error);
          }
       }
+      pushHistory(newMd.link);
       setCurrentMarkdown(newMd);
   }
 </script>

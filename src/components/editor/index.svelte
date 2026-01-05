@@ -10,7 +10,7 @@
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
   import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
-  import { editorStore, upsertItem } from './store.svelte';
+  import { editorStore, upsertItem, popHistory, setCurrentMarkdown } from './store.svelte';
 
   interface Props {
 		markdown: Markdown;
@@ -214,6 +214,16 @@
   function back(e: Event) {
     e.preventDefault()
     
+    if (editorStore.history.length > 1) {
+        popHistory();
+        const prevLink = editorStore.history[editorStore.history.length - 1];
+        const prevItem = editorStore.items.find(i => i.link === prevLink);
+        if (prevItem) {
+            setCurrentMarkdown(prevItem);
+            return;
+        }
+    }
+
     const target = `/dashboard/${getMarkdownSourceKey(source)}`
     window.location.href = target
   }
@@ -331,6 +341,7 @@
             <Menu size={20} />
           </button>
         {/if}
+        <button class="icon btn {editorStore.history.length <= 1 ? 'hidden' : ''}" onclick={back}><ArrowLeft size={20} /></button>
       </div>
 
       <div class="flex-1 max-w-xl mx-auto flex items-center gap-2 bg-[--koala-bg] rounded px-2">
@@ -347,7 +358,18 @@
       </div>
 
       <div class="flex items-center gap-1 shrink-0">
-        <button class="icon btn" onclick={back}><ArrowLeft size={20} /></button>
+        <button
+          type="button"
+          class="icon btn"
+          onclick={() => privateValue = !privateValue}
+          title={privateValue ? "Private" : "Public"}
+        >
+          {#if privateValue}
+            <Lock size={20} />
+          {:else}
+            <LockOpen size={20} />
+          {/if}
+        </button>
         <button id="save" class="icon btn" onclick={save}><Save size={20} /></button>
         <button class="icon btn" onclick={toggleToolbar}><Ellipsis size={20} /></button>
       </div>
@@ -393,18 +415,6 @@
         </div>
         
         <div class="flex items-center gap-2">
-          <button
-              type="button"
-              class="icon btn"
-              onclick={() => privateValue = !privateValue}
-              title={privateValue ? "Private" : "Public"}
-          >
-              {#if privateValue}
-                  <Lock size={20} />
-              {:else}
-                  <LockOpen size={20} />
-              {/if}
-          </button>
           <input type="checkbox" class="hidden" name="private" bind:checked={privateValue} />
         </div>
       </div>
