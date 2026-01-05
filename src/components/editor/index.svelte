@@ -1,6 +1,6 @@
 <script lang="ts">
   import { MarkdownSource, getSourceFromLink, getMarkdownSourceKey } from '@/db'
-  import { linkGenerator } from '@/db/markdown'
+  import type { Markdown } from '@/db/types';
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
   import type MarkdownIt from 'markdown-it';
@@ -10,22 +10,23 @@
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
   import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
+  import { editorStore, loadAll, upsertItem } from './store.svelte';
 
   interface Props {
 		markdown: Markdown;
-    source: MarkdownSource;
     toggleSidebar?: () => void;
-    allPosts?: Markdown[];
     onSave?: (m: Markdown) => void;
 	}
 
   let editorForm: HTMLFormElement
-  let { markdown, source = $bindable(), toggleSidebar, allPosts: initialAllPosts = [], onSave }: Props = $props()
+  let { markdown, toggleSidebar, onSave }: Props = $props()
 
   let subjectValue = $state(markdown.subject ?? '')
   let textareaValue = $state(markdown.content ?? '')
   let privateValue = $state(markdown.private ?? false)
   let previewHtml = $state('')
+  let linkValue = $state(markdown.link ?? '')
+  let source = $derived(getSourceFromLink(linkValue))
 
   // Generate preview when subject / content changed
   $effect(() => {
@@ -37,17 +38,24 @@
   })
 
   let mdInstance: MarkdownIt | null = null
-  let allPosts = $state<Markdown[]>(initialAllPosts)
-
+  
   onMount(async () => {
-    if (allPosts.length === 0) {
-      const allPostsFromDB = await actions.db.markdown.all({ source: 'post' })
-      allPosts = allPostsFromDB.data?.posts || [];
-    }
-    
-    mdInstance = await md({ allPostLinks: allPosts })
+    await loadAll();
+    mdInstance = await md({ allPostLinks: editorStore.items })
     refreshPreview()
   })
+
+  // Watch for store changes to update markdown-it instance
+  $effect(() => {
+      if (mdInstance && editorStore.items.length > 0) {
+          // Re-initialize markdown-it if items change (for link resolution)
+          // Note: ideally we would just update the context, but re-init is safer for now
+          md({ allPostLinks: editorStore.items }).then(inst => {
+              mdInstance = inst;
+              refreshPreview();
+          });
+      }
+  });
 
   async function refreshPreview() {
     let previewMd = textareaValue
@@ -65,17 +73,8 @@
 
   // Generate link when subject changed
   let userDefinedLink = false
-  let linkValue = $state(markdown.link ?? '')
-  $effect(() => {
-    // keep link stable if user changed link manually or markdown has published
-    if (!userDefinedLink && !markdown.id) {
-      linkValue = linkGenerator(source, subjectValue)
-    }
-  })
+
   function onInputLink(e: Event) {
-    const val = (e.target as HTMLInputElement).value
-    source = getSourceFromLink(val)
-    
     userDefinedLink = true
   }
 
@@ -230,7 +229,7 @@
     if (source === MarkdownSource.Post) {
       const oldLink = markdown.link
       const newLink = formData.get('link') as string
-      const refs = allPosts.map(p => {
+      const refs = editorStore.items.map(p => {
         const outgoing = parseJson<DoubleLinkPluginOptions['allPostLinks']>(p.outgoing_links || null) || []
         return { ...p, outgoing_links: outgoing}
       }).filter(p => {
@@ -260,6 +259,7 @@
       if (result.data?.[0]) {
         markdown = result.data[0]
         onSave?.(markdown)
+        upsertItem(markdown)
       }
 
       setTimeout(() => {
@@ -310,99 +310,106 @@
     </div>
   {/if}
 
-  <form bind:this={editorForm} method="POST" class="flex-1 flex flex-col">
-
-    <div class="flex justify-between items-center mb-4">
-      <div class="flex items-center gap-2">
+  <form bind:this={editorForm} method="POST" class="flex-1 flex flex-col h-full overflow-hidden">
+    <div class="flex justify-between items-center mb-2 gap-4 shrink-0">
+      <div class="flex items-center gap-2 shrink-0">
         {#if toggleSidebar}
           <button 
+            type="button"
             class="icon btn"
-            onclick={toggleSidebar}
+            onclick={(e) => { e.preventDefault(); toggleSidebar(); }}
           >
             <Menu size={20} />
           </button>
         {/if}
       </div>
 
-      <div class="flex items-center gap-1">
+      <div class="flex-1 max-w-xl mx-auto flex items-center gap-2 bg-[--koala-bg] rounded px-2">
+        <input
+          id="link-input"
+          class="w-full bg-transparent border-none outline-none text-sm text-[--koala-subtext-0] h-8 text-center"
+          type="text"
+          name="link"
+          bind:value={linkValue}
+          oninput={onInputLink}
+          placeholder="File Path"
+        />
+      </div>
+
+      <div class="flex items-center gap-1 shrink-0">
         <button class="icon btn" onclick={back}><ArrowLeft size={20} /></button>
         <button id="save" class="icon btn" onclick={save}><Save size={20} /></button>
         <button class="icon btn" onclick={toggleToolbar}><Ellipsis size={20} /></button>
       </div>
     </div>
+
     <input type="hidden" name="source" value={source} />
     <input type="hidden" name="id" value={markdown.id} />
 
     {#if toolbarVisible}
-    <div class="flex flex-col gap-2 my-2 py-2 bg-[--koala-bg] rounded border border-[--koala-border]">
-      <div class="flex items-center gap-3">
-        <button id="upload" class="icon btn" onclick={upload}><Upload size={20} /></button>
-        <button id="preview" class="icon btn" onclick={preview}>
-          {#if showPreview}
-            <SquarePen size={20} />
-          {:else}
-            <Eye size={20} />
-          {/if}
-        </button>
-        {#if markdown.id > 0}
-          <button
-            type="button"
-            class="icon !text-[--koala-error-text] btn"
-            onclick={openDeleteConfirm}
-          >
-            <Trash2 size={20} />
-          </button>
-          <button
-            type="button"
-            class="icon btn"
-            onclick={copyLink}
-          >
-            {#if copyBtnText === 'Copied'}
-              <Check size={20} />
+    <div class="flex flex-col gap-2 mb-2 py-2 px-2 bg-[--koala-bg] rounded border border-[--koala-border] shrink-0">
+      <div class="flex items-center gap-3 justify-between">
+        <div class="flex items-center gap-2">
+            <button id="upload" class="icon btn" onclick={upload} title="Upload Image"><Upload size={20} /></button>
+            <button id="preview" class="icon btn" onclick={preview} title="Toggle Preview">
+            {#if showPreview}
+                <SquarePen size={20} />
             {:else}
-              <Link size={20} />
+                <Eye size={20} />
             {/if}
-          </button>
+            </button>
+            {#if markdown.id > 0}
+            <button
+                type="button"
+                class="icon !text-[--koala-error-text] btn"
+                onclick={openDeleteConfirm}
+                title="Delete"
+            >
+                <Trash2 size={20} />
+            </button>
+            <button
+                type="button"
+                class="icon btn"
+                onclick={copyLink}
+                title="Copy Link"
+            >
+                {#if copyBtnText === 'Copied'}
+                <Check size={20} />
+                {:else}
+                <Link size={20} />
+                {/if}
+            </button>
+            {/if}
+        </div>
+        
+        {#if source === MarkdownSource.Page}
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="private-check" name="private" bind:checked={privateValue} />
+            <label for="private-check" class="text-sm">Private</label>
+          </div>
         {/if}
       </div>
-      
     </div>
     {/if}
 
-    <div class="flex mb-2 {showPreview ? 'hidden' : ''} flex-col sm:flex-row sm:items-center">
       <input
         id="subject-input"
         type="text"
         name="subject"
-        class="mb-1 sm:mb-0 sm:border-r-2 sm:border-r-solid sm:border-r-[--koala-bg] sm:flex-1"
+        class="w-full text-2xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
         bind:value={subjectValue}
         placeholder="Title"
       />
-      <input
-        id="link-input"
-        class="sm:flex-1"
-        type="text"
-        name="link"
-        bind:value={linkValue}
-        oninput={onInputLink}
-        placeholder="Link"
-      />
-      {#if source === MarkdownSource.Page}
-        <div class="mt-2 sm:mt-0">
-          <input type="checkbox" name="private" bind:checked={privateValue} />
-          <label for="private">Private</label>
-        </div>
-      {/if}
-    </div>
-    <textarea 
-      class="p-1 text-sm w-full flex-1 box-border {showPreview ? 'hidden' : ''}" 
-      name="content" 
-      placeholder="Type here..."
-      bind:value={textareaValue}
-      onpaste={handlePaste}
-      ondrop={handleDrop}
-    ></textarea>
-    <article id="preview-md" class="w-full {showPreview ? '' : 'hidden'}">
+
+      <textarea
+        class="text-base w-full flex-1 box-border bg-transparent border-none outline-none resize-none p-2 {showPreview ? 'hidden' : ''}" 
+        name="content" 
+        placeholder="Type here..."
+        bind:value={textareaValue}
+        onpaste={handlePaste}
+        ondrop={handleDrop}
+      ></textarea>
+    <article id="preview-md" class="w-full flex-1 overflow-y-auto {showPreview ? '' : 'hidden'}">
       {@html previewHtml}
     </article>
 

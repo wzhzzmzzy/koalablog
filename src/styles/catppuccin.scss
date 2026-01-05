@@ -58,7 +58,7 @@ body {
   nav,
   nav p,
   button,
-  input,
+  input.input,
   label {
     font-family: theme.font-family("sans");
   }
@@ -113,7 +113,7 @@ body {
     @include theme.theme-button();
   }
 
-  input {
+  input.input {
     @include theme.theme-input();
   }
 

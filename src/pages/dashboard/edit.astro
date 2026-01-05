@@ -1,43 +1,32 @@
 ---
 import Page from '@/components/editor/Page.svelte'
-import { MarkdownSource } from '@/db'
-import { generateMemoSubject, justReadAll, read, readAnyById, readById } from '@/db/markdown'
+import { justReadAll } from '@/db/markdown'
 import { initMarkdown } from '@/db/types'
 import DashboardLayout from '@/layouts/dashboard.astro'
 
 const url = Astro.url
-let source = Number(url.searchParams.get('source') || String(MarkdownSource.Unknown))
 const id = Number(url.searchParams.get('id') || '0')
 const link = url.searchParams.get('link')
 
-let article = initMarkdown(source)
+let article = initMarkdown()
+
+let initialItems: Awaited<ReturnType<typeof justReadAll>> = []
+initialItems = await justReadAll(Astro.locals.runtime?.env)
 
 if (id) {
-  const result = source
-    ? await readById(Astro.locals.runtime?.env, source as MarkdownSource, id)
-    : await readAnyById(Astro.locals.runtime?.env, id)
-
-  if (result) {
-    article = result
-    source = result.source
+  const found = initialItems.find(i => i.id === id)
+  if (found) {
+    article = found
   }
 }
 else if (link) {
-  const result = await read(Astro.locals.runtime?.env, source as MarkdownSource, link)
-
-  if (result)
-    article = result
-}
-else if (source === MarkdownSource.Memo) {
-  article.subject = await generateMemoSubject(Astro.locals.runtime?.env)
-}
-
-let initialItems: Awaited<ReturnType<typeof justReadAll>> = []
-if (source !== MarkdownSource.Unknown) {
-  initialItems = await justReadAll(Astro.locals.runtime?.env)
+  const found = initialItems.find(i => i.link === link)
+  if (found) {
+    article = found
+  }
 }
 ---
 
 <DashboardLayout title={`[Editor] ${article.subject}`} showHeader={false}>
-  <Page client:load source={source} initialMarkdown={article} initialItems={initialItems} allPosts={initialItems} />
+  <Page client:load initialMarkdown={article} initialItems={initialItems} />
 </DashboardLayout>

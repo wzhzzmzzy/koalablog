@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { actions } from 'astro:actions';
   import type { Markdown } from '@/db/types';
-  import { Calendar, Plus } from '@lucide/svelte';
+  import { Calendar, Plus, ChevronRight, ChevronDown, Folder, FileText } from '@lucide/svelte';
+  import { editorStore, loadAll, setItems } from './store.svelte';
 
   interface Props {
     onSelect: (m: Markdown) => void;
@@ -12,66 +12,89 @@
 
   let { onSelect, onCreate, currentId, initialItems = null }: Props = $props();
 
-  let items = $state<Markdown[]>([]);
-  let loading = $state(false);
-  let hasAttemptedLoad = $state(false);
-
-  async function loadAll() {
-    if (loading) return;
-    loading = true;
-
-    try {
-      const result = await actions.db.markdown.all({ source: 'all' });
-
-      if (result.data) {
-        items = [...(result.data.posts || []), ...(result.data.pages || []), ...(result.data.memos || [])];
-        console.log('Sidebar loaded items', items.length);
-      } else if (result.error) {
-        console.error('Sidebar loadAll error', result.error);
-      }
-    } finally {
-      loading = false;
-      hasAttemptedLoad = true;
-    }
-  }
-
   $effect(() => {
     if (initialItems && initialItems.length > 0) {
-      items = initialItems;
-      hasAttemptedLoad = true;
-    } else if (!hasAttemptedLoad && !loading) {
+      setItems(initialItems);
+    } else if (!editorStore.hasAttemptedLoad && !editorStore.loading) {
       loadAll();
     }
   });
 
-  const groupedItems = $derived.by(() => {
-    const groups: Record<string, Markdown[]> = {};
+  type TreeNode = {
+    name: string;
+    fullPath: string;
+    children: Record<string, TreeNode>;
+    items: Markdown[];
+  };
 
-    const sortedItems = [...items].sort((a, b) => {
+  const tree = $derived.by(() => {
+    const root: TreeNode = { name: '', fullPath: '', children: {}, items: [] };
+
+    const sortedItems = [...editorStore.items].sort((a, b) => {
       const linkCompare = a.link.localeCompare(b.link);
-      if (linkCompare !== 0) {
-        return linkCompare;
-      }
+      if (linkCompare !== 0) return linkCompare;
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
 
     for (const item of sortedItems) {
-      const lastSlashIndex = item.link.lastIndexOf('/');
-      const prefix = lastSlashIndex !== -1 ? item.link.substring(0, lastSlashIndex + 1) : '';
+      const parts = item.link.split('/');
+      const fileName = parts.pop() || ''; // remove filename
+      let currentNode = root;
 
-      if (!groups[prefix]) {
-        groups[prefix] = [];
+      // Navigate/Build tree for folders
+      let currentPath = '';
+      for (const part of parts) {
+        currentPath += part + '/';
+        if (!currentNode.children[part]) {
+          currentNode.children[part] = {
+            name: part,
+            fullPath: currentPath,
+            children: {},
+            items: []
+          };
+        }
+        currentNode = currentNode.children[part];
       }
-      groups[prefix].push(item);
+      
+      currentNode.items.push(item);
     }
-
-    return Object.keys(groups)
-      .sort((a, b) => a.localeCompare(b))
-      .map((prefix) => ({
-        prefix,
-        items: groups[prefix],
-      }));
+    return root;
   });
+
+  // Folder expansion state
+  let expandedFolders = $state<Record<string, boolean>>({});
+
+  function toggleFolder(path: string) {
+    expandedFolders[path] = !expandedFolders[path];
+  }
+
+  // Auto-expand current item's path
+  $effect(() => {
+     if (currentId) {
+         const currentItem = editorStore.items.find(i => i.id === currentId);
+         if (currentItem) {
+             const parts = currentItem.link.split('/');
+             parts.pop(); // remove filename
+             let path = '';
+             for (const part of parts) {
+                 path += part + '/';
+                 if (expandedFolders[path] === undefined) {
+                      expandedFolders[path] = true;
+                 }
+             }
+         }
+     }
+  });
+  
+  // Helper to ensure initial expansion of top level (optional, or based on preference)
+  $effect(() => {
+      // expand root level folders by default if not set
+      Object.values(tree.children).forEach(child => {
+          if (expandedFolders[child.fullPath] === undefined) {
+               expandedFolders[child.fullPath] = true;
+          }
+      })
+  })
 
   function formatDate(date: Date | string) {
     if (!date) return '';
@@ -82,57 +105,71 @@
     if (!content) return '';
     return content.slice(0, 30) + (content.length > 30 ? '...' : '');
   }
-
-  export function upsertItem(item: Markdown) {
-    const index = items.findIndex((i) => i.id === item.id);
-    if (index >= 0) {
-      items[index] = item;
-    } else {
-      items = [item, ...items];
-    }
-  }
 </script>
 
-<div class="h-full flex flex-col w-full">
-  <div class="p-4 border-b border-[--koala-border] font-bold text-lg flex justify-between items-center">
-    <span>Files</span>
-    <span class="text-xs text-[--koala-subtext-0]">{items.length} loaded</span>
-  </div>
+{#snippet fileItem(item: Markdown)}
+  <button
+    class="outline-none border-none w-full text-left p-2 hover:bg-[--koala-hover-block] transition-colors
+           {item.id === currentId ? 'bg-[--koala-focusing-block]' : 'bg-transparent'}
+           relative flex items-center gap-1.5 rounded"
+    onclick={() => onSelect(item)}
+  >
+      <FileText size={14} class="opacity-70 shrink-0" />
+      <span class="truncate text-sm text-[--koala-text]">{item.link.split('/').pop() || item.link}.md</span>
+  </button>
+{/snippet}
 
-  <div class="flex-1 overflow-y-auto">
-    {#each groupedItems as group}
-      {#if group.prefix}
-        <div class="p-2 pt-4 pl-3 text-xs font-bold text-[--koala-subtext-0] border-b border-[--koala-border-subtle] flex justify-between items-center group">
-          <span>{group.prefix}</span>
-          <button class="icon btn opacity-0 group-hover:opacity-100 transition-opacity" onclick={(e) => { e.stopPropagation(); onCreate(group.prefix); }}>
-             <Plus size={14} />
-          </button>
-        </div>
-      {/if}
-      {#each group.items as item}
-        <button
-          class="outline-none border-none w-full text-left p-3 hover:bg-[--koala-hover-block] transition-colors
-                 {item.id === currentId ? 'bg-[--koala-focusing-block]' : 'bg-transparent'}"
-          onclick={() => onSelect(item)}
+{#snippet folderNode(node: TreeNode)}
+  <div>
+    {#if node.name}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <div 
+          class="flex items-center justify-between group cursor-pointer select-none p-2"
+          onclick={() => toggleFolder(node.fullPath)}
+          aria-roledescription="button"
         >
-          <div class="flex items-center gap-1 text-sm text-[--koala-subtext-0] mb-1">
-            <span class="truncate">{item.link.substring(group.prefix.length)}.md</span>
-          </div>
+            <div class="flex items-center gap-1.5 text-sm font-medium text-[--koala-subtext-0]">
+                {#if expandedFolders[node.fullPath]}
+                    <ChevronDown size={14} />
+                {:else}
+                    <ChevronRight size={14} />
+                {/if}
+                <span>{node.name}</span>
+            </div>
+            <button 
+                class="outline-none border-none bg-transparent p-0.5 rounded cursor-pointer" 
+                onclick={(e) => { e.stopPropagation(); onCreate(node.fullPath); }}
+                title="Create new file in {node.name}"
+            >
+                <Plus size={14} />
+            </button>
+        </div>
+    {/if}
 
-          <div class="flex items-center gap-1 text-xs text-[--koala-subtext-0] mb-1">
-            <Calendar size={12} />
-            <span>{formatDate(item.createdAt)}</span>
-          </div>
-
-          <div class="text-xs text-[--koala-text] opacity-70 break-all">
-            {getSnippet(item.content)}
-          </div>
-        </button>
-      {/each}
-    {/each}
-
-    {#if items.length === 0 && !loading}
-      <div class="p-4 text-center text-[--koala-subtext-0] text-sm">No files found.</div>
+    {#if !node.name || expandedFolders[node.fullPath]}
+        <div class="{node.name ? 'border-l border-[--koala-border-subtle] ml-2 pl-2' : ''}">
+            {#each Object.values(node.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
+                {@render folderNode(child)}
+            {/each}
+            {#each node.items as item}
+                {@render fileItem(item)}
+            {/each}
+        </div>
     {/if}
   </div>
+{/snippet}
+
+
+<div class="h-full flex flex-col w-full overflow-y-auto">
+  {#if editorStore.items.length === 0 && !editorStore.loading}
+    <div class="p-4 text-center text-[--koala-subtext-0] text-sm">No files found.</div>
+  {:else}
+      {#each Object.values(tree.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
+            {@render folderNode(child)}
+      {/each}
+      {#each tree.items as item}
+            {@render fileItem(item)}
+      {/each}
+  {/if}
 </div>

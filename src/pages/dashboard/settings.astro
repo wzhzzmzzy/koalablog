@@ -50,13 +50,13 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <label>
         Blog Title:<br />
       </label>
-      <input class="w-60 sm:w-80" id="title-input" name="title" value={title} />
+      <input class="input w-60 sm:w-80" id="title-input" name="title" value={title} />
 
       <label>
         Avatar:<br />
       </label>
       <div class="flex items-center gap-2">
-        <input class="w-60 sm:w-80" id="avatar-input" name="avatar" value={avatar} />
+        <input class="input w-60 sm:w-80" id="avatar-input" name="avatar" value={avatar} />
         <button type="button" id="upload-avatar-btn" class="inline-flex items-center justify-center btn">
            <Upload size={20} />
         </button>
@@ -65,7 +65,7 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <label>
         Guest Passkey:<br />
       </label>
-      <input class="w-60 sm:w-80" type="password" id="passkey-input" name="guestPasskey" value={guestKey || ''} />
+      <input class="input w-60 sm:w-80" type="password" id="passkey-input" name="guestPasskey" value={guestKey || ''} />
 
       <label>
       Theme:
@@ -83,12 +83,12 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <label>
         Monthly Read Limit: (today={ossAccess?.readTimes})
       </label>
-      <input class="w-60 sm:w-80" id="read-limit-input" name="readLimit" value={ossConfig.readLimit} />
+      <input class="input w-60 sm:w-80" id="read-limit-input" name="readLimit" value={ossConfig.readLimit} />
 
       <label>
         Monthly Operate Limit: (today={ossAccess?.operateTimes})
       </label>
-      <input class="w-60 sm:w-80" id="operate-limit-input" name="operateLimit" value={ossConfig.operateLimit} />
+      <input class="input w-60 sm:w-80" id="operate-limit-input" name="operateLimit" value={ossConfig.operateLimit} />
 
       <h3>RSS</h3>
 
@@ -98,27 +98,27 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       </div>
 
       <label>Description</label>
-      <input class="w-60 sm:w-80" type="text" name="rssDesc" value={rssConfig?.description} />
+      <input class="input w-60 sm:w-80" type="text" name="rssDesc" value={rssConfig?.description} />
 
       <label>Language</label>
-      <input class="w-60 sm:w-80" type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
+      <input class="input w-60 sm:w-80" type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
 
       <h3>Fonts</h3>
       <label>CDN URL (e.g. Google Fonts CSS link)</label>
-      <input class="w-full" type="text" name="fontCDN" value={fontConfig?.cdn} placeholder="https://fonts.googleapis.com/css2?..." />
+      <input class="input w-full" type="text" name="fontCDN" value={fontConfig?.cdn} placeholder="https://fonts.googleapis.com/css2?..." />
       
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label>Sans (UI/Body)</label>
-          <input class="w-full" type="text" name="fontSans" value={fontConfig?.sans} placeholder="'Noto Sans SC', sans-serif" />
+          <input class="input w-full" type="text" name="fontSans" value={fontConfig?.sans} placeholder="'Noto Sans SC', sans-serif" />
         </div>
         <div>
           <label>Serif (Content)</label>
-          <input class="w-full" type="text" name="fontSerif" value={fontConfig?.serif} placeholder="'Noto Serif SC', serif" />
+          <input class="input w-full" type="text" name="fontSerif" value={fontConfig?.serif} placeholder="'Noto Serif SC', serif" />
         </div>
         <div>
           <label>Mono (Code)</label>
-          <input class="w-full" type="text" name="fontMono" value={fontConfig?.mono} placeholder="'JetBrains Mono', monospace" />
+          <input class="input w-full" type="text" name="fontMono" value={fontConfig?.mono} placeholder="'JetBrains Mono', monospace" />
         </div>
       </div>
 

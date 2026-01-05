@@ -85,7 +85,7 @@ ul {
 
 
 
-input {
+input.input {
   border: none;
   outline: none;
   --at-apply: p-2;
