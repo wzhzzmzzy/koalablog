@@ -10,12 +10,14 @@ interface Props {
   content: string
   renderLangSet?: Set<string>
   showOutline?: boolean
+  showDate?: boolean
 }
 
 const { article, content, renderLangSet } = Astro.props
 
 const source = article?.source
 const showOutline = Astro.props.showOutline || source === MarkdownSource.Post
+const showDate = Astro.props.showDate || source === MarkdownSource.Post
 const langSet = Array.from(renderLangSet || []).join(',')
 const contentWithIds = await addHeadingIds(content)
 const headings = showOutline ? await extractHeadings(contentWithIds) : []
@@ -24,24 +26,15 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
 <main class="article-main">
   <article-client data-article={JSON.stringify(article)} data-lang-set={langSet} data-show-outline={showOutline}>
     <div class="article-header">
-      {
-        source === MarkdownSource.Post
-      ? (
-      <>
-        <h2 style="position: relative; margin-top: 0;">
-          { article.subject }
-        </h2>
+      <h2 style="position: relative; margin-top: 0;">
+        { article.subject }
+      </h2>
+      {showDate && (
         <p>{ formatDate(article.createdAt, 'yyyy年 MM月 dd日') }</p>
-        {showOutline && (
-          <Outline client:load title={article.subject} headings={headings} />
-        )}
-      </>
-      )
-      : showOutline && (
-        <h2>{ article.subject }</h2>
+      )}
+      {showOutline && (
         <Outline client:load title={article.subject} headings={headings} />
-      )
-      }
+      )}
     </div>
     <article id="article" />
     <article id="serverArticle" set:html={contentWithIds} />

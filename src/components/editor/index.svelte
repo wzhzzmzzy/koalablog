@@ -59,7 +59,7 @@
 
   async function refreshPreview() {
     let previewMd = textareaValue
-    if (subjectValue && source !== MarkdownSource.Page) {
+    if (subjectValue) {
       previewMd = `# ${subjectValue}\n\n${textareaValue}`
     }
     if (mdInstance) {
@@ -392,23 +392,24 @@
     </div>
     {/if}
 
-      <input
-        id="subject-input"
-        type="text"
-        name="subject"
-        class="w-full text-2xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
-        bind:value={subjectValue}
-        placeholder="Title"
-      />
+    <input
+      id="subject-input"
+      type="text"
+      name="subject"
+      class="{showPreview ? 'hidden' : ''} w-full text-2xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
+      bind:value={subjectValue}
+      placeholder="Title"
+    />
 
-      <textarea
-        class="text-base w-full flex-1 box-border bg-transparent border-none outline-none resize-none p-2 {showPreview ? 'hidden' : ''}" 
-        name="content" 
-        placeholder="Type here..."
-        bind:value={textareaValue}
-        onpaste={handlePaste}
-        ondrop={handleDrop}
-      ></textarea>
+    <textarea
+      class="text-base w-full flex-1 box-border bg-transparent border-none outline-none resize-none p-2 {showPreview ? 'hidden' : ''}" 
+      name="content" 
+      placeholder="Type here..."
+      bind:value={textareaValue}
+      onpaste={handlePaste}
+      ondrop={handleDrop}
+    ></textarea>
+
     <article id="preview-md" class="w-full flex-1 overflow-y-auto {showPreview ? '' : 'hidden'}">
       {@html previewHtml}
     </article>

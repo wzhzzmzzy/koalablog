@@ -133,10 +133,10 @@ export function updateRefs(
 }
 
 export function remove(env: Env, id: number, currentLink: string) {
-  // 添加 /deleted/ 前缀到当前link
-  const deletedLink = currentLink.startsWith('/deleted/')
+  // 添加 .recycleBin 前缀到当前link
+  const deletedLink = currentLink.startsWith('.recycleBin')
     ? currentLink
-    : `/deleted${currentLink.startsWith('/') ? '' : '/'}${currentLink}`
+    : `.recycleBin${currentLink.startsWith('/') ? '' : '/'}${currentLink}`
 
   return connectDB(env).update(markdown).set({
     deleted: true,
