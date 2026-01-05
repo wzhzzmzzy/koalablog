@@ -1,11 +1,10 @@
 <script lang="ts">
   import { actions } from 'astro:actions';
-  import { MarkdownSource } from '@/db';
+  import { MarkdownSource, getSourceFromLink } from '@/db';
   import type { Markdown } from '@/db/types';
   import { initMarkdown } from '@/db/types';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
-  import { FileText, StickyNote, Layout } from '@lucide/svelte';
 
   interface Props {
     source: MarkdownSource;
@@ -23,6 +22,7 @@
 
   function handleSelect(m: Markdown) {
     currentMarkdown = m;
+    source = m.source;
   }
 
   function handleSave(m: Markdown) {
@@ -30,9 +30,12 @@
     sidebar?.upsertItem(m);
   }
 
-  async function createNew(targetSource: MarkdownSource) {
+  async function createNew(prefix: string) {
+      const targetSource = getSourceFromLink(prefix);
       source = targetSource;
       const newMd = initMarkdown(source);
+      newMd.link = prefix;
+      
       if (source === MarkdownSource.Memo) {
          const result = await actions.db.markdown.getNewMemoSubject();
          if (result.data) {
@@ -48,29 +51,14 @@
 <div class="flex flex-1 h-full overflow-hidden w-full">
     <!-- Sidebar Container -->
     <div class="{showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
-        <div class="pt-5 flex gap-1">
-             <button class="btn flex-1" onclick={() => createNew(MarkdownSource.Post)} title="New Post">
-                <FileText size={14} />
-                <span>Post</span>
-             </button>
-             <button class="btn flex-1" onclick={() => createNew(MarkdownSource.Memo)} title="New Memo">
-                <StickyNote size={14} />
-                <span>Memo</span>
-             </button>
-             <button class="btn flex-1" onclick={() => createNew(MarkdownSource.Page)} title="New Page">
-                <Layout size={14} />
-                <span>Page</span>
-             </button>
-        </div>
-        <div class="flex-1 overflow-hidden">
-            {#key source}
+        <div class="flex-1 overflow-hidden pt-5">
              <Sidebar
                 bind:this={sidebar}
                 currentId={currentMarkdown.id}
                 onSelect={handleSelect}
+                onCreate={createNew}
                 initialItems={source === initialSource ? initialItems : null}
              />
-            {/key}
         </div>
     </div>
 
@@ -80,7 +68,7 @@
              <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
                  <Editor 
                     markdown={currentMarkdown} 
-                    {source} 
+                    bind:source={source} 
                     {allPosts} 
                     toggleSidebar={() => showSidebar = !showSidebar}
                     onSave={handleSave}

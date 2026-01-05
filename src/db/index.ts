@@ -27,6 +27,16 @@ export const MarkdownSubjectMap: Record<MarkdownSource, string> = {
   [MarkdownSource.Unknown]: '404',
 }
 
+export function getSourceFromLink(link: string): MarkdownSource {
+  if (link.startsWith('memo/')) {
+    return MarkdownSource.Memo
+  }
+  if (link.startsWith('post/')) {
+    return MarkdownSource.Post
+  }
+  return MarkdownSource.Page
+}
+
 export function getMarkdownSourceKey(source: MarkdownSource) {
   return Object.keys(MarkdownSourceMap).find(key => MarkdownSourceMap[key as keyof typeof MarkdownSourceMap] === source) as keyof typeof MarkdownSourceMap
 }

@@ -1,15 +1,16 @@
 <script lang="ts">
   import { actions } from 'astro:actions';
   import type { Markdown } from '@/db/types';
-  import { Calendar } from '@lucide/svelte';
+  import { Calendar, Plus } from '@lucide/svelte';
 
   interface Props {
     onSelect: (m: Markdown) => void;
+    onCreate: (prefix: string) => void;
     currentId: number;
     initialItems?: Markdown[] | null;
   }
 
-  let { onSelect, currentId, initialItems = null }: Props = $props();
+  let { onSelect, onCreate, currentId, initialItems = null }: Props = $props();
 
   let items = $state<Markdown[]>([]);
   let loading = $state(false);
@@ -101,8 +102,11 @@
   <div class="flex-1 overflow-y-auto">
     {#each groupedItems as group}
       {#if group.prefix}
-        <div class="p-2 pt-4 pl-3 text-xs font-bold text-[--koala-subtext-0] border-b border-[--koala-border-subtle]">
-          {group.prefix}
+        <div class="p-2 pt-4 pl-3 text-xs font-bold text-[--koala-subtext-0] border-b border-[--koala-border-subtle] flex justify-between items-center group">
+          <span>{group.prefix}</span>
+          <button class="icon btn opacity-0 group-hover:opacity-100 transition-opacity" onclick={(e) => { e.stopPropagation(); onCreate(group.prefix); }}>
+             <Plus size={14} />
+          </button>
         </div>
       {/if}
       {#each group.items as item}
@@ -114,8 +118,6 @@
           <div class="flex items-center gap-1 text-sm text-[--koala-subtext-0] mb-1">
             <span class="truncate">{item.link.substring(group.prefix.length)}.md</span>
           </div>
-
-          <!-- <div class="font-medium text-sm truncate mb-1" title={item.subject}>{item.subject || 'Untitled'}</div> -->
 
           <div class="flex items-center gap-1 text-xs text-[--koala-subtext-0] mb-1">
             <Calendar size={12} />

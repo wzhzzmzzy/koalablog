@@ -99,6 +99,7 @@ export function batchAdd(
 export function update(
   env: Env,
   id: number,
+  source: MarkdownSource,
   link: string,
   subject: string,
   content: string,
@@ -107,6 +108,7 @@ export function update(
   tags?: string,
 ) {
   return connectDB(env).update(markdown).set({
+    source,
     link,
     subject,
     content,

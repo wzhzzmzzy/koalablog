@@ -40,7 +40,7 @@ export const save = defineAction({
     const { id, link, subject, content, source, outgoingLinks, private: privated, tags } = input
     const env = ctx.locals.runtime?.env || {}
     if (id) {
-      return update(env, id, link, subject, content, JSON.stringify(outgoingLinks), privated, tags)
+      return update(env, id, source, link, subject, content, JSON.stringify(outgoingLinks), privated, tags)
     }
     else {
       return add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated, tags)

@@ -1,6 +1,5 @@
 <script lang="ts">
-  import type { Markdown } from '@/db/types'
-  import { MarkdownSource, getMarkdownSourceKey } from '@/db'
+  import { MarkdownSource, getSourceFromLink, getMarkdownSourceKey } from '@/db'
   import { linkGenerator } from '@/db/markdown'
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
@@ -21,7 +20,7 @@
 	}
 
   let editorForm: HTMLFormElement
-  let { markdown, source, toggleSidebar, allPosts: initialAllPosts = [], onSave }: Props = $props()
+  let { markdown, source = $bindable(), toggleSidebar, allPosts: initialAllPosts = [], onSave }: Props = $props()
 
   let subjectValue = $state(markdown.subject ?? '')
   let textareaValue = $state(markdown.content ?? '')
@@ -74,12 +73,8 @@
     }
   })
   function onInputLink(e: Event) {
-    if (source === MarkdownSource.Post && !(e.target! as HTMLInputElement).value.startsWith('post/')) {
-      linkValue = 'post/'
-    }
-    if (source === MarkdownSource.Memo && !(e.target! as HTMLInputElement).value.startsWith('memo/')) {
-      linkValue = 'memo/'
-    }
+    const val = (e.target as HTMLInputElement).value
+    source = getSourceFromLink(val)
     
     userDefinedLink = true
   }
