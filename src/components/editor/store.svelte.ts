@@ -15,6 +15,29 @@ export const editorStore = $state<{
   history: [],
 })
 
+export const notifyStore = $state<{
+  text: string
+  type: 'info' | 'success' | 'error' | 'warning'
+}>({
+  text: '',
+  type: 'info'
+})
+
+let notifyTimer: NodeJS.Timeout
+
+export function notify(type: 'info' | 'success' | 'error' | 'warning', text: string, timeout = 2000) {
+  notifyStore.type = type
+  notifyStore.text = text
+  
+  if (notifyTimer) clearTimeout(notifyTimer)
+  
+  if (timeout > 0) {
+    notifyTimer = setTimeout(() => {
+      notifyStore.text = ''
+    }, timeout)
+  }
+}
+
 export const drafts = new SvelteMap<string, Markdown>()
 
 export function setDraft(link: string, markdown: Markdown) {

@@ -10,7 +10,7 @@
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
   import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
-  import { editorStore, upsertItem, popHistory, setCurrentMarkdown, setDraft, removeDraft, drafts } from './store.svelte';
+  import { editorStore, upsertItem, popHistory, setCurrentMarkdown, setDraft, removeDraft, drafts, notify } from './store.svelte';
 
   interface Props {
 		markdown: Markdown;
@@ -49,8 +49,6 @@
     textareaValue = data.content ?? '';
     privateValue = data.private ?? false;
     linkValue = data.link ?? '';
-    formError = '';
-    success = '';
   });
 
   // Generate preview when subject / content changed
@@ -113,10 +111,6 @@
     showDeleteConfirm = false
   }
 
-  let formError = $state('')
-  let formWarn = $state('')
-  let success = $state('')
-
   async function processFileUpload(file: File, placeholder?: string) {
     try {
       const blob = await convertToWebP(file)
@@ -138,17 +132,12 @@
           // Append to end if no placeholder
           textareaValue = `${textareaValue}\n${markdownLink}`
         }
-        success = 'Uploaded Successfully'
-        
-        // Auto clear success message
-        setTimeout(() => {
-           if (success === 'Uploaded Successfully') success = ''
-        }, 3000)
+        notify('success', 'Uploaded Successfully', 3000)
       } else if (fileKey.error) {
         throw new Error(fileKey.error.message)
       }
     } catch(e: any) {
-      formError = e.message
+      notify('error', e.message)
       if (placeholder) {
         // Remove placeholder on error
         textareaValue = textareaValue.replace(placeholder, '')
@@ -255,7 +244,7 @@
       const result = await actions.form.setPrivate(formData)
       
       if (result.error) {
-        formError = result.error.message
+        notify('error', result.error.message)
         privateValue = !newPrivateValue // Revert
       } else {
         if (result.data?.[0]) {
@@ -314,35 +303,20 @@
     const result = await actions.form.save(formData)
 
     if (result.error) {
-      formError = result.error.message
-      success = ''
+      notify('error', result.error.message)
     } else {
-      formWarn = ''
-      formError = ''
-      success = 'Saved Success'
+      notify('success', 'Saved Success', 3000)
       if (result.data?.[0]) {
         markdown = result.data[0]
         onSave?.(markdown)
         upsertItem(markdown)
         removeDraft(oldLink)
       }
-
-      setTimeout(() => {
-        success = ''
-      }, 3000)
     }
   }
 </script>
 
 <div class="w-full flex-1 flex flex-col pt-5">
-  {#if success || formError || formWarn}
-    <div class="fixed top-20 right-8 z-[100] px-6 py-4 bg-[--koala-blockquote-bg] border-4 border-[--koala-text]">
-      <span class="font-bold font-mono text-lg {formError ? 'text-[--koala-error-text]' : 'text-[--koala-text]'}">
-        {success || formError || formWarn}
-      </span>
-    </div>
-  {/if}
-
   {#if showDeleteConfirm}
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-[--koala-input-bg] px-5 py-2 sm:p-6 rounded-lg max-w-[50vw] sm:max-w-md sm:w-full">

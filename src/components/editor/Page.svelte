@@ -5,6 +5,7 @@
   import { initMarkdown } from '@/db/types';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
+  import Notification from './Notification.svelte';
   import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, drafts } from './store.svelte';
 
   interface Props {
@@ -70,6 +71,7 @@
       if (result.data) {
         newMd.subject = result.data;
         newMd.link = `${prefix}${result.data}`
+        newMd.private = true
       } else if (result.error) {
           console.error('Error fetching memo subject', result.error);
       }
@@ -79,6 +81,7 @@
 </script>
 
 <div class="flex flex-1 h-full overflow-hidden w-full">
+    <Notification />
     <!-- Sidebar Container -->
     <div class="{showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
         <div class="flex-1 overflow-hidden pt-5">
