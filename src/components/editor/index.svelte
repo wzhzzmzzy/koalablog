@@ -10,16 +10,15 @@
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
   import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
-  import { editorStore, upsertItem, popHistory, setCurrentMarkdown, setDraft, removeDraft, drafts, notify } from './store.svelte';
+  import { editorStore, upsertItem, popHistory, setCurrentMarkdown, setDraft, removeDraft, drafts, notify, toggleSidebar } from './store.svelte';
 
   interface Props {
 		markdown: Markdown;
-    toggleSidebar?: () => void;
     onSave?: (m: Markdown) => void;
 	}
 
   let editorForm: HTMLFormElement
-  let { markdown, toggleSidebar, onSave }: Props = $props()
+  let { markdown, onSave }: Props = $props()
 
   let subjectValue = $state(markdown.subject ?? '')
   let textareaValue = $state(markdown.content ?? '')
@@ -379,15 +378,13 @@
   <form bind:this={editorForm} method="POST" class="flex-1 flex flex-col h-full overflow-hidden">
     <div class="flex justify-between items-center mb-2 gap-4 shrink-0">
       <div class="flex items-center gap-2 shrink-0">
-        {#if toggleSidebar}
-          <button 
-            type="button"
-            class="icon btn"
-            onclick={(e) => { e.preventDefault(); toggleSidebar(); }}
-          >
-            <Menu size={20} />
-          </button>
-        {/if}
+        <button 
+          type="button"
+          class="icon btn"
+          onclick={(e) => { e.preventDefault(); toggleSidebar(); }}
+        >
+          <Menu size={20} />
+        </button>
         <button class="icon btn {editorStore.history.length <= 1 ? 'hidden' : ''}" onclick={back}><ArrowLeft size={20} /></button>
       </div>
 

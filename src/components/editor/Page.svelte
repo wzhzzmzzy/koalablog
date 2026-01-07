@@ -6,7 +6,7 @@
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
-  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, drafts } from './store.svelte';
+  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, drafts, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY } from './store.svelte';
 
   interface Props {
     initialMarkdown: Markdown;
@@ -16,16 +16,25 @@
 
   let { initialMarkdown, initialItems = null, isMobile = false }: Props = $props();
 
+  // 启用自动持久化
+  useEditorPersistence();
+
   // 统一初始化 Store
   if (initialItems) {
     setItems(initialItems);
+  }
+
+  // Only override sidebar if no stored preference exists or it's mobile
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(SIDEBAR_STORAGE_KEY) === null) {
+    setShowSidebar(!isMobile);
+  } else if (isMobile) {
+    // Force sidebar closed on mobile initialization for better UX
+    setShowSidebar(false);
   }
   
   // Init History and Current
   pushHistory(initialMarkdown.link);
   setCurrentMarkdown(initialMarkdown);
-
-  let showSidebar = $state(!isMobile);
 
   // Sync URL with currentMarkdown
   $effect(() => {
@@ -51,7 +60,7 @@
     }
 
     if (window.innerWidth < 768) {
-      showSidebar = false;
+      setShowSidebar(false);
     }
   }
 
@@ -95,7 +104,7 @@
 <div class="flex flex-1 h-full overflow-hidden w-full">
     <Notification />
     <!-- Sidebar Container -->
-    <div class="{showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
+    <div class="{editorStore.showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
         <div class="flex-1 overflow-hidden pt-5">
              <Sidebar
                 currentId={editorStore.currentMarkdown?.id || 0}
@@ -111,7 +120,6 @@
              <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
                  <Editor 
                     markdown={editorStore.currentMarkdown} 
-                    toggleSidebar={() => showSidebar = !showSidebar}
                     onSave={handleSave}
                  />
              </div>
