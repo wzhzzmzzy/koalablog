@@ -1,3 +1,8 @@
-button.icon {
-  --at-apply: w-10 py-2;
+#page button.icon {
+  --at-apply: w-10 py-2 rounded inline-flex items-center justify-center;
+  background-color: transparent;
+}
+
+#page button.icon:hover {
+  background-color: var(--koala-icon-btn-bg);
 }

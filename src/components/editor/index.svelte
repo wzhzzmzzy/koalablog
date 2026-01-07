@@ -232,6 +232,36 @@
     window.location.href = target
   }
 
+  function formatError(message: string) {
+    const prefix = 'Failed to validate: '
+    if (message && message.startsWith(prefix)) {
+      try {
+        const jsonStr = message.slice(prefix.length)
+        const errors = JSON.parse(jsonStr)
+        if (Array.isArray(errors)) {
+          const fieldMap: Record<string, string> = {
+            link: 'File Path',
+            subject: 'Title',
+            content: 'Content',
+            source: 'Source',
+            private: 'Visibility',
+            id: 'ID',
+            outgoingLinks: 'Links'
+          }
+          
+          return errors.map((err: any) => {
+            const field = err.path?.[0]
+            const fieldName = field ? (fieldMap[field] || field) : 'Error'
+            return `${fieldName}: ${err.message}`
+          }).join('\n')
+        }
+      } catch (e) {
+        return message
+      }
+    }
+    return message
+  }
+
   async function togglePrivate(e: Event) {
     e.preventDefault()
     const newPrivateValue = !privateValue
@@ -244,7 +274,7 @@
       const result = await actions.form.setPrivate(formData)
       
       if (result.error) {
-        notify('error', result.error.message)
+        notify('error', formatError(result.error.message))
         privateValue = !newPrivateValue // Revert
       } else {
         if (result.data?.[0]) {
@@ -303,7 +333,7 @@
     const result = await actions.form.save(formData)
 
     if (result.error) {
-      notify('error', result.error.message)
+      notify('error', formatError(result.error.message))
     } else {
       notify('success', 'Saved Success', 3000)
       if (result.data?.[0]) {
@@ -369,16 +399,17 @@
           bind:value={linkValue}
           oninput={onInputLink}
           onkeydown={(e) => e.key === 'Enter' && e.preventDefault()}
-          placeholder="File Path"
+          placeholder="Input Path..."
         />
       </div>
 
       <div class="flex items-center gap-1 shrink-0">
         <button
           type="button"
-          class="icon btn"
+          class="icon btn {markdown.id > 0 ? '' : 'opacity-30 !cursor-not-allowed'}"
           onclick={togglePrivate}
-          title={privateValue ? "Private" : "Public"}
+          disabled={!(markdown.id > 0)}
+          title={markdown.id > 0 ? (privateValue ? "Private" : "Public") : "Save first to set privacy"}
         >
           {#if privateValue}
             <Lock size={20} />
@@ -387,7 +418,39 @@
           {/if}
         </button>
         <button id="save" class="icon btn {changed ? '!text-[--koala-success-text]' : '' }" onclick={save}><Save size={20} /></button>
-        <button class="icon btn" onclick={toggleToolbar}><Ellipsis size={20} /></button>
+
+        <!-- <button class="icon btn" onclick={toggleToolbar}><Ellipsis size={20} /></button> -->
+
+        <button id="upload" class="icon btn" onclick={upload} title="Upload Image"><Upload size={20} /></button>
+        <button id="preview" class="icon btn" onclick={preview} title="Toggle Preview">
+        {#if showPreview}
+            <SquarePen size={20} />
+        {:else}
+            <Eye size={20} />
+        {/if}
+        </button>
+        {#if markdown.id > 0}
+        <button
+            type="button"
+            class="icon !text-[--koala-error-text] btn"
+            onclick={openDeleteConfirm}
+            title="Delete"
+        >
+            <Trash2 size={20} />
+        </button>
+        <button
+            type="button"
+            class="icon btn"
+            onclick={copyLink}
+            title="Copy Link"
+        >
+            {#if copyBtnText === 'Copied'}
+            <Check size={20} />
+            {:else}
+            <Link size={20} />
+            {/if}
+        </button>
+        {/if}
       </div>
     </div>
 
@@ -398,36 +461,6 @@
     <div class="flex flex-col gap-2 mb-2 py-2 px-2 bg-[--koala-bg] rounded border border-[--koala-border] shrink-0">
       <div class="flex items-center gap-3 justify-between">
         <div class="flex items-center gap-2">
-            <button id="upload" class="icon btn" onclick={upload} title="Upload Image"><Upload size={20} /></button>
-            <button id="preview" class="icon btn" onclick={preview} title="Toggle Preview">
-            {#if showPreview}
-                <SquarePen size={20} />
-            {:else}
-                <Eye size={20} />
-            {/if}
-            </button>
-            {#if markdown.id > 0}
-            <button
-                type="button"
-                class="icon !text-[--koala-error-text] btn"
-                onclick={openDeleteConfirm}
-                title="Delete"
-            >
-                <Trash2 size={20} />
-            </button>
-            <button
-                type="button"
-                class="icon btn"
-                onclick={copyLink}
-                title="Copy Link"
-            >
-                {#if copyBtnText === 'Copied'}
-                <Check size={20} />
-                {:else}
-                <Link size={20} />
-                {/if}
-            </button>
-            {/if}
         </div>
         
         <div class="flex items-center gap-2">
@@ -441,13 +474,13 @@
       id="subject-input"
       type="text"
       name="subject"
-      class="text-[--koala-text] {showPreview ? 'hidden' : ''} w-full text-2xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
+      class="text-[--koala-text] {showPreview ? 'hidden' : ''} w-full text-xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
       bind:value={subjectValue}
       placeholder="Title"
     />
 
     <textarea
-      class="text-base w-full flex-1 box-border bg-transparent border-none outline-none resize-none p-2 {showPreview ? 'hidden' : ''}" 
+      class="text-sm w-full flex-1 box-border bg-transparent border-none outline-none resize-none p-2 {showPreview ? 'hidden' : ''}" 
       name="content" 
       placeholder="Type here..."
       bind:value={textareaValue}

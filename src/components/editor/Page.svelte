@@ -64,7 +64,6 @@
   async function createNew(prefix: string) {
     const targetSource = getSourceFromLink(prefix);
     const newMd = initMarkdown(targetSource);
-    newMd.link = prefix;
     
     if (targetSource === MarkdownSource.Memo) {
       const result = await actions.db.markdown.getNewMemoSubject();
@@ -74,7 +73,20 @@
         newMd.private = true
       } else if (result.error) {
           console.error('Error fetching memo subject', result.error);
+          newMd.link = prefix;
       }
+    } else {
+      let baseName = 'unnamed';
+      let counter = 0;
+      let candidate = `${prefix}${baseName}`;
+      
+      const exists = (link: string) => editorStore.items.some(i => i.link === link);
+
+      while(exists(candidate)) {
+        counter++;
+        candidate = `${prefix}${baseName}-${counter}`;
+      }
+      newMd.link = candidate;
     }
     setCurrentMarkdown(newMd);
   }
