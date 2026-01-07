@@ -23,7 +23,7 @@ export const save = defineAction({
         link: z.string(),
       })).default([]),
     ).default([]),
-    private: z.boolean().default(false),
+    private: z.preprocess(a => a === 'true', z.boolean().default(false)),
     tags: z.optional(z.string().default('')),
   }).refine((val) => {
     if (val.source === MarkdownSource.Post) {

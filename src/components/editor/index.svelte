@@ -310,6 +310,7 @@
     const contentTags = tagEls.map(el => el.getAttribute('data-tag')).filter(Boolean) as string[];
     
     formData.append('tags', contentTags.join(','))
+    formData.append('private', String(privateValue));
 
     const oldLink = markdown.link
     const newLink = formData.get('link') as string
@@ -464,7 +465,6 @@
         </div>
         
         <div class="flex items-center gap-2">
-          <input type="checkbox" class="hidden" name="private" bind:checked={privateValue} />
         </div>
       </div>
     </div>
