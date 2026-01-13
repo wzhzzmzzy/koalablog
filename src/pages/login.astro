@@ -87,7 +87,7 @@ class LoginForm extends HTMLElement {
 
     const searchParams = new URLSearchParams(window.location.search)
     const redirectTo = searchParams.get('from') || '/'
-    window.location.pathname = redirectTo
+    window.location.href = redirectTo
   }
 }
 

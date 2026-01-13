@@ -45,12 +45,21 @@ export async function authInterceptor(ctx: APIContext | ActionAPIContext) {
   const accessToken = ctx.cookies.get(ACCESS_TOKEN_KEY)
   const refreshToken = ctx.cookies.get(REFRESH_TOKEN_KEY)
 
-  const tokenRole = (accessToken && await tokenVerify(accessToken.value, config.auth.adminKey!)) || ''
-  const authed = tokenRole === ''
-  const needRefresh = !authed && refreshToken && refreshToken?.value === config._runtime.refresh_token && isBefore(new Date(), config._runtime.refresh_expired_at || 0)
+  let tokenRole = (accessToken && await tokenVerify(accessToken.value, config.auth.adminKey!)) || ''
 
-  if (needRefresh) {
-    await updateCookieToken(ctx, { role: tokenRole }, { key: config.auth.adminKey, refresh: tokenRole === 'admin' })
+  // If access token is invalid/expired, try to refresh using refresh token
+  if (!tokenRole && refreshToken) {
+    const isValidRefreshToken = refreshToken.value === config._runtime.refresh_token
+      && isBefore(new Date(), config._runtime.refresh_expired_at || 0)
+
+    if (isValidRefreshToken) {
+      tokenRole = 'admin'
+      await updateCookieToken(
+        ctx,
+        { role: tokenRole },
+        { key: config.auth.adminKey, refresh: true },
+      )
+    }
   }
 
   ctx.locals.session = {
