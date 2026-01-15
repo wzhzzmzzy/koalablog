@@ -8,6 +8,7 @@ export interface DashboardRoute {
 
 export const DASHBOARD_SETTINGS_ROUTE: Array<DashboardRoute> = ([
   { link: 'edit', mode: 'editor' },
+  { link: 'edit-beta', mode: 'editor' },
   { link: 'oss', name: 'OSS', mode: 'standalong' },
   { link: 'settings', mode: 'standalone' },
 ] as Pick<DashboardRoute, 'link' | 'mode' | 'name'>[])

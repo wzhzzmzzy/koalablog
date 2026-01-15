@@ -22,7 +22,7 @@ export const save = defineAction({
         subject: z.string(),
         link: z.string(),
       })).default([]),
-    ).default([]),
+    ).default('[]'),
     private: z.preprocess(a => a === 'true', z.boolean().default(false)),
     tags: z.optional(z.string().default('')),
   }).refine((val) => {

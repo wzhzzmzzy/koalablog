@@ -1,0 +1,22 @@
+# Tasks: Implement ByteMD Editor (Beta)
+
+- [x] Install ByteMD dependencies <!-- id: install-deps -->
+    - `npm install bytemd @bytemd/svelte @bytemd/plugin-gfm`
+- [x] Create `src/components/editor/EditorByteMD.svelte` <!-- id: create-editor-component -->
+    - Implement ByteMD editor wrapper.
+    - Configure for "tab" mode (no built-in split preview).
+    - Bind value to props.
+- [x] Create `src/components/editor/RightPanel.svelte` <!-- id: create-right-panel -->
+    - Implement Tabs (Outline / Preview).
+    - Implement Preview using ByteMD Viewer.
+    - Implement Outline extraction and display.
+- [x] Create `src/components/editor/PageBeta.svelte` <!-- id: create-page-beta -->
+    - Implement 3-column layout.
+    - Integrate `Sidebar` (existing), `EditorByteMD`, and `RightPanel`.
+    - Connect to `editorStore`.
+- [x] Create `src/pages/dashboard/edit-beta.astro` <!-- id: create-route -->
+    - Duplicate logic from `edit.astro` but render `PageBeta`.
+- [x] Verify Beta Editor <!-- id: verify -->
+    - Check route `/dashboard/edit-beta`.
+    - Verify editing updates preview.
+    - Verify file tree navigation works.

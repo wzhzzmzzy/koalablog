@@ -1,0 +1,43 @@
+---
+import PageBeta from '@/components/editor/PageBeta.svelte'
+import { MarkdownSource } from '@/db'
+import { generateMemoSubject, justReadAll } from '@/db/markdown'
+import { initMarkdown } from '@/db/types'
+import DashboardLayout from '@/layouts/dashboard.astro'
+
+const url = Astro.url
+const id = Number(url.searchParams.get('id') || '0')
+const link = url.searchParams.get('link')
+const isMemo = url.searchParams.has('memo')
+
+let article = initMarkdown()
+
+let initialItems: Awaited<ReturnType<typeof justReadAll>> = []
+initialItems = await justReadAll(Astro.locals.runtime?.env)
+
+if (id) {
+  const found = initialItems.find(i => i.id === id)
+  if (found) {
+    article = found
+  }
+}
+else if (link) {
+  const found = initialItems.find(i => i.link === link)
+  if (found) {
+    article = found
+  }
+}
+else if (isMemo) {
+  article = initMarkdown(MarkdownSource.Memo)
+  const memoSubject = await generateMemoSubject(Astro.locals.runtime?.env)
+  article.subject = memoSubject
+  article.link = memoSubject
+}
+
+const userAgent = Astro.request.headers.get('user-agent') || ''
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+---
+
+<DashboardLayout title={`[Editor Beta] ${article.subject || 'New File'}`} showHeader={false}>
+  <PageBeta client:load initialMarkdown={article} initialItems={initialItems} isMobile={isMobile} />
+</DashboardLayout>
