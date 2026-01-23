@@ -36,8 +36,8 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
         <Outline client:load title={article.subject} headings={headings} />
       )}
     </div>
-    <article id="article" />
-    <article id="serverArticle" set:html={contentWithIds} />
+    <article class="article" id="article" />
+    <article class="article" id="serverArticle" set:html={contentWithIds} />
   </article-client>
 </main>
 

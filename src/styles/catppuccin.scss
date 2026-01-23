@@ -24,7 +24,7 @@ body {
     font-family: theme.font-family("sans");
   }
 
-  article#article {
+  article.article {
     // 代码相关元素使用 Monospace 字体
     code,
     pre,
@@ -35,12 +35,12 @@ body {
   }
 
   // 文章内容段落默认使用 Sans-serif (继承自 body)，引用块使用 Serif 增加层次感
-  article#article blockquote {
+  article.article blockquote {
     font-family: theme.font-family("serif");
   }
 
   // 文章内容列表
-  article#article li {
+  article.article li {
     font-family: theme.font-family("sans");
   }
 

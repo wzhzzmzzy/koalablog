@@ -34,9 +34,9 @@ body {
   margin: 0;
 }
 
-#page { 
-  flex: 1; 
-} 
+#page {
+  flex: 1;
+}
 
 p,
 li {
@@ -60,7 +60,7 @@ div.code-block span.code-lang {
   cursor: pointer;
 }
 
-article#article .shiki {
+article.article .shiki {
   background: inherit !important;
 }
 
@@ -74,8 +74,6 @@ ul {
   border: none;
   --at-apply: h-10 w-18 text-[16px];
 }
-
-
 
 input.input {
   border: none;
@@ -92,7 +90,7 @@ img {
   max-width: 100%;
 }
 
-article#article code {
+article.article code {
   font-size: 14px;
   padding: 2px 4px;
   border-radius: 5px;
@@ -152,7 +150,6 @@ ul .task-list-item {
 .task-list-item.checked .task-list-marker {
   color: var(--koala-catppuccin-green);
 }
-
 
 span.line span {
   color: var(--shiki-light);
