@@ -1,5 +1,5 @@
 @use "theme-utils" as theme;
-
+//
 // 默认主题 (Latte)
 body {
   @include theme.generate-theme();
@@ -24,26 +24,23 @@ body {
     font-family: theme.font-family("sans");
   }
 
-  // 代码相关元素使用 Monospace 字体
-  code,
-  pre,
-  .code-block,
-  span.code-lang {
-    font-family: theme.font-family("mono");
-  }
-
-  // 编辑器文本区域使用 Monospace 字体
-  textarea {
-    font-family: theme.font-family("mono");
+  article.article {
+    // 代码相关元素使用 Monospace 字体
+    code,
+    pre,
+    .code-block,
+    span.code-lang {
+      font-family: theme.font-family("mono");
+    }
   }
 
   // 文章内容段落默认使用 Sans-serif (继承自 body)，引用块使用 Serif 增加层次感
-  article blockquote {
+  article.article blockquote {
     font-family: theme.font-family("serif");
   }
 
   // 文章内容列表
-  article li {
+  article.article li {
     font-family: theme.font-family("sans");
   }
 
@@ -74,17 +71,6 @@ body {
 
   blockquote {
     border-left-color: var(--koala-blockquote-text);
-  }
-
-  textarea {
-    background: transparent;
-    border: none;
-    color: var(--koala-editor-text);
-  }
-
-  textarea::selection {
-    background-color: var(--koala-editor-selection-bg);
-    color: var(--koala-edit-text);
   }
 
   div.code-block {

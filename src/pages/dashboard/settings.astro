@@ -27,6 +27,7 @@ const avatar = pageConfig.avatar ?? ''
 const guestKey = authConfig.guestKey ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
+const editor = pageConfig.editor ?? 'textarea'
 
 const ossConfig = Astro.locals.config.oss
 
@@ -79,6 +80,14 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
         light={lightTheme}
         dark={darkTheme}
       />
+
+      <label>
+        Default Editor:
+      </label>
+      <select class="input w-60 sm:w-80" name="editor">
+        <option value="textarea" selected={editor === 'textarea'}>Textarea (Legacy)</option>
+        <option value="carta" selected={editor === 'carta'}>Carta (Modern)</option>
+      </select>
 
       <label>
         Monthly Read Limit: (today={ossAccess?.readTimes})

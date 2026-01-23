@@ -374,7 +374,7 @@
     </div>
   {/if}
 
-  <form bind:this={editorForm} method="POST" class="flex-1 flex flex-col h-full overflow-hidden">
+  <form bind:this={editorForm} method="POST" class="flex-1 flex flex-col overflow-hidden">
     <div class="flex justify-between items-center mb-2 gap-4 shrink-0">
       <div class="flex items-center gap-2 shrink-0">
         <button 

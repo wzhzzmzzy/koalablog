@@ -17,7 +17,7 @@
   - **UnoCSS** (Utility-first)
   - **Sass/SCSS** (Theme variables & complex mixins)
   - **Tailwind CSS** (via UnoCSS presets)
-- **Markdown Engine**: `markdown-it` with `@shikijs` for highlighting and custom plugins.
+- **Markdown Engine**: `unified` ecosystem (using `remark` for parsing, `rehype` for HTML transformation) with `@shikijs/rehype` for highlighting and custom plugins.
 - **Testing**: [Vitest](https://vitest.dev)
 - **Runtime/Deployment**:
   - Cloudflare Workers/Pages
@@ -51,7 +51,7 @@
   - Return `{ error, data }` objects. Do NOT throw errors to the client; catch and return `error`.
   - Do NOT use `await-to-js` inside actions (they handle safety internally).
 - **Authentication**: JWT-based (`jose`) middleware (`src/middleware.ts`).
-- **Markdown Processing**: Centralized in `src/lib/markdown/`. Includes custom plugins for metadata and bidirectional linking.
+- **Markdown Processing**: Centralized in `src/lib/markdown/`. Includes custom plugins for metadata (YAML frontmatter), bidirectional linking (`[[link]]`), GFM, Math, and custom directives.
 
 ### Testing Strategy
 - **Unit & DB Tests**: `pnpm test` using Vitest.
@@ -82,7 +82,7 @@ An IDE-like markdown editing environment embedded in the application.
 - **Media Handling**:
   - Drag-and-drop and Clipboard paste support in `index.svelte`.
   - Optimistic UI with temporary placeholders (`![Uploading...]`) that resolve to uploaded URLs.
-- **Live Preview**: Client-side `markdown-it` instance mirrors server rendering for immediate feedback.
+- **Live Preview**: Client-side `unified` processor mirrors server rendering for immediate feedback.
 
 ## Domain Context
 - **Content Types**:

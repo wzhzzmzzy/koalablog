@@ -5,6 +5,7 @@
   import { initMarkdown } from '@/db/types';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
+  import CartaEditor from './CartaEditor.svelte';
   import Notification from './Notification.svelte';
   import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, drafts, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY } from './store.svelte';
 
@@ -12,9 +13,10 @@
     initialMarkdown: Markdown;
     initialItems?: Markdown[] | null;
     isMobile?: boolean;
+    editorPref?: 'textarea' | 'carta';
   }
 
-  let { initialMarkdown, initialItems = null, isMobile = false }: Props = $props();
+  let { initialMarkdown, initialItems = null, isMobile = false, editorPref = 'textarea' }: Props = $props();
 
   // 启用自动持久化
   useEditorPersistence();
@@ -101,7 +103,7 @@
   }
 </script>
 
-<div class="flex flex-1 h-full overflow-hidden w-full">
+<div class="flex flex-1 overflow-hidden w-full">
     <Notification />
     <!-- Sidebar Container -->
     <div class="{editorStore.showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
@@ -117,11 +119,18 @@
     <!-- Main Content -->
     <div class="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         {#if editorStore.currentMarkdown}
-             <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
-                 <Editor 
-                    markdown={editorStore.currentMarkdown} 
-                    onSave={handleSave}
-                 />
+             <div class="flex-1 overflow-y-auto px-4 md:px-8 flex flex-col">
+                 {#if editorPref === 'carta'}
+                    <CartaEditor 
+                        markdown={editorStore.currentMarkdown} 
+                        onSave={handleSave}
+                    />
+                 {:else}
+                    <Editor 
+                        markdown={editorStore.currentMarkdown} 
+                        onSave={handleSave}
+                    />
+                 {/if}
              </div>
         {/if}
     </div>

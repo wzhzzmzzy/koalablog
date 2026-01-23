@@ -25,26 +25,22 @@ blockquote {
   --at-apply: border-l border-l-solid ml-8 pl-4;
 }
 
-.code-block {
-  --at-apply: overflow-x-auto max-w-[800px] box-content;
-}
-
+/* .code-block { */
+/*   --at-apply: overflow-x-auto max-w-[800px] box-content; */
+/* } */
+/**/
 body {
   min-height: 100vh;
   margin: 0;
 }
 
-#page {
-  flex: 1;
-}
+#page { 
+  flex: 1; 
+} 
 
 p,
 li {
   line-height: 26px;
-}
-
-textarea {
-  outline: none;
 }
 
 div.code-block {
@@ -64,7 +60,7 @@ div.code-block span.code-lang {
   cursor: pointer;
 }
 
-.shiki {
+article.article .shiki {
   background: inherit !important;
 }
 
@@ -96,7 +92,7 @@ img {
   max-width: 100%;
 }
 
-code:not([class]) {
+article.article code {
   font-size: 16px;
   padding: 2px 4px;
   border-radius: 5px;
