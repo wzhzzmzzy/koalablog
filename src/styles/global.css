@@ -60,7 +60,7 @@ div.code-block span.code-lang {
   cursor: pointer;
 }
 
-article.article .shiki {
+article#article .shiki {
   background: inherit !important;
 }
 
@@ -92,8 +92,8 @@ img {
   max-width: 100%;
 }
 
-article.article code {
-  font-size: 16px;
+article#article code {
+  font-size: 14px;
   padding: 2px 4px;
   border-radius: 5px;
 }
