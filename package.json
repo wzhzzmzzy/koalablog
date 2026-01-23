@@ -85,7 +85,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "^3.11.2",
     "@cloudflare/vitest-pool-workers": "^0.8.0",
-    "@cloudflare/workers-types": "^4.20250424.0",
+    "@cloudflare/workers-types": "^4.20260123.0",
     "@iconify-json/tabler": "^1.2.15",
     "@types/js-yaml": "^4.0.9",
     "@unocss/preset-icons": "^65.4.3",
@@ -100,6 +100,6 @@
     "unocss": "^65.4.3",
     "unplugin-preprocessor-directives": "^1.0.3",
     "vitest": "~3.0.0",
-    "wrangler": "^4.11.0"
+    "wrangler": "^4.60.0"
   }
 }

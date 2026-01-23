@@ -1,4 +1,4 @@
-compatibility_flags = [ "nodejs_compat" ]
+compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2025-04-01"
 main = "./dist/_worker.js/index.js"
 
@@ -27,3 +27,6 @@ bucket_name = "koala"
 [vars]
 DATA_SOURCE = "d1"
 CF_PAGES = 1
+
+[triggers]
+crons = ["*/15 * * * *"]

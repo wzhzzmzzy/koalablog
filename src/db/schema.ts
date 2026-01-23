@@ -31,6 +31,16 @@ export const ossAccess = sqliteTable('oss_access', {
   operateTimes: integer().default(0),
 })
 
+export const markdownRenders = sqliteTable('markdown_renders', {
+  markdownId: integer('markdown_id')
+    .primaryKey()
+    .references(() => markdown.id, { onDelete: 'cascade' }),
+  htmlContent: text('html_content').notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 // #if !CF_PAGES
 export const blobStorage = sqliteTable('blob_storage', {
   id: integer().primaryKey({ autoIncrement: true }),

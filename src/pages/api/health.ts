@@ -20,11 +20,10 @@ export const GET: APIRoute = async ({ locals }) => {
       timestamp,
       database: 'connected',
       environment: {
-        dataSource: process.env.DATA_SOURCE || 'sqlite',
-        deployMode: process.env.DEPLOY_MODE || 'standalone',
-        nodeEnv: process.env.NODE_ENV || 'development',
+        dataSource: import.meta.env.DATA_SOURCE || 'sqlite',
+        deployMode: import.meta.env.DEPLOY_MODE || 'standalone',
+        nodeEnv: import.meta.env.NODE_ENV || 'development',
       },
-      uptime: process.uptime(),
     }
 
     return new Response(JSON.stringify(healthStatus), {
