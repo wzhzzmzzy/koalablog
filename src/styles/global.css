@@ -26,7 +26,7 @@ blockquote {
 }
 
 .code-block {
-  --at-apply: overflow-x-auto max-w-[800px] px-2 box-border;
+  --at-apply: overflow-x-auto max-w-[800px] box-content;
 }
 
 body {
@@ -51,10 +51,6 @@ div.code-block {
   position: relative;
   border-radius: 5px;
   padding: 0 10px;
-}
-
-div.code-block pre {
-  overflow: auto;
 }
 
 div.code-block span.code-lang {
