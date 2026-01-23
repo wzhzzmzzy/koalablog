@@ -45,7 +45,7 @@
       const currentLink = url.searchParams.get('link');
       const currentId = url.searchParams.get('id');
       
-      if (currentLink !== editorStore.currentMarkdown.link || currentId) {
+      if (currentLink && (currentLink !== editorStore.currentMarkdown.link || currentId)) {
         url.searchParams.set('link', editorStore.currentMarkdown.link);
         url.searchParams.delete('id');
         window.history.pushState({}, '', url);
