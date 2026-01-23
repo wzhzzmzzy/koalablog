@@ -25,10 +25,10 @@ blockquote {
   --at-apply: border-l border-l-solid ml-8 pl-4;
 }
 
-/* .code-block { */
-/*   --at-apply: overflow-x-auto max-w-[800px] box-content; */
-/* } */
-/**/
+article.article .code-block {
+  --at-apply: overflow-x-auto;
+}
+
 body {
   min-height: 100vh;
   margin: 0;
