@@ -79,6 +79,7 @@ export function createProcessor(options: ProcessorOptions = {}) {
 
   if (options.shiki) {
     processor.use(rehypeShikiFromHighlighter, options.shiki.highlighter, {
+      inline: 'tailing-curly-colon',
       themes: {
         light: options.shiki.theme,
         dark: options.shiki.theme,

@@ -20,7 +20,7 @@ const isBigArticle = (article.content || '').length > 1000
 // Parse outgoing links if they exist
 let outgoingLinks: DoubleLinkPluginOptions['allPostLinks'] = []
 if (article.outgoing_links) {
-  outgoingLinks = parseJson(article.outgoing_links)
+  outgoingLinks = parseJson(article.outgoing_links) || []
 }
 
 const { content, renderLangSet } = await render({

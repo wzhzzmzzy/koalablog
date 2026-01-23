@@ -2,13 +2,12 @@
   import { getSourceFromLink, getMarkdownSourceKey } from '@/db'
   import type { Markdown } from '@/db/types';
   import { onMount } from 'svelte';
-  import { md } from '@/lib/markdown';
-  import type MarkdownIt from 'markdown-it';
+  import { md, type KoalaMdInstance } from '@/lib/markdown';
   import { actions } from 'astro:actions';
   import { convertToWebP, pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
   import { parseJson } from '@/lib/utils/parse-json';
-  import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
-  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen } from '@lucide/svelte';
+  import type { DoubleLinkPluginOptions } from '@/lib/markdown';
+  import { Save, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
   import { editorStore, upsertItem, popHistory, setCurrentMarkdown, setDraft, removeDraft, drafts, notify, toggleSidebar } from './store.svelte';
 
@@ -59,7 +58,7 @@
     document.title = `[Editor] ${subjectValue || 'New File'}`
   })
 
-  let mdInstance: MarkdownIt | null = null
+  let mdInstance: KoalaMdInstance | null = null
   
   onMount(async () => {
     mdInstance = await md({ allPostLinks: editorStore.items })
@@ -84,7 +83,7 @@
       previewMd = `# ${subjectValue}\n\n${textareaValue}`
     }
     if (mdInstance) {
-      previewHtml = mdInstance.render(previewMd)
+      previewHtml = await mdInstance.render(previewMd)
       setTimeout(() => {
         window.refreshCopyListener();
         window.refreshTagListener();

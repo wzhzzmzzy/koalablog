@@ -3,7 +3,7 @@ import { findAndReplace } from 'mdast-util-find-and-replace'
 export function remarkTag() {
   return (tree: any) => {
     findAndReplace(tree, [
-      /(^|\s)(#[a-z0-9]+)(\s|$)/gi,
+      /(^|\s)(#[a-z0-9]+)(\s|$|#)/gi,
       (match: string, prefix: string, tag: string, suffix: string) => {
         // match: " #tag "
         // prefix: " "
