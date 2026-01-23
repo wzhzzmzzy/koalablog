@@ -1,11 +1,8 @@
 ---
 import type { Markdown } from '@/db/types'
-import ArticleClient from '@/components/article-view/client.astro'
-import ArticleView from '@/components/article-view/index.astro'
+import ArticlePage from '@/components/article-view/ArticlePage.astro'
 import { MarkdownSource } from '@/db'
 import { read } from '@/db/markdown'
-import Layout from '@/layouts/home.astro'
-import { renderIt } from '@/lib/markdown/render-it'
 import { retriveRss } from '@/lib/utils/rss'
 
 const { slug } = Astro.params
@@ -24,17 +21,6 @@ if (maybePage.private) {
     return Astro.redirect(`/guest-login?id=${maybePage.id}`)
   }
 }
-
-const pageConfig = Astro.locals.config.pageConfig
-const isBigArticle = (maybePage?.content || '').length > 1000
-const { content, renderLangSet } = await renderIt(isBigArticle, maybePage, pageConfig.theme)
-const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
 ---
 
-<Layout title={maybePage!.subject} desc={firstParagraph?.[1]}>
-  {
-    !isBigArticle
-    ? <ArticleView article={maybePage} content={content} />
-    : <ArticleClient article={maybePage} content={content} renderLangSet={renderLangSet} />
-  }
-</Layout>
+<ArticlePage article={maybePage} />

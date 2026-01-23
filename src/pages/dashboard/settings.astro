@@ -106,7 +106,7 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <h3>Fonts</h3>
       <label>CDN URL (e.g. Google Fonts CSS link)</label>
       <input class="input w-full" type="text" name="fontCDN" value={fontConfig?.cdn} placeholder="https://fonts.googleapis.com/css2?..." />
-      
+
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label>Sans (UI/Body)</label>
@@ -189,22 +189,26 @@ class SettingForm extends HTMLElement {
   async uploadAvatar() {
     try {
       const files = await pickFileWithFileInput()
-      if (!files || files.length === 0) return
-      
+      if (!files || files.length === 0)
+        return
+
       this.uploadAvatarBtn.disabled = true
       const { data, error } = await uploadFile('oss', files)
-      
+
       if (error) {
         console.error(error)
-        alert('Upload failed: ' + error.message)
-      } else if (data) {
+        alert(`Upload failed: ${error.message}`)
+      }
+      else if (data) {
         const url = `/api/oss/${data.replace('/', '_')}`
         this.avatarInputEl.value = url
       }
-    } catch (e) {
+    }
+    catch (e) {
       console.error(e)
       alert('Upload failed')
-    } finally {
+    }
+    finally {
       this.uploadAvatarBtn.disabled = false
     }
   }

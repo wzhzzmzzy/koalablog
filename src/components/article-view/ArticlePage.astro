@@ -1,0 +1,42 @@
+---
+import type { Markdown } from '@/db/types'
+import type { DoubleLinkPluginOptions } from '@/lib/markdown'
+import ArticleClient from '@/components/article-view/client.astro'
+import ArticleView from '@/components/article-view/index.astro'
+import Layout from '@/layouts/home.astro'
+import { render } from '@/lib/markdown'
+import { parseJson } from '@/lib/utils/parse-json'
+
+interface Props {
+  article: Markdown
+}
+
+const { article } = Astro.props
+const pageConfig = Astro.locals.config.pageConfig
+
+// Unified logic for big article detection
+const isBigArticle = (article.content || '').length > 1000
+
+// Parse outgoing links if they exist
+let outgoingLinks: DoubleLinkPluginOptions['allPostLinks'] = []
+if (article.outgoing_links) {
+  outgoingLinks = parseJson(article.outgoing_links)
+}
+
+const { content, renderLangSet } = await render({
+  content: article.content || '',
+  raw: isBigArticle,
+  themeConfig: pageConfig.theme,
+  allPostLinks: outgoingLinks,
+})
+
+const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
+---
+
+<Layout title={article.subject} desc={firstParagraph?.[1] || ''}>
+  {
+    !isBigArticle
+      ? <ArticleView article={article} content={content} />
+      : <ArticleClient article={article} content={content} renderLangSet={renderLangSet} />
+  }
+</Layout>

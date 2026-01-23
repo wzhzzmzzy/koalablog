@@ -104,11 +104,6 @@ body {
     color: var(--koala-editor-text);
   }
 
-  code:not([class]) {
-    background-color: var(--koala-editor-bg);
-    color: var(--koala-editor-text);
-  }
-
   .btn {
     @include theme.theme-button();
   }

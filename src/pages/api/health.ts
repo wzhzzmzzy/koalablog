@@ -5,15 +5,15 @@ export const GET: APIRoute = async ({ locals }) => {
   try {
     // Check database connection
     const db = connectDB(locals.runtime?.env)
-    
+
     // Simple query to test database connectivity
     const result = await db.query.markdown.findFirst({
       columns: { id: true },
     })
-    
+
     // Get current timestamp
     const timestamp = new Date().toISOString()
-    
+
     // Basic health check response
     const healthStatus = {
       status: 'healthy',
@@ -26,7 +26,7 @@ export const GET: APIRoute = async ({ locals }) => {
       },
       uptime: process.uptime(),
     }
-    
+
     return new Response(JSON.stringify(healthStatus), {
       status: 200,
       headers: {
@@ -34,14 +34,15 @@ export const GET: APIRoute = async ({ locals }) => {
         'Cache-Control': 'no-cache',
       },
     })
-  } catch (error) {
+  }
+  catch (error) {
     const errorStatus = {
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       error: error instanceof Error ? error.message : 'Unknown error',
       database: 'disconnected',
     }
-    
+
     return new Response(JSON.stringify(errorStatus), {
       status: 503,
       headers: {

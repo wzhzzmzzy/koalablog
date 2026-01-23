@@ -8,7 +8,7 @@ import Outline from './outline.svelte'
 interface Props {
   article: Markdown
   content: string
-  renderLangSet?: Set<string>
+  renderLangSet?: string[]
   showOutline?: boolean
   showDate?: boolean
 }
@@ -42,7 +42,7 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
 </main>
 
 <script>
-import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
+import type { DoubleLinkPluginOptions } from '@/lib/markdown'
 import { parseJson } from '@/lib/utils/parse-json'
 
 class ArticleClient extends HTMLElement {
@@ -69,7 +69,7 @@ class ArticleClient extends HTMLElement {
       import('@/lib/utils/heading-id'),
     ])
 
-    const content = article ? (await mdModule.md({ langSet, allPostLinks: outgoingLinks || [] })).render(article?.content ?? '') : ''
+    const content = article ? await (await mdModule.md({ langSet, allPostLinks: outgoingLinks || [] })).render(article?.content ?? '') : ''
     const contentWithIds = await headingIdModule.addHeadingIds(content)
 
     this.serverArticleEl?.remove()

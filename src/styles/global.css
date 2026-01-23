@@ -160,3 +160,14 @@ ul .task-list-item {
 .task-list-item.checked .task-list-marker {
   color: var(--koala-catppuccin-green);
 }
+
+
+span.line span {
+  color: var(--shiki-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  span.line span {
+    color: var(--shiki-dark);
+  }
+}

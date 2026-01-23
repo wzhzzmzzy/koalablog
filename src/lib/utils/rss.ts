@@ -1,6 +1,6 @@
 import type { APIContext } from 'astro'
 import { readAllPublic } from '@/db/markdown'
-import { rawMd } from '@/lib/markdown'
+import { md } from '@/lib/markdown'
 import rss from '@astrojs/rss'
 
 export async function retriveRss(ctx: APIContext) {
@@ -14,7 +14,7 @@ export async function retriveRss(ctx: APIContext) {
 
   const allPosts = await readAllPublic(ctx.locals.runtime?.env)
   const site = rssConfig.site ?? ctx.site ?? ctx.url.origin
-  const md = rawMd({
+  const mdInstance = await md({
     allPostLinks: allPosts,
   })
 
@@ -22,8 +22,8 @@ export async function retriveRss(ctx: APIContext) {
     title,
     description: rssConfig.description ?? '',
     site,
-    items: allPosts.map((post) => {
-      const content = md.render(post.content || '')
+    items: await Promise.all(allPosts.map(async (post) => {
+      const content = await mdInstance.render(post.content || '')
       const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
       return {
         title: post.subject,
@@ -33,7 +33,7 @@ export async function retriveRss(ctx: APIContext) {
         description: firstParagraph?.[1] || '',
         content,
       }
-    }),
+    })),
     stylesheet: '/rss/pretty-feed-v3.xsl',
     customData: `<language>${rssConfig.lang || 'en-US'}</language>`,
   })
