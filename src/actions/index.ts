@@ -1,3 +1,4 @@
+import { generateBearerToken } from './db/token'
 import { all, batchImport, getNewMemoSubject, updateRefs } from './db/markdown'
 import { login } from './form/login'
 import { remove, save, setPrivate } from './form/markdown'
@@ -20,6 +21,10 @@ export const server = {
     settings,
   },
   db: {
+    auth: {
+      generateBearerToken,
+      revokeBearerToken,
+    },
     markdown: {
       all,
       batchImport,

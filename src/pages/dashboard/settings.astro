@@ -1,4 +1,5 @@
 ---
+import TokenManager from '@/components/settings/token-manager.svelte'
 import ExportZip from '@/components/io/export-zip.svelte'
 import ImportFile from '@/components/io/import-file.svelte'
 import ThemeSwitch from '@/components/settings/theme-switch.svelte'
@@ -66,6 +67,8 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
         Guest Passkey:<br />
       </label>
       <input class="input w-60 sm:w-80" type="password" id="passkey-input" name="guestPasskey" value={guestKey || ''} />
+
+      <TokenManager client:load initialToken={authConfig.bearerToken} />
 
       <label>
       Theme:
