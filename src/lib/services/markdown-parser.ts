@@ -1,6 +1,5 @@
-import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
-import type { ParsedMeta } from '@/lib/markdown/meta-plugin'
-import { rawMd } from '@/lib/markdown'
+import type { DoubleLinkPluginOptions, ParsedMeta } from '@/lib/markdown'
+import { md } from '@/lib/markdown'
 
 export interface ParsedMarkdownResult {
   html: string
@@ -25,7 +24,6 @@ export async function parseMarkdownContent(
   options: MarkdownParseOptions = {},
 ): Promise<ParsedMarkdownResult> {
   const {
-    includeMeta = true,
     allPostLinks = [],
     subject = '',
     addSubjectAsH1 = false,
@@ -33,8 +31,7 @@ export async function parseMarkdownContent(
 
   try {
     // Create markdown instance with meta parsing enabled
-    const mdInstance = rawMd({
-      meta: includeMeta,
+    const mdInstance = await md({
       allPostLinks,
     })
 
@@ -45,10 +42,10 @@ export async function parseMarkdownContent(
     }
 
     // Render markdown to HTML
-    const html = mdInstance.render(processedContent)
+    const html = await mdInstance.render(processedContent)
 
     // Extract meta information if available
-    const meta = includeMeta ? (mdInstance as any).meta : undefined
+    const meta = mdInstance.meta
 
     // Parse the HTML to extract links and tags
     const { outgoingLinks, tags } = extractLinksAndTags(html)
@@ -100,7 +97,9 @@ function extractLinksAndTags(html: string): {
       tempDiv.querySelectorAll('span.tag'),
     )
 
-    tempDiv.remove()
+    if (typeof tempDiv.remove === 'function') {
+      tempDiv.remove()
+    }
 
     const tags = [...new Set(
       tagEls

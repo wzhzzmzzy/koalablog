@@ -28,6 +28,7 @@ const avatar = pageConfig.avatar ?? ''
 const guestKey = authConfig.guestKey ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
+const editor = pageConfig.editor ?? 'textarea'
 
 const ossConfig = Astro.locals.config.oss
 
@@ -84,6 +85,14 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       />
 
       <label>
+        Default Editor:
+      </label>
+      <select class="input w-60 sm:w-80" name="editor">
+        <option value="textarea" selected={editor === 'textarea'}>Textarea (Legacy)</option>
+        <option value="carta" selected={editor === 'carta'}>Carta (Modern)</option>
+      </select>
+
+      <label>
         Monthly Read Limit: (today={ossAccess?.readTimes})
       </label>
       <input class="input w-60 sm:w-80" id="read-limit-input" name="readLimit" value={ossConfig.readLimit} />
@@ -109,7 +118,7 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <h3>Fonts</h3>
       <label>CDN URL (e.g. Google Fonts CSS link)</label>
       <input class="input w-full" type="text" name="fontCDN" value={fontConfig?.cdn} placeholder="https://fonts.googleapis.com/css2?..." />
-      
+
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <label>Sans (UI/Body)</label>
@@ -192,22 +201,26 @@ class SettingForm extends HTMLElement {
   async uploadAvatar() {
     try {
       const files = await pickFileWithFileInput()
-      if (!files || files.length === 0) return
-      
+      if (!files || files.length === 0)
+        return
+
       this.uploadAvatarBtn.disabled = true
       const { data, error } = await uploadFile('oss', files)
-      
+
       if (error) {
         console.error(error)
-        alert('Upload failed: ' + error.message)
-      } else if (data) {
+        alert(`Upload failed: ${error.message}`)
+      }
+      else if (data) {
         const url = `/api/oss/${data.replace('/', '_')}`
         this.avatarInputEl.value = url
       }
-    } catch (e) {
+    }
+    catch (e) {
       console.error(e)
       alert('Upload failed')
-    } finally {
+    }
+    finally {
       this.uploadAvatarBtn.disabled = false
     }
   }

@@ -30,7 +30,7 @@
 
     for (const item of sortedItems) {
       const parts = item.link.split('/');
-      const fileName = parts.pop() || ''; // remove filename
+      parts.pop()
       let currentNode = root;
 
       // Navigate/Build tree for folders
@@ -77,16 +77,6 @@
          }
      }
   });
-
-  function formatDate(date: Date | string) {
-    if (!date) return '';
-    return new Date(date).toLocaleDateString();
-  }
-
-  function getSnippet(content: string | null | undefined) {
-    if (!content) return '';
-    return content.slice(0, 30) + (content.length > 30 ? '...' : '');
-  }
 </script>
 
 {#snippet folderNode(node: TreeNode)}

@@ -14,9 +14,9 @@ export default defineConfig({
   ],
   theme: {
     fontFamily: {
-      'sans': 'var(--koala-font-sans)',
-      'serif': 'var(--koala-font-serif)',
-      'mono': 'var(--koala-font-mono)',
+      sans: 'var(--koala-font-sans)',
+      serif: 'var(--koala-font-serif)',
+      mono: 'var(--koala-font-mono)',
     },
   },
   shortcuts: {

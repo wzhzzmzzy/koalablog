@@ -59,11 +59,11 @@
 @mixin theme-button($base: 'button-bg', $hover: 'button-hover-bg', $active: 'button-active-bg', $text: 'button-text') {
   background-color: theme-color($base);
   color: theme-color($text);
-  
+
   &:hover {
     background-color: theme-color($hover);
   }
-  
+
   &:active {
     background-color: theme-color($active);
   }

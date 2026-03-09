@@ -9,7 +9,11 @@ import UnoCss from 'unocss/astro'
 import PreprocessorDirectives from 'unplugin-preprocessor-directives/vite'
 
 const cfConfig = {
-  adapter: cloudflare(),
+  adapter: cloudflare({
+    workerEntryPoint: {
+      path: 'src/worker.ts',
+    },
+  }),
 }
 
 // https://astro.build/config

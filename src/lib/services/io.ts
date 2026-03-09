@@ -55,10 +55,12 @@ export async function exportAllPosts() {
     }
 
     const formatTags = (tags: string | null) => {
-      if (!tags) return '[]'
+      if (!tags)
+        return '[]'
       // 假设 tags 是逗号分隔的字符串
       const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
-      if (tagList.length === 0) return '[]'
+      if (tagList.length === 0)
+        return '[]'
       return `[${tagList.map(t => `"${t}"`).join(', ')}]`
     }
 

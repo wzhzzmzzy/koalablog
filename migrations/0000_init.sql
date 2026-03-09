@@ -23,3 +23,21 @@ CREATE TABLE `oss_access` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `oss_access_date_unique` ON `oss_access` (`date`);
+CREATE TABLE `blob_storage` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`key` text NOT NULL,
+	`contentType` text NOT NULL,
+	`size` integer NOT NULL,
+	`data` text NOT NULL,
+	`metadata` text,
+	`uploadedAt` integer DEFAULT (unixepoch()) NOT NULL,
+	`updatedAt` integer DEFAULT (unixepoch()) NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `blob_storage_key_unique` ON `blob_storage` (`key`);
+CREATE TABLE `markdown_renders` (
+	`markdown_id` integer PRIMARY KEY NOT NULL,
+	`html_content` text NOT NULL,
+	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
+	FOREIGN KEY (`markdown_id`) REFERENCES `markdown`(`id`) ON UPDATE no action ON DELETE cascade
+);

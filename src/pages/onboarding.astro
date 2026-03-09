@@ -23,6 +23,7 @@ if (env.DATA_SOURCE && env.DATA_SOURCE === 'd1') {
     DROP TABLE IF EXISTS oss_access;
     DROP INDEX IF EXISTS blob_storage_key_unique;
     DROP TABLE IF EXISTS blob_storage;
+    DROP TABLE IF EXISTS markdown_renders;
   `)
   await env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
 }

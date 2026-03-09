@@ -131,14 +131,14 @@
 **导入模式**
 
 ```typescript
+// ✅ 正确 - Astro 组件
+import { Save } from '@lucide/astro'
+
 // ✅ 正确 - Svelte 组件
-import { Save, Upload, Eye, Edit, Trash2 } from '@lucide/svelte';
+import { Edit, Eye, Save, Trash2, Upload } from '@lucide/svelte'
 
 // ❌ 错误 - 不要使用
-import { Save } from 'lucide-svelte';
-
-// ✅ 正确 - Astro 组件
-import { Save } from '@lucide/astro';
+import { Save } from 'lucide-svelte'
 ```
 
 **使用示例**

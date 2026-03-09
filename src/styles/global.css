@@ -25,8 +25,8 @@ blockquote {
   --at-apply: border-l border-l-solid ml-8 pl-4;
 }
 
-.code-block {
-  --at-apply: overflow-x-auto max-w-[800px] px-2 box-border;
+article.article .code-block {
+  --at-apply: overflow-x-auto;
 }
 
 body {
@@ -43,18 +43,10 @@ li {
   line-height: 26px;
 }
 
-textarea {
-  outline: none;
-}
-
 div.code-block {
   position: relative;
   border-radius: 5px;
   padding: 0 10px;
-}
-
-div.code-block pre {
-  overflow: auto;
 }
 
 div.code-block span.code-lang {
@@ -68,7 +60,7 @@ div.code-block span.code-lang {
   cursor: pointer;
 }
 
-.shiki {
+article.article .shiki {
   background: inherit !important;
 }
 
@@ -82,8 +74,6 @@ ul {
   border: none;
   --at-apply: h-10 w-18 text-[16px];
 }
-
-
 
 input.input {
   border: none;
@@ -100,8 +90,8 @@ img {
   max-width: 100%;
 }
 
-code:not([class]) {
-  font-size: 16px;
+article.article code {
+  font-size: 14px;
   padding: 2px 4px;
   border-radius: 5px;
 }
@@ -159,4 +149,14 @@ ul .task-list-item {
 
 .task-list-item.checked .task-list-marker {
   color: var(--koala-catppuccin-green);
+}
+
+span.line span {
+  color: var(--shiki-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  span.line span {
+    color: var(--shiki-dark);
+  }
 }

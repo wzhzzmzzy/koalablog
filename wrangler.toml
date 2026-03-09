@@ -27,3 +27,6 @@ bucket_name = "koala"
 [vars]
 DATA_SOURCE = "d1"
 CF_PAGES = 1
+
+[triggers]
+crons = [ "*/15 * * * *" ]
