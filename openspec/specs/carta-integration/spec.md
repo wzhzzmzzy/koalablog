@@ -46,4 +46,3 @@ The system SHALL provide visual feedback for asynchronous operations to prevent 
 *   **Given** an image is being uploaded (via paste or drop)
 *   **Then** a placeholder or loading indicator should be visible in the editor or toolbar.
 *   **And** it should be replaced by the final image link once the upload completes.
-

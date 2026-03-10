@@ -22,6 +22,9 @@ export const markdown = sqliteTable('markdown', {
     .notNull()
     .default(sql`(unixepoch())`),
   deleted: integer({ mode: 'boolean' }).default(false).notNull(),
+  // New fields for synchronization and extended visibility
+  vault_path: text().unique(),
+  visibility: integer().default(0).notNull(), // 0=public, 1=private
 })
 
 export const ossAccess = sqliteTable('oss_access', {

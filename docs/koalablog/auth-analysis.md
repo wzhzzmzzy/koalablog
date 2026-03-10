@@ -8,7 +8,7 @@
 - `src/actions/form/login.ts` - 登录动作
 
 ### 2. Token 机制
-- **Access Token**: 
+- **Access Token**:
   - Cookie 名称：`koala-access-token`
   - 有效期：1 小时 (admin) / 3 天 (guest)
   - 算法：HS256

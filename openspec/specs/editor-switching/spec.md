@@ -27,4 +27,3 @@ The system SHALL allow users to switch between the legacy textarea editor and th
 *   **Given** the user is on a mobile device
 *   **When** the page loads
 *   **Then** the system MAY enforce a specific editor (e.g., Legacy) if Carta is not mobile-optimized (To be determined, assuming neutral for now).
-

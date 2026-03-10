@@ -1,26 +1,26 @@
-import { describe, expect, it } from 'vitest'
-import { authInterceptor } from '@/lib/auth'
 import type { APIContext } from 'astro'
+import { authInterceptor } from '@/lib/auth'
+import { describe, expect, it } from 'vitest'
 
 describe('authInterceptor', () => {
   it('should authenticate with valid Bearer Token', async () => {
     const config = {
       auth: {
         bearerToken: 'test-token',
-        adminKey: 'admin-key'
-      }
+        adminKey: 'admin-key',
+      },
     }
     const ctx = {
       locals: { config },
-      cookies: { 
+      cookies: {
         get: () => null,
-        set: () => {}
+        set: () => {},
       },
       request: {
         headers: new Headers({
-          'Authorization': 'Bearer test-token'
-        })
-      }
+          Authorization: 'Bearer test-token',
+        }),
+      },
     } as unknown as APIContext
 
     await authInterceptor(ctx)
@@ -31,20 +31,20 @@ describe('authInterceptor', () => {
     const config = {
       auth: {
         bearerToken: 'test-token',
-        adminKey: 'admin-key'
-      }
+        adminKey: 'admin-key',
+      },
     }
     const ctx = {
       locals: { config },
-      cookies: { 
+      cookies: {
         get: () => null,
-        set: () => {}
+        set: () => {},
       },
       request: {
         headers: new Headers({
-          'Authorization': 'Bearer wrong-token'
-        })
-      }
+          Authorization: 'Bearer wrong-token',
+        }),
+      },
     } as unknown as APIContext
 
     await authInterceptor(ctx)
@@ -54,20 +54,20 @@ describe('authInterceptor', () => {
   it('should not authenticate if no Bearer Token is configured', async () => {
     const config = {
       auth: {
-        adminKey: 'admin-key'
-      }
+        adminKey: 'admin-key',
+      },
     }
     const ctx = {
       locals: { config },
-      cookies: { 
+      cookies: {
         get: () => null,
-        set: () => {}
+        set: () => {},
       },
       request: {
         headers: new Headers({
-          'Authorization': 'Bearer some-token'
-        })
-      }
+          Authorization: 'Bearer some-token',
+        }),
+      },
     } as unknown as APIContext
 
     await authInterceptor(ctx)
@@ -78,20 +78,20 @@ describe('authInterceptor', () => {
     const config = {
       auth: {
         bearerToken: 'test-token',
-        adminKey: 'admin-key'
-      }
+        adminKey: 'admin-key',
+      },
     }
     const ctx = {
       locals: { config },
-      cookies: { 
+      cookies: {
         get: () => null,
-        set: () => {}
+        set: () => {},
       },
       request: {
         headers: new Headers({
-          'Authorization': 'Bearer test-token'
-        })
-      }
+          Authorization: 'Bearer test-token',
+        }),
+      },
     } as unknown as APIContext
 
     await authInterceptor(ctx)
