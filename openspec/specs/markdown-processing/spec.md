@@ -75,3 +75,4 @@ The renderer MUST render task lists `[ ]` and `[x]` using the custom SVG icons d
 #### Scenario: Checked Item
 - **WHEN** rendering `-[x] Item`
 - **THEN** it renders the checked SVG icon
+

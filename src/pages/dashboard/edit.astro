@@ -35,10 +35,9 @@ else if (isMemo) {
 }
 
 const userAgent = Astro.request.headers.get('user-agent') || ''
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)
-const editorPref = Astro.locals.config.pageConfig.editor ?? 'textarea'
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 ---
 
 <DashboardLayout title={`[Editor] ${article.subject}`} showHeader={false}>
-  <Page client:load initialMarkdown={article} initialItems={initialItems} isMobile={isMobile} editorPref={editorPref} />
+  <Page client:load initialMarkdown={article} initialItems={initialItems} isMobile={isMobile} />
 </DashboardLayout>

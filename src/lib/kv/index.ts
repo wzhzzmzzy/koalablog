@@ -12,7 +12,6 @@ export interface GlobalConfig {
       light: CatppuccinTheme
       dark: CatppuccinTheme
     }
-    editor?: 'textarea' | 'carta'
   }
   rss?: {
     enable?: boolean

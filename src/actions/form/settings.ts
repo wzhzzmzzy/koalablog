@@ -25,7 +25,6 @@ export const settings = defineAction({
     fontSerif: z.string().optional(),
     fontMono: z.string().optional(),
     fontCDN: z.string().optional(),
-    editor: z.enum(['textarea', 'carta']).optional().default('textarea'),
   }),
   handler: async (input, ctx) => {
     await authGuard(ctx)
@@ -47,7 +46,6 @@ export const settings = defineAction({
             light: input.lightTheme,
             dark: input.darkTheme,
           },
-          editor: input.editor,
         },
         rss: {
           enable: input.rssEnable,
