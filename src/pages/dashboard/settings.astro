@@ -25,6 +25,7 @@ const fontConfig = Astro.locals.config.font
 const title = pageConfig.title ?? ''
 const avatar = pageConfig.avatar ?? ''
 const guestKey = authConfig.guestKey ?? ''
+const bearerToken = authConfig.bearerToken ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
 
@@ -35,6 +36,7 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
 <DashboardLayout>
   <setting-form>
     <form id="settings-form" method="POST" action={actions.form.settings} class="flex flex-col gap-3">
+      <input type="hidden" id="regenerate-bearer-token" name="regenerateBearerToken" value="false" />
       <header class="flex items-center gap-3">
         <h1 class="my-3">Settings</h1>
         <button class="w-12 py-2 btn">
@@ -66,6 +68,19 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
         Guest Passkey:<br />
       </label>
       <input class="input w-60 sm:w-80" type="password" id="passkey-input" name="guestPasskey" value={guestKey || ''} />
+
+      <label>
+        Bearer Token:<br />
+      </label>
+      <div class="flex items-center gap-2">
+        <input class="input w-60 sm:w-80 font-mono text-sm" type="text" id="bearer-token-input" value={bearerToken || 'Not generated'} readonly />
+        <button type="button" id="copy-bearer-token-btn" class="inline-flex items-center justify-center btn" disabled={!bearerToken}>
+          Copy
+        </button>
+        <button type="button" id="regenerate-bearer-token-btn" class="inline-flex items-center justify-center btn">
+          {bearerToken ? 'Refresh' : 'Generate'}
+        </button>
+      </div>
 
       <label>
       Theme:
@@ -145,6 +160,10 @@ class SettingForm extends HTMLElement {
   themeBusEl: HTMLDivElement
   lightInputEl: HTMLInputElement
   darkInputEl: HTMLInputElement
+  bearerTokenInputEl: HTMLInputElement
+  copyBearerTokenBtn: HTMLButtonElement
+  regenerateBearerTokenBtn: HTMLButtonElement
+  regenerateBearerTokenInputEl: HTMLInputElement
 
   theme: {
     light: CatppuccinTheme
@@ -160,11 +179,19 @@ class SettingForm extends HTMLElement {
     this.themeBusEl = this.querySelector('#theme-bus')!
     this.lightInputEl = this.querySelector('input#light')!
     this.darkInputEl = this.querySelector('input#dark')!
+    this.bearerTokenInputEl = this.querySelector('#bearer-token-input')!
+    this.copyBearerTokenBtn = this.querySelector('#copy-bearer-token-btn')!
+    this.regenerateBearerTokenBtn = this.querySelector('#regenerate-bearer-token-btn')!
+    this.regenerateBearerTokenInputEl = this.querySelector('#regenerate-bearer-token')!
 
     this.onChangeTheme = this.onChangeTheme.bind(this)
     this.uploadAvatar = this.uploadAvatar.bind(this)
+    this.copyBearerToken = this.copyBearerToken.bind(this)
+    this.regenerateBearerToken = this.regenerateBearerToken.bind(this)
 
     this.uploadAvatarBtn.addEventListener('click', this.uploadAvatar)
+    this.copyBearerTokenBtn.addEventListener('click', this.copyBearerToken)
+    this.regenerateBearerTokenBtn.addEventListener('click', this.regenerateBearerToken)
 
     const light = this.lightInputEl.value as CatppuccinTheme
     const dark = this.darkInputEl.value as CatppuccinTheme
@@ -207,6 +234,28 @@ class SettingForm extends HTMLElement {
     } finally {
       this.uploadAvatarBtn.disabled = false
     }
+  }
+
+  async copyBearerToken() {
+    const token = this.bearerTokenInputEl.value
+    if (token && token !== 'Not generated') {
+      try {
+        await navigator.clipboard.writeText(token)
+        const originalText = this.copyBearerTokenBtn.textContent
+        this.copyBearerTokenBtn.textContent = 'Copied!'
+        setTimeout(() => {
+          this.copyBearerTokenBtn.textContent = originalText
+        }, 2000)
+      } catch (e) {
+        console.error(e)
+        alert('Copy failed')
+      }
+    }
+  }
+
+  regenerateBearerToken() {
+    this.regenerateBearerTokenInputEl.value = 'true'
+    this.formEl.submit()
   }
 }
 

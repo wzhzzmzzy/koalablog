@@ -42,6 +42,18 @@ async function tokenVerify(token: string, adminKey: string) {
 export async function authInterceptor(ctx: APIContext | ActionAPIContext) {
   const config = ctx.locals.config
 
+  // Check Bearer token first
+  const authHeader = ctx.request.headers.get('Authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const bearerToken = authHeader.slice(7)
+    if (bearerToken && config.auth.bearerToken && bearerToken === config.auth.bearerToken) {
+      ctx.locals.session = {
+        role: 'admin',
+      }
+      return
+    }
+  }
+
   const accessToken = ctx.cookies.get(ACCESS_TOKEN_KEY)
   const refreshToken = ctx.cookies.get(REFRESH_TOKEN_KEY)
 

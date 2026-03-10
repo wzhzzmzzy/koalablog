@@ -4,6 +4,10 @@ import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
 
+function generateBearerToken(): string {
+  return crypto.randomUUID()
+}
+
 export const settings = defineAction({
   accept: 'form',
   input: z.object({
@@ -25,15 +29,18 @@ export const settings = defineAction({
     fontSerif: z.string().optional(),
     fontMono: z.string().optional(),
     fontCDN: z.string().optional(),
+    regenerateBearerToken: z.coerce.boolean().optional(),
   }),
   handler: async (input, ctx) => {
     await authGuard(ctx)
 
     const env = ctx.locals.runtime?.env || {}
+    const bearerToken = input.regenerateBearerToken ? generateBearerToken() : undefined
     return Promise.all([
       updateGlobalConfig(env, {
         auth: {
           guestKey: input.guestPasskey,
+          bearerToken,
         },
         oss: {
           readLimit: input.readLimit,
