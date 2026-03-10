@@ -38,26 +38,14 @@ async function tokenVerify(token: string, adminKey: string) {
     return false
   }
 }
+
 export async function authInterceptor(ctx: APIContext | ActionAPIContext) {
   const config = ctx.locals.config
 
   const accessToken = ctx.cookies.get(ACCESS_TOKEN_KEY)
   const refreshToken = ctx.cookies.get(REFRESH_TOKEN_KEY)
-  const authHeader = ctx.request.headers.get('Authorization')
 
-  let tokenRole: 'admin' | 'guest' | '' = ''
-
-  if (accessToken) {
-    tokenRole = (await tokenVerify(accessToken.value, config.auth.adminKey!)) as 'admin' | 'guest' | ''
-  }
-
-  // Support Bearer Token
-  if (!tokenRole && authHeader && authHeader.startsWith('Bearer ')) {
-    const bearerToken = authHeader.substring(7)
-    if (config.auth.bearerToken && bearerToken === config.auth.bearerToken) {
-      tokenRole = 'admin'
-    }
-  }
+  let tokenRole = (accessToken && await tokenVerify(accessToken.value, config.auth.adminKey!)) || ''
 
   // If access token is invalid/expired, try to refresh using refresh token
   if (!tokenRole && refreshToken) {

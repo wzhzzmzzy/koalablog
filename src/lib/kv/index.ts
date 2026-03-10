@@ -28,7 +28,6 @@ export interface GlobalConfig {
   auth: {
     adminKey?: string
     guestKey?: string
-    bearerToken?: string
   }
   oss: {
     operateLimit?: number
@@ -114,7 +113,7 @@ export async function updateGlobalConfig<S extends keyof GlobalConfig>(
   }
   // #if !CF_PAGES
   else {
-    await storage.set(GLOBAL_CONFIG_KEY, updatedConfig)
+    await storage.set(GLOBAL_CONFIG_KEY, payload)
     await storage.sync()
   }
   // #endif
