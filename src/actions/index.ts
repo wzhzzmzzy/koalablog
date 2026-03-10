@@ -6,7 +6,7 @@ import { onboarding } from './form/onboarding'
 import { settings } from './form/settings'
 import { list, remove as removeResource, upload } from './oss/operate'
 
-export const server = {
+export const actions = {
   oss: {
     upload,
     remove: removeResource,
