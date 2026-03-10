@@ -2,9 +2,14 @@
 
 import chokidar from 'chokidar'
 import { readFile, writeFile, mkdir, access, constants } from 'fs/promises'
-import { join, basename } from 'path'
+import { join, basename, dirname, relative } from 'path'
 import { homedir } from 'os'
+import { spawn } from 'child_process'
+import { fileURLToPath } from 'url'
 import envPaths from 'env-paths'
+import { ProxyAgent, setGlobalDispatcher } from 'undici'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // XDG paths via env-paths (with fallbacks)
 const home = homedir()
@@ -23,7 +28,6 @@ async function loadConfig() {
     const configContent = await readFile(configPath, 'utf-8')
     const config = JSON.parse(configContent)
     
-    // Validate required fields
     const missing = []
     if (!config.vaultPath) missing.push('vaultPath')
     if (!config.bearerToken) missing.push('bearerToken')
@@ -31,6 +35,10 @@ async function loadConfig() {
     if (missing.length > 0) {
       console.error(`❌ Missing required config: ${missing.join(', ')}`)
       process.exit(1)
+    }
+    
+    if (config.httpProxy) {
+      setGlobalDispatcher(new ProxyAgent(config.httpProxy))
     }
     
     return {
@@ -61,10 +69,16 @@ let config = null
 const PID_FILE = join(runtimeDir, 'koalablog-sync.pid')
 const LOG_FILE = join(stateDir, 'koalablog-sync.log')
 
-const SOURCE_MEMO = '1' // Memo type in koalablog
+const SOURCE_MEMO = '1'
+const SYNC_DIRS = ['memos', 'todos']
+
+function getLink(filePath) {
+  const relPath = relative(config.vaultPath, filePath)
+  return relPath.replace(/\.md$/, '')
+}
 
 // Utils
-function log(msg, isError = false) {
+function log(msg) {
   const time = new Date().toISOString()
   const line = `[${time}] ${msg}\n`
   console.log(msg)
@@ -74,22 +88,19 @@ function log(msg, isError = false) {
 async function parseMemo(filePath) {
   try {
     const content = await readFile(filePath, 'utf-8')
-    // Extract title from first H1
     const match = content.match(/^---\n[\s\S]*?\n---\n# (.*)/)
     const subject = match?.[1] || basename(filePath, '.md')
     
-    return { path: filePath, content, subject }
+    return { path: filePath, content, subject, link: getLink(filePath) }
   } catch {
     return null
   }
 }
 
 async function uploadToKoalablog(memo) {
-  const link = `memo/${basename(memo.path, '.md')}`
-  
   const params = new URLSearchParams({
     source: SOURCE_MEMO,
-    link,
+    link: memo.link,
     subject: memo.subject,
     content: memo.content,
     private: 'true',
@@ -115,13 +126,13 @@ async function uploadToKoalablog(memo) {
 async function batchUploadToKoalablog(memos) {
   const payload = memos.map(memo => ({
     source: Number(SOURCE_MEMO),
-    link: `memo/${basename(memo.path, '.md')}`,
+    link: memo.link,
     subject: memo.subject,
     content: memo.content,
     private: true,
   }))
 
-  const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
+const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
@@ -141,28 +152,29 @@ async function batchUploadToKoalablog(memos) {
 // Daemon
 let watcher = null
 
-async function startDaemon() {
-  // Check if already running
-  try {
-    await access(PID_FILE, constants.F_OK)
-    const pid = await readFile(PID_FILE, 'utf-8')
-    console.log(`❌ Already running with PID: ${pid.trim()}`)
-    process.exit(1)
-  } catch {
-    // Not running, continue
-  }
-
-  // Load config
+async function runDaemon() {
   config = await loadConfig()
 
-  // Write PID
   await writeFile(PID_FILE, String(process.pid))
+  
+  const cleanup = async () => {
+    if (watcher) {
+      await watcher.close()
+    }
+    await writeFile(PID_FILE, '').catch(() => {})
+    process.exit(0)
+  }
+
+  process.on('SIGTERM', cleanup)
+  process.on('SIGINT', cleanup)
   
   log(`🚀 Starting sync daemon...`)
   log(`   Vault: ${config.vaultPath}`)
   log(`   Koalablog: ${config.koalablogUrl}`)
   
-  watcher = chokidar.watch(config.vaultPath, {
+  const watchPaths = SYNC_DIRS.map(d => join(config.vaultPath, d))
+  
+  watcher = chokidar.watch(watchPaths, {
     ignored: /(^|[\/\\])\../,
     persistent: true,
     ignoreInitial: true,
@@ -206,6 +218,36 @@ async function startDaemon() {
   })
 
   log(`👀 Watching: ${config.vaultPath}`)
+}
+
+async function startDaemon() {
+  try {
+    await access(PID_FILE, constants.F_OK)
+    const pid = await readFile(PID_FILE, 'utf-8')
+    const trimmedPid = pid.trim()
+    if (trimmedPid) {
+      try {
+        process.kill(parseInt(trimmedPid), 0)
+        console.log(`❌ Already running with PID: ${trimmedPid}`)
+        process.exit(1)
+      } catch {
+        // Process not running, clean up PID file
+        await writeFile(PID_FILE, '')
+      }
+    }
+  } catch {
+    // PID file doesn't exist, continue
+  }
+
+  const child = spawn(process.execPath, [join(__dirname, 'index.js'), '--daemon'], {
+    detached: true,
+    stdio: 'ignore',
+  })
+
+  child.unref()
+
+  console.log(`✅ Daemon started with PID: ${child.pid}`)
+  process.exit(0)
 }
 
 async function stopDaemon() {
@@ -264,7 +306,15 @@ async function fullSync() {
     }
   }
   
-  await readDir(config.vaultPath)
+  for (const dir of SYNC_DIRS) {
+    const dirPath = join(config.vaultPath, dir)
+    try {
+      await readDir(dirPath)
+    } catch {
+      log(`⚠️ Directory not found: ${dir}`)
+    }
+  }
+  
   log(`📁 Found ${files.length} markdown files`)
   
   const memos = []
@@ -278,13 +328,36 @@ async function fullSync() {
     return
   }
   
-  log(`📦 Batch uploading ${memos.length} files...`)
+  const BATCH_SIZE = 5
+  const batches = []
+  for (let i = 0; i < memos.length; i += BATCH_SIZE) {
+    batches.push(memos.slice(i, i + BATCH_SIZE))
+  }
   
-  try {
-    const result = await batchUploadToKoalablog(memos)
-    log(`✅ Batch synced: ${result.count} uploaded, ${result.skipped || 0} skipped`)
-  } catch (e) {
-    log(`❌ Batch upload failed: ${e.message}`, true)
+  log(`📦 Uploading ${memos.length} files in ${batches.length} batches...`)
+  
+  let totalUploaded = 0
+  let totalSkipped = 0
+  let failed = 0
+  
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i]
+    log(`   Batch ${i + 1}/${batches.length}: uploading ${batch.length} files...`)
+    
+    try {
+      const result = await batchUploadToKoalablog(batch)
+      totalUploaded += result.count || 0
+      totalSkipped += result.skipped || 0
+      log(`   ✅ Batch ${i + 1}: ${result.count || 0} uploaded, ${result.skipped || 0} skipped`)
+    } catch (e) {
+      log(`   ❌ Batch ${i + 1} failed: ${e.message}`, true)
+      failed += batch.length
+    }
+  }
+  
+  log(`📊 Summary: ${totalUploaded} uploaded, ${totalSkipped} skipped, ${failed} failed`)
+  
+  if (failed > 0) {
     process.exit(1)
   }
 }
@@ -292,33 +365,36 @@ async function fullSync() {
 // CLI
 const cmd = process.argv[2]
 
-switch (cmd) {
-  case 'start':
-    startDaemon()
-    break
-  case 'stop':
-    stopDaemon()
-    break
-  case 'status':
-    statusDaemon()
-    break
-  case 'logs':
-    showLogs()
-    break
-  case 'restart':
-    stopDaemon().then(() => new Promise(r => setTimeout(r, 1000))).then(startDaemon)
-    break
-  case 'sync':
-    fullSync()
-    break
-  default:
-    console.log(`
+if (cmd === '--daemon') {
+  runDaemon()
+} else {
+  switch (cmd) {
+    case 'start':
+      startDaemon()
+      break
+    case 'stop':
+      stopDaemon()
+      break
+    case 'status':
+      statusDaemon()
+      break
+    case 'logs':
+      showLogs()
+      break
+    case 'restart':
+      stopDaemon().then(() => new Promise(r => setTimeout(r, 1000))).then(startDaemon)
+      break
+    case 'sync':
+      fullSync()
+      break
+    default:
+      console.log(`
 🐳 Koalablog Sync CLI
 
 Usage: koalablog-sync <command>
 
 Commands:
-  start   - Start the sync daemon
+  start   - Start the sync daemon (runs in background)
   stop    - Stop the sync daemon  
   status  - Check if daemon is running
   logs    - View sync logs
@@ -333,13 +409,16 @@ Required fields:
 
 Optional fields:
   koalablogUrl - Koalablog URL (default: http://localhost:8787)
+  httpProxy    - HTTP proxy URL (e.g. http://127.0.0.1:7890)
 
 Example config:
   {
     "vaultPath": "/path/to/obsidian/vault",
     "bearerToken": "your-token",
-    "koalablogUrl": "https://your-blog.com"
+    "koalablogUrl": "https://your-blog.com",
+    "httpProxy": "http://127.0.0.1:7890"
   }
 `)
-    process.exit(cmd ? 1 : 0)
+      process.exit(cmd ? 1 : 0)
+  }
 }
