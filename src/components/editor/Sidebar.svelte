@@ -30,7 +30,6 @@
 
     for (const item of sortedItems) {
       const parts = item.link.split('/');
-      parts.pop()
       let currentNode = root;
 
       // Navigate/Build tree for folders

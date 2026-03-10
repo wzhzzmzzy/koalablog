@@ -37,7 +37,7 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
     : <div></div>
     }
   </div>
-  <article class="article" id="article" set:html={contentWithIds} />
+  <article id="article" set:html={contentWithIds} />
 </main>
 
 
