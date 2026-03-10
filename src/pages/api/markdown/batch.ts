@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
-import { batchAdd, readAnyByLink } from '@/db/markdown'
+import { batchUpsert } from '@/db/markdown'
 import { authInterceptor } from '@/lib/auth'
 
 export const POST: APIRoute = async (ctx) => {
@@ -31,45 +31,30 @@ export const POST: APIRoute = async (ctx) => {
     }
 
     const env = ctx.locals.runtime?.env
-    const newPosts: Array<{
-      source: MarkdownSource
+    const posts = body.map((item: {
+      source?: MarkdownSource
       subject: string
       content: string
       link?: string
       private?: boolean
       tags?: string
-      outgoing_links?: string
-    }> = []
-    const skipped: Array<{ link?: string; subject: string }> = []
+      outgoingLinks?: Array<{ subject: string; link: string }>
+    }) => ({
+      source: item.source ?? MarkdownSource.Memo,
+      subject: item.subject,
+      content: item.content,
+      link: item.link,
+      private: item.private ?? false,
+      tags: item.tags,
+      outgoing_links: item.outgoingLinks ? JSON.stringify(item.outgoingLinks) : undefined,
+    }))
 
-    for (const item of body) {
-      const link = item.link
-      if (link) {
-        const existing = await readAnyByLink(env, link)
-        if (existing && existing.content === item.content) {
-          skipped.push({ link, subject: item.subject })
-          continue
-        }
-      }
-      newPosts.push({
-        source: item.source ?? MarkdownSource.Memo,
-        subject: item.subject,
-        content: item.content,
-        link,
-        private: item.private ?? false,
-        tags: item.tags,
-        outgoing_links: item.outgoingLinks ? JSON.stringify(item.outgoingLinks) : undefined,
-      })
-    }
-
-    const results = newPosts.length > 0 ? await batchAdd(env, newPosts) : []
+    const results = await batchUpsert(env, posts)
 
     return new Response(JSON.stringify({
       success: true,
       count: results.length,
-      skipped: skipped.length,
-      results: results.map(r => ({ id: r.id, link: r.link, subject: r.subject })),
-      skippedItems: skipped,
+      results: results.map((r: { id: number; link: string; subject: string }) => ({ id: r.id, link: r.link, subject: r.subject })),
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

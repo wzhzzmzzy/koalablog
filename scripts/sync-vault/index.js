@@ -69,7 +69,7 @@ let config = null
 const PID_FILE = join(runtimeDir, 'koalablog-sync.pid')
 const LOG_FILE = join(stateDir, 'koalablog-sync.log')
 
-const SOURCE_MEMO = '1'
+const SOURCE_MEMO = '30'
 const SYNC_DIRS = ['memos', 'todos']
 
 function getLink(filePath) {
@@ -98,29 +98,8 @@ async function parseMemo(filePath) {
 }
 
 async function uploadToKoalablog(memo) {
-  const params = new URLSearchParams({
-    source: SOURCE_MEMO,
-    link: memo.link,
-    subject: memo.subject,
-    content: memo.content,
-    private: 'true',
-  })
-
-  const res = await fetch(`${config.koalablogUrl}/api/markdown/save`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${config.bearerToken}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params,
-  })
-
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(err)
-  }
-  
-  return true
+  // Use batch API for single file upload as well
+  return batchUploadToKoalablog([memo])
 }
 
 async function batchUploadToKoalablog(memos) {

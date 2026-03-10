@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { and, desc, eq, like, or } from 'drizzle-orm'
+import { and, desc, eq, like, or, sql } from 'drizzle-orm'
 import { kebabCase } from 'es-toolkit'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
@@ -94,6 +94,50 @@ export function batchAdd(
   }))
 
   return connectDB(env).insert(markdown).values(values).returning()
+}
+
+export function batchUpsert(
+  env: Env,
+  posts: Array<{
+    source: MarkdownSource
+    subject: string
+    content: string
+    link?: string
+    createdAt?: Date
+    updatedAt?: Date
+    outgoing_links?: string
+    private?: boolean
+    tags?: string
+  }>,
+) {
+  const values = posts.map(post => ({
+    link: post.link || linkGenerator(post.source, post.subject),
+    source: post.source,
+    subject: post.subject,
+    content: post.content,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
+    outgoing_links: post.outgoing_links,
+    private: post.private || false,
+    tags: post.tags,
+  }))
+
+  return connectDB(env)
+    .insert(markdown)
+    .values(values)
+    .onConflictDoUpdate({
+      target: markdown.link,
+      set: {
+        subject: sql.raw(`excluded.${markdown.subject.name}`),
+        content: sql.raw(`excluded.${markdown.content.name}`),
+        source: sql.raw(`excluded.${markdown.source.name}`),
+        tags: sql.raw(`excluded.${markdown.tags.name}`),
+        outgoing_links: sql.raw(`excluded.${markdown.outgoing_links.name}`),
+        private: sql.raw(`excluded.${markdown.private.name}`),
+        updatedAt: new Date(),
+      },
+    })
+    .returning()
 }
 
 export function update(
