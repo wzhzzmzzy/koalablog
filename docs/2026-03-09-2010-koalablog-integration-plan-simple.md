@@ -53,20 +53,20 @@ status: approved
 // 核心表：只添加必要字段
 export const markdown = sqliteTable('markdown', {
   id: integer().primaryKey({ autoIncrement: true }),
-
+  
   // 保持现有字段
-  link: text().notNull(), // 网页端 URL
-  subject: text().notNull(), // 标题
-  source: integer().notNull(), // 10=Post, 20=Page, 30=Memo
-  content: text(), // 改为存储完整 Markdown
+  link: text().notNull(),              // 网页端 URL
+  subject: text().notNull(),           // 标题
+  source: integer().notNull(),         // 10=Post, 20=Page, 30=Memo
+  content: text(),                     // 改为存储完整 Markdown
   private: integer({ mode: 'boolean' }).default(false),
   createdAt: integer({ mode: 'timestamp' }),
   updatedAt: integer({ mode: 'timestamp' }),
   deleted: integer({ mode: 'boolean' }).default(false),
-
+  
   // 新增字段（仅 2 个）
-  vault_path: text().unique(), // Obsidian 路径（同步用）
-  visibility: integer().default(0), // 0=public, 1=private（替代 private 字段）
+  vault_path: text().unique(),         // Obsidian 路径（同步用）
+  visibility: integer().default(0),    // 0=public, 1=private（替代 private 字段）
 })
 
 // 标签表（可选，后续优化）
@@ -311,11 +311,11 @@ describe('Bearer Token Auth', () => {
   test('valid token should pass', () => {
     // 验证有效 token
   })
-
+  
   test('invalid token should fail', () => {
     // 验证无效 token
   })
-
+  
   test('expired token should fail', () => {
     // 验证过期 token
   })
@@ -329,15 +329,15 @@ describe('Frontmatter Parser', () => {
   test('parse complete markdown', () => {
     // 解析完整 Markdown
   })
-
+  
   test('parse markdown without frontmatter', () => {
     // 解析无 frontmatter 的 Markdown
   })
-
+  
   test('synthesize frontmatter', () => {
     // 合成 frontmatter
   })
-
+  
   test('handle invalid yaml', () => {
     // 处理无效 YAML
   })
@@ -351,11 +351,11 @@ describe('API Adapter', () => {
   test('convert old format to new format', () => {
     // 旧格式 → 新格式
   })
-
+  
   test('convert new format to old format', () => {
     // 新格式 → 旧格式
   })
-
+  
   test('handle missing fields', () => {
     // 处理缺失字段
   })
@@ -461,8 +461,8 @@ bun test --coverage
 
 ---
 
-_创建时间：2026-03-09 20:10_
-_版本：v4（简化版）_
-_核心原则：简单优先，避免过度设计_
-_预计总工作量：4-6 周_
+_创建时间：2026-03-09 20:10_  
+_版本：v4（简化版）_  
+_核心原则：简单优先，避免过度设计_  
+_预计总工作量：4-6 周_  
 _状态：等待确认_

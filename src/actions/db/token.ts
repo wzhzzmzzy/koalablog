@@ -8,7 +8,7 @@ export const generateBearerToken = defineAction({
 
     const env = ctx.locals.runtime?.env || {}
     const token = crypto.randomUUID().replace(/-/g, '')
-
+    
     await updateGlobalConfig(env, {
       auth: {
         bearerToken: token,
@@ -24,7 +24,7 @@ export const revokeBearerToken = defineAction({
     await authGuard(ctx)
 
     const env = ctx.locals.runtime?.env || {}
-
+    
     await updateGlobalConfig(env, {
       auth: {
         bearerToken: '',

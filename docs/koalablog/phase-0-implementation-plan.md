@@ -18,7 +18,7 @@
 ### 2.3 验证端点 (新功能)
 - **路径**: `/api/auth/verify`
 - **文件**: `src/pages/api/auth/verify.ts`
-- **功能**:
+- **功能**: 
   - 仅支持 `GET` 请求。
   - 经过中间件认证。
   - 如果 `ctx.locals.session.role === 'admin'`，返回 `200 OK` 及用户信息/权限。
@@ -39,7 +39,7 @@
 2. **新增撤销 Action**: 在 `src/actions/db/token.ts` 中实现并导出 `revokeBearerToken`。
 3. **实现验证 API**: 创建 `src/pages/api/auth/verify.ts`。
 4. **增强 UI**: 更新 `token-manager.svelte`，添加撤销功能及交互优化。
-5. **完善测试**:
+5. **完善测试**: 
   - 在 `src/tests/auth.spec.ts` 中增加 Bearer Token 认证的单元测试。
   - 新增配置热补丁逻辑的测试。
 
