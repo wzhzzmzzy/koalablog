@@ -85,6 +85,28 @@ export class SQLiteBlobStorage {
     }
   }
 
+  async head(key: string): Promise<BlobObjectMeta | null> {
+    const db = connectDB(this.env)
+
+    const blob = await db.query.blobStorage.findFirst({
+      where: eq(blobStorage.key, key),
+    })
+
+    if (!blob) {
+      return null
+    }
+
+    return {
+      key: blob.key,
+      size: blob.size,
+      uploaded: blob.uploadedAt,
+      httpMetadata: {
+        contentType: blob.contentType,
+      },
+      customMetadata: blob.metadata as Record<string, string> || {},
+    }
+  }
+
   async get(key: string): Promise<BlobObject | null> {
     const db = connectDB(this.env)
 

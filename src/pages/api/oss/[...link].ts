@@ -1,5 +1,35 @@
 import type { APIContext, APIRoute } from 'astro'
 import { incrementToday } from '@/db/ossAccess'
+import { authInterceptor } from '@/lib/auth'
+
+/**
+ * HEAD - Check if an object exists in OSS
+ * Returns 200 if exists, 404 if not found
+ * Requires admin authentication
+ */
+export const HEAD: APIRoute = async (ctx: APIContext) => {
+  await authInterceptor(ctx)
+  if (ctx.locals.session?.role !== 'admin') {
+    return new Response(null, { status: 401 })
+  }
+
+  const { link } = ctx.params
+  const [source, ...rest] = (link || '').split('_')
+  const key = rest.join('_')
+
+  if (!link || !source || !key) {
+    return new Response(null, { status: 400 })
+  }
+
+  const OSS = ctx.locals.OSS || ctx.locals.runtime.env.OSS
+  const object = await OSS.head(`${source}/${key}`)
+
+  if (!object) {
+    return new Response(null, { status: 404 })
+  }
+
+  return new Response(null, { status: 200 })
+}
 
 export const GET: APIRoute = async (ctx: APIContext) => {
   const { link } = ctx.params

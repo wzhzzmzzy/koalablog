@@ -2,7 +2,7 @@
 
 import chokidar from 'chokidar'
 import { readFile, writeFile, mkdir, access, constants } from 'fs/promises'
-import { join, basename, dirname, relative } from 'path'
+import { join, basename, dirname, relative, resolve } from 'path'
 import { homedir } from 'os'
 import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
@@ -95,6 +95,121 @@ async function parseMemo(filePath) {
   } catch {
     return null
   }
+}
+
+function extractAttachmentRefs(content, mdFilePath) {
+  const refs = new Set()
+  const mdDir = dirname(mdFilePath)
+  
+  // Standard markdown images: ![](/attachments/...) or ![](./attachments/...)
+  const stdImgRegex = /!\[.*?\]\((\.?\/attachments\/[^)]+)\)/g
+  let match
+  while ((match = stdImgRegex.exec(content)) !== null) {
+    const refPath = match[1]
+    const normalized = refPath.replace(/^\.?\//, '')
+    const localPath = refPath.startsWith('./') 
+      ? resolve(mdDir, refPath)
+      : resolve(config.vaultPath, normalized)
+    refs.add(localPath)
+  }
+  
+  // Wiki-link style: ![[attachments/...]]
+  const wikiRegex = /!\[\[(\.?\/?attachments\/[^\]]+)\]\]/g
+  while ((match = wikiRegex.exec(content)) !== null) {
+    const refPath = match[1]
+    const normalized = refPath.replace(/^\.?\/?/, '')
+    const localPath = resolve(config.vaultPath, normalized)
+    refs.add(localPath)
+  }
+  
+  return [...refs]
+}
+
+async function checkAttachmentExists(ossPath) {
+  const res = await fetch(`${config.koalablogUrl}/api/oss/attachments_${ossPath}`, {
+    method: 'HEAD',
+    headers: {
+      'Authorization': `Bearer ${config.bearerToken}`,
+    },
+  })
+  return res.ok
+}
+
+async function uploadAttachment(localPath) {
+  const fileContent = await readFile(localPath)
+  const fileName = basename(localPath)
+  
+  const ext = fileName.split('.').pop()?.toLowerCase() || 'bin'
+  const contentTypes = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    pdf: 'application/pdf',
+    mp4: 'video/mp4',
+    mp3: 'audio/mpeg',
+  }
+  const contentType = contentTypes[ext] || 'application/octet-stream'
+  
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const ossPath = `${year}/${month}/${fileName}`
+  
+  const exists = await checkAttachmentExists(ossPath)
+  if (exists) {
+    return { skipped: true, ossPath }
+  }
+  
+  const formData = new FormData()
+  formData.append('file', new Blob([fileContent], { type: contentType }), fileName)
+  formData.append('path', ossPath)
+  
+  const res = await fetch(`${config.koalablogUrl}/api/attachments/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.bearerToken}`,
+    },
+    body: formData,
+  })
+  
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err)
+  }
+  
+  return { uploaded: true, ossPath }
+}
+
+async function syncAttachments(content, mdFilePath) {
+  const refs = extractAttachmentRefs(content, mdFilePath)
+  if (refs.length === 0) return { uploaded: 0, skipped: 0, failed: 0 }
+  
+  let uploaded = 0
+  let skipped = 0
+  let failed = 0
+  
+  for (const localPath of refs) {
+    try {
+      await access(localPath, constants.R_OK)
+      const result = await uploadAttachment(localPath)
+      if (result.uploaded) {
+        uploaded++
+        log(`   📎 Uploaded: ${basename(localPath)}`)
+      } else if (result.skipped) {
+        skipped++
+      }
+    } catch (e) {
+      if (e.code !== 'ENOENT') {
+        failed++
+        log(`   ⚠️ Failed to upload ${basename(localPath)}: ${e.message}`)
+      }
+    }
+  }
+  
+  return { uploaded, skipped, failed }
 }
 
 async function uploadToKoalablog(memo) {
@@ -223,6 +338,7 @@ async function runDaemon() {
     const memo = await parseMemo(path)
     if (memo) {
       try {
+        await syncAttachments(memo.content, path)
         await uploadToKoalablog(memo)
         log(`✅ Synced: ${memo.subject}`)
       } catch (e) {
@@ -231,12 +347,13 @@ async function runDaemon() {
     }
   })
 
-  watcher.on('change', async (path) => {
+watcher.on('change', async (path) => {
     if (!path.endsWith('.md')) return
     log(`📝 Changed: ${basename(path)}`)
     const memo = await parseMemo(path)
     if (memo) {
       try {
+        await syncAttachments(memo.content, path)
         await uploadToKoalablog(memo)
         log(`✅ Synced: ${memo.subject}`)
       } catch (e) {
@@ -369,6 +486,20 @@ async function fullSync() {
     log(`⚠️ No valid memos to sync`)
     return
   }
+  
+  log(`📎 Syncing attachments...`)
+  let totalAttachmentsUploaded = 0
+  let totalAttachmentsSkipped = 0
+  let totalAttachmentsFailed = 0
+  
+  for (const memo of memos) {
+    const result = await syncAttachments(memo.content, memo.path)
+    totalAttachmentsUploaded += result.uploaded
+    totalAttachmentsSkipped += result.skipped
+    totalAttachmentsFailed += result.failed
+  }
+  
+  log(`📎 Attachments: ${totalAttachmentsUploaded} uploaded, ${totalAttachmentsSkipped} skipped, ${totalAttachmentsFailed} failed`)
   
   const BATCH_SIZE = 5
   const batches = []
