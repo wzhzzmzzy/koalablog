@@ -128,6 +128,59 @@ const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
   return res.json()
 }
 
+async function deleteFromKoalablog(link) {
+  const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${config.bearerToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify([link]),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err)
+  }
+  
+  return res.json()
+}
+
+async function batchDeleteFromKoalablog(links) {
+  if (links.length === 0) return { count: 0 }
+  
+  const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${config.bearerToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(links),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err)
+  }
+  
+  return res.json()
+}
+
+async function fetchRemoteMemos() {
+  const res = await fetch(`${config.koalablogUrl}/api/markdown/batch?source=memo`, {
+    headers: {
+      'Authorization': `Bearer ${config.bearerToken}`,
+    },
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err)
+  }
+  
+  return res.json()
+}
+
 // Daemon
 let watcher = null
 
@@ -193,7 +246,17 @@ async function runDaemon() {
   })
 
   watcher.on('unlink', async (path) => {
+    if (!path.endsWith('.md')) return
+    
     log(`🗑️ Removed: ${basename(path)}`)
+    const link = getLink(path)
+    
+    try {
+      await deleteFromKoalablog(link)
+      log(`✅ Deleted: ${link}`)
+    } catch (e) {
+      log(`❌ Delete failed: ${e.message}`, true)
+    }
   })
 
   log(`👀 Watching: ${config.vaultPath}`)
@@ -335,6 +398,31 @@ async function fullSync() {
   }
   
   log(`📊 Summary: ${totalUploaded} uploaded, ${totalSkipped} skipped, ${failed} failed`)
+  
+  log(`🔍 Checking for remote records to delete...`)
+  
+  try {
+    const remoteMemos = await fetchRemoteMemos()
+    const localLinks = new Set(memos.map(m => m.link))
+    
+    const toDelete = remoteMemos
+      .filter(r => {
+        if (localLinks.has(r.link)) return false
+        return SYNC_DIRS.some(dir => r.link.startsWith(`${dir}/`))
+      })
+      .map(r => r.link)
+    
+    if (toDelete.length > 0) {
+      log(`🗑️ Found ${toDelete.length} remote records to delete`)
+      
+      const deleteResult = await batchDeleteFromKoalablog(toDelete)
+      log(`✅ Deleted ${deleteResult.count || 0} remote records`)
+    } else {
+      log(`✅ No remote records to delete`)
+    }
+  } catch (e) {
+    log(`⚠️ Failed to check remote records: ${e.message}`, true)
+  }
   
   if (failed > 0) {
     process.exit(1)

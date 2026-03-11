@@ -10,6 +10,20 @@ const AUTH_REQUIRED_SITE = [
   '/dashboard',
 ]
 
+const CSRF_CONTENT_TYPES = ['multipart/form-data', 'application/x-www-form-urlencoded']
+
+function checkOrigin(ctx: Parameters<Parameters<typeof defineMiddleware>[0]>[0]): boolean {
+  const origin = ctx.request.headers.get('Origin')
+  if (!origin) return true
+
+  try {
+    const originUrl = new URL(origin)
+    return originUrl.host === ctx.url.host
+  } catch {
+    return false
+  }
+}
+
 export const onRequest = defineMiddleware(async (ctx, next) => {
   const env = ctx.locals.runtime?.env || {}
   const pathname = ctx.url.pathname
@@ -24,6 +38,17 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
 
   // Identify session for all requests
   await authInterceptor(ctx)
+
+  // Custom CSRF check: only enforce for unauthenticated FormData requests
+  const isAuthenticated = ctx.locals.session?.role === 'admin'
+  const contentType = ctx.request.headers.get('Content-Type') || ''
+  const needsCsrfCheck = CSRF_CONTENT_TYPES.some(t => contentType.startsWith(t))
+
+  if (needsCsrfCheck && !isAuthenticated && !checkOrigin(ctx)) {
+    return new Response('Cross-site POST form submissions are forbidden', {
+      status: 403,
+    })
+  }
 
   const { action } = getActionContext(ctx)
 

@@ -16,6 +16,9 @@ const cfConfig = {
 export default defineConfig({
   ...(process.env.CF_PAGES ? cfConfig : {}),
   output: 'server',
+  security: {
+    checkOrigin: false,
+  },
   build: {
     inlineStylesheets: 'always',
   },

@@ -188,7 +188,6 @@ export function updateRefs(
 }
 
 export function remove(env: Env, id: number, currentLink: string) {
-  // 添加 .recycleBin 前缀到当前link
   const deletedLink = currentLink.startsWith('.recycleBin')
     ? currentLink
     : `.recycleBin${currentLink.startsWith('/') ? '' : '/'}${currentLink}`
@@ -198,6 +197,35 @@ export function remove(env: Env, id: number, currentLink: string) {
     link: deletedLink,
     updatedAt: new Date(),
   }).where(eq(markdown.id, id))
+}
+
+export async function batchRemoveByLinks(env: Env, links: string[]) {
+  if (links.length === 0) return []
+
+  const db = connectDB(env)
+  const results = []
+
+  for (const link of links) {
+    const record = await db.query.markdown.findFirst({
+      where: eq(markdown.link, link),
+    })
+
+    if (record && !record.deleted) {
+      const deletedLink = link.startsWith('.recycleBin')
+        ? link
+        : `.recycleBin${link.startsWith('/') ? '' : '/'}${link}`
+
+      await db.update(markdown).set({
+        deleted: true,
+        link: deletedLink,
+        updatedAt: new Date(),
+      }).where(eq(markdown.id, record.id))
+
+      results.push({ id: record.id, link, deleted: true })
+    }
+  }
+
+  return results
 }
 
 /**
