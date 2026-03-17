@@ -8,8 +8,7 @@
   import { convertToWebP, pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
   import { parseJson } from '@/lib/utils/parse-json';
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
-  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen } from '@lucide/svelte';
-  import { IconDashboard } from '@tabler/icons-svelte';
+  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen, House } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
   import { editorStore, upsertItem, popHistory, setCurrentMarkdown, setDraft, removeDraft, drafts, notify, toggleSidebar } from './store.svelte';
 
@@ -215,6 +214,12 @@
     toolbarVisible = !toolbarVisible
   }
 
+  function backToDashboard(e: Event) {
+    e.preventDefault()
+
+    window.location.href = '/dashboard'
+  }
+
   function back(e: Event) {
     e.preventDefault()
     
@@ -386,9 +391,13 @@
         >
           <Menu size={20} />
         </button>
-        <a href="/dashboard" class="icon btn" title="Dashboard">
-          <IconDashboard size={20} />
-        </a>
+        <button 
+          type="button"
+          class="icon btn"
+          onclick={backToDashboard}
+        >
+          <House size={20} />
+        </button>
         <button class="icon btn {editorStore.history.length <= 1 ? 'hidden' : ''}" onclick={back}><ArrowLeft size={20} /></button>
       </div>
 
