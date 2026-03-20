@@ -54,7 +54,7 @@ export async function exportAllPosts() {
       deleted: markdown.deleted,
     }
 
-    const formatTags = (tags: string | null) => {
+    const formatTags = (tags: string | null | undefined) => {
       if (!tags) return '[]'
       // 假设 tags 是逗号分隔的字符串
       const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)

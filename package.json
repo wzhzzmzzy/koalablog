@@ -75,6 +75,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^3.11.2",
+    "@astrojs/check": "^0.9.8",
     "@cloudflare/vitest-pool-workers": "^0.8.0",
     "@cloudflare/workers-types": "^4.20250424.0",
     "@types/markdown-it": "^14.1.2",

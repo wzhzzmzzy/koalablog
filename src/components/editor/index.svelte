@@ -64,6 +64,21 @@
   onMount(async () => {
     mdInstance = await md({ allPostLinks: editorStore.items })
     refreshPreview()
+
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.repeat) return
+
+      if (e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        void save(e)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeydown)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeydown)
+    }
   })
 
   // Watch for store changes to update markdown-it instance
