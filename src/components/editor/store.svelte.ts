@@ -103,6 +103,25 @@ export function setItems(newItems: Markdown[]) {
   editorStore.hasAttemptedLoad = true
 }
 
+function isWithinPrefix(link: string, prefix: string) {
+  return prefix === '' || link.startsWith(prefix)
+}
+
+export function replaceItemsByPrefix(prefix: string, freshItems: Markdown[]) {
+  const preservedDraftItems = editorStore.items
+    .filter(item => isWithinPrefix(item.link, prefix) && drafts.has(item.link))
+    .map(item => drafts.get(item.link) ?? item)
+
+  const preservedDraftIds = new Set(preservedDraftItems.map(item => item.id))
+  const nextItems = freshItems.filter(item => !drafts.has(item.link) && !preservedDraftIds.has(item.id))
+
+  editorStore.items = [
+    ...editorStore.items.filter(item => !isWithinPrefix(item.link, prefix)),
+    ...nextItems,
+    ...preservedDraftItems,
+  ]
+}
+
 export function setCurrentMarkdown(markdown: Markdown | null) {
   editorStore.currentMarkdown = markdown
 }

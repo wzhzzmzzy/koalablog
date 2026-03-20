@@ -303,6 +303,17 @@ export function readAll(env: Env, source: MarkdownSource, deleted: boolean) {
   })
 }
 
+export function readByPrefix(env: Env, prefix: string) {
+  if (!prefix) {
+    return justReadAll(env)
+  }
+
+  return connectDB(env).query.markdown.findMany({
+    where: like(markdown.link, `${prefix}%`),
+    orderBy: desc(markdown.createdAt),
+  })
+}
+
 export function readAllPublic(env: Env) {
   return connectDB(env).query.markdown.findMany({
     where: and(

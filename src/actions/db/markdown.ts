@@ -1,6 +1,6 @@
 import type { Markdown } from '@/db/types'
 import { getMarkdownSourceKey, MarkdownSource } from '@/db'
-import { batchAdd, generateMemoSubject, justReadAll, readAll, updateRefs as updateRefsDB } from '@/db/markdown'
+import { batchAdd, generateMemoSubject, justReadAll, readAll, readByPrefix, updateRefs as updateRefsDB } from '@/db/markdown'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
@@ -73,6 +73,17 @@ export const all = defineAction({
 
       return prev
     }, {} as AllCollection & { recycleBin?: AllCollection })
+  },
+})
+
+export const byPrefix = defineAction({
+  input: z.object({
+    prefix: z.string().default(''),
+  }).default({ prefix: '' }),
+  handler: async ({ prefix }, ctx) => {
+    await authGuard(ctx)
+
+    return readByPrefix(ctx.locals.runtime?.env, prefix)
   },
 })
 

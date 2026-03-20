@@ -1,16 +1,17 @@
 <script lang="ts">
   import type { Markdown } from '@/db/types';
-  import { Plus, ChevronRight, ChevronDown, Folder, FileText } from '@lucide/svelte';
+  import { Plus, ChevronRight, ChevronDown, LoaderCircle } from '@lucide/svelte';
   import { editorStore } from './store.svelte';
   import FileItem from './FileItem.svelte';
 
   interface Props {
     onSelect: (m: Markdown) => void;
     onCreate: (prefix: string) => void;
+    onRefresh?: (prefix: string) => Promise<void> | void;
     currentId: number;
   }
 
-  let { onSelect, onCreate, currentId }: Props = $props();
+  let { onSelect, onCreate, onRefresh, currentId }: Props = $props();
 
   type TreeNode = {
     name: string;
@@ -55,9 +56,47 @@
 
   // Folder expansion state
   let expandedFolders = $state<Record<string, boolean>>({});
+  let refreshingFolders = $state<Record<string, boolean>>({});
+  const pendingRefreshes = new Map<string, Promise<void>>();
+
+  function getRefreshKey(path: string) {
+    return path || '__root__';
+  }
+
+  async function refreshPath(path: string) {
+    if (!onRefresh) return;
+
+    const refreshKey = getRefreshKey(path);
+    const pending = pendingRefreshes.get(refreshKey);
+    if (pending) return pending;
+
+    refreshingFolders[refreshKey] = true;
+
+    const task = Promise.resolve(onRefresh(path))
+      .catch((error) => {
+        console.error(`Failed to refresh editor tree for path "${path}"`, error);
+      })
+      .finally(() => {
+        pendingRefreshes.delete(refreshKey);
+        refreshingFolders[refreshKey] = false;
+      });
+
+    pendingRefreshes.set(refreshKey, task);
+    return task;
+  }
 
   function toggleFolder(path: string) {
-    expandedFolders[path] = !expandedFolders[path];
+    const nextExpanded = !expandedFolders[path];
+    expandedFolders[path] = nextExpanded;
+
+    if (nextExpanded) {
+      void refreshPath(path);
+    }
+  }
+
+  function handleTopLevelFileSelect(item: Markdown) {
+    onSelect(item);
+    void refreshPath('');
   }
 
   // Auto-expand current item's path
@@ -100,7 +139,9 @@
           aria-roledescription="button"
         >
             <div class="flex items-center gap-1.5 text-sm font-medium text-[--koala-subtext-0]">
-                {#if expandedFolders[node.fullPath]}
+                {#if refreshingFolders[getRefreshKey(node.fullPath)]}
+                    <LoaderCircle size={14} class="animate-spin" />
+                {:else if expandedFolders[node.fullPath]}
                     <ChevronDown size={14} />
                 {:else}
                     <ChevronRight size={14} />
@@ -139,7 +180,7 @@
             {@render folderNode(child)}
       {/each}
       {#each tree.items as item}
-            <FileItem {item} {currentId} {onSelect} />
+            <FileItem {item} {currentId} onSelect={handleTopLevelFileSelect} />
       {/each}
   {/if}
 

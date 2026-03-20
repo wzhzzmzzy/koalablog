@@ -6,7 +6,7 @@
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
-  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, drafts, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY } from './store.svelte';
+  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY } from './store.svelte';
 
   interface Props {
     initialMarkdown: Markdown;
@@ -70,6 +70,18 @@
     upsertItem(m);
   }
 
+  async function handleRefresh(prefix: string) {
+    const result = await actions.db.markdown.byPrefix({ prefix });
+
+    if (result.error) {
+      console.error(`Failed to refresh sidebar items for prefix "${prefix}"`, result.error);
+      notify('error', 'Failed to refresh sidebar');
+      return;
+    }
+
+    replaceItemsByPrefix(prefix, result.data || []);
+  }
+
   async function createNew(prefix: string) {
     const targetSource = getSourceFromLink(prefix);
     const newMd = initMarkdown(targetSource);
@@ -110,6 +122,7 @@
                 currentId={editorStore.currentMarkdown?.id || 0}
                 onSelect={handleSelect}
                 onCreate={createNew}
+                onRefresh={handleRefresh}
              />
         </div>
     </div>
