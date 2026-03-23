@@ -1,6 +1,7 @@
 ---
-import type { MarkdownSource } from '@/db'
+import { MarkdownSource } from '@/db'
 import { readList } from '@/db/markdown'
+import { getMarkdownPreviewText } from '@/lib/utils/markdown-preview'
 import { format, isSameYear } from 'date-fns'
 
 interface Props {
@@ -16,6 +17,7 @@ const session = Astro.locals.session
 const includePrivate = !!session?.role || false
 const list = await readList(env, source, tag || undefined, { includePrivate })
 const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? 'MM-dd' : 'yyyy-MM-dd')
+const isMemoList = source === MarkdownSource.Memo
 
 // Group posts by year
 const groupedByYear = list.reduce((groups, item) => {
@@ -36,6 +38,9 @@ const sortedYears = Object.keys(groupedByYear)
   .sort((a, b) => b - a)
 
 const count = list.length
+const memoPreviews = isMemoList
+  ? new Map(list.map(item => [item.link, getMarkdownPreviewText(item.content)]))
+  : new Map<string, string>()
 ---
 
 {tag && <p class="mb-3">Searching tag: <span class="tag" role="button" tabindex="0" data-tag={tag} title={`Click to search tag: ${tag}`}>{tag}</span> ({count}&nbsp;{count === 1 ? 'article' : 'articles'})</p>}
@@ -53,9 +58,16 @@ const count = list.length
         <ul class="ml-4">
           {
             groupedByYear[year].map(item => (
-              <li class="flex gap-3 mb-2">
+              <li class={`flex gap-3 ${isMemoList ? 'mb-3 items-start' : 'mb-2'}`}>
                 { item.createdAt ? <span class="flex-shrink-0"><i>{ formatDate(item.createdAt) }</i></span> : null }
-                <a href={`/${item.link}`}><span>{ item.subject } </span></a>
+                <div class="min-w-0">
+                  <a href={`/${item.link}`}><span>{ item.subject } </span></a>
+                  {
+                    isMemoList && memoPreviews.get(item.link)
+                      ? <p class="mt-1 text-sm opacity-70 whitespace-pre-line">{memoPreviews.get(item.link)}</p>
+                      : null
+                  }
+                </div>
               </li>
             ))
           }
