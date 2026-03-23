@@ -104,9 +104,14 @@ export async function updateCookieToken(ctx: APIContext | ActionAPIContext, acce
         secure: true,
       }
 
+  // Allow auth cookies on top-level GET navigations from external sites/apps.
+  // `sameSite: true` serializes to `SameSite=Strict`, which breaks reopening
+  // private links from outside the site after a tab is closed.
+  const sameSite = 'lax' as const
+
   ctx.cookies.set(ACCESS_TOKEN_KEY, accessToken, {
     httpOnly: true,
-    sameSite: true,
+    sameSite,
     path: '/',
     expires: refresh ? addHours(tokenSignTime, 1) : addDays(tokenSignTime, 3),
     ...prodCookieParams,
@@ -116,7 +121,7 @@ export async function updateCookieToken(ctx: APIContext | ActionAPIContext, acce
     const refreshTokenExpires = addDays(tokenSignTime, 7)
     ctx.cookies.set(REFRESH_TOKEN_KEY, refreshToken, {
       httpOnly: true,
-      sameSite: true,
+      sameSite,
       path: '/',
       expires: refreshTokenExpires,
       ...prodCookieParams,
