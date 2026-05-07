@@ -459,7 +459,7 @@ async function runDaemon() {
     }
   })
 
-  remoteTruthTimer = setInterval(pullRemoteTruth, 30_000)
+  remoteTruthTimer = setInterval(pullRemoteTruth, 60_000)
   pullRemoteTruth()
 
   log(`👀 Watching: ${config.vaultPath}`)
