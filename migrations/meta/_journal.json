@@ -15,6 +15,13 @@
       "when": 1757933322794,
       "tag": "0001_init",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1778125923226,
+      "tag": "0002_remote_truth",
+      "breakpoints": true
     }
   ]
 }

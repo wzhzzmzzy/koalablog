@@ -1,0 +1,1 @@
+ALTER TABLE `markdown` ADD `remoteTruth` integer DEFAULT false NOT NULL;
