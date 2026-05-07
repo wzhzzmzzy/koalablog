@@ -1,8 +1,8 @@
 import type { APIContext } from 'astro'
 import type { ActionAPIContext } from 'astro:actions'
-import { addDays, addHours, isBefore } from 'date-fns'
+import { addDays, addHours } from 'date-fns'
 import { jwtVerify, SignJWT } from 'jose'
-import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, updateGlobalConfig } from '../kv'
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '../kv'
 import { md5 } from './md5'
 
 export async function tokenSign(payload: any, adminKey: string, expires: string) {
@@ -39,6 +39,18 @@ async function tokenVerify(token: string, adminKey: string) {
   }
 }
 
+async function refreshTokenVerify(token: string, adminKey: string) {
+  const refreshKey = md5(adminKey)
+  const secret = new TextEncoder().encode(refreshKey)
+  try {
+    await jwtVerify(token, secret)
+    return true
+  }
+  catch {
+    return false
+  }
+}
+
 export async function authInterceptor(ctx: APIContext | ActionAPIContext) {
   const config = ctx.locals.config
 
@@ -61,8 +73,7 @@ export async function authInterceptor(ctx: APIContext | ActionAPIContext) {
 
   // If access token is invalid/expired, try to refresh using refresh token
   if (!tokenRole && refreshToken) {
-    const isValidRefreshToken = refreshToken.value === config._runtime.refresh_token
-      && isBefore(new Date(), config._runtime.refresh_expired_at || 0)
+    const isValidRefreshToken = await refreshTokenVerify(refreshToken.value, config.auth.adminKey!)
 
     if (isValidRefreshToken) {
       tokenRole = 'admin'
@@ -118,20 +129,12 @@ export async function updateCookieToken(ctx: APIContext | ActionAPIContext, acce
   })
 
   if (refresh) {
-    const refreshTokenExpires = addDays(tokenSignTime, 7)
     ctx.cookies.set(REFRESH_TOKEN_KEY, refreshToken, {
       httpOnly: true,
       sameSite,
       path: '/',
-      expires: refreshTokenExpires,
+      expires: addDays(tokenSignTime, 7),
       ...prodCookieParams,
-    })
-
-    await updateGlobalConfig(ctx.locals.runtime?.env, {
-      _runtime: {
-        refresh_token: refreshToken,
-        refresh_expired_at: refreshTokenExpires.getTime(),
-      },
     })
   }
 }
