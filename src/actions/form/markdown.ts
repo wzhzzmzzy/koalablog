@@ -1,5 +1,7 @@
-import { MarkdownSource } from '@/db'
+import { eq } from 'drizzle-orm'
+import { connectDB, MarkdownSource } from '@/db'
 import { add, remove as removeMarkdown, update, updatePrivate } from '@/db/markdown'
+import { markdown } from '@/db/schema'
 import { parseJson } from '@/lib/utils/parse-json'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
@@ -39,12 +41,18 @@ export const save = defineAction({
 
     const { id, link, subject, content, source, outgoingLinks, private: privated, tags } = input
     const env = ctx.locals.runtime?.env || {}
-    if (id) {
-      return update(env, id, source, link, subject, content, JSON.stringify(outgoingLinks), privated, tags)
+    const result = id
+      ? await update(env, id, source, link, subject, content, JSON.stringify(outgoingLinks), privated, tags)
+      : await add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated, tags)
+
+    if (result[0]?.id) {
+      await connectDB(env)
+        .update(markdown)
+        .set({ remoteTruth: true })
+        .where(eq(markdown.id, result[0].id))
     }
-    else {
-      return add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated, tags)
-    }
+
+    return result
   },
 })
 

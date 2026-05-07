@@ -298,6 +298,83 @@ async function fetchRemoteMemos() {
 
 // Daemon
 let watcher = null
+let remoteTruthTimer = null
+let pullingRemoteTruth = false
+const suppressUpload = new Map()
+
+function resolveVaultPath(link) {
+  const normalizedLink = link.endsWith('.md') ? link : `${link}.md`
+  return join(config.vaultPath, normalizedLink)
+}
+
+function shouldSuppressUpload(filePath) {
+  const suppressedUntil = suppressUpload.get(filePath)
+  if (!suppressedUntil) return false
+
+  suppressUpload.delete(filePath)
+  return suppressedUntil > Date.now()
+}
+
+async function fetchRemoteTruth() {
+  const res = await fetch(`${config.koalablogUrl}/api/markdown/remote-truth`, {
+    headers: {
+      'Authorization': `Bearer ${config.bearerToken}`,
+    },
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err)
+  }
+
+  return res.json()
+}
+
+async function clearRemoteTruth(id) {
+  const res = await fetch(`${config.koalablogUrl}/api/markdown/remote-truth`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.bearerToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ id }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(err)
+  }
+
+  return res.json()
+}
+
+async function pullRemoteTruth() {
+  if (pullingRemoteTruth) return
+
+  pullingRemoteTruth = true
+
+  try {
+    const items = await fetchRemoteTruth()
+    if (items.length === 0) return
+
+    log(`⬇️ Pulling ${items.length} remote edits`)
+
+    for (const item of items) {
+      const filePath = resolveVaultPath(item.link)
+
+      suppressUpload.set(filePath, Date.now() + 5000)
+      await mkdir(dirname(filePath), { recursive: true })
+      await writeFile(filePath, item.content || '', 'utf-8')
+      await clearRemoteTruth(item.id)
+
+      log(`✅ Pulled: ${item.subject}`)
+    }
+  } catch (e) {
+    log(`❌ Pull failed: ${e.message}`, true)
+  } finally {
+    pullingRemoteTruth = false
+  }
+}
 
 async function runDaemon() {
   config = await loadConfig()
@@ -305,6 +382,9 @@ async function runDaemon() {
   await writeFile(PID_FILE, String(process.pid))
   
   const cleanup = async () => {
+    if (remoteTruthTimer) {
+      clearInterval(remoteTruthTimer)
+    }
     if (watcher) {
       await watcher.close()
     }
@@ -333,6 +413,7 @@ async function runDaemon() {
 
   watcher.on('add', async (path) => {
     if (!path.endsWith('.md')) return
+    if (shouldSuppressUpload(path)) return
     
     log(`📝 New: ${basename(path)}`)
     const memo = await parseMemo(path)
@@ -347,8 +428,10 @@ async function runDaemon() {
     }
   })
 
-watcher.on('change', async (path) => {
+  watcher.on('change', async (path) => {
     if (!path.endsWith('.md')) return
+    if (shouldSuppressUpload(path)) return
+
     log(`📝 Changed: ${basename(path)}`)
     const memo = await parseMemo(path)
     if (memo) {
@@ -375,6 +458,9 @@ watcher.on('change', async (path) => {
       log(`❌ Delete failed: ${e.message}`, true)
     }
   })
+
+  remoteTruthTimer = setInterval(pullRemoteTruth, 30_000)
+  pullRemoteTruth()
 
   log(`👀 Watching: ${config.vaultPath}`)
 }

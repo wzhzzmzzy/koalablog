@@ -303,6 +303,27 @@ export function readAll(env: Env, source: MarkdownSource, deleted: boolean) {
   })
 }
 
+export function readRemoteTruth(env: Env) {
+  return connectDB(env).query.markdown.findMany({
+    columns: {
+      id: true,
+      link: true,
+      subject: true,
+      content: true,
+    },
+    where: and(
+      eq(markdown.remoteTruth, true),
+      eq(markdown.deleted, false),
+    ),
+  })
+}
+
+export function clearRemoteTruth(env: Env, id: number) {
+  return connectDB(env).update(markdown).set({
+    remoteTruth: false,
+  }).where(eq(markdown.id, id))
+}
+
 export function readByPrefix(env: Env, prefix: string) {
   if (!prefix) {
     return justReadAll(env)
