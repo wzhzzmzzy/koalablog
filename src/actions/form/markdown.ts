@@ -1,10 +1,10 @@
-import { eq } from 'drizzle-orm'
 import { connectDB, MarkdownSource } from '@/db'
 import { add, remove as removeMarkdown, update, updatePrivate } from '@/db/markdown'
 import { markdown } from '@/db/schema'
 import { parseJson } from '@/lib/utils/parse-json'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
+import { eq } from 'drizzle-orm'
 import { authGuard } from '../utils/auth'
 
 export const save = defineAction({
@@ -33,6 +33,9 @@ export const save = defineAction({
     }
     if (val.source === MarkdownSource.Memo) {
       return val.link.startsWith('memo/')
+    }
+    if (val.source === MarkdownSource.Wiki) {
+      return val.link.startsWith('wiki/')
     }
     return true
   }, 'invalid link'),

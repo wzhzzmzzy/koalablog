@@ -9,6 +9,7 @@ export interface AllCollection {
   posts?: Markdown[]
   pages?: Markdown[]
   memos?: Markdown[]
+  wikis?: Markdown[]
   home?: Markdown
   nav?: Markdown
 }
@@ -22,7 +23,7 @@ export const getNewMemoSubject = defineAction({
 
 export const all = defineAction({
   input: z.optional(z.object({
-    source: z.enum(['all', 'post', 'page', 'memo']).default('all'),
+    source: z.enum(['all', 'post', 'page', 'memo', 'wiki']).default('all'),
     deleted: z.boolean().default(false),
   })).default({}),
   handler: async (input, ctx) => {
@@ -31,7 +32,9 @@ export const all = defineAction({
     if (input.source !== 'all' && !input.deleted) {
       const sourceEnum = input.source === 'post'
         ? MarkdownSource.Post
-        : input.source === 'page' ? MarkdownSource.Page : MarkdownSource.Memo
+        : input.source === 'page'
+          ? MarkdownSource.Page
+          : input.source === 'wiki' ? MarkdownSource.Wiki : MarkdownSource.Memo
       const records = await readAll(
         ctx.locals.runtime?.env,
         sourceEnum,
@@ -55,9 +58,10 @@ export const all = defineAction({
       }
 
       const key = getMarkdownSourceKey(curr.source)
-      const sourceType = (key === 'posts' || key === 'pages' || key === 'memos') ? key : null
+      const sourceType = (key === 'posts' || key === 'pages' || key === 'memos' || key === 'wikis') ? key : null
 
-      if (sourceType && (input.source === 'all' || input.source === sourceType.slice(0, -1))) {
+      const singularSourceType = sourceType === 'wikis' ? 'wiki' : sourceType?.slice(0, -1)
+      if (sourceType && (input.source === 'all' || input.source === singularSourceType)) {
         if (!prev[sourceType])
           prev[sourceType] = []
 

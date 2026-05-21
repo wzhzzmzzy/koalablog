@@ -1,4 +1,4 @@
-import { MarkdownSource } from '@/db/index'
+import { getSourceFromLink, MarkdownSource } from '@/db/index'
 import { collectTagsAndLinks, linkGenerator } from '@/db/markdown'
 import { describe, expect, it } from 'vitest'
 
@@ -36,6 +36,12 @@ describe('linkGenerator', () => {
   it('should handle multiple spaces', () => {
     const result = linkGenerator(MarkdownSource.Page, 'Hello   World')
     expect(result).toBe('hello-world')
+  })
+})
+
+describe('getSourceFromLink', () => {
+  it('should classify wiki links as wiki source', () => {
+    expect(getSourceFromLink('wiki/entities/transformer-architecture')).toBe(31)
   })
 })
 

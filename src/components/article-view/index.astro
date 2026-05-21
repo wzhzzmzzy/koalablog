@@ -30,7 +30,7 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
       )}
     </>
     )
-    : source === MarkdownSource.Page
+    : source === MarkdownSource.Page || source === MarkdownSource.Wiki
     ? (
           <h2>{ article.subject }</h2>
         )
@@ -39,5 +39,4 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
   </div>
   <article id="article" set:html={contentWithIds} />
 </main>
-
 

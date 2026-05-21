@@ -85,7 +85,7 @@ function metaPlugin(md: MarkdownIt, options: MetaPluginOptions = {}) {
 
   // Core rule that processes the source before parsing
   const metaRule: RuleCore = (state) => {
-    (md as any).meta = null
+    (md as any).meta = undefined
     const src = state.src
     const delimiter = opts.delimiter
 

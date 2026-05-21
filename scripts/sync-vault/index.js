@@ -70,11 +70,23 @@ const PID_FILE = join(runtimeDir, 'koalablog-sync.pid')
 const LOG_FILE = join(stateDir, 'koalablog-sync.log')
 
 const SOURCE_MEMO = '30'
+const SOURCE_WIKI = '31'
 const SYNC_DIRS = ['memos', 'todos']
+const WIKI_SYNC_DIRS = [
+  'wiki/entities',
+  'wiki/concepts',
+  'wiki/comparisons',
+  'wiki/queries',
+]
+const ALL_SYNC_DIRS = [...SYNC_DIRS, ...WIKI_SYNC_DIRS]
 
 function getLink(filePath) {
   const relPath = relative(config.vaultPath, filePath)
   return relPath.replace(/\.md$/, '')
+}
+
+function getSource(link) {
+  return link.startsWith('wiki/') ? SOURCE_WIKI : SOURCE_MEMO
 }
 
 // Utils
@@ -219,14 +231,14 @@ async function uploadToKoalablog(memo) {
 
 async function batchUploadToKoalablog(memos) {
   const payload = memos.map(memo => ({
-    source: Number(SOURCE_MEMO),
+    source: Number(getSource(memo.link)),
     link: memo.link,
     subject: memo.subject,
     content: memo.content,
     private: true,
   }))
 
-const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
+  const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
@@ -282,18 +294,23 @@ async function batchDeleteFromKoalablog(links) {
 }
 
 async function fetchRemoteMemos() {
-  const res = await fetch(`${config.koalablogUrl}/api/markdown/batch?source=memo`, {
-    headers: {
-      'Authorization': `Bearer ${config.bearerToken}`,
-    },
-  })
+  const sources = ['memo', 'wiki']
+  const records = await Promise.all(sources.map(async (source) => {
+    const res = await fetch(`${config.koalablogUrl}/api/markdown/batch?source=${source}`, {
+      headers: {
+        'Authorization': `Bearer ${config.bearerToken}`,
+      },
+    })
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(err)
-  }
-  
-  return res.json()
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(err)
+    }
+
+    return res.json()
+  }))
+
+  return records.flat()
 }
 
 // Daemon
@@ -399,7 +416,7 @@ async function runDaemon() {
   log(`   Vault: ${config.vaultPath}`)
   log(`   Koalablog: ${config.koalablogUrl}`)
   
-  const watchPaths = SYNC_DIRS.map(d => join(config.vaultPath, d))
+  const watchPaths = ALL_SYNC_DIRS.map(d => join(config.vaultPath, d))
   
   watcher = chokidar.watch(watchPaths, {
     ignored: /(^|[\/\\])\../,
@@ -462,7 +479,10 @@ async function runDaemon() {
   remoteTruthTimer = setInterval(pullRemoteTruth, 60_000)
   pullRemoteTruth()
 
-  log(`👀 Watching: ${config.vaultPath}`)
+  log(`👀 Watching:`)
+  for (const watchPath of watchPaths) {
+    log(`   ${watchPath}`)
+  }
 }
 
 async function startDaemon() {
@@ -551,7 +571,7 @@ async function fullSync() {
     }
   }
   
-  for (const dir of SYNC_DIRS) {
+  for (const dir of ALL_SYNC_DIRS) {
     const dirPath = join(config.vaultPath, dir)
     try {
       await readDir(dirPath)
@@ -625,7 +645,7 @@ async function fullSync() {
     const toDelete = remoteMemos
       .filter(r => {
         if (localLinks.has(r.link)) return false
-        return SYNC_DIRS.some(dir => r.link.startsWith(`${dir}/`))
+        return ALL_SYNC_DIRS.some(dir => r.link.startsWith(`${dir}/`))
       })
       .map(r => r.link)
     

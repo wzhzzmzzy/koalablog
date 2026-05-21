@@ -11,6 +11,7 @@ export enum MarkdownSource {
   Post = 10,
   Page = 20,
   Memo = 30,
+  Wiki = 31,
   Unknown = 99,
 }
 
@@ -18,16 +19,21 @@ export const MarkdownSourceMap = {
   posts: MarkdownSource.Post,
   pages: MarkdownSource.Page,
   memos: MarkdownSource.Memo,
+  wikis: MarkdownSource.Wiki,
 }
 
 export const MarkdownSubjectMap: Record<MarkdownSource, string> = {
   [MarkdownSource.Post]: 'Posts',
   [MarkdownSource.Page]: 'Pages',
   [MarkdownSource.Memo]: 'Memos',
+  [MarkdownSource.Wiki]: 'Wikis',
   [MarkdownSource.Unknown]: '404',
 }
 
 export function getSourceFromLink(link: string): MarkdownSource {
+  if (link.startsWith('wiki/')) {
+    return MarkdownSource.Wiki
+  }
   if (link.startsWith('memo/')) {
     return MarkdownSource.Memo
   }

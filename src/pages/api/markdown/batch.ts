@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
-import { batchUpsert, batchRemoveByLinks, readAll } from '@/db/markdown'
+import { batchRemoveByLinks, batchUpsert, readAll } from '@/db/markdown'
 import { authInterceptor } from '@/lib/auth'
 
 export const GET: APIRoute = async (ctx) => {
@@ -14,9 +14,13 @@ export const GET: APIRoute = async (ctx) => {
   }
 
   const sourceParam = ctx.url.searchParams.get('source')
-  const source = sourceParam === 'post' ? MarkdownSource.Post
-    : sourceParam === 'page' ? MarkdownSource.Page
-    : MarkdownSource.Memo
+  const source = sourceParam === 'post'
+    ? MarkdownSource.Post
+    : sourceParam === 'page'
+      ? MarkdownSource.Page
+      : sourceParam === 'wiki'
+        ? MarkdownSource.Wiki
+        : MarkdownSource.Memo
 
   const env = ctx.locals.runtime?.env
   const records = await readAll(env, source, false)
@@ -66,7 +70,7 @@ export const POST: APIRoute = async (ctx) => {
       link?: string
       private?: boolean
       tags?: string
-      outgoingLinks?: Array<{ subject: string; link: string }>
+      outgoingLinks?: Array<{ subject: string, link: string }>
     }) => ({
       source: item.source ?? MarkdownSource.Memo,
       subject: item.subject,
@@ -82,12 +86,13 @@ export const POST: APIRoute = async (ctx) => {
     return new Response(JSON.stringify({
       success: true,
       count: results.length,
-      results: results.map((r: { id: number; link: string; subject: string }) => ({ id: r.id, link: r.link, subject: r.subject })),
+      results: results.map((r: { id: number, link: string, subject: string }) => ({ id: r.id, link: r.link, subject: r.subject })),
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
-  } catch (e) {
+  }
+  catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error'
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
@@ -143,7 +148,8 @@ export const DELETE: APIRoute = async (ctx) => {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
-  } catch (e) {
+  }
+  catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error'
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
