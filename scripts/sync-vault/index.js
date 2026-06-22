@@ -7,7 +7,7 @@ import { homedir } from 'os'
 import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import envPaths from 'env-paths'
-import { ProxyAgent, setGlobalDispatcher } from 'undici'
+import { ProxyAgent, fetch as undiciFetch } from 'undici'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -38,7 +38,7 @@ async function loadConfig() {
     }
     
     if (config.httpProxy) {
-      setGlobalDispatcher(new ProxyAgent(config.httpProxy))
+      globalThis.__proxyDispatcher = new ProxyAgent(config.httpProxy)
     }
     
     return {
@@ -138,11 +138,12 @@ function extractAttachmentRefs(content, mdFilePath) {
 }
 
 async function checkAttachmentExists(ossPath) {
-  const res = await fetch(`${config.koalablogUrl}/api/oss/attachments_${ossPath}`, {
+  const res = await undiciFetch(`${config.koalablogUrl}/api/oss/attachments_${ossPath}`, {
     method: 'HEAD',
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
     },
+    dispatcher: globalThis.__proxyDispatcher,
   })
   return res.ok
 }
@@ -179,12 +180,13 @@ async function uploadAttachment(localPath) {
   formData.append('file', new Blob([fileContent], { type: contentType }), fileName)
   formData.append('path', ossPath)
   
-  const res = await fetch(`${config.koalablogUrl}/api/attachments/upload`, {
+  const res = await undiciFetch(`${config.koalablogUrl}/api/attachments/upload`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
     },
     body: formData,
+    dispatcher: globalThis.__proxyDispatcher,
   })
   
   if (!res.ok) {
@@ -238,13 +240,14 @@ async function batchUploadToKoalablog(memos) {
     private: true,
   }))
 
-  const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
+  const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/batch`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
+    dispatcher: globalThis.__proxyDispatcher,
   })
 
   if (!res.ok) {
@@ -256,13 +259,14 @@ async function batchUploadToKoalablog(memos) {
 }
 
 async function deleteFromKoalablog(link) {
-  const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
+  const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/batch`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify([link]),
+    dispatcher: globalThis.__proxyDispatcher,
   })
 
   if (!res.ok) {
@@ -276,13 +280,14 @@ async function deleteFromKoalablog(link) {
 async function batchDeleteFromKoalablog(links) {
   if (links.length === 0) return { count: 0 }
   
-  const res = await fetch(`${config.koalablogUrl}/api/markdown/batch`, {
+  const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/batch`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(links),
+    dispatcher: globalThis.__proxyDispatcher,
   })
 
   if (!res.ok) {
@@ -296,10 +301,11 @@ async function batchDeleteFromKoalablog(links) {
 async function fetchRemoteMemos() {
   const sources = ['memo', 'wiki']
   const records = await Promise.all(sources.map(async (source) => {
-    const res = await fetch(`${config.koalablogUrl}/api/markdown/batch?source=${source}`, {
+    const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/batch?source=${source}`, {
       headers: {
         'Authorization': `Bearer ${config.bearerToken}`,
       },
+      dispatcher: globalThis.__proxyDispatcher,
     })
 
     if (!res.ok) {
@@ -333,10 +339,11 @@ function shouldSuppressUpload(filePath) {
 }
 
 async function fetchRemoteTruth() {
-  const res = await fetch(`${config.koalablogUrl}/api/markdown/remote-truth`, {
+  const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/remote-truth`, {
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
     },
+    dispatcher: globalThis.__proxyDispatcher,
   })
 
   if (!res.ok) {
@@ -348,13 +355,14 @@ async function fetchRemoteTruth() {
 }
 
 async function clearRemoteTruth(id) {
-  const res = await fetch(`${config.koalablogUrl}/api/markdown/remote-truth`, {
+  const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/remote-truth`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ id }),
+    dispatcher: globalThis.__proxyDispatcher,
   })
 
   if (!res.ok) {
