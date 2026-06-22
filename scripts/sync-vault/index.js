@@ -564,6 +564,10 @@ async function fullSync() {
   
   log(`📋 Starting full sync...`)
   
+  // Pull remote edits first (bidirectional sync)
+  log(`⬇️ Checking for remote edits...`)
+  await pullRemoteTruth()
+  
   const files = []
   const readDir = async (dir) => {
     const entries = await readdir(dir, { withFileTypes: true })
