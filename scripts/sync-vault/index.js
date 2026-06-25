@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import chokidar from 'chokidar'
-import { readFile, writeFile, mkdir, access, constants } from 'fs/promises'
+import { readFile, writeFile, mkdir, access } from 'fs/promises'
+import { accessSync, constants } from 'fs'
 import { join, basename, dirname, relative, resolve } from 'path'
 import { homedir } from 'os'
 import { spawn } from 'child_process'
@@ -113,15 +114,12 @@ function extractAttachmentRefs(content, mdFilePath) {
   const refs = new Set()
   const mdDir = dirname(mdFilePath)
   
-  // Standard markdown images: ![](/attachments/...) or ![](./attachments/...)
-  const stdImgRegex = /!\[.*?\]\((\.?\/attachments\/[^)]+)\)/g
+  // Standard markdown images: ![](/attachments/...), ![](./attachments/...), ![](../../attachments/...)
+  const stdImgRegex = /!\[.*?\]\(((?:\.\.\/)*\.?\/?attachments\/[^)]+)\)/g
   let match
   while ((match = stdImgRegex.exec(content)) !== null) {
     const refPath = match[1]
-    const normalized = refPath.replace(/^\.?\//, '')
-    const localPath = refPath.startsWith('./') 
-      ? resolve(mdDir, refPath)
-      : resolve(config.vaultPath, normalized)
+    const localPath = resolveLocalPath(refPath, mdDir)
     refs.add(localPath)
   }
   
@@ -134,7 +132,46 @@ function extractAttachmentRefs(content, mdFilePath) {
     refs.add(localPath)
   }
   
+  // Wiki-link with relative path: ![[../../attachments/...]]
+  const relWikiRegex = /!\[\[((?:\.\.\/)+attachments\/[^\]]+)\]\]/g
+  while ((match = relWikiRegex.exec(content)) !== null) {
+    const refPath = match[1]
+    const localPath = resolveLocalPath(refPath, mdDir)
+    refs.add(localPath)
+  }
+  
+  // Obsidian internal link: [[../../attachments/file.pdf][text]]
+  const obsLinkRegex = /\[\[((?:\.\.\/)+attachments\/[^\]|]+)/g
+  while ((match = obsLinkRegex.exec(content)) !== null) {
+    const refPath = match[1]
+    const localPath = resolveLocalPath(refPath, mdDir)
+    refs.add(localPath)
+  }
+  
   return [...refs]
+}
+
+function resolveLocalPath(refPath, mdDir) {
+  // Try relative-to-note resolution first (standard markdown)
+  const relativeResolved = resolve(mdDir, refPath)
+  
+  // Try fallback: strip all ../ and resolve from vault root (Obsidian-style)
+  const stripped = refPath.replace(/^(?:\.\.\/)+/, '').replace(/^\.?\//, '')
+  const vaultResolved = resolve(config.vaultPath, stripped)
+  
+  // Return the one that exists, preferring relative if both exist
+  try {
+    accessSync(vaultResolved, constants.F_OK)
+    if (relativeResolved !== vaultResolved) {
+      try {
+        accessSync(relativeResolved, constants.F_OK)
+        return relativeResolved
+      } catch {}
+      return vaultResolved
+    }
+  } catch {}
+  
+  return relativeResolved
 }
 
 async function checkAttachmentExists(ossPath) {
@@ -166,10 +203,8 @@ async function uploadAttachment(localPath) {
   }
   const contentType = contentTypes[ext] || 'application/octet-stream'
   
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const ossPath = `${year}/${month}/${fileName}`
+  const attachmentsDir = join(config.vaultPath, 'attachments')
+  const ossPath = relative(attachmentsDir, localPath)
   
   const exists = await checkAttachmentExists(ossPath)
   if (exists) {
@@ -236,7 +271,16 @@ async function batchUploadToKoalablog(memos) {
     source: Number(getSource(memo.link)),
     link: memo.link,
     subject: memo.subject,
-    content: memo.content,
+    content: memo.content
+      // ![[attachments/...]] → ![](/attachments/...)
+      .replace(/!\[\[((?:\.?\/)?attachments\/[^\]]+)\]\]/g, '![](/$1)')
+      // ![[../../attachments/...]] → ![](/attachments/...)
+      .replace(/!\[\[((?:\.\.\/)+attachments\/[^\]]+)\]\]/g, (_, p) => `![](/${p.replace(/^(?:\.\.\/)+/, '')})`)
+      // ![](../../attachments/...) → ![](/attachments/...)
+      .replace(/!\[.*?\]\(((?:\.\.\/)+attachments\/[^)]+)\)/g, (_, p) => `![](/${p.replace(/^(?:\.\.\/)+/, '')})`)
+      // [[../../attachments/file.pdf][text]] → [text](/attachments/file.pdf)
+      .replace(/\[\[((?:\.\.\/)+attachments\/[^\]|]+)\|([^\]]+)\]\]/g, '[$2]($1)')
+      .replace(/\[\[((?:\.\.\/)+attachments\/[^\]|]+)\]\]/g, '[$1]($1)'),
     private: true,
   }))
 
