@@ -211,9 +211,10 @@ export async function batchRemoveByLinks(env: Env, links: string[]) {
     })
 
     if (record && !record.deleted) {
+      const ts = Date.now()
       const deletedLink = link.startsWith('.recycleBin')
         ? link
-        : `.recycleBin${link.startsWith('/') ? '' : '/'}${link}`
+        : `.recycleBin${link.startsWith('/') ? '' : '/'}${link}_${ts}`
 
       await db.update(markdown).set({
         deleted: true,
