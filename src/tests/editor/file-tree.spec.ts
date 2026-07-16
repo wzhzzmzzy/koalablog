@@ -1,20 +1,20 @@
-import { buildFileTree, getTrashedFiles } from '@/components/editor/file-tree'
+import { buildFileTree, getTrashedFiles, isFileTreeEmpty } from '@/components/editor/file-tree'
 import { drafts, editorStore, replaceItemsByPrefix, setItems } from '@/components/editor/store.svelte'
-import { initFileRecord } from '@/db/types'
+import { makeFileRecord } from '@/tests/fixtures/file-record'
 import { describe, expect, it } from 'vitest'
 
 describe('editor File tree', () => {
   it('keeps active Files in the Path tree and duplicate deleted Files in the recycle bin', () => {
-    const active = { ...initFileRecord(), id: 1, path: '/post/active', title: 'active' }
+    const active = makeFileRecord({ id: 1, path: '/post/active', title: 'active' })
     const older = {
-      ...initFileRecord(),
+      ...makeFileRecord(),
       id: 2,
       path: '/post/same',
       title: 'same',
       deletedAt: new Date('2026-07-14T10:00:00Z'),
     }
     const newer = {
-      ...initFileRecord(),
+      ...makeFileRecord(),
       id: 3,
       path: '/post/same',
       title: 'same',
@@ -30,9 +30,9 @@ describe('editor File tree', () => {
   })
 
   it('refreshes a path without confusing a deleted duplicate with the active draft', () => {
-    const active = { ...initFileRecord(), id: 1, path: '/post/same', title: 'same', content: 'saved' }
+    const active = makeFileRecord({ id: 1, path: '/post/same', title: 'same', content: 'saved' })
     const deleted = {
-      ...initFileRecord(),
+      ...makeFileRecord(),
       id: 2,
       path: '/post/same',
       title: 'same',
@@ -51,5 +51,23 @@ describe('editor File tree', () => {
     expect(editorStore.items.find(item => item.id === deleted.id)).toEqual(deleted)
     expect(drafts.get(active.path)).toEqual(draft)
     drafts.clear()
+  })
+
+  it('projects non-root Template Prefixes before any File exists', () => {
+    const tree = buildFileTree([], ['/', '/memo/project/', '/wiki/'])
+
+    expect(tree.children.memo.children.project.fullPath).toBe('/memo/project/')
+    expect(tree.children.wiki.fullPath).toBe('/wiki/')
+    expect(tree.items).toEqual([])
+    expect(isFileTreeEmpty(tree)).toBe(false)
+  })
+
+  it('removes Prefix nodes backed by neither Files nor Templates', () => {
+    const withTemplate = buildFileTree([], ['/memo/project/'])
+    const withoutTemplate = buildFileTree([], [])
+
+    expect(withTemplate.children.memo).toBeDefined()
+    expect(withoutTemplate.children.memo).toBeUndefined()
+    expect(isFileTreeEmpty(withoutTemplate)).toBe(true)
   })
 })

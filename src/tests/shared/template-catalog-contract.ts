@@ -1,4 +1,6 @@
 import type { CreationTemplateV1 } from '@/lib/files/types'
+import { connectDB } from '@/db'
+import { creationTemplateCatalog } from '@/db/schema'
 import {
   ensureTemplateCatalogInitialized,
   readTemplateCatalog,
@@ -14,10 +16,14 @@ interface TemplateCatalogContractHarness {
   updateUnrelatedSettings: () => Promise<void>
 }
 
-export function defineTemplateCatalogContract(harness: TemplateCatalogContractHarness): void {
-  describe(`template Catalog ${harness.name} contract`, () => {
-    beforeEach(harness.prepare)
-    afterEach(async () => harness.cleanup?.())
+function useCatalogHarness(harness: TemplateCatalogContractHarness) {
+  beforeEach(harness.prepare)
+  afterEach(async () => harness.cleanup?.())
+}
+
+function defineCatalogLifecycleContract(harness: TemplateCatalogContractHarness) {
+  describe(`template Catalog ${harness.name} lifecycle`, () => {
+    useCatalogHarness(harness)
 
     it('keeps migration state absent until initialization writes the preset', async () => {
       expect(await readTemplateCatalog(harness.env)).toEqual({ status: 'absent' })
@@ -76,6 +82,12 @@ export function defineTemplateCatalogContract(harness: TemplateCatalogContractHa
         catalog: initialized,
       })
     })
+  })
+}
+
+function defineCatalogValidationContract(harness: TemplateCatalogContractHarness) {
+  describe(`template Catalog ${harness.name} validation`, () => {
+    useCatalogHarness(harness)
 
     it('rejects duplicate normalized Prefixes before writing', async () => {
       const initialized = await ensureTemplateCatalogInitialized(harness.env)
@@ -104,5 +116,31 @@ export function defineTemplateCatalogContract(harness: TemplateCatalogContractHa
         .rejects
         .toMatchObject({ code: 'invalid_catalog' })
     })
+
+    it('surfaces malformed stored records instead of synthesizing an empty Catalog', async () => {
+      await ensureTemplateCatalogInitialized(harness.env)
+      await connectDB(harness.env).update(creationTemplateCatalog).set({ payload: '{not-json' })
+
+      await expect(readTemplateCatalog(harness.env)).rejects.toMatchObject({ code: 'invalid_storage' })
+    })
+
+    it('persists large Content without coupling it to global Settings', async () => {
+      const initialized = await ensureTemplateCatalogInitialized(harness.env)
+      const templates = [{ ...initialized.templates[0], content: 'x'.repeat(100_000) }]
+
+      await expect(replaceTemplateCatalog(harness.env, initialized.revision, templates)).resolves.toMatchObject({
+        status: 'saved',
+        catalog: { revision: 2, templates },
+      })
+      await expect(readTemplateCatalog(harness.env)).resolves.toMatchObject({
+        status: 'ready',
+        catalog: { revision: 2, templates },
+      })
+    })
   })
+}
+
+export function defineTemplateCatalogContract(harness: TemplateCatalogContractHarness): void {
+  defineCatalogLifecycleContract(harness)
+  defineCatalogValidationContract(harness)
 }

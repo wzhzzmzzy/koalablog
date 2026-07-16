@@ -1,9 +1,9 @@
 import type { FileRecord } from '@/db/types'
 import { getMarkdownSourceKey, MarkdownSource } from '@/db'
+import { createFile } from '@/db/file-create'
 import {
   batchAdd,
   emptyTrash as emptyTrashDB,
-  generateMemoTitle,
   justReadAll,
   purge as purgeFile,
   readAll,
@@ -11,7 +11,8 @@ import {
   restore as restoreFile,
   trash as trashFile,
 } from '@/db/markdown'
-import { defineAction } from 'astro:actions'
+import { parseAbsolutePathPrefix } from '@/lib/files/path'
+import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
 
@@ -24,10 +25,31 @@ export interface AllCollection {
   nav?: FileRecord
 }
 
-export const getNewMemoTitle = defineAction({
-  handler: async (_, ctx) => {
+export const create = defineAction({
+  accept: 'json',
+  input: z.object({
+    targetPrefix: z.string().superRefine((prefix, ctx) => {
+      const parsed = parseAbsolutePathPrefix(prefix)
+      if (!parsed.ok)
+        ctx.addIssue({ code: 'custom', message: `Invalid target Prefix: ${parsed.error.code}` })
+    }),
+  }).strict(),
+  handler: async (input, ctx) => {
     await authGuard(ctx)
-    return generateMemoTitle(ctx.locals.runtime?.env)
+    const result = await createFile(ctx.locals.runtime?.env, input)
+    if (result.status === 'path_conflict') {
+      throw new ActionError({
+        code: 'CONFLICT',
+        message: JSON.stringify({ code: 'path_conflict', path: result.path }),
+      })
+    }
+    if (result.status === 'catalog_absent') {
+      throw new ActionError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Template Catalog is not initialized',
+      })
+    }
+    return result.file
   },
 })
 

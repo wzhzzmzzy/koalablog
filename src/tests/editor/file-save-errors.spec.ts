@@ -1,10 +1,10 @@
 import { decodeFileSaveConflict, formatFileSaveError, sourceConflictFromActionError } from '@/components/editor/utils'
-import { initFileRecord } from '@/db/types'
+import { makeFileRecord } from '@/tests/fixtures/file-record'
 import { describe, expect, it } from 'vitest'
 
 describe('editor File Save error decoding', () => {
   it('decodes one source-conflict payload for all consumers', () => {
-    const current = { ...initFileRecord(), id: 7, path: '/post/example', title: 'example', revision: 4 }
+    const current = makeFileRecord({ id: 7, path: '/post/example', title: 'example', revision: 4 })
     const error = {
       code: 'CONFLICT',
       message: JSON.stringify({ code: 'source_conflict', current }),

@@ -1,4 +1,4 @@
-import { MarkdownSource } from '.'
+import type { MarkdownSource } from '.'
 
 export interface FileRecord {
   id: number
@@ -15,24 +15,4 @@ export interface FileRecord {
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
-}
-
-export function initFileRecord(source = MarkdownSource.Unknown): FileRecord {
-  const now = new Date()
-  return {
-    id: 0,
-    source,
-    path: '',
-    title: '',
-    content: null,
-    tags: null,
-    incoming_links: null,
-    outgoing_links: null,
-    private: false,
-    remoteTruth: false,
-    revision: 0,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
-  }
 }

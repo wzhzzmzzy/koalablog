@@ -1,9 +1,7 @@
 import type { AbsoluteFilePath } from '@/lib/files/types'
 import { analyzeMarkdownSource } from '@/lib/files/analysis'
 import { classifySource, deriveTitle, parseAbsoluteFilePath } from '@/lib/files/path'
-import { format } from 'date-fns'
 import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
-import { kebabCase } from 'es-toolkit'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
 
@@ -72,39 +70,6 @@ function insertValues(input: BatchFileInput) {
   }
 }
 
-export async function generateMemoTitle(env: Env) {
-  const base = format(new Date(), 'yyyyMMddHHmm')
-  const existing = await connectDB(env).query.markdown.findMany({
-    columns: { title: true },
-    where: and(
-      eq(markdown.source, MarkdownSource.Memo),
-      like(markdown.path, `/memo/${base}%`),
-      isNull(markdown.deletedAt),
-    ),
-  })
-  const titles = new Set(existing.map(file => file.title))
-  if (!titles.has(base))
-    return base
-
-  for (let suffix = 1; ; suffix++) {
-    const candidate = `${base}${suffix.toString().padStart(2, '0')}`
-    if (!titles.has(candidate))
-      return candidate
-  }
-}
-
-export function pathGenerator(source: MarkdownSource, title: string) {
-  const slug = kebabCase(title.replace(/[^a-z0-9\s]/gi, ''))
-  const leaf = slug || title.trim()
-  if (source === MarkdownSource.Post)
-    return `/post/${leaf}`
-  if (source === MarkdownSource.Memo)
-    return `/memo/${leaf}`
-  if (source === MarkdownSource.Wiki)
-    return `/wiki/${leaf}`
-  return `/${leaf}`
-}
-
 export async function add(env: Env, input: BatchFileInput) {
   return connectDB(env).insert(markdown).values(insertValues(input)).returning()
 }
@@ -132,7 +97,7 @@ async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boole
       return { status: 'saved', file }
     }
     catch (error) {
-      if (isUniqueConstraintError(error))
+      if (isActivePathConstraintError(error))
         return { status: 'path_conflict', path: values.path }
       throw error
     }
@@ -151,7 +116,7 @@ async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boole
     file = updated[0]
   }
   catch (error) {
-    if (isUniqueConstraintError(error))
+    if (isActivePathConstraintError(error))
       return { status: 'path_conflict', path: values.path }
     throw error
   }
@@ -224,7 +189,7 @@ async function nextRestoredIdentity(env: Env, path: string) {
   }
 }
 
-function isUniqueConstraintError(error: unknown) {
+export function isActivePathConstraintError(error: unknown) {
   return error instanceof Error && error.message.includes('UNIQUE constraint failed')
 }
 
@@ -255,7 +220,7 @@ export async function restore(env: Env, id: number, renameOnConflict = false) {
         return { status: 'restored' as const, file: restored }
     }
     catch (error) {
-      if (!isUniqueConstraintError(error))
+      if (!isActivePathConstraintError(error))
         throw error
     }
   }
@@ -283,7 +248,7 @@ export async function restore(env: Env, id: number, renameOnConflict = false) {
         : { status: 'not_found' as const }
     }
     catch (error) {
-      if (!isUniqueConstraintError(error))
+      if (!isActivePathConstraintError(error))
         throw error
     }
   }

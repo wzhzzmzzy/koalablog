@@ -32,7 +32,7 @@ function handleSaveResult(result: Awaited<ReturnType<typeof saveFile>>) {
 export const save = defineAction({
   accept: 'form',
   input: z.object({
-    id: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().gte(0)),
+    id: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().positive()),
     path: z.string().min(1).superRefine((path, ctx) => {
       const parsed = parseAbsoluteFilePath(path)
       if (!parsed.ok)

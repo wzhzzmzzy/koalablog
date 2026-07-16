@@ -1,21 +1,21 @@
 <script lang="ts">
   import { actions } from 'astro:actions';
-  import { MarkdownSource, getSourceFromPath } from '@/db';
   import type { FileRecord } from '@/db/types';
-  import { initFileRecord } from '@/db/types';
-  import { deriveTitle, parseAbsoluteFilePath } from '@/lib/files/path';
+  import { tick } from 'svelte';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
   import { editorStore, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
+  import { formatFileSaveError } from './utils';
 
   interface Props {
-    initialFile: FileRecord;
+    initialFile: FileRecord | null;
     initialItems?: FileRecord[] | null;
+    templatePrefixes?: string[];
     isMobile?: boolean;
   }
 
-  let { initialFile, initialItems = null, isMobile = false }: Props = $props();
+  let { initialFile, initialItems = null, templatePrefixes = [], isMobile = false }: Props = $props();
 
   // 启用自动持久化
   useEditorPersistence();
@@ -34,7 +34,7 @@
   }
   
   // Init History and Current
-  if (!initialFile.deletedAt) pushHistory(initialFile.path);
+  if (initialFile && !initialFile.deletedAt) pushHistory(initialFile.path);
   setCurrentFile(initialFile);
 
   // Sync URL with the current File.
@@ -77,7 +77,7 @@
   }
 
   function selectFallback() {
-    const fallback = editorStore.items.find(item => !item.deletedAt) ?? initFileRecord();
+    const fallback = editorStore.items.find(item => !item.deletedAt) ?? null;
     setCurrentFile(fallback);
   }
 
@@ -105,39 +105,21 @@
     replaceItemsByPrefix(prefix, result.data || []);
   }
 
-  async function createNew(prefix: string) {
-    const targetSource = getSourceFromPath(prefix);
-    const newFile = initFileRecord(targetSource);
-
-    const setPath = (path: string) => {
-      const parsed = parseAbsoluteFilePath(path);
-      if (!parsed.ok) return;
-      newFile.path = parsed.value;
-      newFile.title = deriveTitle(parsed.value);
-    };
-    
-    if (targetSource === MarkdownSource.Memo) {
-      const result = await actions.db.markdown.getNewMemoTitle();
-      if (result.data) {
-        setPath(`${prefix}${result.data}`)
-        newFile.private = true
-      } else if (result.error) {
-          console.error('Error fetching memo Title', result.error);
-      }
-    } else {
-      let baseName = 'unnamed';
-      let counter = 0;
-      let candidate = `${prefix}${baseName}`;
-      
-      const exists = (path: string) => editorStore.items.some(i => !i.deletedAt && i.path === path);
-
-      while(exists(candidate)) {
-        counter++;
-        candidate = `${prefix}${baseName}-${counter}`;
-      }
-      setPath(candidate);
+  async function createNew(targetPrefix: string) {
+    const result = await actions.db.markdown.create({ targetPrefix });
+    if (result.error || !result.data) {
+      notify('error', result.error ? formatFileSaveError(result.error) : 'File creation failed');
+      return;
     }
-    setCurrentFile(newFile);
+
+    const file = result.data;
+    upsertItem(file);
+    pushHistory(file.path);
+    setCurrentFile(file);
+    notify('success', `Created ${file.path}`, 3000);
+    if (window.innerWidth < 768) setShowSidebar(false);
+    await tick();
+    document.querySelector<HTMLInputElement>('#path-input')?.focus();
   }
 </script>
 
@@ -148,6 +130,7 @@
         <div class="flex-1 overflow-hidden pt-5">
              <Sidebar
                 currentId={editorStore.currentFile?.id || 0}
+                {templatePrefixes}
                 onSelect={handleSelect}
                 onCreate={createNew}
                 onRefresh={handleRefresh}

@@ -1,16 +1,14 @@
 ---
+import type { FileRecord } from '@/db/types'
 import Page from '@/components/editor/Page.svelte'
-import { MarkdownSource } from '@/db'
-import { generateMemoTitle, justReadAll } from '@/db/markdown'
-import { initFileRecord } from '@/db/types'
+import { justReadAll } from '@/db/markdown'
+import { readTemplateCatalog } from '@/db/template-catalog'
 import DashboardLayout from '@/layouts/dashboard.astro'
 
 const url = Astro.url
 const id = Number(url.searchParams.get('id') || '0')
 const path = url.searchParams.get('path')
-const isMemo = url.searchParams.has('memo')
-
-let file = initFileRecord()
+let file: FileRecord | null = null
 
 let initialItems: Awaited<ReturnType<typeof justReadAll>> = []
 initialItems = await justReadAll(Astro.locals.runtime?.env)
@@ -27,18 +25,13 @@ else if (path) {
     file = found
   }
 }
-else if (isMemo) {
-  file = initFileRecord(MarkdownSource.Memo)
-  const memoTitle = await generateMemoTitle(Astro.locals.runtime?.env)
-  file.title = memoTitle
-  file.path = `/memo/${memoTitle}`
-  file.private = true
-}
+const catalog = await readTemplateCatalog(Astro.locals.runtime?.env)
+const templatePrefixes = catalog.status === 'ready' ? catalog.catalog.templates.map(template => template.prefix) : []
 
 const userAgent = Astro.request.headers.get('user-agent') || ''
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 ---
 
-<DashboardLayout title={`[Editor] ${file.title}`} showHeader={false}>
-  <Page client:load initialFile={file} initialItems={initialItems} isMobile={isMobile} />
+<DashboardLayout title={`[Editor] ${file?.title ?? 'Files'}`} showHeader={false}>
+  <Page client:load initialFile={file} initialItems={initialItems} {templatePrefixes} isMobile={isMobile} />
 </DashboardLayout>

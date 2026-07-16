@@ -38,6 +38,14 @@ describe('file Save action', () => {
     expect(mocks.saveFile).not.toHaveBeenCalled()
   })
 
+  it('rejects ID-zero Save creation after server File creation is available', async () => {
+    const form = validForm()
+    form.set('id', '0')
+
+    await expect(save.orThrow.call(context, form)).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+    expect(mocks.saveFile).not.toHaveBeenCalled()
+  })
+
   it('surfaces a stale base revision as HTTP 409 source_conflict with current values', async () => {
     const current = {
       id: 7,

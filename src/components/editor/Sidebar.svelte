@@ -4,7 +4,7 @@
   import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2, X } from '@lucide/svelte';
   import { editorStore, notify } from './store.svelte';
   import FileItem from './FileItem.svelte';
-  import { buildFileTree, getTrashedFiles, type FileTreeNode } from './file-tree';
+  import { buildFileTree, getTrashedFiles, isFileTreeEmpty, type FileTreeNode } from './file-tree';
 
   interface Props {
     onSelect: (file: FileRecord) => void;
@@ -12,11 +12,12 @@
     onRefresh?: (prefix: string) => Promise<void> | void;
     onEmptyTrash: () => void;
     currentId: number;
+    templatePrefixes?: string[];
   }
 
-  let { onSelect, onCreate, onRefresh, onEmptyTrash, currentId }: Props = $props();
+  let { onSelect, onCreate, onRefresh, onEmptyTrash, currentId, templatePrefixes = [] }: Props = $props();
 
-  const tree = $derived(buildFileTree(editorStore.items));
+  const tree = $derived(buildFileTree(editorStore.items, templatePrefixes));
   const recycleBin = $derived(getTrashedFiles(editorStore.items));
 
   // Folder expansion state
@@ -158,7 +159,7 @@
 
 
 <div class="h-full flex flex-col w-full overflow-y-auto">
-  {#if editorStore.items.length === 0 && !editorStore.loading}
+  {#if isFileTreeEmpty(tree) && !editorStore.loading}
     <div class="p-4 text-center text-[--koala-subtext-0] text-sm">No files found.</div>
   {:else}
       {#each Object.values(tree.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
