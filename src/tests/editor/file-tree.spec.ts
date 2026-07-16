@@ -1,7 +1,15 @@
 import { buildFileTree, getTrashedFiles, isFileTreeEmpty } from '@/components/editor/file-tree'
 import { drafts, editorStore, replaceItemsByPrefix, setItems } from '@/components/editor/store.svelte'
+import { parseAbsolutePathPrefix } from '@/lib/files/path'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
 import { describe, expect, it } from 'vitest'
+
+function prefix(input: string) {
+  const parsed = parseAbsolutePathPrefix(input)
+  if (!parsed.ok)
+    throw new Error(`Invalid test Prefix: ${input}`)
+  return parsed.value
+}
 
 describe('editor File tree', () => {
   it('keeps active Files in the Path tree and duplicate deleted Files in the recycle bin', () => {
@@ -54,16 +62,16 @@ describe('editor File tree', () => {
   })
 
   it('projects non-root Template Prefixes before any File exists', () => {
-    const tree = buildFileTree([], ['/', '/memo/project/', '/wiki/'])
+    const tree = buildFileTree([], [prefix('/'), prefix('/memo/project/'), prefix('/wiki/')])
 
-    expect(tree.children.memo.children.project.fullPath).toBe('/memo/project/')
-    expect(tree.children.wiki.fullPath).toBe('/wiki/')
+    expect(tree.children.memo.children.project.prefix).toBe('/memo/project/')
+    expect(tree.children.wiki.prefix).toBe('/wiki/')
     expect(tree.items).toEqual([])
     expect(isFileTreeEmpty(tree)).toBe(false)
   })
 
   it('removes Prefix nodes backed by neither Files nor Templates', () => {
-    const withTemplate = buildFileTree([], ['/memo/project/'])
+    const withTemplate = buildFileTree([], [prefix('/memo/project/')])
     const withoutTemplate = buildFileTree([], [])
 
     expect(withTemplate.children.memo).toBeDefined()

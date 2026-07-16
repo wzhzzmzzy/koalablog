@@ -4,6 +4,14 @@ import Page from '@/components/editor/Page.svelte'
 import { justReadAll } from '@/db/markdown'
 import { readTemplateCatalog } from '@/db/template-catalog'
 import DashboardLayout from '@/layouts/dashboard.astro'
+import { parseAbsolutePathPrefix } from '@/lib/files/path'
+
+function catalogPrefix(input: string) {
+  const parsed = parseAbsolutePathPrefix(input)
+  if (!parsed.ok)
+    throw new Error(`Invalid stored Template Prefix: ${input}`)
+  return parsed.value
+}
 
 const url = Astro.url
 const id = Number(url.searchParams.get('id') || '0')
@@ -26,7 +34,9 @@ else if (path) {
   }
 }
 const catalog = await readTemplateCatalog(Astro.locals.runtime?.env)
-const templatePrefixes = catalog.status === 'ready' ? catalog.catalog.templates.map(template => template.prefix) : []
+const templatePrefixes = catalog.status === 'ready'
+  ? catalog.catalog.templates.map(template => catalogPrefix(template.prefix))
+  : []
 
 const userAgent = Astro.request.headers.get('user-agent') || ''
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);

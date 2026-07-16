@@ -1,6 +1,7 @@
 <script lang="ts">
   import { actions } from 'astro:actions';
   import type { FileRecord } from '@/db/types';
+  import type { AbsolutePathPrefix } from '@/lib/files/types';
   import { tick } from 'svelte';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
@@ -11,7 +12,7 @@
   interface Props {
     initialFile: FileRecord | null;
     initialItems?: FileRecord[] | null;
-    templatePrefixes?: string[];
+    templatePrefixes?: AbsolutePathPrefix[];
     isMobile?: boolean;
   }
 
@@ -105,7 +106,7 @@
     replaceItemsByPrefix(prefix, result.data || []);
   }
 
-  async function createNew(targetPrefix: string) {
+  async function createNew(targetPrefix: AbsolutePathPrefix) {
     const result = await actions.db.markdown.create({ targetPrefix });
     if (result.error || !result.data) {
       notify('error', result.error ? formatFileSaveError(result.error) : 'File creation failed');

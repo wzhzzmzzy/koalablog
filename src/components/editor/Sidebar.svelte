@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types';
+  import type { AbsolutePathPrefix } from '@/lib/files/types';
   import { actions } from 'astro:actions';
   import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2, X } from '@lucide/svelte';
   import { editorStore, notify } from './store.svelte';
@@ -8,11 +9,11 @@
 
   interface Props {
     onSelect: (file: FileRecord) => void;
-    onCreate: (prefix: string) => void;
+    onCreate: (prefix: AbsolutePathPrefix) => void;
     onRefresh?: (prefix: string) => Promise<void> | void;
     onEmptyTrash: () => void;
     currentId: number;
-    templatePrefixes?: string[];
+    templatePrefixes?: AbsolutePathPrefix[];
   }
 
   let { onSelect, onCreate, onRefresh, onEmptyTrash, currentId, templatePrefixes = [] }: Props = $props();
@@ -120,13 +121,13 @@
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div 
           class="flex items-center justify-between group cursor-pointer select-none p-2"
-          onclick={() => toggleFolder(node.fullPath)}
+          onclick={() => toggleFolder(node.prefix)}
           aria-roledescription="button"
         >
             <div class="flex items-center gap-1.5 text-sm font-medium text-[--koala-subtext-0]">
-                {#if refreshingFolders[getRefreshKey(node.fullPath)]}
+                {#if refreshingFolders[getRefreshKey(node.prefix)]}
                     <LoaderCircle size={14} class="animate-spin" />
-                {:else if expandedFolders[node.fullPath]}
+                {:else if expandedFolders[node.prefix]}
                     <ChevronDown size={14} />
                 {:else}
                     <ChevronRight size={14} />
@@ -135,7 +136,7 @@
             </div>
             <button 
                 class="outline-none border-none bg-transparent p-0.5 rounded cursor-pointer" 
-                onclick={(e) => { e.stopPropagation(); onCreate(node.fullPath); }}
+                onclick={(e) => { e.stopPropagation(); onCreate(node.prefix); }}
                 aria-label="Create new file in {node.name}"
                 title="Create new file in {node.name}"
             >
@@ -144,7 +145,7 @@
         </div>
     {/if}
 
-    {#if !node.name || expandedFolders[node.fullPath]}
+    {#if !node.name || expandedFolders[node.prefix]}
         <div class="{node.name ? 'border-l border-[--koala-border-subtle] ml-2 pl-2' : ''}">
             {#each Object.values(node.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
                 {@render folderNode(child)}
