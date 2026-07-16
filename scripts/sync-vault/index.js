@@ -599,18 +599,9 @@ async function showLogs() {
   }
 }
 
-async function fullSync() {
-  config = await loadConfig()
-  
+async function discoverLocalFiles() {
   const { readdir } = await import('fs/promises')
-  
-  log(`📋 Starting full sync...`)
-  
-  // Pull remote edits first (bidirectional sync)
-  log(`⬇️ Checking for remote edits...`)
-  await pullRemoteTruth()
-  
-  const files = []
+  const diskPaths = []
   const readDir = async (dir) => {
     const entries = await readdir(dir, { withFileTypes: true })
     for (const entry of entries) {
@@ -620,7 +611,7 @@ async function fullSync() {
           await readDir(fullPath)
         }
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
-        files.push(fullPath)
+        diskPaths.push(fullPath)
       }
     }
   }
@@ -634,43 +625,39 @@ async function fullSync() {
     }
   }
   
-  log(`📁 Found ${files.length} markdown files`)
-  
-  const memos = []
-  for (const path of files) {
-    const memo = await parseMemo(path)
-    if (memo) memos.push(memo)
-  }
-  
-  if (memos.length === 0) {
-    log(`⚠️ No valid memos to sync`)
-    return
-  }
+  log(`📁 Found ${diskPaths.length} markdown files`)
 
-  const remoteFileMap = new Map((await fetchRemoteFiles()).map(file => [file.path, file]))
-  
+  const files = []
+  for (const path of diskPaths) {
+    const file = await parseMemo(path)
+    if (file) files.push(file)
+  }
+  return files
+}
+
+async function syncLocalAttachments(files) {
   log(`📎 Syncing attachments...`)
   let totalAttachmentsUploaded = 0
   let totalAttachmentsSkipped = 0
   let totalAttachmentsFailed = 0
   
-  for (const memo of memos) {
-    const result = await syncAttachments(memo.content, memo.localPath)
+  for (const file of files) {
+    const result = await syncAttachments(file.content, file.localPath)
     totalAttachmentsUploaded += result.uploaded
     totalAttachmentsSkipped += result.skipped
     totalAttachmentsFailed += result.failed
   }
-  
   log(`📎 Attachments: ${totalAttachmentsUploaded} uploaded, ${totalAttachmentsSkipped} skipped, ${totalAttachmentsFailed} failed`)
-  
+}
+
+async function uploadLocalFiles(files, remoteFileMap) {
   const BATCH_SIZE = 5
   const batches = []
-  for (let i = 0; i < memos.length; i += BATCH_SIZE) {
-    batches.push(memos.slice(i, i + BATCH_SIZE))
+  for (let i = 0; i < files.length; i += BATCH_SIZE) {
+    batches.push(files.slice(i, i + BATCH_SIZE))
   }
-  
-  log(`📦 Uploading ${memos.length} files in ${batches.length} batches...`)
-  
+  log(`📦 Uploading ${files.length} files in ${batches.length} batches...`)
+
   let totalUploaded = 0
   let totalSkipped = 0
   let failed = 0
@@ -689,15 +676,15 @@ async function fullSync() {
       failed += batch.length
     }
   }
-  
   log(`📊 Summary: ${totalUploaded} uploaded, ${totalSkipped} skipped, ${failed} failed`)
-  
+  return failed
+}
+
+async function deleteMissingRemoteFiles(localFiles) {
   log(`🔍 Checking for remote records to delete...`)
-  
   try {
     const remoteFiles = await fetchRemoteFiles()
-    const localPaths = new Set(memos.map(m => m.path))
-    
+    const localPaths = new Set(localFiles.map(file => file.path))
     const toDelete = remoteFiles
       .filter((record) => {
         if (localPaths.has(record.path))
@@ -705,10 +692,9 @@ async function fullSync() {
         return ALL_SYNC_DIRS.some(dir => record.path.startsWith(`/${dir}/`))
       })
       .map(record => record.path)
-    
+
     if (toDelete.length > 0) {
       log(`🗑️ Found ${toDelete.length} remote records to delete`)
-      
       const deleteResult = await batchDeleteFromKoalablog(toDelete)
       log(`✅ Deleted ${deleteResult.count || 0} remote records`)
     } else {
@@ -717,7 +703,25 @@ async function fullSync() {
   } catch (e) {
     log(`⚠️ Failed to check remote records: ${e.message}`, true)
   }
-  
+}
+
+async function fullSync() {
+  config = await loadConfig()
+  log(`📋 Starting full sync...`)
+  log(`⬇️ Checking for remote edits...`)
+  await pullRemoteTruth()
+
+  const localFiles = await discoverLocalFiles()
+  if (localFiles.length === 0) {
+    log(`⚠️ No valid files to sync`)
+    return
+  }
+
+  const remoteFileMap = new Map((await fetchRemoteFiles()).map(file => [file.path, file]))
+  await syncLocalAttachments(localFiles)
+  const failed = await uploadLocalFiles(localFiles, remoteFileMap)
+  await deleteMissingRemoteFiles(localFiles)
+
   if (failed > 0) {
     process.exit(1)
   }

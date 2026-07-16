@@ -6,8 +6,9 @@ import { add, batchTrashByPaths, emptyTrash, purge, readAnyById, readTrash, rest
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-describe('document recycle bin', () => {
-  const testEnv = {} as Env
+const testEnv = {} as Env
+
+function useRecycleBinDatabase() {
   let databasePath: string
 
   beforeEach(async () => {
@@ -42,7 +43,13 @@ describe('document recycle bin', () => {
     await unlink(databasePath).catch(() => undefined)
   })
 
-  it('moves a document to the recycle bin without changing its identity', async () => {
+  return () => databasePath
+}
+
+describe('file recycle bin trash', () => {
+  useRecycleBinDatabase()
+
+  it('moves a File to the recycle bin without changing its identity', async () => {
     const [file] = await add(testEnv, { path: '/post/hello', content: 'content' })
 
     const result = await trash(testEnv, file.id)
@@ -57,7 +64,7 @@ describe('document recycle bin', () => {
     expect(trashed?.deletedAt).toBeInstanceOf(Date)
   })
 
-  it('keeps repeated deletions of the same document identity as separate entries', async () => {
+  it('keeps repeated deletions of the same File identity as separate entries', async () => {
     const [first] = await add(testEnv, { path: '/post/hello', content: 'first' })
     await trash(testEnv, first.id)
     const [second] = await add(testEnv, { path: '/post/hello', content: 'second' })
@@ -68,6 +75,10 @@ describe('document recycle bin', () => {
     expect(entries.map(entry => entry.id).sort()).toEqual([first.id, second.id].sort())
     expect(entries.every(entry => entry.path === '/post/hello' && entry.title === 'hello')).toBe(true)
   })
+})
+
+describe('file recycle bin restore', () => {
+  const databasePath = useRecycleBinDatabase()
 
   it('reports a safe rename when the original identity is occupied', async () => {
     const [trashed] = await add(testEnv, { path: '/post/hello', content: 'old' })
@@ -104,7 +115,7 @@ describe('document recycle bin', () => {
   })
 
   it('keeps a legacy recycled File inactive when its stored Path is invalid', async () => {
-    const client = createClient({ url: `file:${databasePath}` })
+    const client = createClient({ url: `file:${databasePath()}` })
     const inserted = await client.execute({
       sql: `INSERT INTO markdown (source, path, title, content, deletedAt) VALUES (?, ?, ?, ?, ?)`,
       args: [30, '/memo/legacy.md', 'legacy.md', 'legacy', Math.floor(Date.now() / 1000)],
@@ -117,8 +128,12 @@ describe('document recycle bin', () => {
     expect(result).toEqual({ status: 'invalid_path', path: '/memo/legacy.md' })
     expect((await readAnyById(testEnv, id))?.deletedAt).toBeInstanceOf(Date)
   })
+})
 
-  it('permanently deletes only documents that are already in the recycle bin', async () => {
+describe('file recycle bin purge and batch trash', () => {
+  useRecycleBinDatabase()
+
+  it('permanently deletes only Files that are already in the recycle bin', async () => {
     const [file] = await add(testEnv, { path: '/post/hello', content: 'content' })
 
     expect(await purge(testEnv, file.id)).toEqual({ status: 'not_found' })
@@ -129,7 +144,7 @@ describe('document recycle bin', () => {
     expect(await readAnyById(testEnv, file.id)).toBeUndefined()
   })
 
-  it('empties the recycle bin without deleting active documents', async () => {
+  it('empties the recycle bin without deleting active Files', async () => {
     const [active] = await add(testEnv, { path: '/post/active', content: 'active' })
     const [first] = await add(testEnv, { path: '/post/first', content: 'first' })
     const [second] = await add(testEnv, { path: '/post/second', content: 'second' })

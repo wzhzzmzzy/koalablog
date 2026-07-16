@@ -78,7 +78,7 @@ Cloudflare workerd 测试会从真实旧 D1 schema 创建 active/recycled 数据
 
 | 检查项 | 结果 |
 | --- | --- |
-| 完整 `pnpm test` | 通过：22 个文件，141 项测试 |
+| 完整 `pnpm test` | 通过：23 个文件，143 项测试 |
 | `pnpm test:d1` | 通过：2 个文件，7 项测试 |
 | Gate 1C 变更文件 ESLint | 通过；Svelte 文件不在当前 ESLint 配置内 |
 | 同步脚本语法检查 | `node --check scripts/sync-vault/index.js` 通过；该旧脚本仍有既有全文件 lint 债务 |
@@ -102,3 +102,11 @@ Cloudflare workerd 测试会从真实旧 D1 schema 创建 active/recycled 数据
 服务端 `+` 创建仍明确属于 Gate 1D；`drafts` 旧持久化键、按 Path 的 Edit Buffer 结构及其 File-ID 迁移仍明确属于 Gate 1E，Gate 1C 不提前改变其存储语义。`AbsoluteFilePath` 已用于校验后的数据库结果和冲突 Path，API/Form 输入仍以 `string` 接收并在边界解析；完整 Edit Buffer 按 ID 切换后再评估进一步品牌化，避免为 Gate 1D 的 `id=0` 过渡对象引入双重模型。
 
 修复提交完成后，将再针对 `a4fe02b...HEAD` 执行一次 Standards/Spec 双轴复审并记录最终结论。
+
+第一次终审中 Spec 轴已通过；Standards 轴追加指出同步脚本 `fullSync()` 与回收站测试 suite 超过长度上限，以及 File Save 冲突 JSON 仍有两处消费逻辑。最终修复已：
+
+- 将 full sync 拆成发现本地 File、同步附件、CAS 批量上传和清理远端 File 四个步骤；
+- 将回收站测试拆成 trash、restore、purge/batch 三个 suite；
+- 通过单一 `decodeFileSaveConflict` 解码 Source/Path 冲突，并恢复 Action JSON 中的 File 日期字段，避免把字符串日期写入编辑器 Store。
+
+最终聚焦测试、完整测试、变更文件 ESLint、同步脚本语法检查、Astro 检查和 Cloudflare 构建均已重新执行。Gate 1C 在 Standards 与 Spec 两个轴上均无未关闭的实现问题；Gate 1D 可以开始。

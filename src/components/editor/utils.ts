@@ -94,29 +94,44 @@ export function formatActionError(message: string) {
   }
 }
 
-export function sourceConflictFromActionError(error: { code?: string, message: string }): FileRecord | null {
+type FileSaveConflict =
+  | { code: 'source_conflict', current: FileRecord }
+  | { code: 'path_conflict', path: string }
+
+function reviveFileRecord(input: FileRecord): FileRecord {
+  return {
+    ...input,
+    createdAt: new Date(input.createdAt),
+    updatedAt: new Date(input.updatedAt),
+    deletedAt: input.deletedAt ? new Date(input.deletedAt) : null,
+  }
+}
+
+export function decodeFileSaveConflict(error: { code?: string, message: string }): FileSaveConflict | null {
   if (error.code !== 'CONFLICT')
     return null
   try {
-    const payload = JSON.parse(error.message) as { code?: string, current?: FileRecord }
-    return payload.code === 'source_conflict' && payload.current ? payload.current : null
+    const payload = JSON.parse(error.message) as Partial<FileSaveConflict>
+    if (payload.code === 'source_conflict' && payload.current)
+      return { code: payload.code, current: reviveFileRecord(payload.current) }
+    if (payload.code === 'path_conflict' && payload.path)
+      return { code: payload.code, path: payload.path }
+    return null
   }
   catch {
     return null
   }
 }
 
+export function sourceConflictFromActionError(error: { code?: string, message: string }): FileRecord | null {
+  const conflict = decodeFileSaveConflict(error)
+  return conflict?.code === 'source_conflict' ? conflict.current : null
+}
+
 export function formatFileSaveError(error: { code?: string, message: string }) {
-  if (error.code === 'CONFLICT') {
-    try {
-      const payload = JSON.parse(error.message) as { code?: string, path?: string }
-      if (payload.code === 'path_conflict')
-        return `Another active File already uses ${payload.path}.`
-    }
-    catch {
-      // Fall through to ordinary formatting.
-    }
-  }
+  const conflict = decodeFileSaveConflict(error)
+  if (conflict?.code === 'path_conflict')
+    return `Another active File already uses ${conflict.path}.`
   return formatActionError(error.message)
 }
 
