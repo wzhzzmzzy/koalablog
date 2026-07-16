@@ -3,31 +3,34 @@ import { promises as fs } from 'node:fs'
 const DB_PATH = 'koala.config.json'
 
 // 初始化存储
-async function initStore() {
+async function initStore(filePath: string) {
   try {
-    await fs.access(DB_PATH)
-    return fs.readFile(DB_PATH, { encoding: 'utf8' })
+    await fs.access(filePath)
+    return fs.readFile(filePath, { encoding: 'utf8' })
   }
   catch {
-    await fs.writeFile(DB_PATH, '{}')
+    await fs.writeFile(filePath, '{}')
   }
 }
 
 // 读写操作
-class KvStore {
+export class KvStore {
   _init = false
-  _scheduleChange = new Set<string>()
+  _dirty = false
   storage: Record<string, any> = {}
 
+  constructor(private readonly filePath = DB_PATH) {}
+
   async init() {
-    const initValue = await initStore()
+    const initValue = await initStore(this.filePath)
     if (initValue) {
       try {
         this.storage = JSON.parse(initValue)
       }
       catch {
         console.warn('init value parse failed, clear all', initValue)
-        await fs.writeFile(DB_PATH, '{}')
+        this.storage = {}
+        await fs.writeFile(this.filePath, '{}')
       }
     }
     this._init = true
@@ -47,25 +50,23 @@ class KvStore {
     }
 
     this.storage[key] = value
+    this._dirty = true
   }
 
   sync() {
     return this._flush()
   }
 
-  _schedule(key: string) {
-    this._scheduleChange.add(key)
-    setTimeout(() => {
-      this._flush()
-    }, 1000)
-  }
-
   async _flush() {
-    if (this._scheduleChange.size === 0)
+    if (!this._dirty)
       return
-    this._scheduleChange.clear()
-    await fs.writeFile(DB_PATH, JSON.stringify(this.storage))
+    await fs.writeFile(this.filePath, JSON.stringify(this.storage))
+    this._dirty = false
   }
 }
 
-export const storage = new KvStore()
+export function createKvStore(filePath = DB_PATH) {
+  return new KvStore(filePath)
+}
+
+export const storage = createKvStore()

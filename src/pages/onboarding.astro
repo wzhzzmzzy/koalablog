@@ -4,6 +4,7 @@ import Layout from '@/layouts/layout.astro'
 
 // #if CF_PAGES
 import initSql from '../../migrations/0000_init.sql?raw'
+import templateCatalogSql from '../../migrations/0001_creation_template_catalog.sql?raw'
 // #endif
 
 const env = Astro.locals.runtime?.env || {}
@@ -23,8 +24,9 @@ if (env.DATA_SOURCE && env.DATA_SOURCE === 'd1') {
     DROP TABLE IF EXISTS oss_access;
     DROP INDEX IF EXISTS blob_storage_key_unique;
     DROP TABLE IF EXISTS blob_storage;
+    DROP TABLE IF EXISTS creation_template_catalog;
   `)
-  const sql = [initSql].join('\n')
+  const sql = [initSql, templateCatalogSql].join('\n')
   await env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
 }
 // #endif

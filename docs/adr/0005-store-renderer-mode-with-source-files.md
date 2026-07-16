@@ -1,0 +1,3 @@
+# Store renderer mode with source files
+
+Each file stores a canonical `markdown` or `svelte` renderer mode alongside its path and content in the source `markdown` record. The mode is selected by creation templates or edited in the client buffer and saved atomically with source metadata; existing rows default to Markdown. Render artifacts may repeat the mode for validation but never own it, because artifacts can be absent, stale, or deleted while the source file still needs an editor language, import/export representation, and public rendering decision. Content directives and filename extensions are deliberately not used for detection, keeping Svelte source unmodified and public paths extensionless.
