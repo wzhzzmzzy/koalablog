@@ -320,12 +320,21 @@ export async function batchTrashByLinks(env: Env, links: string[]) {
   const documents = await db.update(markdown).set({
     deletedAt: trashedAt,
     updatedAt: trashedAt,
-  }).where(inArray(markdown.id, records.map(record => record.id))).returning()
+  }).where(and(
+    inArray(markdown.id, records.map(record => record.id)),
+    isNull(markdown.deletedAt),
+  )).returning()
   const byLink = new Map(documents.map(document => [document.link, document]))
+  const reportedLinks = new Set<string>()
 
-  return links.map(link => byLink.has(link)
-    ? { status: 'trashed' as const, link, document: byLink.get(link)! }
-    : { status: 'not_found' as const, link })
+  return links.map((link) => {
+    const document = byLink.get(link)
+    if (!document || reportedLinks.has(link))
+      return { status: 'not_found' as const, link }
+
+    reportedLinks.add(link)
+    return { status: 'trashed' as const, link, document }
+  })
 }
 
 /**

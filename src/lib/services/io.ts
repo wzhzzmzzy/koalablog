@@ -85,7 +85,7 @@ deletedAt: ${meta.deletedAt ? `"${meta.deletedAt.toISOString()}"` : 'null'}
 
   for (const collection of collections) {
     data[collection]?.forEach((document) => {
-      zipFiles[`${collection}/${safeName(document)}.md`] = textEncoder.encode(createContentWithMeta(document))
+      zipFiles[`${collection}/${safeName(document)}-${document.id}.md`] = textEncoder.encode(createContentWithMeta(document))
     })
     data.recycleBin?.[collection]?.forEach((document) => {
       zipFiles[`recycleBin/${collection}/${safeName(document)}-${document.id}.md`] = textEncoder.encode(createContentWithMeta(document))

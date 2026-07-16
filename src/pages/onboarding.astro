@@ -3,7 +3,7 @@ import OnboardingForm from '@/components/onboarding/index.svelte'
 import Layout from '@/layouts/layout.astro'
 
 // #if CF_PAGES
-import sql from '../../migrations/0000_init.sql?raw'
+import initSql from '../../migrations/0000_init.sql?raw'
 // #endif
 
 const env = Astro.locals.runtime?.env || {}
@@ -24,6 +24,7 @@ if (env.DATA_SOURCE && env.DATA_SOURCE === 'd1') {
     DROP INDEX IF EXISTS blob_storage_key_unique;
     DROP TABLE IF EXISTS blob_storage;
   `)
+  const sql = [initSql].join('\n')
   await env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
 }
 // #endif

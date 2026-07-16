@@ -1,3 +1,8 @@
+import type { Markdown } from '@/db/types'
+import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
+import { convertToWebP, uploadFile } from '@/lib/services/file-reader'
+import { parseJson } from '@/lib/utils/parse-json'
+
 /**
  * 从剪贴板事件中提取图片文件
  */
@@ -47,4 +52,66 @@ export function generatePlaceholder(fileName: string): string {
   // 使用时间戳防止同名文件冲突
   const uniqueId = Date.now().toString().slice(-4)
   return `![Uploading ${fileName} (${uniqueId})...]()`
+}
+
+export async function uploadEditorImage(file: File) {
+  const blob = await convertToWebP(file)
+  const extension = blob.type === 'image/webp' ? '.webp' : '.png'
+  const fileName = file.name.replace(/\.[^/.]+$/, extension)
+  const result = await uploadFile('article', blob, fileName)
+
+  if (result.error)
+    throw new Error(result.error.message)
+  if (!result.data)
+    throw new Error('Upload failed')
+
+  const [source, key] = result.data.split('/')
+  return `![](/api/oss/${source}_${key})`
+}
+
+export function formatActionError(message: string) {
+  const prefix = 'Failed to validate: '
+  if (!message?.startsWith(prefix))
+    return message
+
+  try {
+    const errors = JSON.parse(message.slice(prefix.length))
+    if (!Array.isArray(errors))
+      return message
+
+    const fieldNames: Record<string, string> = {
+      link: 'File Path',
+      subject: 'Title',
+      content: 'Content',
+      source: 'Source',
+      private: 'Visibility',
+      id: 'ID',
+      outgoingLinks: 'Links',
+    }
+    return errors.map((error: { path?: string[], message: string }) => {
+      const field = error.path?.[0]
+      return `${field ? (fieldNames[field] || field) : 'Error'}: ${error.message}`
+    }).join('\n')
+  }
+  catch {
+    return message
+  }
+}
+
+export function findPreviousActiveDocument(history: string[], documents: Markdown[]) {
+  const previousLink = history.at(-2)
+  return documents.find(document => !document.deletedAt && document.link === previousLink)
+}
+
+export function changedOutgoingLinkRefs(documents: Markdown[], oldLink: string, newLink: string) {
+  return documents.flatMap((document) => {
+    const outgoingLinks = parseJson<DoubleLinkPluginOptions['allPostLinks']>(document.outgoing_links || null) || []
+    if (!outgoingLinks.some(link => link.link === oldLink))
+      return []
+
+    return [{
+      id: document.id,
+      outgoingLinks: outgoingLinks.map(link => ({ ...link, link: link.link === oldLink ? newLink : link.link })),
+    }]
+  })
 }

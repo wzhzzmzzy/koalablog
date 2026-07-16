@@ -184,8 +184,8 @@
           onclick={toggleRecycleBin}
           title="Recycle bin"
         >
-          {#if recycleBinExpanded}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}
-          <Trash2 size={14} />
+          {#if recycleBinExpanded}<ChevronDown size={20} />{:else}<ChevronRight size={20} />{/if}
+          <Trash2 size={20} />
           <span class="truncate text-sm text-[--koala-subtext-0]">.recycleBin</span>
           <span class="text-xs text-[--koala-subtext-0]">{recycleBin.length}</span>
         </button>
@@ -193,9 +193,10 @@
           class="icon btn !p-1 !text-[--koala-error-text]"
           onclick={handleEmptyTrash}
           disabled={emptyingTrash}
+          aria-label="Empty recycle bin"
           title="Empty recycle bin"
         >
-          {#if emptyingTrash}<LoaderCircle size={14} class="animate-spin" />{:else}<Trash2 size={14} />{/if}
+          {#if emptyingTrash}<LoaderCircle size={20} class="animate-spin" />{:else}<Trash2 size={20} />{/if}
         </button>
       </div>
 

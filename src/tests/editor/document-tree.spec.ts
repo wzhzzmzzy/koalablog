@@ -46,7 +46,9 @@ describe('editor document tree', () => {
 
     replaceItemsByPrefix('post/', [{ ...active, content: 'fresh' }, deleted])
 
-    expect(editorStore.items).toEqual([draft, deleted])
+    expect(editorStore.items.map(item => item.id).sort()).toEqual([active.id, deleted.id])
+    expect(editorStore.items.find(item => item.id === active.id)).toEqual(draft)
+    expect(editorStore.items.find(item => item.id === deleted.id)).toEqual(deleted)
     expect(drafts.get(active.link)).toEqual(draft)
     drafts.clear()
   })

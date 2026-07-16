@@ -1,9 +1,85 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "31dcc698-9fca-43f2-81ce-9d126f9024f1",
+  "id": "5d924d1c-eb3f-45dc-9fbf-3a39035bf575",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
+    "blob_storage": {
+      "name": "blob_storage",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "contentType": {
+          "name": "contentType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size": {
+          "name": "size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "data": {
+          "name": "data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "uploadedAt": {
+          "name": "uploadedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "blob_storage_key_unique": {
+          "name": "blob_storage_key_unique",
+          "columns": [
+            "key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "markdown": {
       "name": "markdown",
       "columns": {
@@ -71,6 +147,14 @@
           "autoincrement": false,
           "default": false
         },
+        "remoteTruth": {
+          "name": "remoteTruth",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
         "createdAt": {
           "name": "createdAt",
           "type": "integer",
@@ -87,29 +171,37 @@
           "autoincrement": false,
           "default": "(unixepoch())"
         },
-        "deleted": {
-          "name": "deleted",
+        "deletedAt": {
+          "name": "deletedAt",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
-        "markdown_link_unique": {
-          "name": "markdown_link_unique",
+        "markdown_active_link_unique": {
+          "name": "markdown_active_link_unique",
           "columns": [
             "link"
           ],
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"markdown\".\"deletedAt\" IS NULL"
         },
-        "markdown_subject_unique": {
-          "name": "markdown_subject_unique",
+        "markdown_active_subject_unique": {
+          "name": "markdown_active_subject_unique",
           "columns": [
             "subject"
           ],
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"markdown\".\"deletedAt\" IS NULL"
+        },
+        "markdown_deleted_at_idx": {
+          "name": "markdown_deleted_at_idx",
+          "columns": [
+            "deletedAt"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},

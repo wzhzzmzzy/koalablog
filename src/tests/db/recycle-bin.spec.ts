@@ -3,7 +3,7 @@ import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MarkdownSource } from '@/db'
-import { add, emptyTrash, purge, readAnyById, readTrash, restore, trash } from '@/db/markdown'
+import { add, batchTrashByLinks, emptyTrash, purge, readAnyById, readTrash, restore, trash } from '@/db/markdown'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -125,5 +125,15 @@ describe('document recycle bin', () => {
     expect(await emptyTrash(testEnv)).toEqual({ status: 'purged', count: 2 })
     expect(await readTrash(testEnv)).toEqual([])
     expect(await readAnyById(testEnv, active.id)).toBeDefined()
+  })
+
+  it('reports duplicate batch links once without inflating the changed count', async () => {
+    const [document] = await add(testEnv, MarkdownSource.Wiki, 'Wiki', 'content', 'wiki/a')
+
+    const results = await batchTrashByLinks(testEnv, ['wiki/a', 'wiki/a', 'wiki/missing'])
+
+    expect(results.map(result => result.status)).toEqual(['trashed', 'not_found', 'not_found'])
+    expect(results.filter(result => result.status === 'trashed')).toHaveLength(1)
+    expect((await readAnyById(testEnv, document.id))?.deletedAt).toBeInstanceOf(Date)
   })
 })
