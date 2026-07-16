@@ -105,9 +105,9 @@ export async function pickFileWithFilePicker(accept: Record<string, string[]> = 
   return fileHandle![0].getFile()
 }
 
-export async function pickDirectoryWithFilePicker(): Promise<Array<{ subject: string, content: string }>> {
+export async function pickDirectoryWithFilePicker(): Promise<Array<{ path: string, content: string }>> {
   const directoryHandler = await (window as any).showDirectoryPicker()
-  const mdFiles: Array<{ subject: string, content: string }> = []
+  const mdFiles: Array<{ path: string, content: string }> = []
 
   async function readDirectory(dirHandler: any, basePath = '') {
     for await (const [name, handle] of dirHandler.entries()) {
@@ -116,9 +116,8 @@ export async function pickDirectoryWithFilePicker(): Promise<Array<{ subject: st
           const file = await handle.getFile()
           const content = await file.text()
           const fileName = basePath ? `${basePath}/${name}` : name
-          // 移除 .md 后缀作为 subject
-          const subject = fileName.replace(/\.md$/, '')
-          mdFiles.push({ subject, content })
+          const path = `/${fileName.replace(/\.md$/, '')}`
+          mdFiles.push({ path, content })
         }
         catch (error) {
           console.warn(`Failed to read file ${name}:`, error)

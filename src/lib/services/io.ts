@@ -1,5 +1,5 @@
 import type { AllCollection } from '@/actions/db/markdown'
-import type { Markdown } from '@/db/types'
+import type { FileRecord } from '@/db/types'
 import { actions } from 'astro:actions'
 import { format } from 'date-fns'
 import { pickDirectoryWithFilePicker, supportFSApi } from './file-reader'
@@ -42,10 +42,10 @@ export async function exportAllPosts() {
   const zipFiles: Record<string, Uint8Array> = {}
 
   // 创建包含meta数据的内容函数
-  const createContentWithMeta = (markdown: Markdown) => {
+  const createContentWithMeta = (markdown: FileRecord) => {
     const meta = {
-      subject: markdown.subject,
-      link: markdown.link,
+      title: markdown.title,
+      path: markdown.path,
       tags: markdown.tags,
       source: markdown.source, // 0=post, 1=page, etc (based on enum or value in DB)
       createdAt: markdown.createdAt,
@@ -65,8 +65,8 @@ export async function exportAllPosts() {
     }
 
     const metaHeader = `---
-subject: "${meta.subject.replace(/"/g, '\\"')}"
-link: "${meta.link}"
+title: "${meta.title.replace(/"/g, '\\"')}"
+path: "${meta.path}"
 tags: ${formatTags(meta.tags)}
 source: ${meta.source}
 createdAt: "${meta.createdAt.toISOString()}"
@@ -81,7 +81,7 @@ deletedAt: ${meta.deletedAt ? `"${meta.deletedAt.toISOString()}"` : 'null'}
   }
 
   const collections = ['posts', 'pages', 'memos', 'wikis'] as const
-  const safeName = (markdown: Markdown) => markdown.subject.replace(/[/\\?%*:|"<>]/g, '-')
+  const safeName = (markdown: FileRecord) => markdown.title.replace(/[/\\?%*:|"<>]/g, '-')
 
   for (const collection of collections) {
     data[collection]?.forEach((document) => {

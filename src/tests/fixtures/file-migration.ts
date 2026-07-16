@@ -39,6 +39,7 @@ export const successfulLegacyFileRows: LegacyFileRow[] = [
     link: 'post/hello',
     subject: 'hello',
     content: 'current post',
+    outgoing_links: '[{"subject":"about","link":"about"},{"subject":"Title only"}]',
     remoteTruth: true,
   }),
   makeLegacyFileRow({

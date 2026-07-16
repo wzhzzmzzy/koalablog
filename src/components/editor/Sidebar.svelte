@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Markdown } from '@/db/types';
+  import type { FileRecord } from '@/db/types';
   import { actions } from 'astro:actions';
   import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2, X } from '@lucide/svelte';
   import { editorStore, notify } from './store.svelte';
@@ -7,7 +7,7 @@
   import { buildDocumentTree, getTrashedDocuments, type DocumentTreeNode } from './document-tree';
 
   interface Props {
-    onSelect: (m: Markdown) => void;
+    onSelect: (file: FileRecord) => void;
     onCreate: (prefix: string) => void;
     onRefresh?: (prefix: string) => Promise<void> | void;
     onEmptyTrash: () => void;
@@ -61,19 +61,19 @@
     }
   }
 
-  function handleTopLevelFileSelect(item: Markdown) {
+  function handleTopLevelFileSelect(item: FileRecord) {
     onSelect(item);
-    void refreshPath('');
+    void refreshPath('/');
   }
 
   function toggleRecycleBin() {
     recycleBinExpanded = !recycleBinExpanded;
-    if (recycleBinExpanded) void refreshPath('');
+    if (recycleBinExpanded) void refreshPath('/');
   }
 
   async function handleEmptyTrash(event: MouseEvent) {
     event.stopPropagation();
-    if (emptyingTrash || recycleBin.length === 0 || !window.confirm('Permanently delete every document in the recycle bin?')) return;
+    if (emptyingTrash || recycleBin.length === 0 || !window.confirm('Permanently delete every File in the recycle bin?')) return;
 
     emptyingTrash = true;
     const result = await actions.db.markdown.emptyTrash();
@@ -84,7 +84,7 @@
     }
 
     onEmptyTrash();
-    notify('success', `Permanently deleted ${result.data?.count ?? 0} document(s)`, 3000);
+    notify('success', `Permanently deleted ${result.data?.count ?? 0} File(s)`, 3000);
   }
 
   // Auto-expand current item's path
@@ -92,13 +92,14 @@
      if (currentId) {
          const currentItem = editorStore.items.find(i => i.id === currentId);
          if (currentItem) {
-             const parts = currentItem.link.split('/');
+             const parts = currentItem.path.split('/').filter(Boolean);
              parts.pop(); // remove filename
              let path = '';
              for (const part of parts) {
-                 path += part + '/';
-                 if (expandedFolders[path] === undefined) {
-                      expandedFolders[path] = true;
+                 path += `/${part}`;
+                 const prefix = `${path}/`;
+                 if (expandedFolders[prefix] === undefined) {
+                      expandedFolders[prefix] = true;
                  }
              }
          }
@@ -170,7 +171,7 @@
   <button
     class="outline-none border-none w-full text-left p-2 hover:bg-[--koala-hover-block] transition-colors
            bg-transparent relative flex items-center gap-1.5 rounded opacity-60 italic shrink-0"
-    onclick={() => onCreate('')}
+    onclick={() => onCreate('/')}
   >
       <Plus size={14} class="shrink-0 text-[--koala-text]" />
       <span class="truncate text-sm text-[--koala-text]">New file...</span>
@@ -206,10 +207,10 @@
               class="outline-none border-none w-full text-left px-2 py-1.5 hover:bg-[--koala-hover-block] transition-colors
                      {item.id === currentId ? 'bg-[--koala-focusing-block]' : 'bg-transparent'} rounded"
               onclick={() => onSelect(item)}
-              title={`${item.link} · ${formatDate(item.deletedAt)} · #${item.id}`}
+              title={`${item.path} · ${formatDate(item.deletedAt)} · #${item.id}`}
             >
-              <span class="block truncate text-sm text-[--koala-text]">{item.link.split('/').pop() || item.link}.md</span>
-              <span class="block truncate text-xs text-[--koala-subtext-0]">{item.link} · {formatDate(item.deletedAt)}</span>
+              <span class="block truncate text-sm text-[--koala-text]">{item.title}</span>
+              <span class="block truncate text-xs text-[--koala-subtext-0]">{item.path} · {formatDate(item.deletedAt)}</span>
             </button>
           {/each}
         </div>

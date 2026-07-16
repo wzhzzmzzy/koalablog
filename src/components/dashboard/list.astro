@@ -39,7 +39,7 @@ const sortedYears = Object.keys(groupedByYear)
 
 const count = list.length
 const memoPreviews = isMemoList
-  ? new Map(list.map(item => [item.link, getMarkdownPreviewText(item.content)]))
+  ? new Map(list.map(item => [item.path, getMarkdownPreviewText(item.content)]))
   : new Map<string, string>()
 ---
 
@@ -61,10 +61,10 @@ const memoPreviews = isMemoList
               <li class={`flex gap-3 ${isMemoList ? 'mb-3 items-start' : 'mb-2'}`}>
                 { item.createdAt ? <span class="flex-shrink-0"><i>{ formatDate(item.createdAt) }</i></span> : null }
                 <div class="min-w-0">
-                  <a href={`/${item.link}`}><span>{ item.subject } </span></a>
+                  <a href={item.path}><span>{ item.title } </span></a>
                   {
-                    isMemoList && memoPreviews.get(item.link)
-                      ? <p class="mt-1 text-sm opacity-70 whitespace-pre-line">{memoPreviews.get(item.link)}</p>
+                    isMemoList && memoPreviews.get(item.path)
+                      ? <p class="mt-1 text-sm opacity-70 whitespace-pre-line">{memoPreviews.get(item.path)}</p>
                       : null
                   }
                 </div>

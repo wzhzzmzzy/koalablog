@@ -1,22 +1,22 @@
-import type { Markdown } from '@/db/types'
+import type { FileRecord } from '@/db/types'
 import type { CatppuccinTheme } from '../const/config'
 import type { DoubleLinkPluginOptions } from './double-link-plugin'
 import { md, rawMd } from '.'
 
 export async function renderIt(
   raw: boolean,
-  article?: Markdown,
+  article?: FileRecord,
   themeConfig?: { light: CatppuccinTheme, dark: CatppuccinTheme },
-  allPostLinks?: DoubleLinkPluginOptions['allPostLinks'],
+  allFilePaths?: DoubleLinkPluginOptions['allFilePaths'],
 ) {
   if (!raw) {
-    const renderer = (await md({ themeConfig, allPostLinks }))
+    const renderer = (await md({ themeConfig, allFilePaths }))
     return {
       content: article ? renderer.render(article.content ?? '') : '',
     }
   }
 
-  const renderer = rawMd({ tex: true, allPostLinks })
+  const renderer = rawMd({ tex: true, allFilePaths })
   return {
     content: article ? renderer.render(article.content ?? '') : '',
     renderLangSet: renderer.renderLangSet,

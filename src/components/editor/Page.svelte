@@ -1,16 +1,17 @@
 <script lang="ts">
   import { actions } from 'astro:actions';
-  import { MarkdownSource, getSourceFromLink } from '@/db';
-  import type { Markdown } from '@/db/types';
-  import { initMarkdown } from '@/db/types';
+  import { MarkdownSource, getSourceFromPath } from '@/db';
+  import type { FileRecord } from '@/db/types';
+  import { initFileRecord } from '@/db/types';
+  import { deriveTitle, parseAbsoluteFilePath } from '@/lib/files/path';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
   import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
 
   interface Props {
-    initialMarkdown: Markdown;
-    initialItems?: Markdown[] | null;
+    initialMarkdown: FileRecord;
+    initialItems?: FileRecord[] | null;
     isMobile?: boolean;
   }
 
@@ -33,7 +34,7 @@
   }
   
   // Init History and Current
-  if (!initialMarkdown.deletedAt) pushHistory(initialMarkdown.link);
+  if (!initialMarkdown.deletedAt) pushHistory(initialMarkdown.path);
   setCurrentMarkdown(initialMarkdown);
 
   // Sync URL with currentMarkdown
@@ -41,20 +42,20 @@
     if (editorStore.currentMarkdown) {
       const url = new URL(window.location.href);
       if (editorStore.currentMarkdown.deletedAt) {
-        url.searchParams.delete('link');
+        url.searchParams.delete('path');
         url.searchParams.set('id', String(editorStore.currentMarkdown.id));
-      } else if (url.searchParams.get('link') !== editorStore.currentMarkdown.link || url.searchParams.has('id')) {
-        url.searchParams.set('link', editorStore.currentMarkdown.link);
+      } else if (url.searchParams.get('path') !== editorStore.currentMarkdown.path || url.searchParams.has('id')) {
+        url.searchParams.set('path', editorStore.currentMarkdown.path);
         url.searchParams.delete('id');
       }
       if (url.href !== window.location.href) window.history.pushState({}, '', url);
     }
   });
 
-  function handleSelect(m: Markdown) {
-    if (!m.deletedAt && m.link) pushHistory(m.link);
-    if (!m.deletedAt && drafts.has(m.link)) {
-      setCurrentMarkdown(drafts.get(m.link)!)
+  function handleSelect(m: FileRecord) {
+    if (!m.deletedAt && m.path) pushHistory(m.path);
+    if (!m.deletedAt && drafts.has(m.path)) {
+      setCurrentMarkdown(drafts.get(m.path)!)
     } else {
       setCurrentMarkdown(m);
     }
@@ -64,19 +65,19 @@
     }
   }
 
-  function handleSave(m: Markdown) {
-    updateLastHistory(m.link);
+  function handleSave(m: FileRecord) {
+    updateLastHistory(m.path);
     setCurrentMarkdown(m);
     upsertItem(m);
   }
 
-  function handleUpdate(m: Markdown) {
+  function handleUpdate(m: FileRecord) {
     setCurrentMarkdown(m);
     upsertItem(m);
   }
 
   function selectFallback() {
-    const fallback = editorStore.items.find(item => !item.deletedAt) ?? initMarkdown();
+    const fallback = editorStore.items.find(item => !item.deletedAt) ?? initFileRecord();
     setCurrentMarkdown(fallback);
   }
 
@@ -105,33 +106,38 @@
   }
 
   async function createNew(prefix: string) {
-    const targetSource = getSourceFromLink(prefix);
-    const newMd = initMarkdown(targetSource);
+    const targetSource = getSourceFromPath(prefix);
+    const newFile = initFileRecord(targetSource);
+
+    const setPath = (path: string) => {
+      const parsed = parseAbsoluteFilePath(path);
+      if (!parsed.ok) return;
+      newFile.path = parsed.value;
+      newFile.title = deriveTitle(parsed.value);
+    };
     
     if (targetSource === MarkdownSource.Memo) {
-      const result = await actions.db.markdown.getNewMemoSubject();
+      const result = await actions.db.markdown.getNewMemoTitle();
       if (result.data) {
-        newMd.subject = result.data;
-        newMd.link = `${prefix}${result.data}`
-        newMd.private = true
+        setPath(`${prefix}${result.data}`)
+        newFile.private = true
       } else if (result.error) {
-          console.error('Error fetching memo subject', result.error);
-          newMd.link = prefix;
+          console.error('Error fetching memo Title', result.error);
       }
     } else {
       let baseName = 'unnamed';
       let counter = 0;
       let candidate = `${prefix}${baseName}`;
       
-      const exists = (link: string) => editorStore.items.some(i => !i.deletedAt && i.link === link);
+      const exists = (path: string) => editorStore.items.some(i => !i.deletedAt && i.path === path);
 
       while(exists(candidate)) {
         counter++;
         candidate = `${prefix}${baseName}-${counter}`;
       }
-      newMd.link = candidate;
+      setPath(candidate);
     }
-    setCurrentMarkdown(newMd);
+    setCurrentMarkdown(newFile);
   }
 </script>
 

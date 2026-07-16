@@ -2,8 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { MarkdownSource } from '@/db'
-import { add, batchTrashByLinks, emptyTrash, purge, readAnyById, readTrash, restore, trash } from '@/db/markdown'
+import { add, batchTrashByPaths, emptyTrash, purge, readAnyById, readTrash, restore, trash } from '@/db/markdown'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -20,20 +19,20 @@ describe('document recycle bin', () => {
       CREATE TABLE markdown (
         id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
         source integer NOT NULL,
-        link text NOT NULL,
-        subject text NOT NULL,
+        path text NOT NULL,
+        title text NOT NULL,
         content text,
         tags text,
         incoming_links text,
         outgoing_links text,
         private integer DEFAULT false NOT NULL,
         remoteTruth integer DEFAULT false NOT NULL,
+        revision integer DEFAULT 1 NOT NULL,
         createdAt integer DEFAULT (unixepoch()) NOT NULL,
         updatedAt integer DEFAULT (unixepoch()) NOT NULL,
         deletedAt integer
       );
-      CREATE UNIQUE INDEX markdown_active_link_unique ON markdown (link) WHERE deletedAt IS NULL;
-      CREATE UNIQUE INDEX markdown_active_subject_unique ON markdown (subject) WHERE deletedAt IS NULL;
+      CREATE UNIQUE INDEX markdown_active_path_unique ON markdown (path) WHERE deletedAt IS NULL;
     `)
     client.close()
   })
@@ -44,81 +43,81 @@ describe('document recycle bin', () => {
   })
 
   it('moves a document to the recycle bin without changing its identity', async () => {
-    const [document] = await add(testEnv, MarkdownSource.Post, 'Hello', 'content', 'post/hello')
+    const [file] = await add(testEnv, { path: '/post/hello', content: 'content' })
 
-    const result = await trash(testEnv, document.id)
-    const trashed = await readAnyById(testEnv, document.id)
+    const result = await trash(testEnv, file.id)
+    const trashed = await readAnyById(testEnv, file.id)
 
     expect(result.status).toBe('trashed')
     expect(trashed).toMatchObject({
-      id: document.id,
-      link: 'post/hello',
-      subject: 'Hello',
+      id: file.id,
+      path: '/post/hello',
+      title: 'hello',
     })
     expect(trashed?.deletedAt).toBeInstanceOf(Date)
   })
 
   it('keeps repeated deletions of the same document identity as separate entries', async () => {
-    const [first] = await add(testEnv, MarkdownSource.Post, 'Hello', 'first', 'post/hello')
+    const [first] = await add(testEnv, { path: '/post/hello', content: 'first' })
     await trash(testEnv, first.id)
-    const [second] = await add(testEnv, MarkdownSource.Post, 'Hello', 'second', 'post/hello')
+    const [second] = await add(testEnv, { path: '/post/hello', content: 'second' })
     await trash(testEnv, second.id)
 
     const entries = await readTrash(testEnv)
 
     expect(entries.map(entry => entry.id).sort()).toEqual([first.id, second.id].sort())
-    expect(entries.every(entry => entry.link === 'post/hello' && entry.subject === 'Hello')).toBe(true)
+    expect(entries.every(entry => entry.path === '/post/hello' && entry.title === 'hello')).toBe(true)
   })
 
   it('reports a safe rename when the original identity is occupied', async () => {
-    const [trashed] = await add(testEnv, MarkdownSource.Post, 'Hello', 'old', 'post/hello')
+    const [trashed] = await add(testEnv, { path: '/post/hello', content: 'old' })
     await trash(testEnv, trashed.id)
-    await add(testEnv, MarkdownSource.Post, 'Hello', 'new', 'post/hello')
+    await add(testEnv, { path: '/post/hello', content: 'new' })
 
     const result = await restore(testEnv, trashed.id)
 
     expect(result).toEqual({
       status: 'conflict',
-      suggestedLink: 'post/hello-restored',
-      suggestedSubject: 'Hello (restored)',
+      suggestedPath: '/post/hello-restored',
+      suggestedTitle: 'hello-restored',
     })
     expect((await readAnyById(testEnv, trashed.id))?.deletedAt).toBeInstanceOf(Date)
   })
 
   it('restores with the next available identity when rename is accepted', async () => {
-    const [trashed] = await add(testEnv, MarkdownSource.Post, 'Hello', 'old', 'post/hello')
+    const [trashed] = await add(testEnv, { path: '/post/hello', content: 'old' })
     await trash(testEnv, trashed.id)
-    await add(testEnv, MarkdownSource.Post, 'Hello', 'new', 'post/hello')
-    await add(testEnv, MarkdownSource.Post, 'Hello (restored)', 'occupied', 'post/hello-restored')
+    await add(testEnv, { path: '/post/hello', content: 'new' })
+    await add(testEnv, { path: '/post/hello-restored', content: 'occupied' })
 
     const result = await restore(testEnv, trashed.id, true)
 
     expect(result).toMatchObject({
       status: 'restored',
-      document: {
+      file: {
         id: trashed.id,
-        link: 'post/hello-restored-2',
-        subject: 'Hello (restored 2)',
+        path: '/post/hello-restored-2',
+        title: 'hello-restored-2',
         deletedAt: null,
       },
     })
   })
 
   it('permanently deletes only documents that are already in the recycle bin', async () => {
-    const [document] = await add(testEnv, MarkdownSource.Post, 'Hello', 'content', 'post/hello')
+    const [file] = await add(testEnv, { path: '/post/hello', content: 'content' })
 
-    expect(await purge(testEnv, document.id)).toEqual({ status: 'not_found' })
-    expect(await readAnyById(testEnv, document.id)).toBeDefined()
+    expect(await purge(testEnv, file.id)).toEqual({ status: 'not_found' })
+    expect(await readAnyById(testEnv, file.id)).toBeDefined()
 
-    await trash(testEnv, document.id)
-    expect(await purge(testEnv, document.id)).toEqual({ status: 'purged' })
-    expect(await readAnyById(testEnv, document.id)).toBeUndefined()
+    await trash(testEnv, file.id)
+    expect(await purge(testEnv, file.id)).toEqual({ status: 'purged' })
+    expect(await readAnyById(testEnv, file.id)).toBeUndefined()
   })
 
   it('empties the recycle bin without deleting active documents', async () => {
-    const [active] = await add(testEnv, MarkdownSource.Post, 'Active', 'active', 'post/active')
-    const [first] = await add(testEnv, MarkdownSource.Post, 'First', 'first', 'post/first')
-    const [second] = await add(testEnv, MarkdownSource.Post, 'Second', 'second', 'post/second')
+    const [active] = await add(testEnv, { path: '/post/active', content: 'active' })
+    const [first] = await add(testEnv, { path: '/post/first', content: 'first' })
+    const [second] = await add(testEnv, { path: '/post/second', content: 'second' })
     await trash(testEnv, first.id)
     await trash(testEnv, second.id)
 
@@ -127,13 +126,13 @@ describe('document recycle bin', () => {
     expect(await readAnyById(testEnv, active.id)).toBeDefined()
   })
 
-  it('reports duplicate batch links once without inflating the changed count', async () => {
-    const [document] = await add(testEnv, MarkdownSource.Wiki, 'Wiki', 'content', 'wiki/a')
+  it('reports duplicate batch Paths once without inflating the changed count', async () => {
+    const [file] = await add(testEnv, { path: '/wiki/a', content: 'content' })
 
-    const results = await batchTrashByLinks(testEnv, ['wiki/a', 'wiki/a', 'wiki/missing'])
+    const results = await batchTrashByPaths(testEnv, ['/wiki/a', '/wiki/a', '/wiki/missing'])
 
     expect(results.map(result => result.status)).toEqual(['trashed', 'not_found', 'not_found'])
     expect(results.filter(result => result.status === 'trashed')).toHaveLength(1)
-    expect((await readAnyById(testEnv, document.id))?.deletedAt).toBeInstanceOf(Date)
+    expect((await readAnyById(testEnv, file.id))?.deletedAt).toBeInstanceOf(Date)
   })
 })

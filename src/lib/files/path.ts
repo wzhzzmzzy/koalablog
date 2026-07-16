@@ -6,7 +6,7 @@ import type {
   PathErrorCode,
   Result,
 } from './types'
-import { getSourceFromLink } from '@/db'
+import { getSourceFromPath } from '@/db'
 
 const FILE_EXTENSION = /\.[^/]+$/
 
@@ -67,7 +67,7 @@ export function deriveTitle(path: AbsoluteFilePath): string {
 }
 
 export function classifySource(path: AbsoluteFilePath): MarkdownSource {
-  return getSourceFromLink(path.slice(1))
+  return getSourceFromPath(path)
 }
 
 export function isDescendantOfPrefix(path: AbsoluteFilePath, prefix: AbsolutePathPrefix): boolean {

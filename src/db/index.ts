@@ -30,14 +30,15 @@ export const MarkdownSubjectMap: Record<MarkdownSource, string> = {
   [MarkdownSource.Unknown]: '404',
 }
 
-export function getSourceFromLink(link: string): MarkdownSource {
-  if (link.startsWith('wiki/')) {
+export function getSourceFromPath(path: string): MarkdownSource {
+  const relativePath = path.startsWith('/') ? path.slice(1) : path
+  if (relativePath.startsWith('wiki/')) {
     return MarkdownSource.Wiki
   }
-  if (link.startsWith('memo/')) {
+  if (relativePath.startsWith('memo/')) {
     return MarkdownSource.Memo
   }
-  if (link.startsWith('post/')) {
+  if (relativePath.startsWith('post/')) {
     return MarkdownSource.Post
   }
   return MarkdownSource.Page

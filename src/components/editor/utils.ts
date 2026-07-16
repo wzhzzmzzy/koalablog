@@ -1,7 +1,5 @@
-import type { Markdown } from '@/db/types'
-import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
+import type { FileRecord } from '@/db/types'
 import { convertToWebP, uploadFile } from '@/lib/services/file-reader'
-import { parseJson } from '@/lib/utils/parse-json'
 
 /**
  * 从剪贴板事件中提取图片文件
@@ -80,13 +78,11 @@ export function formatActionError(message: string) {
       return message
 
     const fieldNames: Record<string, string> = {
-      link: 'File Path',
-      subject: 'Title',
+      path: 'File Path',
       content: 'Content',
-      source: 'Source',
       private: 'Visibility',
       id: 'ID',
-      outgoingLinks: 'Links',
+      baseRevision: 'Base revision',
     }
     return errors.map((error: { path?: string[], message: string }) => {
       const field = error.path?.[0]
@@ -98,20 +94,7 @@ export function formatActionError(message: string) {
   }
 }
 
-export function findPreviousActiveDocument(history: string[], documents: Markdown[]) {
-  const previousLink = history.at(-2)
-  return documents.find(document => !document.deletedAt && document.link === previousLink)
-}
-
-export function changedOutgoingLinkRefs(documents: Markdown[], oldLink: string, newLink: string) {
-  return documents.flatMap((document) => {
-    const outgoingLinks = parseJson<DoubleLinkPluginOptions['allPostLinks']>(document.outgoing_links || null) || []
-    if (!outgoingLinks.some(link => link.link === oldLink))
-      return []
-
-    return [{
-      id: document.id,
-      outgoingLinks: outgoingLinks.map(link => ({ ...link, link: link.link === oldLink ? newLink : link.link })),
-    }]
-  })
+export function findPreviousActiveDocument(history: string[], files: FileRecord[]) {
+  const previousPath = history.at(-2)
+  return files.find(file => !file.deletedAt && file.path === previousPath)
 }

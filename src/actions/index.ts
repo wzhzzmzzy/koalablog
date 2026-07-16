@@ -1,4 +1,4 @@
-import { all, batchImport, byPrefix, emptyTrash, getNewMemoSubject, purge, restore, trash, updateRefs } from './db/markdown'
+import { all, batchImport, byPrefix, emptyTrash, getNewMemoTitle, purge, restore, trash } from './db/markdown'
 import { login } from './form/login'
 import { save, setPrivate } from './form/markdown'
 import { onboarding } from './form/onboarding'
@@ -23,8 +23,7 @@ export const server = {
       all,
       batchImport,
       byPrefix,
-      updateRefs,
-      getNewMemoSubject,
+      getNewMemoTitle,
       trash,
       restore,
       purge,

@@ -70,8 +70,6 @@ let config = null
 const PID_FILE = join(runtimeDir, 'koalablog-sync.pid')
 const LOG_FILE = join(stateDir, 'koalablog-sync.log')
 
-const SOURCE_MEMO = '30'
-const SOURCE_WIKI = '31'
 const SYNC_DIRS = ['memos', 'todos']
 const WIKI_SYNC_DIRS = [
   'wiki/entities',
@@ -81,13 +79,9 @@ const WIKI_SYNC_DIRS = [
 ]
 const ALL_SYNC_DIRS = [...SYNC_DIRS, ...WIKI_SYNC_DIRS]
 
-function getLink(filePath) {
+function getFilePath(filePath) {
   const relPath = relative(config.vaultPath, filePath)
-  return relPath.replace(/\.md$/, '')
-}
-
-function getSource(link) {
-  return link.startsWith('wiki/') ? SOURCE_WIKI : SOURCE_MEMO
+  return `/${relPath.replace(/\\/g, '/').replace(/\.md$/, '')}`
 }
 
 // Utils
@@ -101,10 +95,7 @@ function log(msg) {
 async function parseMemo(filePath) {
   try {
     const content = await readFile(filePath, 'utf-8')
-    const match = content.match(/^---\n[\s\S]*?\n---\n# (.*)/)
-    const subject = match?.[1] || basename(filePath, '.md')
-    
-    return { path: filePath, content, subject, link: getLink(filePath) }
+    return { localPath: filePath, content, path: getFilePath(filePath) }
   } catch {
     return null
   }
@@ -268,9 +259,7 @@ async function uploadToKoalablog(memo) {
 
 async function batchUploadToKoalablog(memos) {
   const payload = memos.map(memo => ({
-    source: Number(getSource(memo.link)),
-    link: memo.link,
-    subject: memo.subject,
+    path: memo.path,
     content: memo.content
       // ![[attachments/...]] → ![](/attachments/...)
       .replace(/!\[\[((?:\.?\/)?attachments\/[^\]]+)\]\]/g, '![](/$1)')
@@ -302,14 +291,14 @@ async function batchUploadToKoalablog(memos) {
   return res.json()
 }
 
-async function deleteFromKoalablog(link) {
+async function deleteFromKoalablog(path) {
   const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/batch`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${config.bearerToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify([link]),
+    body: JSON.stringify([path]),
     dispatcher: globalThis.__proxyDispatcher,
   })
 
@@ -321,8 +310,9 @@ async function deleteFromKoalablog(link) {
   return res.json()
 }
 
-async function batchDeleteFromKoalablog(links) {
-  if (links.length === 0) return { count: 0 }
+async function batchDeleteFromKoalablog(paths) {
+  if (paths.length === 0)
+    return { count: 0 }
   
   const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/batch`, {
     method: 'DELETE',
@@ -330,7 +320,7 @@ async function batchDeleteFromKoalablog(links) {
       'Authorization': `Bearer ${config.bearerToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(links),
+    body: JSON.stringify(paths),
     dispatcher: globalThis.__proxyDispatcher,
   })
 
@@ -369,9 +359,10 @@ let remoteTruthTimer = null
 let pullingRemoteTruth = false
 const suppressUpload = new Map()
 
-function resolveVaultPath(link) {
-  const normalizedLink = link.endsWith('.md') ? link : `${link}.md`
-  return join(config.vaultPath, normalizedLink)
+function resolveVaultPath(path) {
+  const relativePath = path.replace(/^\/+/, '')
+  const diskPath = relativePath.endsWith('.md') ? relativePath : `${relativePath}.md`
+  return join(config.vaultPath, diskPath)
 }
 
 function shouldSuppressUpload(filePath) {
@@ -429,14 +420,14 @@ async function pullRemoteTruth() {
     log(`⬇️ Pulling ${items.length} remote edits`)
 
     for (const item of items) {
-      const filePath = resolveVaultPath(item.link)
+      const filePath = resolveVaultPath(item.path)
 
       suppressUpload.set(filePath, Date.now() + 5000)
       await mkdir(dirname(filePath), { recursive: true })
       await writeFile(filePath, item.content || '', 'utf-8')
       await clearRemoteTruth(item.id)
 
-      log(`✅ Pulled: ${item.subject}`)
+      log(`✅ Pulled: ${item.path}`)
     }
   } catch (e) {
     log(`❌ Pull failed: ${e.message}`, true)
@@ -490,7 +481,7 @@ async function runDaemon() {
       try {
         await syncAttachments(memo.content, path)
         await uploadToKoalablog(memo)
-        log(`✅ Synced: ${memo.subject}`)
+        log(`✅ Synced: ${memo.path}`)
       } catch (e) {
         log(`❌ Failed: ${e.message}`, true)
       }
@@ -507,7 +498,7 @@ async function runDaemon() {
       try {
         await syncAttachments(memo.content, path)
         await uploadToKoalablog(memo)
-        log(`✅ Synced: ${memo.subject}`)
+        log(`✅ Synced: ${memo.path}`)
       } catch (e) {
         log(`❌ Failed: ${e.message}`, true)
       }
@@ -518,11 +509,11 @@ async function runDaemon() {
     if (!path.endsWith('.md')) return
     
     log(`🗑️ Removed: ${basename(path)}`)
-    const link = getLink(path)
+    const filePath = getFilePath(path)
     
     try {
-      await deleteFromKoalablog(link)
-      log(`✅ Deleted: ${link}`)
+      await deleteFromKoalablog(filePath)
+      log(`✅ Deleted: ${filePath}`)
     } catch (e) {
       log(`❌ Delete failed: ${e.message}`, true)
     }
@@ -655,7 +646,7 @@ async function fullSync() {
   let totalAttachmentsFailed = 0
   
   for (const memo of memos) {
-    const result = await syncAttachments(memo.content, memo.path)
+    const result = await syncAttachments(memo.content, memo.localPath)
     totalAttachmentsUploaded += result.uploaded
     totalAttachmentsSkipped += result.skipped
     totalAttachmentsFailed += result.failed
@@ -696,14 +687,15 @@ async function fullSync() {
   
   try {
     const remoteMemos = await fetchRemoteMemos()
-    const localLinks = new Set(memos.map(m => m.link))
+    const localPaths = new Set(memos.map(m => m.path))
     
     const toDelete = remoteMemos
-      .filter(r => {
-        if (localLinks.has(r.link)) return false
-        return ALL_SYNC_DIRS.some(dir => r.link.startsWith(`${dir}/`))
+      .filter((record) => {
+        if (localPaths.has(record.path))
+          return false
+        return ALL_SYNC_DIRS.some(dir => record.path.startsWith(`/${dir}/`))
       })
-      .map(r => r.link)
+      .map(record => record.path)
     
     if (toDelete.length > 0) {
       log(`🗑️ Found ${toDelete.length} remote records to delete`)

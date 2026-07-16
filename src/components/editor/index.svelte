@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { getSourceFromLink, getMarkdownSourceKey } from '@/db'
-  import type { Markdown } from '@/db/types';
+  import { getSourceFromPath, getMarkdownSourceKey } from '@/db'
+  import type { FileRecord } from '@/db/types';
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
   import type MarkdownIt from 'markdown-it';
@@ -8,51 +8,54 @@
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
   import { Save, Upload, Eye, SquarePen, Link, Check, ArrowLeft, Menu, Lock, LockOpen, House } from '@lucide/svelte';
   import DocumentLifecycle from './DocumentLifecycle.svelte';
-  import { changedOutgoingLinkRefs, findPreviousActiveDocument, formatActionError, generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition, uploadEditorImage } from './utils';
+  import { findPreviousActiveDocument, formatActionError, generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition, uploadEditorImage } from './utils';
   import { editorStore, upsertItem, popHistory, setCurrentMarkdown, setDraft, removeDraft, drafts, notify, toggleSidebar } from './store.svelte';
 
   interface Props {
-			markdown: Markdown;
-	    onSave?: (m: Markdown) => void;
-	    onUpdate?: (m: Markdown) => void;
+			markdown: FileRecord;
+	    onSave?: (file: FileRecord) => void;
+	    onUpdate?: (file: FileRecord) => void;
 	    onPurge?: (id: number) => void;
 		}
 
   let editorForm: HTMLFormElement
   let { markdown, onSave, onUpdate, onPurge }: Props = $props()
 
-  let subjectValue = $state(markdown.subject ?? '')
   let textareaValue = $state(markdown.content ?? '')
   let privateValue = $state(markdown.private ?? false)
   let previewHtml = $state('')
-  let linkValue = $state(markdown.link ?? '')
-  let source = $derived(getSourceFromLink(linkValue))
+  let pathValue = $state(markdown.path ?? '')
+  let baseRevisionValue = $state(markdown.revision)
+  let conflict = $state<FileRecord | null>(null)
+  let titleValue = $derived(pathValue.split('/').filter(Boolean).at(-1) ?? '')
+  let source = $derived(getSourceFromPath(pathValue))
   let trashed = $derived(Boolean(markdown.deletedAt))
-  let changed = $derived(!trashed && drafts.has(markdown.link))
+  let changed = $derived(!trashed && drafts.has(markdown.path))
 
   $effect(() => {
     if (trashed) {
       return
     }
 
-    const rawData = editorStore.items.find(i => markdown.id > 0 ? i.id === markdown.id : i.link === markdown.link)
+    const rawData = editorStore.items.find(i => markdown.id > 0 ? i.id === markdown.id : i.path === markdown.path)
     if (!rawData) return;
 
-    const isDirty = subjectValue !== (rawData.subject ?? '') || textareaValue !== (rawData.content ?? '')
+    const isDirty = pathValue !== rawData.path || textareaValue !== (rawData.content ?? '')
     if (isDirty) {
-      setDraft(markdown.link, { ...markdown, subject: subjectValue, content: textareaValue, link: linkValue })
+      setDraft(markdown.path, { ...markdown, title: titleValue, content: textareaValue, path: pathValue })
     } else {
-      removeDraft(markdown.link)
+      removeDraft(markdown.path)
     }
   })
 
   $effect(() => {
     const data = markdown
 
-    subjectValue = data.subject ?? '';
     textareaValue = data.content ?? '';
     privateValue = data.private ?? false;
-    linkValue = data.link ?? '';
+    pathValue = data.path ?? '';
+    baseRevisionValue = data.revision;
+    conflict = null;
   });
 
   $effect(() => {
@@ -60,13 +63,13 @@
   })
 
   $effect(() => {
-    document.title = `[Editor] ${subjectValue || 'New File'}`
+    document.title = `[Editor] ${titleValue || 'New File'}`
   })
 
   let mdInstance: MarkdownIt | null = null
   
   onMount(async () => {
-    mdInstance = await md({ allPostLinks: editorStore.items.filter(item => !item.deletedAt) })
+    mdInstance = await md({ allFilePaths: editorStore.items.filter(item => !item.deletedAt).map(item => item.path) })
     refreshPreview()
 
     const handleKeydown = (e: KeyboardEvent) => {
@@ -87,7 +90,7 @@
 
   $effect(() => {
       if (mdInstance && editorStore.items.length > 0) {
-          md({ allPostLinks: editorStore.items.filter(item => !item.deletedAt) }).then(inst => {
+          md({ allFilePaths: editorStore.items.filter(item => !item.deletedAt).map(item => item.path) }).then(inst => {
               mdInstance = inst;
               refreshPreview();
           });
@@ -96,8 +99,8 @@
 
   async function refreshPreview() {
     let previewMd = textareaValue
-    if (subjectValue) {
-      previewMd = `# ${subjectValue}\n\n${textareaValue}`
+    if (titleValue) {
+      previewMd = `# ${titleValue}\n\n${textareaValue}`
     }
     if (mdInstance) {
       previewHtml = mdInstance.render(previewMd)
@@ -180,7 +183,7 @@
     const supportClipboard = navigator && 'clipboard' in navigator
     if (supportClipboard) {
       navigator.clipboard.writeText(
-        `${window.location.origin}/${markdown.link}`
+        `${window.location.origin}${markdown.path}`
       ).then(() => {
         copyBtnText = 'Copied'
         setTimeout(() => {
@@ -212,6 +215,44 @@
     window.location.href = target
   }
 
+  function conflictFromError(error: { code?: string; message: string }) {
+    if (error.code !== 'CONFLICT') return null;
+    try {
+      const payload = JSON.parse(error.message) as { code?: string; current?: FileRecord };
+      return payload.code === 'source_conflict' && payload.current ? payload.current : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveErrorMessage(error: { code?: string; message: string }) {
+    if (error.code === 'CONFLICT') {
+      try {
+        const payload = JSON.parse(error.message) as { code?: string; path?: string };
+        if (payload.code === 'path_conflict') return `Another active File already uses ${payload.path}.`;
+      } catch {
+        // Fall through to ordinary formatting.
+      }
+    }
+    return formatActionError(error.message);
+  }
+
+  function useServerVersion() {
+    if (!conflict || !window.confirm('Replace the local Edit Buffer with the current server File?')) return;
+    removeDraft(markdown.path);
+    markdown = conflict;
+    onUpdate?.(conflict);
+    setCurrentMarkdown(conflict);
+  }
+
+  function retryLocalAgainstCurrentRevision() {
+    if (!conflict || !window.confirm(`Keep the local Edit Buffer and retry against server revision ${conflict.revision}?`)) return;
+    baseRevisionValue = conflict.revision;
+    upsertItem(conflict);
+    conflict = null;
+    notify('warning', 'Local Edit Buffer kept. Review it, then Save again.', 4000);
+  }
+
   async function togglePrivate(e: Event) {
     e.preventDefault()
     if (trashed) return
@@ -221,23 +262,26 @@
       const formData = new FormData()
       formData.append('id', markdown.id.toString())
       formData.append('private', newPrivateValue.toString())
+      formData.append('baseRevision', baseRevisionValue.toString())
       
       const result = await actions.form.setPrivate(formData)
       
       if (result.error) {
-        notify('error', formatActionError(result.error.message))
-        privateValue = !newPrivateValue // Revert
+        conflict = conflictFromError(result.error);
+        notify(conflict ? 'warning' : 'error', conflict ? 'The server File changed. Your local Edit Buffer was kept.' : saveErrorMessage(result.error))
       } else {
-        if (result.data?.[0]) {
-          const updated = result.data[0]
+        if (result.data) {
+          const updated = result.data
+          baseRevisionValue = updated.revision;
           // Preserve current draft content when updating store
           const preserved = {
             ...updated,
-            subject: subjectValue,
+            title: titleValue,
             content: textareaValue,
-            link: linkValue,
+            path: pathValue,
           }
-          upsertItem(preserved)
+          markdown = preserved;
+          upsertItem(updated)
           setCurrentMarkdown(preserved)
         }
         privateValue = newPrivateValue
@@ -248,40 +292,34 @@
   async function save(e: Event) {
     e.preventDefault()
     if (trashed) return
-
-    const previewEl = document.getElementById('preview-md')
-    const outgoingLinkEls: HTMLAnchorElement[] = Array.from(previewEl?.querySelectorAll('a.outgoing-link') || [])
-    const tagEls: HTMLSpanElement[] = Array.from(previewEl?.querySelectorAll('span.tag') || [])
-
-    const formData = new FormData(editorForm)
-    formData.append('outgoingLinks', JSON.stringify(outgoingLinkEls.map(i => ({
-      subject: i.textContent,
-      link: i.dataset.link
-    })).filter(i => !!i.link)))
-    
-    const contentTags = tagEls.map(el => el.getAttribute('data-tag')).filter(Boolean) as string[];
-    
-    formData.append('tags', contentTags.join(','))
-    formData.append('private', String(privateValue));
-
-    const oldLink = markdown.link
-    const newLink = formData.get('link') as string
-    const refs = changedOutgoingLinkRefs(editorStore.items, oldLink, newLink)
-    if (refs.length) {
-      await actions.db.markdown.updateRefs(refs)
+    if (conflict) {
+      notify('warning', 'Resolve the Source conflict before saving again.', 4000);
+      return;
     }
+
+    const formData = new FormData()
+    formData.append('id', markdown.id.toString())
+    formData.append('path', pathValue)
+    formData.append('content', textareaValue)
+    formData.append('private', String(privateValue));
+    formData.append('baseRevision', baseRevisionValue.toString())
+
+    const oldPath = markdown.path
 
     const result = await actions.form.save(formData)
 
     if (result.error) {
-      notify('error', formatActionError(result.error.message))
+      conflict = conflictFromError(result.error);
+      notify(conflict ? 'warning' : 'error', conflict ? 'The server File changed. Your local Edit Buffer was kept.' : saveErrorMessage(result.error))
     } else {
       notify('success', 'Saved Success', 3000)
-      if (result.data?.[0]) {
-        markdown = result.data[0]
+      if (result.data) {
+        markdown = result.data
+        baseRevisionValue = markdown.revision;
         onSave?.(markdown)
         upsertItem(markdown)
-        removeDraft(oldLink)
+        removeDraft(oldPath)
+        removeDraft(markdown.path)
       }
     }
   }
@@ -310,11 +348,11 @@
 
       <div class="flex-1 max-w-xl mx-auto flex items-center gap-2 bg-[--koala-bg] rounded px-2">
         <input
-          id="link-input"
+          id="path-input"
           class="w-full bg-transparent border-none outline-none text-sm text-[--koala-subtext-0] h-8 text-center"
           type="text"
-          name="link"
-          bind:value={linkValue}
+          name="path"
+          bind:value={pathValue}
           onkeydown={(e) => e.key === 'Enter' && e.preventDefault()}
           placeholder="Input Path..."
           readonly={trashed}
@@ -338,7 +376,7 @@
             <LockOpen size={20} />
           {/if}
         </button>
-        <button id="save" class="icon btn {changed ? '!text-[--koala-success-text]' : '' }" onclick={save}><Save size={20} /></button>
+        <button id="save" class="icon btn {changed ? '!text-[--koala-success-text]' : '' }" onclick={save} disabled={Boolean(conflict)} title={conflict ? 'Resolve the Source conflict first' : 'Save'}><Save size={20} /></button>
 
         <button id="upload" class="icon btn" onclick={upload} title="Upload Image"><Upload size={20} /></button>
         <button id="preview" class="icon btn" onclick={preview} title="Toggle Preview">
@@ -367,18 +405,28 @@
       </div>
     </div>
 
-    <input type="hidden" name="source" value={source} />
     <input type="hidden" name="id" value={markdown.id} />
+    <input type="hidden" name="baseRevision" value={baseRevisionValue} />
 
     <input
-      id="subject-input"
+      id="title-input"
       type="text"
-      name="subject"
       class="text-[--koala-text] {showPreview ? 'hidden' : ''} w-full text-xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
-      bind:value={subjectValue}
+      value={titleValue}
       placeholder="Title"
-      readonly={trashed}
+      readonly
     />
+
+    {#if conflict}
+      <div class="mb-2 rounded border border-[--koala-warning-text] p-3 text-sm" role="alert">
+        <p class="m-0">Server revision {conflict.revision} differs from the Edit Buffer base revision {baseRevisionValue}. The local Source is still intact.</p>
+        <p class="m-0 mt-1 break-all">Server Path: {conflict.path}</p>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <button type="button" class="btn" onclick={useServerVersion}>Use server version</button>
+          <button type="button" class="btn" onclick={retryLocalAgainstCurrentRevision}>Keep local and rebase</button>
+        </div>
+      </div>
+    {/if}
 
     <textarea
       class="text-sm w-full flex-1 box-border bg-transparent border-none outline-none resize-none p-2 {showPreview ? 'hidden' : ''}" 

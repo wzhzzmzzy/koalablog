@@ -1,16 +1,16 @@
 ---
 import Page from '@/components/editor/Page.svelte'
 import { MarkdownSource } from '@/db'
-import { generateMemoSubject, justReadAll } from '@/db/markdown'
-import { initMarkdown } from '@/db/types'
+import { generateMemoTitle, justReadAll } from '@/db/markdown'
+import { initFileRecord } from '@/db/types'
 import DashboardLayout from '@/layouts/dashboard.astro'
 
 const url = Astro.url
 const id = Number(url.searchParams.get('id') || '0')
-const link = url.searchParams.get('link')
+const path = url.searchParams.get('path')
 const isMemo = url.searchParams.has('memo')
 
-let article = initMarkdown()
+let article = initFileRecord()
 
 let initialItems: Awaited<ReturnType<typeof justReadAll>> = []
 initialItems = await justReadAll(Astro.locals.runtime?.env)
@@ -21,23 +21,24 @@ if (id) {
     article = found
   }
 }
-else if (link) {
-  const found = initialItems.find(i => !i.deletedAt && i.link === link)
+else if (path) {
+  const found = initialItems.find(i => !i.deletedAt && i.path === path)
   if (found) {
     article = found
   }
 }
 else if (isMemo) {
-  article = initMarkdown(MarkdownSource.Memo)
-  const memoSubject = await generateMemoSubject(Astro.locals.runtime?.env)
-  article.subject = memoSubject
-  article.link = memoSubject
+  article = initFileRecord(MarkdownSource.Memo)
+  const memoTitle = await generateMemoTitle(Astro.locals.runtime?.env)
+  article.title = memoTitle
+  article.path = `/memo/${memoTitle}`
+  article.private = true
 }
 
 const userAgent = Astro.request.headers.get('user-agent') || ''
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 ---
 
-<DashboardLayout title={`[Editor] ${article.subject}`} showHeader={false}>
+<DashboardLayout title={`[Editor] ${article.title}`} showHeader={false}>
   <Page client:load initialMarkdown={article} initialItems={initialItems} isMobile={isMobile} />
 </DashboardLayout>

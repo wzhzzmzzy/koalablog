@@ -1,77 +1,80 @@
-import { connectDB, MarkdownSource } from '@/db'
-import { add, update, updatePrivate } from '@/db/markdown'
-import { markdown } from '@/db/schema'
-import { parseJson } from '@/lib/utils/parse-json'
-import { defineAction } from 'astro:actions'
+import { FileInputError, saveFile, updatePrivate } from '@/db/markdown'
+import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-import { eq } from 'drizzle-orm'
 import { authGuard } from '../utils/auth'
+
+function sourceConflict(current: unknown): never {
+  throw new ActionError({
+    code: 'CONFLICT',
+    message: JSON.stringify({ code: 'source_conflict', current }),
+  })
+}
+
+function notFound(): never {
+  throw new ActionError({ code: 'NOT_FOUND', message: 'File not found' })
+}
+
+function handleSaveResult(result: Awaited<ReturnType<typeof saveFile>>) {
+  if (result.status === 'conflict')
+    return sourceConflict(result.current)
+  if (result.status === 'path_conflict') {
+    throw new ActionError({
+      code: 'CONFLICT',
+      message: JSON.stringify({ code: 'path_conflict', path: result.path }),
+    })
+  }
+  if (result.status === 'not_found')
+    return notFound()
+  return result.file
+}
 
 export const save = defineAction({
   accept: 'form',
   input: z.object({
-    source: z.preprocess(Number, z.nativeEnum(MarkdownSource)),
-    id: z.preprocess(
-      a => Number.parseInt(a as string, 10),
-      z.number().gte(0),
-    ),
-    link: z.string().min(1),
-    subject: z.string().min(1),
+    id: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().gte(0)),
+    path: z.string().min(1),
     content: z.string(),
-    outgoingLinks: z.preprocess(
-      o => parseJson(o as string || null),
-      z.array(z.object({
-        subject: z.string(),
-        link: z.string(),
-      })).default([]),
-    ).default([]),
-    private: z.preprocess(a => a === 'true', z.boolean().default(false)),
-    tags: z.optional(z.string().default('')),
-  }).refine((val) => {
-    if (val.source === MarkdownSource.Post) {
-      return val.link.startsWith('post/')
-    }
-    if (val.source === MarkdownSource.Memo) {
-      return val.link.startsWith('memo/')
-    }
-    if (val.source === MarkdownSource.Wiki) {
-      return val.link.startsWith('wiki/')
-    }
-    return true
-  }, 'invalid link'),
+    private: z.preprocess(value => value === 'true', z.boolean().default(false)),
+    baseRevision: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().gte(0)),
+    title: z.never().optional(),
+    subject: z.never().optional(),
+    source: z.never().optional(),
+    tags: z.never().optional(),
+    outgoingLinks: z.never().optional(),
+  }).strict(),
   handler: async (input, ctx) => {
     await authGuard(ctx)
-
-    const { id, link, subject, content, source, outgoingLinks, private: privated, tags } = input
-    const env = ctx.locals.runtime?.env || {}
-    const result = id
-      ? await update(env, id, source, link, subject, content, JSON.stringify(outgoingLinks), privated, tags)
-      : await add(env, source, subject, content, link, JSON.stringify(outgoingLinks), privated, tags)
-
-    if (result[0]?.id) {
-      await connectDB(env)
-        .update(markdown)
-        .set({ remoteTruth: true })
-        .where(eq(markdown.id, result[0].id))
+    try {
+      const result = await saveFile(ctx.locals.runtime?.env || {}, input)
+      return handleSaveResult(result)
     }
-
-    return result
+    catch (error) {
+      if (error instanceof FileInputError) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: JSON.stringify({ code: error.code, message: error.message }),
+        })
+      }
+      throw error
+    }
   },
 })
 
 export const setPrivate = defineAction({
   accept: 'form',
   input: z.object({
-    id: z.preprocess(
-      a => Number.parseInt(a as string, 10),
-      z.number().gt(0),
-    ),
-    private: z.boolean(),
-  }),
+    id: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().positive()),
+    private: z.preprocess(value => value === 'true' || value === true, z.boolean()),
+    baseRevision: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().positive()),
+  }).strict(),
   handler: async (input, ctx) => {
     await authGuard(ctx)
-
-    const env = ctx.locals.runtime?.env || {}
-    return updatePrivate(env, input.id, input.private)
+    const result = await updatePrivate(
+      ctx.locals.runtime?.env || {},
+      input.id,
+      input.private,
+      input.baseRevision,
+    )
+    return handleSaveResult(result)
   },
 })

@@ -1,20 +1,21 @@
 import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
 import type { ParsedMeta } from '@/lib/markdown/meta-plugin'
+import { analyzeMarkdownSource } from '@/lib/files/analysis'
 import { rawMd } from '@/lib/markdown'
 
 export interface ParsedMarkdownResult {
   html: string
   meta?: ParsedMeta
-  outgoingLinks: Array<{ subject: string, link: string }>
+  outgoingPaths: string[]
   tags: string[]
   error?: string
 }
 
 export interface MarkdownParseOptions {
   includeMeta?: boolean
-  allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
-  subject?: string
-  addSubjectAsH1?: boolean
+  allFilePaths?: DoubleLinkPluginOptions['allFilePaths']
+  title?: string
+  addTitleAsH1?: boolean
 }
 
 /**
@@ -26,22 +27,22 @@ export async function parseMarkdownContent(
 ): Promise<ParsedMarkdownResult> {
   const {
     includeMeta = true,
-    allPostLinks = [],
-    subject = '',
-    addSubjectAsH1 = false,
+    allFilePaths = [],
+    title = '',
+    addTitleAsH1 = false,
   } = options
 
   try {
     // Create markdown instance with meta parsing enabled
     const mdInstance = rawMd({
       meta: includeMeta,
-      allPostLinks,
+      allFilePaths,
     })
 
     // Prepare content for rendering
     let processedContent = content
-    if (addSubjectAsH1 && subject) {
-      processedContent = `# ${subject}\n\n${content}`
+    if (addTitleAsH1 && title) {
+      processedContent = `# ${title}\n\n${content}`
     }
 
     // Render markdown to HTML
@@ -50,13 +51,12 @@ export async function parseMarkdownContent(
     // Extract meta information if available
     const meta = includeMeta ? (mdInstance as any).meta : undefined
 
-    // Parse the HTML to extract links and tags
-    const { outgoingLinks, tags } = extractLinksAndTags(html)
+    const { outgoingPaths, tags } = analyzeMarkdownSource(processedContent)
 
     return {
       html,
       meta,
-      outgoingLinks,
+      outgoingPaths,
       tags,
     }
   }
@@ -65,59 +65,9 @@ export async function parseMarkdownContent(
     return {
       html: '',
       meta: undefined,
-      outgoingLinks: [],
+      outgoingPaths: [],
       tags: [],
       error: error instanceof Error ? error.message : 'Unknown parsing error',
-    }
-  }
-}
-
-/**
- * Extract outgoing links and tags from rendered HTML
- */
-function extractLinksAndTags(html: string): {
-  outgoingLinks: Array<{ subject: string, link: string }>
-  tags: string[]
-} {
-  try {
-    // Create a temporary DOM element to parse HTML
-    const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = html
-
-    // Extract outgoing links
-    const outgoingLinkEls: HTMLAnchorElement[] = Array.from(
-      tempDiv.querySelectorAll('a.outgoing-link'),
-    )
-    const outgoingLinks = outgoingLinkEls
-      .map(el => ({
-        subject: el.textContent || '',
-        link: el.dataset.link || '',
-      }))
-      .filter(link => !!link.link && !!link.subject)
-
-    // Extract tags
-    const tagEls: HTMLSpanElement[] = Array.from(
-      tempDiv.querySelectorAll('span.tag'),
-    )
-
-    tempDiv.remove()
-
-    const tags = [...new Set(
-      tagEls
-        .map(el => el.getAttribute('data-tag'))
-        .filter(Boolean) as string[],
-    )]
-
-    return {
-      outgoingLinks,
-      tags,
-    }
-  }
-  catch (error) {
-    console.error('Failed to extract links and tags from HTML:', error)
-    return {
-      outgoingLinks: [],
-      tags: [],
     }
   }
 }
@@ -153,20 +103,20 @@ export function stripMetaBlock(content: string): string {
  * Batch parse multiple markdown files
  */
 export async function batchParseMarkdown(
-  files: Array<{ subject: string, content: string }>,
+  files: Array<{ path: string, content: string }>,
   options: MarkdownParseOptions = {},
-): Promise<Array<ParsedMarkdownResult & { subject: string, originalContent: string }>> {
-  const results: Array<ParsedMarkdownResult & { subject: string, originalContent: string }> = []
+): Promise<Array<ParsedMarkdownResult & { path: string, originalContent: string }>> {
+  const results: Array<ParsedMarkdownResult & { path: string, originalContent: string }> = []
 
   for (const file of files) {
     const parseResult = await parseMarkdownContent(file.content, {
       ...options,
-      subject: file.subject,
+      title: file.path.split('/').filter(Boolean).at(-1) ?? '',
     })
 
     results.push({
       ...parseResult,
-      subject: file.subject,
+      path: file.path,
       originalContent: file.content,
     })
   }

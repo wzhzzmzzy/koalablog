@@ -1,11 +1,10 @@
-# Memos 和文档双链化
+# Memos 与 File Reference
 
-目前所有文档都有 link，可以将文档分成三类：
+所有 File 都拥有唯一、绝对且无扩展名的 Path。Path 同时决定访问地址与 Source 分类：
 
-- `pages`: link 没有特殊前缀
-- `posts`: link 前缀为 `posts/`
-- `memos`: link 前缀为 `memos/`
+- `/post/`：Post
+- `/memo/`：Memo
+- `/wiki/`：Wiki
+- 其他绝对 Path：Page
 
-通过这种方式可以轻松区分所有文档，不再需要通过 source 字段区分。source 可以作为索引使用，减少每次全量拉取时读取的行数。
-
-所有文档都可以通过双链相互引用，拥有 incoming_links 和 outgoing_links 两个字段，通过 `[[subject]]`。
+Title 始终由 Path 的最后一段派生，不能独立修改。File 之间只通过绝对 `[[/path]]` 引用；`outgoing_links` 保存分析得到的绝对 Path 数组，重命名或移动目标 File 时不会改写引用方的 Source。

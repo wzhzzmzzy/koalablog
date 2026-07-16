@@ -4,6 +4,9 @@ import { sql } from 'drizzle-orm'
 const RESET_STATEMENTS = [
   'DROP INDEX IF EXISTS markdown_link_unique',
   'DROP INDEX IF EXISTS markdown_subject_unique',
+  'DROP INDEX IF EXISTS markdown_active_link_unique',
+  'DROP INDEX IF EXISTS markdown_active_subject_unique',
+  'DROP INDEX IF EXISTS markdown_active_path_unique',
   'DROP TABLE IF EXISTS markdown',
   'DROP INDEX IF EXISTS oss_access_date_unique',
   'DROP TABLE IF EXISTS oss_access',

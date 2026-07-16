@@ -41,7 +41,7 @@ function tex(mdInstance: MarkdownIt) {
 
 type KoalaMdInstance = MarkdownIt & {
   renderLangSet?: Set<string>
-  allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
+  allFilePaths?: DoubleLinkPluginOptions['allFilePaths']
   meta?: ParsedMeta
 }
 const MdCacheMap: Map<'md' | 'rawMd', KoalaMdInstance> = new Map()
@@ -50,7 +50,7 @@ export async function md(opt: {
   theme?: CatppuccinTheme
   themeConfig?: ThemeConfig
   langSet?: string[]
-  allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
+  allFilePaths?: DoubleLinkPluginOptions['allFilePaths']
 } = {}) {
   const cacheMd = MdCacheMap.get('md')
   const md: KoalaMdInstance = cacheMd || MarkdownIt({ html: true })
@@ -63,13 +63,13 @@ export async function md(opt: {
     // if cached instance can't cover current langSet meanwhile using server side
     // highlighter will crashed
     await useShiki(md, opt)
-    useDoubleLink(md, { allPostLinks: opt.allPostLinks })
+    useDoubleLink(md, { allFilePaths: opt.allFilePaths })
     useTagPlugin(md)
     useTodoPlugin(md)
     MdCacheMap.set('md', md)
   }
   else {
-    md.allPostLinks = opt.allPostLinks
+    md.allFilePaths = opt.allFilePaths
   }
 
   return md
@@ -78,7 +78,7 @@ export async function md(opt: {
 export function rawMd(opt: {
   tex?: boolean
   meta?: boolean
-  allPostLinks?: DoubleLinkPluginOptions['allPostLinks']
+  allFilePaths?: DoubleLinkPluginOptions['allFilePaths']
 } = {}) {
   const cacheMd = MdCacheMap.get('rawMd')
   const md: KoalaMdInstance = cacheMd || MarkdownIt({ html: true })
@@ -89,7 +89,7 @@ export function rawMd(opt: {
     expandable(md)
     opt.tex && tex(md)
 
-    useDoubleLink(md, { allPostLinks: opt.allPostLinks })
+    useDoubleLink(md, { allFilePaths: opt.allFilePaths })
     useTagPlugin(md)
     useTodoPlugin(md)
 
@@ -107,7 +107,7 @@ export function rawMd(opt: {
     MdCacheMap.set('rawMd', md)
   }
   else {
-    md.allPostLinks = opt.allPostLinks
+    md.allFilePaths = opt.allFilePaths
   }
 
   return md

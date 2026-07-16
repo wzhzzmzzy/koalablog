@@ -1,5 +1,5 @@
 import type { APIContext } from 'astro'
-import { readAllPublic } from '@/db/markdown'
+import { readActivePaths, readAllPublic } from '@/db/markdown'
 import { rawMd } from '@/lib/markdown'
 import rss from '@astrojs/rss'
 
@@ -13,9 +13,10 @@ export async function retriveRss(ctx: APIContext) {
   const title = pageConfig.title ?? 'Koalablog'
 
   const allPosts = await readAllPublic(ctx.locals.runtime?.env)
+  const activePaths = await readActivePaths(ctx.locals.runtime?.env)
   const site = rssConfig.site ?? ctx.site ?? ctx.url.origin
   const md = rawMd({
-    allPostLinks: allPosts,
+    allFilePaths: activePaths,
   })
 
   return rss({
@@ -26,8 +27,8 @@ export async function retriveRss(ctx: APIContext) {
       const content = md.render(post.content || '')
       const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
       return {
-        title: post.subject,
-        link: `/${post.link}`,
+        title: post.title,
+        link: post.path,
         categories: (post.tags || '')?.split(','),
         pubDate: post.createdAt,
         description: firstParagraph?.[1] || '',

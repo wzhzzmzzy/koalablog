@@ -6,11 +6,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { promisify } from 'node:util'
-import { createVerifiedSQLiteBackup, readLegacyFileRowsFromSQLite } from '@/db/file-migration'
-import { markdown } from '@/db/schema'
+import { createVerifiedSQLiteBackup, legacyMarkdown, migrateSQLiteFileSourceSchema, readLegacyFileRowsFromSQLite } from '@/db/file-migration'
 import * as schema from '@/db/schema'
 import { auditLegacyFileRows } from '@/lib/files/migration-audit'
-import { blockingLegacyFileRows, restoreConflictLegacyFixture } from '@/tests/fixtures/file-migration'
+import { blockingLegacyFileRows, restoreConflictLegacyFixture, successfulLegacyFileRows } from '@/tests/fixtures/file-migration'
 import { sql } from 'drizzle-orm'
 import { drizzle as drizzleSqlite } from 'drizzle-orm/libsql'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -34,7 +33,7 @@ beforeEach(async () => {
   const migration = await readFile('migrations/0000_init.sql', 'utf8')
   for (const statement of migration.split('--> statement-breakpoint').map(value => value.trim()).filter(Boolean))
     await database.run(sql.raw(statement))
-  await database.insert(markdown).values({
+  await database.insert(legacyMarkdown).values({
     id: 41,
     source: 30,
     link: 'memo/私人',
@@ -165,7 +164,7 @@ describe('sqlite migration recovery', () => {
 
   it('refuses backup when the source audit is blocked', async () => {
     const database = drizzleSqlite({ connection: { url: sqliteUrl }, schema })
-    await database.insert(markdown).values({
+    await database.insert(legacyMarkdown).values({
       id: 42,
       source: 10,
       link: 'post/invalid.md',
@@ -180,7 +179,7 @@ describe('sqlite migration recovery', () => {
 describe('restore conflict migration fixture', () => {
   it('fits the legacy schema and makes only a Path collision block restore after migration', async () => {
     const database = drizzleSqlite({ connection: { url: sqliteUrl }, schema })
-    await database.insert(markdown).values(restoreConflictLegacyFixture.rows.map(row => ({
+    await database.insert(legacyMarkdown).values(restoreConflictLegacyFixture.rows.map(row => ({
       ...row,
       private: Boolean(row.private),
       remoteTruth: Boolean(row.remoteTruth),
@@ -209,5 +208,104 @@ describe('restore conflict migration fixture', () => {
 
     expect(report.status).toBe('ready')
     expect(outcomes).toEqual(restoreConflictLegacyFixture.cases)
+  })
+})
+
+describe('gate 1C source schema migration', () => {
+  it('aborts before schema mutation when the Gate 1B audit is blocked', async () => {
+    const database = drizzleSqlite({ connection: { url: sqliteUrl } })
+    await database.insert(legacyMarkdown).values({
+      id: 42,
+      source: 10,
+      link: 'post/invalid.md',
+      subject: 'invalid.md',
+      content: 'blocked',
+    })
+    const migration = await readFile('migrations/0002_file_source_schema.sql', 'utf8')
+
+    const result = await migrateSQLiteFileSourceSchema(sqliteUrl, migration)
+    const columns = await database.all<{ name: string }>(sql.raw('PRAGMA table_info(markdown)'))
+
+    expect(result).toMatchObject({ status: 'blocked' })
+    expect(columns.map(column => column.name)).toContain('link')
+    expect(columns.map(column => column.name)).not.toContain('path')
+  })
+
+  it('replaces legacy identity columns while preserving File rows and lifecycle constraints', async () => {
+    const database = drizzleSqlite({ connection: { url: sqliteUrl } })
+    await database.run(sql.raw('DELETE FROM markdown'))
+    for (const row of successfulLegacyFileRows) {
+      await database.run(sql`
+        INSERT INTO markdown (
+          id, source, link, subject, content, tags, incoming_links, outgoing_links,
+          private, remoteTruth, createdAt, updatedAt, deletedAt
+        ) VALUES (
+          ${row.id}, ${row.source}, ${row.link}, ${row.subject},
+          ${row.content}, ${row.tags}, ${row.incoming_links},
+          ${row.outgoing_links}, ${Number(row.private)}, ${Number(row.remoteTruth)},
+          ${Math.floor(new Date(row.createdAt).getTime() / 1000)},
+          ${Math.floor(new Date(row.updatedAt).getTime() / 1000)},
+          ${row.deletedAt === null ? null : Math.floor(new Date(row.deletedAt).getTime() / 1000)}
+        )
+      `)
+    }
+
+    const migration = await readFile('migrations/0002_file_source_schema.sql', 'utf8')
+    const result = await migrateSQLiteFileSourceSchema(sqliteUrl, migration)
+
+    const columns = await database.all<{ name: string }>(sql.raw('PRAGMA table_info(markdown)'))
+    const migrated = await database.all<Record<string, unknown>>(sql.raw('SELECT * FROM markdown ORDER BY id'))
+    const indexes = await database.all<{ name: string, sql: string }>(sql.raw(`SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'markdown' ORDER BY name`))
+
+    expect(result).toMatchObject({ status: 'migrated', rowCount: successfulLegacyFileRows.length })
+    expect(columns.map(column => column.name)).toEqual([
+      'id',
+      'source',
+      'path',
+      'title',
+      'content',
+      'tags',
+      'incoming_links',
+      'outgoing_links',
+      'private',
+      'remoteTruth',
+      'revision',
+      'createdAt',
+      'updatedAt',
+      'deletedAt',
+    ])
+    expect(migrated).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 10, path: '/about', title: 'about', revision: 1 }),
+      expect.objectContaining({
+        id: 11,
+        path: '/memo/私人',
+        title: '私人',
+        content: 'private memo',
+        tags: 'private,中文',
+        outgoing_links: '["/about"]',
+        private: 1,
+        remoteTruth: 0,
+        revision: 1,
+      }),
+      expect.objectContaining({ id: 12, path: '/post/hello', title: 'hello', outgoing_links: '["/about"]', revision: 1 }),
+      expect.objectContaining({ id: 13, path: '/post/hello', title: 'hello', revision: 1 }),
+      expect.objectContaining({ id: 14, path: '/post/hello', title: 'hello', revision: 1 }),
+    ]))
+    expect(indexes).toEqual([
+      expect.objectContaining({ name: 'markdown_active_path_unique', sql: expect.stringContaining('WHERE') }),
+      expect.objectContaining({ name: 'markdown_deleted_at_idx' }),
+    ])
+    await expect(database.run(sql`
+      INSERT INTO markdown (source, path, title, content) VALUES (31, '/wiki/hello', 'hello', 'same Title')
+    `)).resolves.toBeDefined()
+    await expect(database.run(sql`
+      INSERT INTO markdown (source, path, title, content) VALUES (10, '/post/hello', 'hello', 'same active Path')
+    `)).rejects.toThrow(/unique/i)
+    await expect(database.run(sql`
+      INSERT INTO markdown (source, path, title, content, deletedAt)
+      VALUES (10, '/post/hello', 'hello', 'recycled duplicate', ${1_780_000_000})
+    `)).resolves.toBeDefined()
+    expect(columns.map(column => column.name)).not.toContain('renderer')
+    expect(columns.map(column => column.name)).not.toContain('sourceHash')
   })
 })

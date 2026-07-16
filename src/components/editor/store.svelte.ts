@@ -1,4 +1,4 @@
-import type { Markdown } from '@/db/types'
+import type { FileRecord } from '@/db/types'
 import { SvelteMap } from 'svelte/reactivity'
 
 export const SIDEBAR_STORAGE_KEY = 'koala-editor-sidebar'
@@ -11,7 +11,7 @@ function getStoredSidebar() {
   return stored === null ? true : stored === 'true'
 }
 
-function getStoredDrafts(): [string, Markdown][] {
+function getStoredDrafts(): [string, FileRecord][] {
   if (typeof localStorage === 'undefined')
     return []
   const stored = localStorage.getItem(DRAFTS_STORAGE_KEY)
@@ -26,8 +26,8 @@ function getStoredDrafts(): [string, Markdown][] {
 }
 
 export const editorStore = $state<{
-  items: Markdown[]
-  currentMarkdown: Markdown | null
+  items: FileRecord[]
+  currentMarkdown: FileRecord | null
   loading: boolean
   hasAttemptedLoad: boolean
   history: string[]
@@ -65,7 +65,7 @@ export function notify(type: 'info' | 'success' | 'error' | 'warning', text: str
   }
 }
 
-export const drafts = new SvelteMap<string, Markdown>(getStoredDrafts())
+export const drafts = new SvelteMap<string, FileRecord>(getStoredDrafts())
 
 // Hook to enable auto-persistence
 export function useEditorPersistence() {
@@ -82,12 +82,12 @@ export function useEditorPersistence() {
   })
 }
 
-export function setDraft(link: string, markdown: Markdown) {
-  drafts.set(link, markdown)
+export function setDraft(path: string, file: FileRecord) {
+  drafts.set(path, file)
 }
 
-export function removeDraft(link: string) {
-  drafts.delete(link)
+export function removeDraft(path: string) {
+  drafts.delete(path)
 }
 
 export function setShowSidebar(show: boolean) {
@@ -98,38 +98,38 @@ export function toggleSidebar() {
   editorStore.showSidebar = !editorStore.showSidebar
 }
 
-export function setItems(newItems: Markdown[]) {
+export function setItems(newItems: FileRecord[]) {
   editorStore.items = newItems
   editorStore.hasAttemptedLoad = true
 }
 
-function isWithinPrefix(link: string, prefix: string) {
-  return prefix === '' || link.startsWith(prefix)
+function isWithinPrefix(path: string, prefix: string) {
+  return prefix === '/' || path.startsWith(prefix)
 }
 
-export function replaceItemsByPrefix(prefix: string, freshItems: Markdown[]) {
+export function replaceItemsByPrefix(prefix: string, freshItems: FileRecord[]) {
   const preservedDraftItems = editorStore.items
-    .filter(item => !item.deletedAt && isWithinPrefix(item.link, prefix) && drafts.has(item.link))
-    .map(item => drafts.get(item.link) ?? item)
+    .filter(item => !item.deletedAt && isWithinPrefix(item.path, prefix) && drafts.has(item.path))
+    .map(item => drafts.get(item.path) ?? item)
 
   const preservedDraftIds = new Set(preservedDraftItems.map(item => item.id))
-  const nextItems = freshItems.filter(item => (item.deletedAt || !drafts.has(item.link)) && !preservedDraftIds.has(item.id))
+  const nextItems = freshItems.filter(item => (item.deletedAt || !drafts.has(item.path)) && !preservedDraftIds.has(item.id))
 
   editorStore.items = [
-    ...editorStore.items.filter(item => !isWithinPrefix(item.link, prefix)),
+    ...editorStore.items.filter(item => !isWithinPrefix(item.path, prefix)),
     ...nextItems,
     ...preservedDraftItems,
   ]
 }
 
-export function setCurrentMarkdown(markdown: Markdown | null) {
-  editorStore.currentMarkdown = markdown
+export function setCurrentMarkdown(file: FileRecord | null) {
+  editorStore.currentMarkdown = file
 }
 
-export function pushHistory(link: string) {
+export function pushHistory(path: string) {
   const last = editorStore.history[editorStore.history.length - 1]
-  if (last !== link) {
-    editorStore.history.push(link)
+  if (last !== path) {
+    editorStore.history.push(path)
   }
 }
 
@@ -137,13 +137,13 @@ export function popHistory() {
   return editorStore.history.pop()
 }
 
-export function updateLastHistory(link: string) {
+export function updateLastHistory(path: string) {
   if (editorStore.history.length > 0) {
-    editorStore.history[editorStore.history.length - 1] = link
+    editorStore.history[editorStore.history.length - 1] = path
   }
 }
 
-export function upsertItem(item: Markdown) {
+export function upsertItem(item: FileRecord) {
   const index = editorStore.items.findIndex(i => i.id === item.id)
   if (index >= 0) {
     editorStore.items[index] = item

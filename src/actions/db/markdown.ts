@@ -1,23 +1,33 @@
-import type { Markdown } from '@/db/types'
+import type { FileRecord } from '@/db/types'
 import { getMarkdownSourceKey, MarkdownSource } from '@/db'
-import { batchAdd, emptyTrash as emptyTrashDB, generateMemoSubject, justReadAll, purge as purgeMarkdown, readAll, readByPrefix, restore as restoreMarkdown, trash as trashMarkdown, updateRefs as updateRefsDB } from '@/db/markdown'
+import {
+  batchAdd,
+  emptyTrash as emptyTrashDB,
+  generateMemoTitle,
+  justReadAll,
+  purge as purgeFile,
+  readAll,
+  readByPrefix,
+  restore as restoreFile,
+  trash as trashFile,
+} from '@/db/markdown'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
 
 export interface AllCollection {
-  posts?: Markdown[]
-  pages?: Markdown[]
-  memos?: Markdown[]
-  wikis?: Markdown[]
-  home?: Markdown
-  nav?: Markdown
+  posts?: FileRecord[]
+  pages?: FileRecord[]
+  memos?: FileRecord[]
+  wikis?: FileRecord[]
+  home?: FileRecord
+  nav?: FileRecord
 }
 
-export const getNewMemoSubject = defineAction({
+export const getNewMemoTitle = defineAction({
   handler: async (_, ctx) => {
     await authGuard(ctx)
-    return generateMemoSubject(ctx.locals.runtime?.env)
+    return generateMemoTitle(ctx.locals.runtime?.env)
   },
 })
 
@@ -28,64 +38,47 @@ export const all = defineAction({
   })).default({}),
   handler: async (input, ctx) => {
     await authGuard(ctx)
-
     if (input.source !== 'all' && !input.includeTrash) {
-      const sourceEnum = input.source === 'post'
+      const source = input.source === 'post'
         ? MarkdownSource.Post
         : input.source === 'page'
           ? MarkdownSource.Page
           : input.source === 'wiki' ? MarkdownSource.Wiki : MarkdownSource.Memo
-      const records = await readAll(
-        ctx.locals.runtime?.env,
-        sourceEnum,
-      )
-
-      return {
-        [getMarkdownSourceKey(sourceEnum)!]: records,
-      }
+      return { [getMarkdownSourceKey(source)!]: await readAll(ctx.locals.runtime?.env, source) }
     }
 
-    const allMarkdowns = await justReadAll(ctx.locals.runtime?.env)
+    const files = await justReadAll(ctx.locals.runtime?.env)
+    return files.reduce((collection, file) => {
+      if (file.deletedAt && !input.includeTrash)
+        return collection
+      if (input.includeTrash && !collection.recycleBin)
+        collection.recycleBin = {}
 
-    return allMarkdowns.reduce((prev, curr) => {
-      if (curr.deletedAt && !input.includeTrash) {
-        return prev
-      }
-
-      if (input.includeTrash && !prev.recycleBin) {
-        prev.recycleBin = {}
-      }
-
-      const key = getMarkdownSourceKey(curr.source)
+      const key = getMarkdownSourceKey(file.source)
       const sourceType = (key === 'posts' || key === 'pages' || key === 'memos' || key === 'wikis') ? key : null
-
       const singularSourceType = sourceType === 'wikis' ? 'wiki' : sourceType?.slice(0, -1)
-      if (sourceType && (input.source === 'all' || input.source === singularSourceType)) {
-        if (!prev[sourceType])
-          prev[sourceType] = []
+      if (!sourceType || (input.source !== 'all' && input.source !== singularSourceType))
+        return collection
 
-        if (curr.deletedAt) {
-          if (!prev.recycleBin![sourceType])
-            prev.recycleBin![sourceType] = []
-          prev.recycleBin![sourceType].push(curr)
-        }
-        else {
-          prev[sourceType].push(curr)
-        }
+      if (!collection[sourceType])
+        collection[sourceType] = []
+      if (file.deletedAt) {
+        if (!collection.recycleBin![sourceType])
+          collection.recycleBin![sourceType] = []
+        collection.recycleBin![sourceType].push(file)
       }
-
-      return prev
+      else {
+        collection[sourceType].push(file)
+      }
+      return collection
     }, {} as AllCollection & { recycleBin?: AllCollection })
   },
 })
 
 export const byPrefix = defineAction({
-  input: z.object({
-    prefix: z.string().default(''),
-  }).default({ prefix: '' }),
+  input: z.object({ prefix: z.string().default('') }).default({ prefix: '' }),
   handler: async ({ prefix }, ctx) => {
     await authGuard(ctx)
-
     return readByPrefix(ctx.locals.runtime?.env, prefix)
   },
 })
@@ -94,7 +87,7 @@ export const trash = defineAction({
   input: z.object({ id: z.number().int().positive() }),
   handler: async ({ id }, ctx) => {
     await authGuard(ctx)
-    return trashMarkdown(ctx.locals.runtime?.env || {}, id)
+    return trashFile(ctx.locals.runtime?.env || {}, id)
   },
 })
 
@@ -105,7 +98,7 @@ export const restore = defineAction({
   }),
   handler: async ({ id, renameOnConflict }, ctx) => {
     await authGuard(ctx)
-    return restoreMarkdown(ctx.locals.runtime?.env || {}, id, renameOnConflict)
+    return restoreFile(ctx.locals.runtime?.env || {}, id, renameOnConflict)
   },
 })
 
@@ -113,7 +106,7 @@ export const purge = defineAction({
   input: z.object({ id: z.number().int().positive() }),
   handler: async ({ id }, ctx) => {
     await authGuard(ctx)
-    return purgeMarkdown(ctx.locals.runtime?.env || {}, id)
+    return purgeFile(ctx.locals.runtime?.env || {}, id)
   },
 })
 
@@ -124,77 +117,21 @@ export const emptyTrash = defineAction({
   },
 })
 
-export const updateRefs = defineAction({
-  input: z.array(z.object({
-    id: z.number(),
-    outgoingLinks: z.array(z.object({
-      subject: z.string(),
-      link: z.string(),
-    })).default([]),
-  })),
-  accept: 'json',
-  handler: async (input, ctx) => {
-    await authGuard(ctx)
-
-    return updateRefsDB(
-      ctx.locals.runtime?.env,
-      input.map(i => ({ id: i.id, outgoing_links: JSON.stringify(i.outgoingLinks) })),
-    )
-  },
-})
-
 export const batchImport = defineAction({
   input: z.array(z.object({
-    subject: z.string(),
+    path: z.string(),
     content: z.string(),
-    tags: z.string().optional(),
-    source: z.nativeEnum(MarkdownSource).default(MarkdownSource.Post),
-    link: z.string().optional(),
     private: z.boolean().optional(),
-    createdAt: z.preprocess((val) => {
-      if (typeof val === 'string') {
-        const date = new Date(val)
-        return Number.isNaN(date.getTime()) ? undefined : date
-      }
-      return val
-    }, z.date().optional()),
-    updatedAt: z.preprocess((val) => {
-      if (typeof val === 'string') {
-        const date = new Date(val)
-        return Number.isNaN(date.getTime()) ? undefined : date
-      }
-      return val
-    }, z.date().optional()),
-    deletedAt: z.preprocess((val) => {
-      if (typeof val === 'string') {
-        const date = new Date(val)
-        return Number.isNaN(date.getTime()) ? undefined : date
-      }
-      return val
-    }, z.date().nullable().optional()),
-    outgoingLinks: z.array(z.object({
-      subject: z.string(),
-      link: z.string(),
-    })).optional(),
-  })),
+    createdAt: z.coerce.date().optional(),
+    updatedAt: z.coerce.date().optional(),
+    deletedAt: z.coerce.date().nullable().optional(),
+  }).strict()),
   accept: 'json',
   handler: async (input, ctx) => {
     await authGuard(ctx)
-
-    return batchAdd(
-      ctx.locals.runtime?.env,
-      input.map(post => ({
-        source: post.source as MarkdownSource,
-        subject: post.subject,
-        content: post.content,
-        tags: post.tags,
-        link: post.link,
-        private: post.private,
-        createdAt: post.createdAt,
-        updatedAt: post.updatedAt,
-        deletedAt: post.deletedAt ?? undefined,
-        outgoing_links: post.outgoingLinks ? JSON.stringify(post.outgoingLinks) : undefined,
-      })),
-    )
+    return batchAdd(ctx.locals.runtime?.env, input.map(file => ({
+      ...file,
+      deletedAt: file.deletedAt ?? undefined,
+    })))
   },
 })

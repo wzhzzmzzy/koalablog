@@ -55,7 +55,16 @@ pnpm migration:backup:sqlite -- \
 
 该命令使用 SQLite `VACUUM INTO`，通过 Drizzle 对源数据库、备份数据库和演练数据库运行 `PRAGMA integrity_check`，并要求三者的数据行数量与保全清单相同。备份文件和演练文件的哈希也必须一致。
 
-6. 运行替换式 SQL 前，归档源审计报告、备份数据库、演练数据库和清单。Gate 1C 必须在一个事务内完成 SQLite 替换和迁移后验证。
+6. 运行替换式 SQL 前，归档源审计报告、备份数据库、演练数据库和清单。
+7. 通过 Gate 1C 迁移入口执行替换与事务内验证：
+
+```sh
+pnpm migration:files:sqlite -- \
+  --sqlite /absolute/path/local.db \
+  --maintenance-confirmed
+```
+
+该命令会再次运行 Gate 1B 审计。审计为 `blocked` 时，它会以状态码 `2` 退出且不修改 schema；审计为 `ready` 时，它会在同一事务内执行 `0002_file_source_schema.sql`，并核对数据行数量、稳定 ID、Path/Title 投影、Source 分类、内容、标签、隐私状态、remote truth、时间戳、回收站元数据与 `PRAGMA integrity_check`。只有命令输出 `Gate 1C File Source migration completed` 时才可以继续。
 
 ### SQLite 恢复
 
@@ -108,7 +117,14 @@ pnpm exec wrangler d1 time-travel info DB \
 ```
 
 6. 确认 `d1-identity.json` 指向预期数据库，并确认 `d1-time-travel.json` 包含可用 bookmark。在迁移工单或操作日志中记录应用提交、迁移版本、数据行数量、操作人员、时间戳、数据库名称、数据库 ID 和 bookmark。
-7. Gate 1C 必须使用幂等的 D1 前向迁移，并显式验证迁移后的字段和数据行数量。Time Travel 记录是回滚点；不得尝试自动修复冲突。
+7. 使用 Wrangler 的 migration 记录执行仅向前的 D1 迁移：
+
+```sh
+WRANGLER_LOG_PATH=/absolute/path/migration-artifacts/wrangler.log \
+pnpm exec wrangler d1 migrations apply DB --remote
+```
+
+8. 导出迁移后的 `markdown` schema 与数据快照，确认字段为 `path`、`title` 和 `revision`，不存在 `renderer` 或 `sourceHash`，并将数据行数量、保全字段与迁移前审计报告逐项比较。D1 migration 记录保证 `0002_file_source_schema.sql` 只向前应用一次；Time Travel 记录是回滚点。不得尝试自动修复冲突。
 
 ### D1 恢复
 

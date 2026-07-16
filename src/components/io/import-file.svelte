@@ -24,13 +24,13 @@ let showDrawer = $state(false)
 let saveError = $state<string | null>(null)
 
 // File data
-let foundFiles = $state<Array<{ subject: string, content: string }>>([])
-let parsedFiles = $state<Array<ParsedMarkdownResult & { subject: string, originalContent: string }>>([])
+let foundFiles = $state<Array<{ path: string, content: string }>>([])
+let parsedFiles = $state<Array<ParsedMarkdownResult & { path: string, originalContent: string }>>([])
 let selectedFiles = $state<Set<number>>(new Set())
 let duplicateFiles = $state<Set<number>>(new Set())
 
 // Reference data
-let allPosts = $state<Array<{ subject: string, link: string }>>([])
+let allFilePaths = $state<string[]>([])
 
 // DOM references
 // svelte-ignore non_reactive_update
@@ -62,13 +62,13 @@ const resetState = () => {
   triggerButton?.focus()
 }
 
-const createFallbackParsedFiles = (files: Array<{ subject: string, content: string }>) => {
+const createFallbackParsedFiles = (files: Array<{ path: string, content: string }>) => {
   return files.map(file => ({
-    subject: file.subject,
+    path: file.path,
     originalContent: file.content,
     html: '',
     meta: undefined,
-    outgoingLinks: [],
+    outgoingPaths: [],
     tags: [],
     error: 'Failed to parse markdown'
   }))
@@ -80,14 +80,12 @@ const checkForDuplicates = () => {
   
   foundFiles.forEach((file, index) => {
     const parsedFile = parsedFiles[index]
-    const link = parsedFile?.meta?.link as string | undefined
+    const metaPath = parsedFile?.meta?.path as string | undefined
+    const legacyLink = parsedFile?.meta?.link as string | undefined
+    const path = metaPath || (legacyLink ? `/${legacyLink.replace(/^\/+/, '')}` : file.path)
     const deletedAt = parsedFile?.meta?.deletedAt as string | null | undefined
     
-    // Check for duplicates by subject or link
-    const isDuplicate = !deletedAt && allPosts.some(post =>
-      post.subject === file.subject || 
-      (link && post.link === link)
-    )
+    const isDuplicate = !deletedAt && allFilePaths.includes(path)
     
     if (isDuplicate) {
       duplicates.add(index)
@@ -109,10 +107,7 @@ onMount(() => {
     if (allPostsFromDB.error) {
       console.error('Failed to load posts for link resolution:', allPostsFromDB.error)
     } else {
-      allPosts = allPostsFromDB.data?.posts?.map(p => ({ 
-        subject: p.subject, 
-        link: p.link 
-      })) || []
+      allFilePaths = allPostsFromDB.data?.posts?.map(file => file.path) || []
     }
   })
   
@@ -146,7 +141,7 @@ const onImport = async () => {
   status = ImportStatus.PARSING
   const [parseError, parsed] = await to(batchParseMarkdown(result, {
     includeMeta: true,
-    allPostLinks: allPosts
+    allFilePaths
   }))
   
   parsedFiles = parseError ? createFallbackParsedFiles(result) : parsed
@@ -228,32 +223,23 @@ const onSave = async () => {
     const originalFile = foundFiles[index]
     const parsedFile = parsedFiles[index]
     
-    // Use parsed data if available, fallback to original
-    const tagsArray = parsedFile?.tags || []
-    const tags = tagsArray.length > 0 ? tagsArray.join(',') : 
-                 (parsedFile?.meta?.tags as string | undefined) || undefined
-    
     // Extract meta fields
     const meta = parsedFile?.meta
     const createdAt = meta?.createdAt as string | undefined
     const updatedAt = meta?.updatedAt as string | undefined
-    const link = meta?.link as string | undefined
-    const metaSubject = meta?.subject as string | undefined
-    const source = meta?.source as number | undefined
+    const metaPath = meta?.path as string | undefined
+    const legacyLink = meta?.link as string | undefined
+    const path = metaPath || (legacyLink ? `/${legacyLink.replace(/^\/+/, '')}` : originalFile.path)
     const isPrivate = meta?.private as boolean | undefined
     const deletedAt = meta?.deletedAt as string | null | undefined
     
     return {
-      subject: metaSubject || originalFile.subject,
+      path,
       content: stripMetaBlock(originalFile.content),
-      tags,
-      link,
-      source,
       private: isPrivate,
       createdAt,
       updatedAt,
       deletedAt,
-      outgoingLinks: parsedFile?.outgoingLinks || []
     }
   })
   
@@ -384,12 +370,12 @@ const onSave = async () => {
                 />
                 <div class="flex-1 min-w-0">
                   <div class="file-name text-sm font-mono truncate">
-                    {file.subject}
+                    {file.path}
                   </div>
                   <div class="file-info text-xs mt-1 space-y-1">
                     <div>{file.content.length} characters</div>
                     {#if isDuplicate}
-                      <p class="error">This file already exists (same subject or link)</p>
+                      <p class="error">This File already exists at the same Path</p>
                     {:else if parsedFiles[index]?.error}
                       <p class="error">{parsedFiles[index].error}</p>
                     {:else if parsedFiles[index]}
@@ -397,8 +383,8 @@ const onSave = async () => {
                       {#if parsed.tags?.length > 0}
                         <div>🏷️ Tags: {parsed.tags.join(', ')}</div>
                       {/if}
-                      {#if parsed.outgoingLinks?.length > 0}
-                        <div>🔗 Links: {parsed.outgoingLinks.length}</div>
+                      {#if parsed.outgoingPaths?.length > 0}
+                        <div>🔗 Links: {parsed.outgoingPaths.length}</div>
                       {/if}
                       {#if parsed.meta && Object.keys(parsed.meta).length > 0}
                         <div>📋 Meta: {Object.keys(parsed.meta).length} fields</div>

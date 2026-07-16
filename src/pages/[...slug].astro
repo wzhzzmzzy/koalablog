@@ -1,9 +1,9 @@
 ---
-import type { Markdown } from '@/db/types'
+import type { FileRecord } from '@/db/types'
 import ArticleClient from '@/components/article-view/client.astro'
 import ArticleView from '@/components/article-view/index.astro'
-import { getSourceFromLink } from '@/db'
-import { read } from '@/db/markdown'
+import { getSourceFromPath } from '@/db'
+import { read, readActivePaths } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
 import { renderIt } from '@/lib/markdown/render-it'
 import { retriveRss } from '@/lib/utils/rss'
@@ -14,8 +14,8 @@ if (slug === 'rss.xml') {
   return retriveRss(Astro)
 }
 
-const link = slug || ''
-const maybePage: Markdown | undefined = await read(Astro.locals.runtime?.env, getSourceFromLink(link), link)
+const path = `/${slug || ''}`
+const maybePage: FileRecord | undefined = await read(Astro.locals.runtime?.env, getSourceFromPath(path), path)
 
 if (!maybePage) {
   return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
@@ -28,14 +28,15 @@ if (maybePage.private) {
 
 const pageConfig = Astro.locals.config.pageConfig
 const isBigArticle = (maybePage?.content || '').length > 1000
-const { content, renderLangSet } = await renderIt(isBigArticle, maybePage, pageConfig.theme)
+const activePaths = await readActivePaths(Astro.locals.runtime?.env)
+const { content, renderLangSet } = await renderIt(isBigArticle, maybePage, pageConfig.theme, activePaths)
 const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
 ---
 
-<Layout title={maybePage!.subject} desc={firstParagraph?.[1]}>
+<Layout title={maybePage!.title} desc={firstParagraph?.[1]}>
   {
     !isBigArticle
     ? <ArticleView article={maybePage} content={content} />
-    : <ArticleClient article={maybePage} content={content} renderLangSet={renderLangSet} />
+    : <ArticleClient article={maybePage} content={content} renderLangSet={renderLangSet} {activePaths} />
   }
 </Layout>

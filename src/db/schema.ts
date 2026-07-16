@@ -4,18 +4,18 @@ import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqli
 export const markdown = sqliteTable('markdown', {
   id: integer().primaryKey({ autoIncrement: true }),
   source: integer().notNull(),
-  link: text().notNull(),
-  subject: text().notNull(),
+  path: text().notNull(),
+  title: text().notNull(),
   content: text(),
   // format:
   // tag1,tag2,tag3
   tags: text(),
-  // format:
-  // [{subject,link},]
+  // JSON arrays of absolute File Paths.
   incoming_links: text(),
   outgoing_links: text(),
   private: integer({ mode: 'boolean' }).default(false).notNull(),
   remoteTruth: integer({ mode: 'boolean' }).default(false).notNull(),
+  revision: integer().default(1).notNull(),
   createdAt: integer({ mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -24,8 +24,7 @@ export const markdown = sqliteTable('markdown', {
     .default(sql`(unixepoch())`),
   deletedAt: integer({ mode: 'timestamp' }),
 }, table => [
-  uniqueIndex('markdown_active_link_unique').on(table.link).where(sql`${table.deletedAt} IS NULL`),
-  uniqueIndex('markdown_active_subject_unique').on(table.subject).where(sql`${table.deletedAt} IS NULL`),
+  uniqueIndex('markdown_active_path_unique').on(table.path).where(sql`${table.deletedAt} IS NULL`),
   index('markdown_deleted_at_idx').on(table.deletedAt),
 ])
 
