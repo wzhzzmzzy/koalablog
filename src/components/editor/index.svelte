@@ -8,17 +8,19 @@
   import { convertToWebP, pickFileWithFileInput, uploadFile } from '@/lib/services/file-reader';
   import { parseJson } from '@/lib/utils/parse-json';
   import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin';
-  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen, House } from '@lucide/svelte';
+  import { Save, Ellipsis, Upload, Eye, SquarePen, Trash2, Link, Check, X, ArrowLeft, Menu, Lock, LockOpen, House, RotateCcw } from '@lucide/svelte';
   import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from './utils';
   import { editorStore, upsertItem, popHistory, setCurrentMarkdown, setDraft, removeDraft, drafts, notify, toggleSidebar } from './store.svelte';
 
   interface Props {
-		markdown: Markdown;
-    onSave?: (m: Markdown) => void;
-	}
+			markdown: Markdown;
+	    onSave?: (m: Markdown) => void;
+	    onUpdate?: (m: Markdown) => void;
+	    onPurge?: (id: number) => void;
+		}
 
   let editorForm: HTMLFormElement
-  let { markdown, onSave }: Props = $props()
+  let { markdown, onSave, onUpdate, onPurge }: Props = $props()
 
   let subjectValue = $state(markdown.subject ?? '')
   let textareaValue = $state(markdown.content ?? '')
@@ -26,10 +28,15 @@
   let previewHtml = $state('')
   let linkValue = $state(markdown.link ?? '')
   let source = $derived(getSourceFromLink(linkValue))
-  let changed = $derived(drafts.has(markdown.link))
+  let trashed = $derived(Boolean(markdown.deletedAt))
+  let changed = $derived(!trashed && drafts.has(markdown.link))
 
   $effect(() => {
-    const rawData = editorStore.items.find(i => i.link === markdown.link)
+    if (trashed) {
+      return
+    }
+
+    const rawData = editorStore.items.find(i => markdown.id > 0 ? i.id === markdown.id : i.link === markdown.link)
     if (!rawData) return;
 
     const isDirty = subjectValue !== (rawData.subject ?? '') || textareaValue !== (rawData.content ?? '')
@@ -62,13 +69,13 @@
   let mdInstance: MarkdownIt | null = null
   
   onMount(async () => {
-    mdInstance = await md({ allPostLinks: editorStore.items })
+    mdInstance = await md({ allPostLinks: editorStore.items.filter(item => !item.deletedAt) })
     refreshPreview()
 
     const handleKeydown = (e: KeyboardEvent) => {
       if (e.repeat) return
 
-      if (e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 's') {
+      if (!trashed && e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault()
         void save(e)
       }
@@ -86,7 +93,7 @@
       if (mdInstance && editorStore.items.length > 0) {
           // Re-initialize markdown-it if items change (for link resolution)
           // Note: ideally we would just update the context, but re-init is safer for now
-          md({ allPostLinks: editorStore.items }).then(inst => {
+          md({ allPostLinks: editorStore.items.filter(item => !item.deletedAt) }).then(inst => {
               mdInstance = inst;
               refreshPreview();
           });
@@ -116,6 +123,8 @@
 
   // Delete confirm popover
   let showDeleteConfirm = $state(false)
+  let showPurgeConfirm = $state(false)
+  let restoreConflict = $state<{ suggestedLink: string; suggestedSubject: string } | null>(null)
   
   function openDeleteConfirm() {
     showDeleteConfirm = true
@@ -123,6 +132,57 @@
   
   function closeDeleteConfirm() {
     showDeleteConfirm = false
+  }
+
+  async function trashDocument() {
+    const result = await actions.db.markdown.trash({ id: markdown.id })
+    if (result.error || !result.data || result.data.status !== 'trashed') {
+      notify('error', result.error?.message || 'Document was not found')
+      return
+    }
+
+    closeDeleteConfirm()
+    removeDraft(markdown.link)
+    markdown = result.data.document
+    onUpdate?.(markdown)
+    notify('success', 'Moved to recycle bin', 3000)
+  }
+
+  async function restoreDocument(renameOnConflict = false) {
+    const result = await actions.db.markdown.restore({ id: markdown.id, renameOnConflict })
+    if (result.error || !result.data) {
+      notify('error', result.error?.message || 'Restore failed')
+      return
+    }
+    if (result.data.status === 'conflict') {
+      restoreConflict = {
+        suggestedLink: result.data.suggestedLink,
+        suggestedSubject: result.data.suggestedSubject,
+      }
+      return
+    }
+    if (result.data.status !== 'restored') {
+      notify('error', 'Document was not found')
+      return
+    }
+
+    restoreConflict = null
+    markdown = result.data.document
+    onUpdate?.(markdown)
+    notify('success', `Restored as ${markdown.link}`, 3000)
+  }
+
+  async function purgeDocument() {
+    const id = markdown.id
+    const result = await actions.db.markdown.purge({ id })
+    if (result.error || result.data?.status !== 'purged') {
+      notify('error', result.error?.message || 'Document was not found')
+      return
+    }
+
+    showPurgeConfirm = false
+    onPurge?.(id)
+    notify('success', 'Permanently deleted', 3000)
   }
 
   async function processFileUpload(file: File, placeholder?: string) {
@@ -240,7 +300,7 @@
     
     if (editorStore.history.length > 1) {
         const prevLink = editorStore.history[editorStore.history.length - 2];
-        const prevItem = editorStore.items.find(i => i.link === prevLink);
+        const prevItem = editorStore.items.find(i => !i.deletedAt && i.link === prevLink);
         if (prevItem) {
             popHistory(); // Confirm pop
             setCurrentMarkdown(prevItem);
@@ -284,6 +344,7 @@
 
   async function togglePrivate(e: Event) {
     e.preventDefault()
+    if (trashed) return
     const newPrivateValue = !privateValue
 
     if (markdown.id > 0) {
@@ -316,6 +377,7 @@
 
   async function save(e: Event) {
     e.preventDefault()
+    if (trashed) return
 
     const previewEl = document.getElementById('preview-md')
     const outgoingLinkEls: HTMLAnchorElement[] = Array.from(previewEl?.querySelectorAll('a.outgoing-link') || [])
@@ -372,7 +434,7 @@
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-[--koala-input-bg] px-5 py-2 sm:p-6 rounded-lg max-w-[50vw] sm:max-w-md sm:w-full">
         <h3 class="text-xl font-bold mb-4">Confirm</h3>
-        <p class="mb-6">Are you sure you want to delete this article? </p>
+        <p class="mb-6">Move this document to the recycle bin?</p>
         <div class="flex justify-end gap-3">
           <button
             class="icon !text-[--koala-editor-text] btn"
@@ -380,17 +442,46 @@
           >
             <X size={20} />
           </button>
-          <form method="POST" action={actions.form.remove} class="inline">
-            <input type="hidden" name="id" value={markdown.id} />
-            <input type="hidden" name="link" value={markdown.link} />
-            <input type="hidden" name="_action" value="delete" />
-            <button
-              type="submit"
-              class="icon !text-[--koala-editor-text] !text-[--koala-error-text] btn"
-            >
-              <Trash2 size={20} />
-            </button>
-          </form>
+          <button
+            type="button"
+            class="icon !text-[--koala-error-text] btn"
+            onclick={trashDocument}
+            title="Move to recycle bin"
+          >
+            <Trash2 size={20} />
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if showPurgeConfirm}
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-[--koala-input-bg] px-5 py-2 sm:p-6 rounded-lg max-w-[90vw] sm:max-w-md sm:w-full">
+        <h3 class="text-xl font-bold mb-4">Permanently delete?</h3>
+        <p class="mb-6">This cannot be undone. Other documents with the same name will not be affected.</p>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="icon btn" onclick={() => showPurgeConfirm = false}><X size={20} /></button>
+          <button type="button" class="icon !text-[--koala-error-text] btn" onclick={purgeDocument} title="Permanently delete">
+            <Trash2 size={20} />
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if restoreConflict}
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-[--koala-input-bg] px-5 py-2 sm:p-6 rounded-lg max-w-[90vw] sm:max-w-md sm:w-full">
+        <h3 class="text-xl font-bold mb-4">Name already in use</h3>
+        <p class="mb-2">Another active document uses this path or title.</p>
+        <p class="mb-6 text-sm text-[--koala-subtext-0] break-all">Restore as {restoreConflict.suggestedLink}</p>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="icon btn" onclick={() => restoreConflict = null}><X size={20} /></button>
+          <button type="button" class="btn flex items-center gap-2" onclick={() => restoreDocument(true)}>
+            <RotateCcw size={18} />
+            <span>Restore renamed</span>
+          </button>
         </div>
       </div>
     </div>
@@ -426,10 +517,19 @@
           oninput={onInputLink}
           onkeydown={(e) => e.key === 'Enter' && e.preventDefault()}
           placeholder="Input Path..."
+          readonly={trashed}
         />
       </div>
 
       <div class="flex items-center gap-1 shrink-0">
+        {#if trashed}
+          <button type="button" class="icon btn" onclick={() => restoreDocument(false)} title="Restore">
+            <RotateCcw size={20} />
+          </button>
+          <button type="button" class="icon !text-[--koala-error-text] btn" onclick={() => showPurgeConfirm = true} title="Permanently delete">
+            <Trash2 size={20} />
+          </button>
+        {:else}
         <button
           type="button"
           class="icon btn {markdown.id > 0 ? '' : 'opacity-30 !cursor-not-allowed'}"
@@ -477,6 +577,7 @@
             {/if}
         </button>
         {/if}
+        {/if}
       </div>
     </div>
 
@@ -502,6 +603,7 @@
       class="text-[--koala-text] {showPreview ? 'hidden' : ''} w-full text-xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
       bind:value={subjectValue}
       placeholder="Title"
+      readonly={trashed}
     />
 
     <textarea
@@ -511,6 +613,7 @@
       bind:value={textareaValue}
       onpaste={handlePaste}
       ondrop={handleDrop}
+      readonly={trashed}
     ></textarea>
 
     <article id="preview-md" class="w-full flex-1 overflow-y-auto {showPreview ? '' : 'hidden'}">

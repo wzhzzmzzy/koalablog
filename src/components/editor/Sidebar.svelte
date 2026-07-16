@@ -1,62 +1,29 @@
 <script lang="ts">
   import type { Markdown } from '@/db/types';
-  import { Plus, ChevronRight, ChevronDown, LoaderCircle } from '@lucide/svelte';
-  import { editorStore } from './store.svelte';
+  import { actions } from 'astro:actions';
+  import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2 } from '@lucide/svelte';
+  import { editorStore, notify } from './store.svelte';
   import FileItem from './FileItem.svelte';
+  import { buildDocumentTree, getTrashedDocuments, type DocumentTreeNode } from './document-tree';
 
   interface Props {
     onSelect: (m: Markdown) => void;
     onCreate: (prefix: string) => void;
     onRefresh?: (prefix: string) => Promise<void> | void;
+    onEmptyTrash: () => void;
     currentId: number;
   }
 
-  let { onSelect, onCreate, onRefresh, currentId }: Props = $props();
+  let { onSelect, onCreate, onRefresh, onEmptyTrash, currentId }: Props = $props();
 
-  type TreeNode = {
-    name: string;
-    fullPath: string;
-    children: Record<string, TreeNode>;
-    items: Markdown[];
-  };
-
-  const tree = $derived.by(() => {
-    const root: TreeNode = { name: '', fullPath: '', children: {}, items: [] };
-
-    const sortedItems = [...editorStore.items].sort((a, b) => {
-      const linkCompare = a.link.localeCompare(b.link);
-      if (linkCompare !== 0) return linkCompare;
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    });
-
-    for (const item of sortedItems) {
-      const parts = item.link.split('/');
-      const fileName = parts.pop() || ''; // remove filename
-      let currentNode = root;
-
-      // Navigate/Build tree for folders
-      let currentPath = '';
-      for (const part of parts) {
-        currentPath += part + '/';
-        if (!currentNode.children[part]) {
-          currentNode.children[part] = {
-            name: part,
-            fullPath: currentPath,
-            children: {},
-            items: []
-          };
-        }
-        currentNode = currentNode.children[part];
-      }
-      
-      currentNode.items.push(item);
-    }
-    return root;
-  });
+  const tree = $derived(buildDocumentTree(editorStore.items));
+  const recycleBin = $derived(getTrashedDocuments(editorStore.items));
 
   // Folder expansion state
   let expandedFolders = $state<Record<string, boolean>>({});
   let refreshingFolders = $state<Record<string, boolean>>({});
+  let recycleBinExpanded = $state(false);
+  let emptyingTrash = $state(false);
   const pendingRefreshes = new Map<string, Promise<void>>();
 
   function getRefreshKey(path: string) {
@@ -99,6 +66,27 @@
     void refreshPath('');
   }
 
+  function toggleRecycleBin() {
+    recycleBinExpanded = !recycleBinExpanded;
+    if (recycleBinExpanded) void refreshPath('');
+  }
+
+  async function handleEmptyTrash(event: MouseEvent) {
+    event.stopPropagation();
+    if (emptyingTrash || recycleBin.length === 0 || !window.confirm('Permanently delete every document in the recycle bin?')) return;
+
+    emptyingTrash = true;
+    const result = await actions.db.markdown.emptyTrash();
+    emptyingTrash = false;
+    if (result.error) {
+      notify('error', result.error.message);
+      return;
+    }
+
+    onEmptyTrash();
+    notify('success', `Permanently deleted ${result.data?.count ?? 0} document(s)`, 3000);
+  }
+
   // Auto-expand current item's path
   $effect(() => {
      if (currentId) {
@@ -117,18 +105,13 @@
      }
   });
 
-  function formatDate(date: Date | string) {
+  function formatDate(date: Date | string | null) {
     if (!date) return '';
-    return new Date(date).toLocaleDateString();
-  }
-
-  function getSnippet(content: string | null | undefined) {
-    if (!content) return '';
-    return content.slice(0, 30) + (content.length > 30 ? '...' : '');
+    return new Date(date).toLocaleString();
   }
 </script>
 
-{#snippet folderNode(node: TreeNode)}
+{#snippet folderNode(node: DocumentTreeNode)}
   <div>
     {#if node.name}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -163,7 +146,7 @@
             {#each Object.values(node.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
                 {@render folderNode(child)}
             {/each}
-            {#each node.items as item}
+            {#each node.items as item (item.id)}
                 <FileItem {item} {currentId} {onSelect} />
             {/each}
         </div>
@@ -179,7 +162,7 @@
       {#each Object.values(tree.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
             {@render folderNode(child)}
       {/each}
-      {#each tree.items as item}
+      {#each tree.items as item (item.id)}
             <FileItem {item} {currentId} onSelect={handleTopLevelFileSelect} />
       {/each}
   {/if}
@@ -192,4 +175,45 @@
       <Plus size={14} class="shrink-0 text-[--koala-text]" />
       <span class="truncate text-sm text-[--koala-text]">New file...</span>
   </button>
+
+  {#if recycleBin.length > 0}
+    <div class="mt-auto border-t border-[--koala-border-subtle] pt-1">
+      <div class="flex items-center gap-1 p-1">
+        <button
+          class="outline-none border-none bg-transparent flex-1 min-w-0 p-1 flex items-center gap-1.5 text-left"
+          onclick={toggleRecycleBin}
+          title="Recycle bin"
+        >
+          {#if recycleBinExpanded}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}
+          <Trash2 size={14} />
+          <span class="truncate text-sm text-[--koala-subtext-0]">.recycleBin</span>
+          <span class="text-xs text-[--koala-subtext-0]">{recycleBin.length}</span>
+        </button>
+        <button
+          class="icon btn !p-1 !text-[--koala-error-text]"
+          onclick={handleEmptyTrash}
+          disabled={emptyingTrash}
+          title="Empty recycle bin"
+        >
+          {#if emptyingTrash}<LoaderCircle size={14} class="animate-spin" />{:else}<Trash2 size={14} />{/if}
+        </button>
+      </div>
+
+      {#if recycleBinExpanded}
+        <div class="border-l border-[--koala-border-subtle] ml-2 pl-2">
+          {#each recycleBin as item (item.id)}
+            <button
+              class="outline-none border-none w-full text-left px-2 py-1.5 hover:bg-[--koala-hover-block] transition-colors
+                     {item.id === currentId ? 'bg-[--koala-focusing-block]' : 'bg-transparent'} rounded"
+              onclick={() => onSelect(item)}
+              title={`${item.link} · ${formatDate(item.deletedAt)} · #${item.id}`}
+            >
+              <span class="block truncate text-sm text-[--koala-text]">{item.link.split('/').pop() || item.link}.md</span>
+              <span class="block truncate text-xs text-[--koala-subtext-0]">{item.link} · {formatDate(item.deletedAt)}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>

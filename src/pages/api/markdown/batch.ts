@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
-import { batchRemoveByLinks, batchUpsert, readAll } from '@/db/markdown'
+import { batchTrashByLinks, batchUpsert, readAll } from '@/db/markdown'
 import { authInterceptor } from '@/lib/auth'
 
 export const GET: APIRoute = async (ctx) => {
@@ -23,7 +23,7 @@ export const GET: APIRoute = async (ctx) => {
         : MarkdownSource.Memo
 
   const env = ctx.locals.runtime?.env
-  const records = await readAll(env, source, false)
+  const records = await readAll(env, source)
 
   return new Response(JSON.stringify(records.map(r => ({
     id: r.id,
@@ -130,19 +130,19 @@ export const DELETE: APIRoute = async (ctx) => {
 
     const links = body.filter((item): item is string => typeof item === 'string')
 
-    if (links.length === 0) {
-      return new Response(JSON.stringify({ error: 'No valid links provided' }), {
+    if (links.length !== body.length) {
+      return new Response(JSON.stringify({ error: 'Every item must be a link string' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
     const env = ctx.locals.runtime?.env
-    const results = await batchRemoveByLinks(env, links)
+    const results = await batchTrashByLinks(env, links)
 
     return new Response(JSON.stringify({
       success: true,
-      count: results.length,
+      count: results.filter(result => result.status === 'trashed').length,
       results,
     }), {
       status: 200,

@@ -6,7 +6,7 @@
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
-  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY } from './store.svelte';
+  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
 
   interface Props {
     initialMarkdown: Markdown;
@@ -33,27 +33,27 @@
   }
   
   // Init History and Current
-  pushHistory(initialMarkdown.link);
+  if (!initialMarkdown.deletedAt) pushHistory(initialMarkdown.link);
   setCurrentMarkdown(initialMarkdown);
 
   // Sync URL with currentMarkdown
   $effect(() => {
     if (editorStore.currentMarkdown) {
       const url = new URL(window.location.href);
-      const currentLink = url.searchParams.get('link');
-      const currentId = url.searchParams.get('id');
-      
-      if (currentLink !== editorStore.currentMarkdown.link || currentId) {
+      if (editorStore.currentMarkdown.deletedAt) {
+        url.searchParams.delete('link');
+        url.searchParams.set('id', String(editorStore.currentMarkdown.id));
+      } else if (url.searchParams.get('link') !== editorStore.currentMarkdown.link || url.searchParams.has('id')) {
         url.searchParams.set('link', editorStore.currentMarkdown.link);
         url.searchParams.delete('id');
-        window.history.pushState({}, '', url);
       }
+      if (url.href !== window.location.href) window.history.pushState({}, '', url);
     }
   });
 
   function handleSelect(m: Markdown) {
-    if (m.link) pushHistory(m.link);
-    if (drafts.has(m.link)) {
+    if (!m.deletedAt && m.link) pushHistory(m.link);
+    if (!m.deletedAt && drafts.has(m.link)) {
       setCurrentMarkdown(drafts.get(m.link)!)
     } else {
       setCurrentMarkdown(m);
@@ -68,6 +68,28 @@
     updateLastHistory(m.link);
     setCurrentMarkdown(m);
     upsertItem(m);
+  }
+
+  function handleUpdate(m: Markdown) {
+    setCurrentMarkdown(m);
+    upsertItem(m);
+  }
+
+  function selectFallback() {
+    const fallback = editorStore.items.find(item => !item.deletedAt) ?? initMarkdown();
+    setCurrentMarkdown(fallback);
+  }
+
+  function handlePurge(id: number) {
+    const purgedCurrent = editorStore.currentMarkdown?.id === id;
+    removeItem(id);
+    if (purgedCurrent) selectFallback();
+  }
+
+  function handleEmptyTrash() {
+    const removedCurrent = Boolean(editorStore.currentMarkdown?.deletedAt);
+    removeTrashedItems();
+    if (removedCurrent) selectFallback();
   }
 
   async function handleRefresh(prefix: string) {
@@ -101,7 +123,7 @@
       let counter = 0;
       let candidate = `${prefix}${baseName}`;
       
-      const exists = (link: string) => editorStore.items.some(i => i.link === link);
+      const exists = (link: string) => editorStore.items.some(i => !i.deletedAt && i.link === link);
 
       while(exists(candidate)) {
         counter++;
@@ -123,6 +145,7 @@
                 onSelect={handleSelect}
                 onCreate={createNew}
                 onRefresh={handleRefresh}
+                onEmptyTrash={handleEmptyTrash}
              />
         </div>
     </div>
@@ -134,6 +157,8 @@
                  <Editor 
                     markdown={editorStore.currentMarkdown} 
                     onSave={handleSave}
+                    onUpdate={handleUpdate}
+                    onPurge={handlePurge}
                  />
              </div>
         {/if}

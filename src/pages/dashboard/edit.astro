@@ -22,7 +22,7 @@ if (id) {
   }
 }
 else if (link) {
-  const found = initialItems.find(i => i.link === link)
+  const found = initialItems.find(i => !i.deletedAt && i.link === link)
   if (found) {
     article = found
   }

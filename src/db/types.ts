@@ -12,7 +12,7 @@ export interface Markdown {
   private: boolean
   createdAt: Date
   updatedAt: Date
-  deleted: boolean
+  deletedAt: Date | null
 }
 
 export function initMarkdown(source = MarkdownSource.Unknown): Markdown {
@@ -29,6 +29,6 @@ export function initMarkdown(source = MarkdownSource.Unknown): Markdown {
     private: false,
     createdAt: now,
     updatedAt: now,
-    deleted: false,
+    deletedAt: null,
   }
 }

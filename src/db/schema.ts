@@ -1,11 +1,11 @@
 import { sql } from 'drizzle-orm'
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 export const markdown = sqliteTable('markdown', {
   id: integer().primaryKey({ autoIncrement: true }),
   source: integer().notNull(),
-  link: text().unique().notNull(),
-  subject: text().unique().notNull(),
+  link: text().notNull(),
+  subject: text().notNull(),
   content: text(),
   // format:
   // tag1,tag2,tag3
@@ -22,8 +22,12 @@ export const markdown = sqliteTable('markdown', {
   updatedAt: integer({ mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
-  deleted: integer({ mode: 'boolean' }).default(false).notNull(),
-})
+  deletedAt: integer({ mode: 'timestamp' }),
+}, table => [
+  uniqueIndex('markdown_active_link_unique').on(table.link).where(sql`${table.deletedAt} IS NULL`),
+  uniqueIndex('markdown_active_subject_unique').on(table.subject).where(sql`${table.deletedAt} IS NULL`),
+  index('markdown_deleted_at_idx').on(table.deletedAt),
+])
 
 export const ossAccess = sqliteTable('oss_access', {
   id: integer().primaryKey({ autoIncrement: true }),

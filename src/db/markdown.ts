@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { and, desc, eq, like, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
 import { kebabCase } from 'es-toolkit'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
@@ -15,6 +15,7 @@ export async function generateMemoSubject(env: Env) {
     where: and(
       eq(markdown.source, MarkdownSource.Memo),
       like(markdown.subject, pattern),
+      isNull(markdown.deletedAt),
     ),
   })
 
@@ -79,6 +80,7 @@ export function batchAdd(
     outgoing_links?: string
     private?: boolean
     tags?: string
+    deletedAt?: Date
   }>,
 ) {
   const values = posts.map(post => ({
@@ -91,6 +93,7 @@ export function batchAdd(
     outgoing_links: post.outgoing_links,
     private: post.private || false,
     tags: post.tags,
+    deletedAt: post.deletedAt,
   }))
 
   return connectDB(env).insert(markdown).values(values).returning()
@@ -127,6 +130,7 @@ export function batchUpsert(
     .values(values)
     .onConflictDoUpdate({
       target: markdown.link,
+      targetWhere: isNull(markdown.deletedAt),
       set: {
         subject: sql.raw(`excluded.${markdown.subject.name}`),
         content: sql.raw(`excluded.${markdown.content.name}`),
@@ -160,7 +164,7 @@ export function update(
     outgoing_links,
     private: privated,
     tags,
-  }).where(eq(markdown.id, id)).returning()
+  }).where(and(eq(markdown.id, id), isNull(markdown.deletedAt))).returning()
 }
 
 export function updatePrivate(
@@ -171,7 +175,7 @@ export function updatePrivate(
   return connectDB(env).update(markdown).set({
     private: privated,
     updatedAt: new Date(),
-  }).where(eq(markdown.id, id)).returning()
+  }).where(and(eq(markdown.id, id), isNull(markdown.deletedAt))).returning()
 }
 
 export function updateRefs(
@@ -184,49 +188,144 @@ export function updateRefs(
   const db = connectDB(env)
   return Promise.all(refs.map(({ id, outgoing_links }) => db.update(markdown).set({
     outgoing_links,
-  }).where(eq(markdown.id, id))))
+  }).where(and(eq(markdown.id, id), isNull(markdown.deletedAt)))))
 }
 
-export function remove(env: Env, id: number, currentLink: string) {
-  const deletedLink = currentLink.startsWith('.recycleBin')
-    ? currentLink
-    : `.recycleBin${currentLink.startsWith('/') ? '' : '/'}${currentLink}`
-
-  return connectDB(env).update(markdown).set({
-    deleted: true,
-    link: deletedLink,
+export async function trash(env: Env, id: number) {
+  const [document] = await connectDB(env).update(markdown).set({
+    deletedAt: new Date(),
     updatedAt: new Date(),
-  }).where(eq(markdown.id, id))
+  }).where(and(eq(markdown.id, id), isNull(markdown.deletedAt))).returning()
+
+  return document
+    ? { status: 'trashed' as const, document }
+    : { status: 'not_found' as const }
 }
 
-export async function batchRemoveByLinks(env: Env, links: string[]) {
-  if (links.length === 0) return []
+function restoredIdentity(link: string, subject: string, suffix: number) {
+  return {
+    link: `${link}-restored${suffix === 1 ? '' : `-${suffix}`}`,
+    subject: `${subject} (restored${suffix === 1 ? '' : ` ${suffix}`})`,
+  }
+}
+
+async function nextRestoredIdentity(env: Env, link: string, subject: string) {
+  const db = connectDB(env)
+  for (let suffix = 1; ; suffix++) {
+    const candidate = restoredIdentity(link, subject, suffix)
+    const occupied = await db.query.markdown.findFirst({
+      columns: { id: true },
+      where: and(
+        isNull(markdown.deletedAt),
+        or(eq(markdown.link, candidate.link), eq(markdown.subject, candidate.subject)),
+      ),
+    })
+    if (!occupied)
+      return candidate
+  }
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return error instanceof Error && error.message.includes('UNIQUE constraint failed')
+}
+
+export async function restore(env: Env, id: number, renameOnConflict = false) {
+  const document = await readAnyById(env, id)
+  if (!document)
+    return { status: 'not_found' as const }
+  if (!document.deletedAt)
+    return { status: 'restored' as const, document }
 
   const db = connectDB(env)
-  const results = []
+  const conflict = await db.query.markdown.findFirst({
+    columns: { id: true },
+    where: and(
+      isNull(markdown.deletedAt),
+      or(eq(markdown.link, document.link), eq(markdown.subject, document.subject)),
+    ),
+  })
 
-  for (const link of links) {
-    const record = await db.query.markdown.findFirst({
-      where: eq(markdown.link, link),
-    })
-
-    if (record && !record.deleted) {
-      const ts = Date.now()
-      const deletedLink = link.startsWith('.recycleBin')
-        ? link
-        : `.recycleBin${link.startsWith('/') ? '' : '/'}${link}_${ts}`
-
-      await db.update(markdown).set({
-        deleted: true,
-        link: deletedLink,
+  if (!conflict) {
+    try {
+      const [restored] = await db.update(markdown).set({
+        deletedAt: null,
         updatedAt: new Date(),
-      }).where(eq(markdown.id, record.id))
+      }).where(and(eq(markdown.id, id), isNotNull(markdown.deletedAt))).returning()
 
-      results.push({ id: record.id, link, deleted: true })
+      if (restored)
+        return { status: 'restored' as const, document: restored }
+    }
+    catch (error) {
+      if (!isUniqueConstraintError(error))
+        throw error
     }
   }
 
-  return results
+  if (!renameOnConflict) {
+    const suggestion = await nextRestoredIdentity(env, document.link, document.subject)
+    return {
+      status: 'conflict' as const,
+      suggestedLink: suggestion.link,
+      suggestedSubject: suggestion.subject,
+    }
+  }
+
+  while (true) {
+    const candidate = await nextRestoredIdentity(env, document.link, document.subject)
+    try {
+      const [restored] = await db.update(markdown).set({
+        ...candidate,
+        deletedAt: null,
+        updatedAt: new Date(),
+      }).where(and(eq(markdown.id, id), isNotNull(markdown.deletedAt))).returning()
+
+      return restored
+        ? { status: 'restored' as const, document: restored }
+        : { status: 'not_found' as const }
+    }
+    catch (error) {
+      if (!isUniqueConstraintError(error))
+        throw error
+    }
+  }
+}
+
+export async function purge(env: Env, id: number) {
+  const [document] = await connectDB(env).delete(markdown).where(and(eq(markdown.id, id), isNotNull(markdown.deletedAt))).returning()
+
+  return document
+    ? { status: 'purged' as const }
+    : { status: 'not_found' as const }
+}
+
+export async function emptyTrash(env: Env) {
+  const documents = await connectDB(env).delete(markdown).where(isNotNull(markdown.deletedAt)).returning()
+
+  return { status: 'purged' as const, count: documents.length }
+}
+
+export async function batchTrashByLinks(env: Env, links: string[]) {
+  if (links.length === 0)
+    return []
+
+  const db = connectDB(env)
+  const records = await db.query.markdown.findMany({
+    columns: { id: true, link: true },
+    where: and(inArray(markdown.link, links), isNull(markdown.deletedAt)),
+  })
+  if (records.length === 0)
+    return links.map(link => ({ status: 'not_found' as const, link }))
+
+  const trashedAt = new Date()
+  const documents = await db.update(markdown).set({
+    deletedAt: trashedAt,
+    updatedAt: trashedAt,
+  }).where(inArray(markdown.id, records.map(record => record.id))).returning()
+  const byLink = new Map(documents.map(document => [document.link, document]))
+
+  return links.map(link => byLink.has(link)
+    ? { status: 'trashed' as const, link, document: byLink.get(link)! }
+    : { status: 'not_found' as const, link })
 }
 
 /**
@@ -247,7 +346,7 @@ export function readList(
 
   const ops = [
     eq(markdown.source, source),
-    eq(markdown.deleted, false),
+    isNull(markdown.deletedAt),
     tag ? like(markdown.tags, `%${tag}%`) : null,
     !includePrivate ? eq(markdown.private, false) : null,
   ].filter(i => !!i)
@@ -262,7 +361,7 @@ export function read(env: Env, source: MarkdownSource, link: string) {
     where: and(
       eq(markdown.source, source),
       eq(markdown.link, link),
-      eq(markdown.deleted, false),
+      isNull(markdown.deletedAt),
     ),
   })
 }
@@ -271,34 +370,29 @@ export function readById(env: Env, id: number) {
   return connectDB(env).query.markdown.findFirst({
     where: and(
       eq(markdown.id, id),
-      eq(markdown.deleted, false),
+      isNull(markdown.deletedAt),
     ),
   })
 }
 
 export function readAnyById(env: Env, id: number) {
   return connectDB(env).query.markdown.findFirst({
-    where: and(
-      eq(markdown.id, id),
-      eq(markdown.deleted, false),
-    ),
+    where: eq(markdown.id, id),
   })
 }
 
-export function readAnyByLink(env: Env, link: string) {
-  return connectDB(env).query.markdown.findFirst({
-    where: and(
-      eq(markdown.link, link),
-      eq(markdown.deleted, false),
-    ),
+export function readTrash(env: Env) {
+  return connectDB(env).query.markdown.findMany({
+    where: isNotNull(markdown.deletedAt),
+    orderBy: [desc(markdown.deletedAt), desc(markdown.id)],
   })
 }
 
-export function readAll(env: Env, source: MarkdownSource, deleted: boolean) {
+export function readAll(env: Env, source: MarkdownSource) {
   return connectDB(env).query.markdown.findMany({
     where: and(
       eq(markdown.source, source),
-      eq(markdown.deleted, deleted),
+      isNull(markdown.deletedAt),
     ),
     orderBy: desc(markdown.createdAt),
   })
@@ -314,7 +408,7 @@ export function readRemoteTruth(env: Env) {
     },
     where: and(
       eq(markdown.remoteTruth, true),
-      eq(markdown.deleted, false),
+      isNull(markdown.deletedAt),
     ),
   })
 }
@@ -343,7 +437,7 @@ export function readAllPublic(env: Env) {
         eq(markdown.source, MarkdownSource.Memo),
         eq(markdown.source, MarkdownSource.Post),
       ),
-      eq(markdown.deleted, false),
+      isNull(markdown.deletedAt),
       eq(markdown.private, false),
     ),
     orderBy: desc(markdown.createdAt),

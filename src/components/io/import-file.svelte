@@ -81,9 +81,10 @@ const checkForDuplicates = () => {
   foundFiles.forEach((file, index) => {
     const parsedFile = parsedFiles[index]
     const link = parsedFile?.meta?.link as string | undefined
+    const deletedAt = parsedFile?.meta?.deletedAt as string | null | undefined
     
     // Check for duplicates by subject or link
-    const isDuplicate = allPosts.some(post => 
+    const isDuplicate = !deletedAt && allPosts.some(post =>
       post.subject === file.subject || 
       (link && post.link === link)
     )
@@ -240,6 +241,7 @@ const onSave = async () => {
     const metaSubject = meta?.subject as string | undefined
     const source = meta?.source as number | undefined
     const isPrivate = meta?.private as boolean | undefined
+    const deletedAt = meta?.deletedAt as string | null | undefined
     
     return {
       subject: metaSubject || originalFile.subject,
@@ -250,6 +252,7 @@ const onSave = async () => {
       private: isPrivate,
       createdAt,
       updatedAt,
+      deletedAt,
       outgoingLinks: parsedFile?.outgoingLinks || []
     }
   })
@@ -415,4 +418,3 @@ const onSave = async () => {
 {/if}
 
 </section>
-

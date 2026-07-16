@@ -29,7 +29,7 @@ function downloadBlob(blob: Blob, filename: string) {
 
 export async function exportAllPosts() {
   const fflateLoader = import('fflate/browser')
-  const allMarkdown = await actions.db.markdown.all({ deleted: true })
+  const allMarkdown = await actions.db.markdown.all({ includeTrash: true })
   const data = allMarkdown.data as (AllCollection & { recycleBin?: AllCollection }) | undefined
 
   if (!data) {
@@ -51,14 +51,16 @@ export async function exportAllPosts() {
       createdAt: markdown.createdAt,
       updatedAt: markdown.updatedAt,
       private: markdown.private,
-      deleted: markdown.deleted,
+      deletedAt: markdown.deletedAt,
     }
 
     const formatTags = (tags: string | null | undefined) => {
-      if (!tags) return '[]'
+      if (!tags)
+        return '[]'
       // 假设 tags 是逗号分隔的字符串
       const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
-      if (tagList.length === 0) return '[]'
+      if (tagList.length === 0)
+        return '[]'
       return `[${tagList.map(t => `"${t}"`).join(', ')}]`
     }
 
@@ -70,7 +72,7 @@ source: ${meta.source}
 createdAt: "${meta.createdAt.toISOString()}"
 updatedAt: "${meta.updatedAt.toISOString()}"
 private: ${!!meta.private}
-deleted: ${!!meta.deleted}
+deletedAt: ${meta.deletedAt ? `"${meta.deletedAt.toISOString()}"` : 'null'}
 ---
 
 `
@@ -78,47 +80,16 @@ deleted: ${!!meta.deleted}
     return metaHeader + (markdown.content || '')
   }
 
-  // 处理 posts
-  if (data.posts) {
-    data.posts.forEach((post: Markdown) => {
-      const filename = `posts/${post.subject.replace(/[/\\?%*:|"<>]/g, '-')}.md`
-      zipFiles[filename] = textEncoder.encode(createContentWithMeta(post))
+  const collections = ['posts', 'pages', 'memos', 'wikis'] as const
+  const safeName = (markdown: Markdown) => markdown.subject.replace(/[/\\?%*:|"<>]/g, '-')
+
+  for (const collection of collections) {
+    data[collection]?.forEach((document) => {
+      zipFiles[`${collection}/${safeName(document)}.md`] = textEncoder.encode(createContentWithMeta(document))
     })
-  }
-
-  // 处理 pages
-  if (data.pages) {
-    data.pages.forEach((page: Markdown) => {
-      const filename = `pages/${page.subject.replace(/[/\\?%*:|"<>]/g, '-')}.md`
-      zipFiles[filename] = textEncoder.encode(createContentWithMeta(page))
+    data.recycleBin?.[collection]?.forEach((document) => {
+      zipFiles[`recycleBin/${collection}/${safeName(document)}-${document.id}.md`] = textEncoder.encode(createContentWithMeta(document))
     })
-  }
-
-  // 处理 home
-  if (data.home) {
-    zipFiles['home/home.md'] = textEncoder.encode(createContentWithMeta(data.home))
-  }
-
-  // 处理 nav
-  if (data.nav) {
-    zipFiles['nav/nav.md'] = textEncoder.encode(createContentWithMeta(data.nav))
-  }
-
-  // 处理回收站
-  if (data.recycleBin) {
-    if (data.recycleBin.posts) {
-      data.recycleBin.posts.forEach((post: Markdown) => {
-        const filename = `recycleBin/posts/${post.subject.replace(/[/\\?%*:|"<>]/g, '-')}.md`
-        zipFiles[filename] = textEncoder.encode(createContentWithMeta(post))
-      })
-    }
-
-    if (data.recycleBin.pages) {
-      data.recycleBin.pages.forEach((page: Markdown) => {
-        const filename = `recycleBin/pages/${page.subject.replace(/[/\\?%*:|"<>]/g, '-')}.md`
-        zipFiles[filename] = textEncoder.encode(createContentWithMeta(page))
-      })
-    }
   }
   const fflate = await fflateLoader
   return new Promise<void>((resolve, reject) => {

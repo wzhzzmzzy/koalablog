@@ -109,11 +109,11 @@ function isWithinPrefix(link: string, prefix: string) {
 
 export function replaceItemsByPrefix(prefix: string, freshItems: Markdown[]) {
   const preservedDraftItems = editorStore.items
-    .filter(item => isWithinPrefix(item.link, prefix) && drafts.has(item.link))
+    .filter(item => !item.deletedAt && isWithinPrefix(item.link, prefix) && drafts.has(item.link))
     .map(item => drafts.get(item.link) ?? item)
 
   const preservedDraftIds = new Set(preservedDraftItems.map(item => item.id))
-  const nextItems = freshItems.filter(item => !drafts.has(item.link) && !preservedDraftIds.has(item.id))
+  const nextItems = freshItems.filter(item => (item.deletedAt || !drafts.has(item.link)) && !preservedDraftIds.has(item.id))
 
   editorStore.items = [
     ...editorStore.items.filter(item => !isWithinPrefix(item.link, prefix)),
@@ -151,4 +151,12 @@ export function upsertItem(item: Markdown) {
   else {
     editorStore.items = [item, ...editorStore.items]
   }
+}
+
+export function removeItem(id: number) {
+  editorStore.items = editorStore.items.filter(item => item.id !== id)
+}
+
+export function removeTrashedItems() {
+  editorStore.items = editorStore.items.filter(item => !item.deletedAt)
 }

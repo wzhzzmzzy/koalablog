@@ -53,7 +53,7 @@ link: "post/example"
 tags: "tag1,tag2"
 createdAt: "2024-01-01T00:00:00.000Z"
 updatedAt: "2024-01-01T00:00:00.000Z"
-deleted: false
+deletedAt: "2024-01-02T00:00:00.000Z"
 ---
 
 # My Post
@@ -67,7 +67,7 @@ This is the content.`
       tags: 'tag1,tag2',
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z',
-      deleted: false,
+      deletedAt: '2024-01-02T00:00:00.000Z',
     })
 
     expect(result).toContain('<h1>My Post</h1>')

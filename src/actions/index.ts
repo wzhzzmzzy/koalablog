@@ -1,6 +1,6 @@
-import { all, batchImport, byPrefix, getNewMemoSubject, updateRefs } from './db/markdown'
+import { all, batchImport, byPrefix, emptyTrash, getNewMemoSubject, purge, restore, trash, updateRefs } from './db/markdown'
 import { login } from './form/login'
-import { remove, save, setPrivate } from './form/markdown'
+import { save, setPrivate } from './form/markdown'
 import { onboarding } from './form/onboarding'
 import { settings } from './form/settings'
 import { list, remove as removeResource, upload } from './oss/operate'
@@ -15,7 +15,6 @@ export const server = {
     setPrivate,
     onboarding,
     login,
-    remove,
     save,
     settings,
   },
@@ -26,6 +25,10 @@ export const server = {
       byPrefix,
       updateRefs,
       getNewMemoSubject,
+      trash,
+      restore,
+      purge,
+      emptyTrash,
     },
   },
 }

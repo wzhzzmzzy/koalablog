@@ -1,5 +1,5 @@
 import { connectDB, MarkdownSource } from '@/db'
-import { add, remove as removeMarkdown, update, updatePrivate } from '@/db/markdown'
+import { add, update, updatePrivate } from '@/db/markdown'
 import { markdown } from '@/db/schema'
 import { parseJson } from '@/lib/utils/parse-json'
 import { defineAction } from 'astro:actions'
@@ -56,24 +56,6 @@ export const save = defineAction({
     }
 
     return result
-  },
-})
-
-export const remove = defineAction({
-  accept: 'form',
-  input: z.object({
-    id: z.preprocess(
-      a => Number.parseInt(a as string, 10),
-      z.number().gt(0),
-    ),
-    link: z.string(),
-    _action: z.literal('delete'),
-  }),
-  handler: async (input, ctx) => {
-    await authGuard(ctx)
-
-    const env = ctx.locals.runtime?.env || {}
-    await removeMarkdown(env, input.id, input.link)
   },
 })
 

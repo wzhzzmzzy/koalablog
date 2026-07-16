@@ -1,6 +1,6 @@
 import type { Markdown } from '@/db/types'
 import { getMarkdownSourceKey, MarkdownSource } from '@/db'
-import { batchAdd, generateMemoSubject, justReadAll, readAll, readByPrefix, updateRefs as updateRefsDB } from '@/db/markdown'
+import { batchAdd, emptyTrash as emptyTrashDB, generateMemoSubject, justReadAll, purge as purgeMarkdown, readAll, readByPrefix, restore as restoreMarkdown, trash as trashMarkdown, updateRefs as updateRefsDB } from '@/db/markdown'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
@@ -24,12 +24,12 @@ export const getNewMemoSubject = defineAction({
 export const all = defineAction({
   input: z.optional(z.object({
     source: z.enum(['all', 'post', 'page', 'memo', 'wiki']).default('all'),
-    deleted: z.boolean().default(false),
+    includeTrash: z.boolean().default(false),
   })).default({}),
   handler: async (input, ctx) => {
     await authGuard(ctx)
 
-    if (input.source !== 'all' && !input.deleted) {
+    if (input.source !== 'all' && !input.includeTrash) {
       const sourceEnum = input.source === 'post'
         ? MarkdownSource.Post
         : input.source === 'page'
@@ -38,7 +38,6 @@ export const all = defineAction({
       const records = await readAll(
         ctx.locals.runtime?.env,
         sourceEnum,
-        input.deleted,
       )
 
       return {
@@ -49,11 +48,11 @@ export const all = defineAction({
     const allMarkdowns = await justReadAll(ctx.locals.runtime?.env)
 
     return allMarkdowns.reduce((prev, curr) => {
-      if (curr.deleted && !input.deleted) {
+      if (curr.deletedAt && !input.includeTrash) {
         return prev
       }
 
-      if (input.deleted && !prev.recycleBin) {
+      if (input.includeTrash && !prev.recycleBin) {
         prev.recycleBin = {}
       }
 
@@ -65,7 +64,7 @@ export const all = defineAction({
         if (!prev[sourceType])
           prev[sourceType] = []
 
-        if (curr.deleted) {
+        if (curr.deletedAt) {
           if (!prev.recycleBin![sourceType])
             prev.recycleBin![sourceType] = []
           prev.recycleBin![sourceType].push(curr)
@@ -88,6 +87,40 @@ export const byPrefix = defineAction({
     await authGuard(ctx)
 
     return readByPrefix(ctx.locals.runtime?.env, prefix)
+  },
+})
+
+export const trash = defineAction({
+  input: z.object({ id: z.number().int().positive() }),
+  handler: async ({ id }, ctx) => {
+    await authGuard(ctx)
+    return trashMarkdown(ctx.locals.runtime?.env || {}, id)
+  },
+})
+
+export const restore = defineAction({
+  input: z.object({
+    id: z.number().int().positive(),
+    renameOnConflict: z.boolean().default(false),
+  }),
+  handler: async ({ id, renameOnConflict }, ctx) => {
+    await authGuard(ctx)
+    return restoreMarkdown(ctx.locals.runtime?.env || {}, id, renameOnConflict)
+  },
+})
+
+export const purge = defineAction({
+  input: z.object({ id: z.number().int().positive() }),
+  handler: async ({ id }, ctx) => {
+    await authGuard(ctx)
+    return purgeMarkdown(ctx.locals.runtime?.env || {}, id)
+  },
+})
+
+export const emptyTrash = defineAction({
+  handler: async (_, ctx) => {
+    await authGuard(ctx)
+    return emptyTrashDB(ctx.locals.runtime?.env || {})
   },
 })
 
@@ -132,6 +165,13 @@ export const batchImport = defineAction({
       }
       return val
     }, z.date().optional()),
+    deletedAt: z.preprocess((val) => {
+      if (typeof val === 'string') {
+        const date = new Date(val)
+        return Number.isNaN(date.getTime()) ? undefined : date
+      }
+      return val
+    }, z.date().nullable().optional()),
     outgoingLinks: z.array(z.object({
       subject: z.string(),
       link: z.string(),
@@ -152,6 +192,7 @@ export const batchImport = defineAction({
         private: post.private,
         createdAt: post.createdAt,
         updatedAt: post.updatedAt,
+        deletedAt: post.deletedAt ?? undefined,
         outgoing_links: post.outgoingLinks ? JSON.stringify(post.outgoingLinks) : undefined,
       })),
     )
