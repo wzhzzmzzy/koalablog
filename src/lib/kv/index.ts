@@ -51,7 +51,7 @@ interface LocalConfigStorage {
   sync: () => Promise<void>
 }
 
-export async function globalConfig(env?: Env, localStorage: LocalConfigStorage = storage): Promise<GlobalConfig> {
+export async function globalConfig(env?: Env, localStorage?: LocalConfigStorage): Promise<GlobalConfig> {
   // use cloudflare kv
   if (env?.CF_PAGES) {
     const globalConfigValue = await env.KOALA.get(GLOBAL_CONFIG_KEY)
@@ -67,7 +67,8 @@ export async function globalConfig(env?: Env, localStorage: LocalConfigStorage =
   }
   // #if !CF_PAGES
   else {
-    const globalConfigValue = (await localStorage.get(
+    const configStorage = localStorage ?? storage
+    const globalConfigValue = (await configStorage.get(
       GLOBAL_CONFIG_KEY,
     )) as GlobalConfig
 
@@ -90,23 +91,31 @@ export async function globalConfig(env?: Env, localStorage: LocalConfigStorage =
 }
 
 function mergeGlobalConfig(currentConfig: GlobalConfig, patch: Partial<GlobalConfig>): GlobalConfig {
-  const updatedConfig = { ...currentConfig }
-  for (const scope of Object.keys(patch) as Array<keyof GlobalConfig>) {
-    const scopePatch = patch[scope]
-    if (scopePatch !== undefined) {
-      updatedConfig[scope] = {
-        ...currentConfig[scope],
-        ...scopePatch,
-      } as never
+  const pageConfig = {
+    ...currentConfig.pageConfig,
+    ...patch.pageConfig,
+  }
+  if (patch.pageConfig?.theme) {
+    pageConfig.theme = {
+      ...currentConfig.pageConfig.theme,
+      ...patch.pageConfig.theme,
     }
   }
-  return updatedConfig
+
+  return {
+    pageConfig,
+    rss: patch.rss === undefined ? currentConfig.rss : { ...currentConfig.rss, ...patch.rss },
+    font: patch.font === undefined ? currentConfig.font : { ...currentConfig.font, ...patch.font },
+    auth: { ...currentConfig.auth, ...patch.auth },
+    oss: { ...currentConfig.oss, ...patch.oss },
+    _runtime: { ...currentConfig._runtime, ...patch._runtime },
+  }
 }
 
 export async function putGlobalConfig(
   env: Env,
   patch: Partial<GlobalConfig>,
-  localStorage: LocalConfigStorage = storage,
+  localStorage?: LocalConfigStorage,
 ) {
   const currentConfig = await globalConfig(env, localStorage)
   const updatedConfig = mergeGlobalConfig(currentConfig, patch)
@@ -115,8 +124,9 @@ export async function putGlobalConfig(
   }
   // #if !CF_PAGES
   else {
-    await localStorage.set(GLOBAL_CONFIG_KEY, updatedConfig)
-    await localStorage.sync()
+    const configStorage = localStorage ?? storage
+    await configStorage.set(GLOBAL_CONFIG_KEY, updatedConfig)
+    await configStorage.sync()
   }
   // #endif
 }
@@ -124,7 +134,7 @@ export async function putGlobalConfig(
 export async function updateGlobalConfig<S extends keyof GlobalConfig>(
   env: Env,
   payload: Record<S, Partial<GlobalConfig[S]>>,
-  localStorage: LocalConfigStorage = storage,
+  localStorage?: LocalConfigStorage,
 ) {
   const currentConfig = await globalConfig(env, localStorage)
   const updatedConfig = mergeGlobalConfig(currentConfig, payload)
@@ -134,8 +144,9 @@ export async function updateGlobalConfig<S extends keyof GlobalConfig>(
   }
   // #if !CF_PAGES
   else {
-    await localStorage.set(GLOBAL_CONFIG_KEY, updatedConfig)
-    await localStorage.sync()
+    const configStorage = localStorage ?? storage
+    await configStorage.set(GLOBAL_CONFIG_KEY, updatedConfig)
+    await configStorage.sync()
   }
   // #endif
 }

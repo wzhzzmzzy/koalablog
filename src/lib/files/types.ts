@@ -14,7 +14,7 @@ export type PathErrorCode =
   | 'trailing_slash'
   | 'invalid_segment'
   | 'reserved_segment'
-  | 'renderer_extension'
+  | 'file_extension'
   | 'control_character'
 
 export interface PathError {

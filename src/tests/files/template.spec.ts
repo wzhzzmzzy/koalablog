@@ -39,6 +39,17 @@ describe('creation Template v1', () => {
     ])
   })
 
+  it('rejects fields outside the Template v1 schema', () => {
+    const result = validateTemplateV1({
+      ...memoTemplate,
+      renderer: 'svelte',
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok)
+      expect(result.error[0]?.code).toBe('invalid_template')
+  })
+
   it('selects the longest matching Prefix on segment boundaries', () => {
     const target = parseAbsolutePathPrefix('/memo/project/deep/')
     expect(target.ok).toBe(true)

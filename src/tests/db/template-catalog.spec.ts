@@ -41,20 +41,18 @@ describe('template Catalog storage', () => {
     expect(await readTemplateCatalog(testEnv)).toEqual({ status: 'absent' })
   })
 
-  it('seeds the ordinary memo preset when an existing site applies the Catalog migration', async () => {
+  it('creates an empty Catalog table for the upgrade initialization command', async () => {
     const client = createClient({ url: `file:${databasePath}` })
     await client.execute('DROP TABLE creation_template_catalog')
     const migration = await readFile('migrations/0001_creation_template_catalog.sql', 'utf8')
     await client.executeMultiple(migration.replaceAll('--> statement-breakpoint', ''))
     client.close()
 
-    expect(await readTemplateCatalog(testEnv)).toMatchObject({
-      status: 'ready',
-      catalog: {
-        schemaVersion: 1,
-        revision: 1,
-        templates: [{ id: 'memo-default', prefix: '/memo/' }],
-      },
+    expect(await readTemplateCatalog(testEnv)).toEqual({ status: 'absent' })
+    expect(await ensureTemplateCatalogInitialized(testEnv)).toMatchObject({
+      schemaVersion: 1,
+      revision: 1,
+      templates: [{ id: 'memo-default', prefix: '/memo/' }],
     })
   })
 

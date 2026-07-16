@@ -10,6 +10,7 @@ import { format } from 'date-fns'
 import { containsControlCharacter, deriveTitle, isDescendantOfPrefix, parseAbsoluteFilePath, parseAbsolutePathPrefix } from './path'
 
 const PLACEHOLDER = /\{\{([^{}]+)\}\}/g
+const TEMPLATE_V1_FIELDS = new Set(['id', 'prefix', 'titlePattern', 'pathPattern', 'content'])
 
 export const DEFAULT_MEMO_TEMPLATE_V1: CreationTemplateV1 = {
   id: 'memo-default',
@@ -52,6 +53,9 @@ export function validateTemplateV1(input: unknown): Result<CreationTemplateV1, T
   const requiredFields = ['id', 'prefix', 'titlePattern', 'pathPattern', 'content'] as const
   if (requiredFields.some(field => typeof value[field] !== 'string')) {
     return { ok: false, error: [templateError('invalid_template', 'template', 'Template fields must be strings')] }
+  }
+  if (Object.keys(value).some(field => !TEMPLATE_V1_FIELDS.has(field))) {
+    return { ok: false, error: [templateError('invalid_template', 'template', 'Template contains fields outside schema v1')] }
   }
 
   const template = value as unknown as CreationTemplateV1

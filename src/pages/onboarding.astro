@@ -1,5 +1,6 @@
 ---
 import OnboardingForm from '@/components/onboarding/index.svelte'
+import { resetD1ForOnboarding } from '@/db/onboarding'
 import Layout from '@/layouts/layout.astro'
 
 // #if CF_PAGES
@@ -16,18 +17,7 @@ if (config._runtime?.ready) {
 
 // #if CF_PAGES
 if (env.DATA_SOURCE && env.DATA_SOURCE === 'd1') {
-  await env.DB.exec(`
-    DROP INDEX IF EXISTS markdown_link_unique;
-    DROP INDEX IF EXISTS markdown_subject_unique;
-    DROP TABLE IF EXISTS markdown;
-    DROP INDEX IF EXISTS oss_access_date_unique;
-    DROP TABLE IF EXISTS oss_access;
-    DROP INDEX IF EXISTS blob_storage_key_unique;
-    DROP TABLE IF EXISTS blob_storage;
-    DROP TABLE IF EXISTS creation_template_catalog;
-  `)
-  const sql = [initSql, templateCatalogSql].join('\n')
-  await env.DB.exec(sql.replaceAll('--> statement-breakpoint', '').replaceAll('\n', ' '))
+  await resetD1ForOnboarding(env, [initSql, templateCatalogSql])
 }
 // #endif
 ---

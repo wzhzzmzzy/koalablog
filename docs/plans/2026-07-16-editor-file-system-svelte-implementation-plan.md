@@ -307,14 +307,14 @@ declare function replaceTemplateCatalog(env: Env, baseRevision: number, template
 
 Implementation rules:
 
-- `ensureTemplateCatalogInitialized` uses an insert-if-absent transaction and then reads the winning row;
+- `ensureTemplateCatalogInitialized` uses one atomic `INSERT ... ON CONFLICT ... RETURNING` statement (or a backend transaction with the same contract) to create or return the winning row;
 - the ordinary `/memo/` preset is written only by this initialization command;
 - repeated initialization never restores a deleted preset or replaces an explicitly empty catalog;
 - replacement validates every Template before entering the transaction and uses `UPDATE ... WHERE revision = :baseRevision`;
 - SQLite and D1 share fixtures and result semantics;
 - malformed stored JSON/schema versions return an explicit storage error rather than an empty synthesized catalog.
 
-Call `ensureTemplateCatalogInitialized` in onboarding before `putGlobalConfig` marks `_runtime.ready = true`. Do not run both operations in `Promise.all`: if catalog creation fails, onboarding must remain retryable; if the final config write fails, the idempotent Catalog initialization is safe to repeat.
+Call `ensureTemplateCatalogInitialized` in onboarding before `putGlobalConfig` marks `_runtime.ready = true`. For an existing ready installation, invoke the same idempotent command once per server/isolate startup after the additive migration is present. Do not run Catalog initialization and the readiness write in `Promise.all`: if catalog creation fails, onboarding must remain retryable; if the final config write fails, initialization is safe to repeat. Reads still never synthesize the preset.
 
 The Cloudflare onboarding page currently builds a fresh database from imported SQL. Append the additive Catalog migration to that bootstrap path or route it through a shared migration initializer, and add a check that a fresh D1 onboarding database contains the Catalog table. Do not broaden Gate 1A into redesigning the existing destructive onboarding reset behavior.
 

@@ -1,3 +1,4 @@
+import type { MarkdownSource } from '@/db'
 import type {
   AbsoluteFilePath,
   AbsolutePathPrefix,
@@ -5,9 +6,9 @@ import type {
   PathErrorCode,
   Result,
 } from './types'
-import { MarkdownSource } from '@/db'
+import { getSourceFromLink } from '@/db'
 
-const RENDERER_EXTENSION = /\.(?:md|svelte)$/i
+const FILE_EXTENSION = /\.[^/]+$/
 
 export function containsControlCharacter(input: string): boolean {
   for (const character of input) {
@@ -45,8 +46,8 @@ export function parseAbsoluteFilePath(input: string): Result<AbsoluteFilePath, P
     return fail(input, 'empty_file_path')
   if (input.length > 1 && input.endsWith('/'))
     return fail(input, 'trailing_slash')
-  if (RENDERER_EXTENSION.test(parsed.value.at(-1)!))
-    return fail(input, 'renderer_extension')
+  if (FILE_EXTENSION.test(parsed.value.at(-1)!))
+    return fail(input, 'file_extension')
 
   return { ok: true, value: `/${parsed.value.join('/')}` as AbsoluteFilePath }
 }
@@ -66,13 +67,7 @@ export function deriveTitle(path: AbsoluteFilePath): string {
 }
 
 export function classifySource(path: AbsoluteFilePath): MarkdownSource {
-  if (path.startsWith('/post/'))
-    return MarkdownSource.Post
-  if (path.startsWith('/memo/'))
-    return MarkdownSource.Memo
-  if (path.startsWith('/wiki/'))
-    return MarkdownSource.Wiki
-  return MarkdownSource.Page
+  return getSourceFromLink(path.slice(1))
 }
 
 export function isDescendantOfPrefix(path: AbsoluteFilePath, prefix: AbsolutePathPrefix): boolean {

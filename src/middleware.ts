@@ -1,5 +1,6 @@
 import { getActionContext } from 'astro:actions'
 import { defineMiddleware } from 'astro:middleware'
+import { ensureTemplateCatalogInitialized } from './db/template-catalog'
 import { authInterceptor } from './lib/auth'
 // #if !CF_PAGES
 import { SQLiteBlobStorage } from './lib/blob-storage'
@@ -12,14 +13,28 @@ const AUTH_REQUIRED_SITE = [
 
 const CSRF_CONTENT_TYPES = ['multipart/form-data', 'application/x-www-form-urlencoded']
 
+let templateCatalogInitialization: Promise<void> | undefined
+
+function ensureUpgradeTemplateCatalog(env: Env): Promise<void> {
+  templateCatalogInitialization ??= ensureTemplateCatalogInitialized(env)
+    .then(() => undefined)
+    .catch((error) => {
+      templateCatalogInitialization = undefined
+      throw error
+    })
+  return templateCatalogInitialization
+}
+
 function checkOrigin(ctx: Parameters<Parameters<typeof defineMiddleware>[0]>[0]): boolean {
   const origin = ctx.request.headers.get('Origin')
-  if (!origin) return true
+  if (!origin)
+    return true
 
   try {
     const originUrl = new URL(origin)
     return originUrl.host === ctx.url.host
-  } catch {
+  }
+  catch {
     return false
   }
 }
@@ -28,6 +43,9 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const env = ctx.locals.runtime?.env || {}
   const pathname = ctx.url.pathname
   const config = await globalConfig(env)
+
+  if (config._runtime?.ready)
+    await ensureUpgradeTemplateCatalog(env)
 
   ctx.locals.config = config
 

@@ -28,6 +28,7 @@ describe('file path', () => {
     '/memo/.recycleBin/note',
     '/memo/note.md',
     '/memo/app.svelte',
+    '/memo/archive.txt',
     '/memo/line\nfeed',
   ])('rejects invalid File Path %s', (input) => {
     expect(parseAbsoluteFilePath(input).ok).toBe(false)

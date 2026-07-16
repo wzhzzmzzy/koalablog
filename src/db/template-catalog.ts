@@ -21,6 +21,12 @@ export type TemplateCatalogReadResult =
   | { status: 'absent' }
   | { status: 'ready', catalog: TemplateCatalogV1 }
 
+interface StoredCatalogRow {
+  schemaVersion: number
+  revision: number
+  payload: string
+}
+
 function validatedTemplates(input: unknown): CreationTemplateV1[] {
   if (!Array.isArray(input))
     throw new TemplateCatalogStorageError('invalid_storage', 'Template Catalog payload must be an array')
@@ -69,6 +75,21 @@ function parseStoredTemplates(payload: string): CreationTemplateV1[] {
   }
 }
 
+function catalogFromRow(row: StoredCatalogRow): TemplateCatalogV1 {
+  if (row.schemaVersion !== CATALOG_SCHEMA_VERSION) {
+    throw new TemplateCatalogStorageError(
+      'invalid_storage',
+      `Unsupported Template Catalog schema: ${row.schemaVersion}`,
+    )
+  }
+
+  return {
+    schemaVersion: CATALOG_SCHEMA_VERSION,
+    revision: row.revision,
+    templates: parseStoredTemplates(row.payload),
+  }
+}
+
 export async function readTemplateCatalog(env?: Env): Promise<TemplateCatalogReadResult> {
   const [row] = await connectDB(env)
     .select()
@@ -78,25 +99,15 @@ export async function readTemplateCatalog(env?: Env): Promise<TemplateCatalogRea
 
   if (!row)
     return { status: 'absent' }
-  if (row.schemaVersion !== CATALOG_SCHEMA_VERSION) {
-    throw new TemplateCatalogStorageError(
-      'invalid_storage',
-      `Unsupported Template Catalog schema: ${row.schemaVersion}`,
-    )
-  }
 
   return {
     status: 'ready',
-    catalog: {
-      schemaVersion: CATALOG_SCHEMA_VERSION,
-      revision: row.revision,
-      templates: parseStoredTemplates(row.payload),
-    },
+    catalog: catalogFromRow(row),
   }
 }
 
 export async function ensureTemplateCatalogInitialized(env?: Env): Promise<TemplateCatalogV1> {
-  await connectDB(env)
+  const [row] = await connectDB(env)
     .insert(creationTemplateCatalog)
     .values({
       key: CATALOG_KEY,
@@ -104,12 +115,15 @@ export async function ensureTemplateCatalogInitialized(env?: Env): Promise<Templ
       revision: 1,
       payload: JSON.stringify([DEFAULT_MEMO_TEMPLATE_V1]),
     })
-    .onConflictDoNothing()
+    .onConflictDoUpdate({
+      target: creationTemplateCatalog.key,
+      set: { key: CATALOG_KEY },
+    })
+    .returning()
 
-  const stored = await readTemplateCatalog(env)
-  if (stored.status === 'absent')
+  if (!row)
     throw new TemplateCatalogStorageError('invalid_storage', 'Template Catalog initialization did not persist')
-  return stored.catalog
+  return catalogFromRow(row)
 }
 
 export async function replaceTemplateCatalog(
