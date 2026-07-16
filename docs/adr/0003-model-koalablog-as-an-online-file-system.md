@@ -1,0 +1,3 @@
+# Model Koalablog as an online file system
+
+Koalablog treats each entry as a server-persisted plain-text file whose unique identity is an extensionless absolute path and whose title is the path basename. Clicking create immediately persists the file; there is no draft or publication lifecycle, only an optional client-local edit buffer before later saves. Rendering, compilation, SEO snapshots, and disk extensions are derived views or exchange formats and never determine whether source exists or may be saved. This deliberately favours an Obsidian-like source-of-truth model over document-site publication semantics.

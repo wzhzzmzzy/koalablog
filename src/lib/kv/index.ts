@@ -45,7 +45,13 @@ const GLOBAL_CONFIG_KEY = '_KoalaConfig_'
 export const ACCESS_TOKEN_KEY = 'koala-access-token'
 export const REFRESH_TOKEN_KEY = 'koala-refresh-token'
 
-export async function globalConfig(env?: Env): Promise<GlobalConfig> {
+interface LocalConfigStorage {
+  get: (key: string) => Promise<unknown>
+  set: (key: string, value: unknown) => Promise<void>
+  sync: () => Promise<void>
+}
+
+export async function globalConfig(env?: Env, localStorage?: LocalConfigStorage): Promise<GlobalConfig> {
   // use cloudflare kv
   if (env?.CF_PAGES) {
     const globalConfigValue = await env.KOALA.get(GLOBAL_CONFIG_KEY)
@@ -61,7 +67,8 @@ export async function globalConfig(env?: Env): Promise<GlobalConfig> {
   }
   // #if !CF_PAGES
   else {
-    const globalConfigValue = (await storage.get(
+    const configStorage = localStorage ?? storage
+    const globalConfigValue = (await configStorage.get(
       GLOBAL_CONFIG_KEY,
     )) as GlobalConfig
 
@@ -83,15 +90,43 @@ export async function globalConfig(env?: Env): Promise<GlobalConfig> {
   }
 }
 
-export async function putGlobalConfig(env: Env, patch: Partial<GlobalConfig>) {
-  const currentConfig = await globalConfig(env)
-  const updatedScopeConfig = { ...currentConfig, ...patch }
+function mergeGlobalConfig(currentConfig: GlobalConfig, patch: Partial<GlobalConfig>): GlobalConfig {
+  const pageConfig = {
+    ...currentConfig.pageConfig,
+    ...patch.pageConfig,
+  }
+  if (patch.pageConfig?.theme) {
+    pageConfig.theme = {
+      ...currentConfig.pageConfig.theme,
+      ...patch.pageConfig.theme,
+    }
+  }
+
+  return {
+    pageConfig,
+    rss: patch.rss === undefined ? currentConfig.rss : { ...currentConfig.rss, ...patch.rss },
+    font: patch.font === undefined ? currentConfig.font : { ...currentConfig.font, ...patch.font },
+    auth: { ...currentConfig.auth, ...patch.auth },
+    oss: { ...currentConfig.oss, ...patch.oss },
+    _runtime: { ...currentConfig._runtime, ...patch._runtime },
+  }
+}
+
+export async function putGlobalConfig(
+  env: Env,
+  patch: Partial<GlobalConfig>,
+  localStorage?: LocalConfigStorage,
+) {
+  const currentConfig = await globalConfig(env, localStorage)
+  const updatedConfig = mergeGlobalConfig(currentConfig, patch)
   if (env?.CF_PAGES) {
-    await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedScopeConfig))
+    await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedConfig))
   }
   // #if !CF_PAGES
   else {
-    await storage.set(GLOBAL_CONFIG_KEY, updatedScopeConfig)
+    const configStorage = localStorage ?? storage
+    await configStorage.set(GLOBAL_CONFIG_KEY, updatedConfig)
+    await configStorage.sync()
   }
   // #endif
 }
@@ -99,23 +134,19 @@ export async function putGlobalConfig(env: Env, patch: Partial<GlobalConfig>) {
 export async function updateGlobalConfig<S extends keyof GlobalConfig>(
   env: Env,
   payload: Record<S, Partial<GlobalConfig[S]>>,
+  localStorage?: LocalConfigStorage,
 ) {
-  const currentConfig = await globalConfig(env)
-  const updatedConfig = { ...currentConfig }
-  Object.keys(payload).forEach((scope) => {
-    const patch = payload[scope as S]
-
-    const updatedScopeConfig = { ...currentConfig[scope as S], ...patch }
-    updatedConfig[scope as S] = updatedScopeConfig
-  })
+  const currentConfig = await globalConfig(env, localStorage)
+  const updatedConfig = mergeGlobalConfig(currentConfig, payload)
 
   if (env?.CF_PAGES) {
     await env.KOALA.put(GLOBAL_CONFIG_KEY, JSON.stringify(updatedConfig))
   }
   // #if !CF_PAGES
   else {
-    await storage.set(GLOBAL_CONFIG_KEY, payload)
-    await storage.sync()
+    const configStorage = localStorage ?? storage
+    await configStorage.set(GLOBAL_CONFIG_KEY, updatedConfig)
+    await configStorage.sync()
   }
   // #endif
 }

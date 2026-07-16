@@ -36,6 +36,19 @@ export const ossAccess = sqliteTable('oss_access', {
   operateTimes: integer().default(0),
 })
 
+export const creationTemplateCatalog = sqliteTable('creation_template_catalog', {
+  key: text().primaryKey(),
+  schemaVersion: integer().notNull(),
+  revision: integer().notNull(),
+  payload: text().notNull(),
+  createdAt: integer({ mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer({ mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 // #if !CF_PAGES
 export const blobStorage = sqliteTable('blob_storage', {
   id: integer().primaryKey({ autoIncrement: true }),

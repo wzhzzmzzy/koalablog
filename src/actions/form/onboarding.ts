@@ -1,3 +1,4 @@
+import { ensureTemplateCatalogInitialized } from '@/db/template-catalog'
 import { putGlobalConfig } from '@/lib/kv'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
@@ -11,6 +12,7 @@ export const onboarding = defineAction({
   handler: async (input, ctx) => {
     const { blogTitle, adminKey } = input
     const env = ctx.locals.runtime?.env || {}
+    await ensureTemplateCatalogInitialized(env)
     await putGlobalConfig(env, {
       oss: {
         readLimit: 500000,
