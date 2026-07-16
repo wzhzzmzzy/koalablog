@@ -1,4 +1,5 @@
-import { FileInputError, saveFile, updatePrivate } from '@/db/markdown'
+import { saveFile, updatePrivate } from '@/db/markdown'
+import { parseAbsoluteFilePath } from '@/lib/files/path'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
@@ -32,7 +33,11 @@ export const save = defineAction({
   accept: 'form',
   input: z.object({
     id: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().gte(0)),
-    path: z.string().min(1),
+    path: z.string().min(1).superRefine((path, ctx) => {
+      const parsed = parseAbsoluteFilePath(path)
+      if (!parsed.ok)
+        ctx.addIssue({ code: 'custom', message: `Invalid File Path: ${parsed.error.code}` })
+    }),
     content: z.string(),
     private: z.preprocess(value => value === 'true', z.boolean().default(false)),
     baseRevision: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().gte(0)),
@@ -44,19 +49,8 @@ export const save = defineAction({
   }).strict(),
   handler: async (input, ctx) => {
     await authGuard(ctx)
-    try {
-      const result = await saveFile(ctx.locals.runtime?.env || {}, input)
-      return handleSaveResult(result)
-    }
-    catch (error) {
-      if (error instanceof FileInputError) {
-        throw new ActionError({
-          code: 'BAD_REQUEST',
-          message: JSON.stringify({ code: error.code, message: error.message }),
-        })
-      }
-      throw error
-    }
+    const result = await saveFile(ctx.locals.runtime?.env || {}, input)
+    return handleSaveResult(result)
   },
 })
 

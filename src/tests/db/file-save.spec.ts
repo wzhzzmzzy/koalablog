@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readById, saveFile } from '@/db/markdown'
+import { readAnyById, readById, readByPath, saveFile, saveSyncedFile, trash } from '@/db/markdown'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-describe('file Source Save', () => {
-  const env = {} as Env
+const env = {} as Env
+
+function useFileSaveDatabase() {
   let databasePath: string
 
   beforeEach(async () => {
@@ -42,6 +43,10 @@ describe('file Source Save', () => {
     vi.unstubAllEnvs()
     await unlink(databasePath).catch(() => undefined)
   })
+}
+
+describe('file Source Save derivation', () => {
+  useFileSaveDatabase()
 
   it('derives File metadata from absolute Path and Markdown Source', async () => {
     const result = await saveFile(env, {
@@ -66,6 +71,69 @@ describe('file Source Save', () => {
       },
     })
     expect(await readById(env, result.status === 'saved' ? result.file.id : 0)).toMatchObject(result.status === 'saved' ? result.file : {})
+  })
+
+  it('keeps a sync-originated Save out of the remote-truth queue', async () => {
+    const result = await saveSyncedFile(env, {
+      id: 0,
+      path: '/wiki/synced',
+      content: 'synced Source',
+      private: false,
+      baseRevision: 0,
+    })
+
+    expect(result).toMatchObject({
+      status: 'saved',
+      file: { remoteTruth: false },
+    })
+  })
+
+  it('reports an occupied active Path without mutating either File', async () => {
+    const first = await saveFile(env, {
+      id: 0,
+      path: '/wiki/first',
+      content: 'first',
+      private: false,
+      baseRevision: 0,
+    })
+    const second = await saveFile(env, {
+      id: 0,
+      path: '/wiki/second',
+      content: 'second',
+      private: false,
+      baseRevision: 0,
+    })
+    if (first.status !== 'saved' || second.status !== 'saved')
+      throw new Error('Expected File fixtures to be created')
+
+    const result = await saveFile(env, {
+      id: first.file.id,
+      path: second.file.path,
+      content: 'must not overwrite',
+      private: true,
+      baseRevision: first.file.revision,
+    })
+
+    expect(result).toEqual({ status: 'path_conflict', path: '/wiki/second' })
+    expect(await readById(env, first.file.id)).toMatchObject(first.file)
+    expect(await readById(env, second.file.id)).toMatchObject(second.file)
+  })
+})
+
+describe('file Source Save preconditions', () => {
+  useFileSaveDatabase()
+
+  it('does not create a File when a missing ID carries a nonzero base revision', async () => {
+    const result = await saveFile(env, {
+      id: 0,
+      path: '/post/missing-stale-file',
+      content: 'stale Source',
+      private: false,
+      baseRevision: 4,
+    })
+
+    expect(result).toEqual({ status: 'not_found' })
+    expect(await readByPath(env, '/post/missing-stale-file')).toBeUndefined()
   })
 
   it('accepts only one Save for a shared base revision and returns current server values to the loser', async () => {
@@ -107,34 +175,61 @@ describe('file Source Save', () => {
     expect(await readById(env, created.file.id)).toMatchObject(saved?.status === 'saved' ? saved.file : {})
   })
 
-  it('reports an occupied active Path without mutating either File', async () => {
-    const first = await saveFile(env, {
+  it('returns the recycled server File when a Save loses a race with trash', async () => {
+    const created = await saveFile(env, {
       id: 0,
-      path: '/wiki/first',
-      content: 'first',
+      path: '/post/recycled-during-save',
+      content: 'initial',
       private: false,
       baseRevision: 0,
     })
-    const second = await saveFile(env, {
-      id: 0,
-      path: '/wiki/second',
-      content: 'second',
-      private: false,
-      baseRevision: 0,
-    })
-    if (first.status !== 'saved' || second.status !== 'saved')
-      throw new Error('Expected File fixtures to be created')
+    if (created.status !== 'saved')
+      throw new Error('Expected fixture File creation to succeed')
 
+    await trash(env, created.file.id)
     const result = await saveFile(env, {
-      id: first.file.id,
-      path: second.file.path,
-      content: 'must not overwrite',
-      private: true,
-      baseRevision: first.file.revision,
+      id: created.file.id,
+      path: created.file.path,
+      content: 'stale local Source',
+      private: false,
+      baseRevision: created.file.revision,
     })
 
-    expect(result).toEqual({ status: 'path_conflict', path: '/wiki/second' })
-    expect(await readById(env, first.file.id)).toMatchObject(first.file)
-    expect(await readById(env, second.file.id)).toMatchObject(second.file)
+    expect(result).toMatchObject({
+      status: 'conflict',
+      current: {
+        id: created.file.id,
+        revision: created.file.revision + 1,
+        deletedAt: expect.any(Date),
+      },
+    })
+    expect(await readAnyById(env, created.file.id)).toMatchObject(result.status === 'conflict' ? result.current : {})
+  })
+})
+
+describe('legacy memo URL compatibility', () => {
+  useFileSaveDatabase()
+
+  it('keeps a saved /memos File classified as Memo and reachable by its Path', async () => {
+    const created = await saveFile(env, {
+      id: 0,
+      path: '/memos/legacy-note',
+      content: 'initial',
+      private: true,
+      baseRevision: 0,
+    })
+    if (created.status !== 'saved')
+      throw new Error('Expected fixture File creation to succeed')
+
+    const saved = await saveFile(env, {
+      id: created.file.id,
+      path: created.file.path,
+      content: 'updated',
+      private: true,
+      baseRevision: created.file.revision,
+    })
+
+    expect(saved).toMatchObject({ status: 'saved', file: { source: 30, path: '/memos/legacy-note' } })
+    expect(await readByPath(env, '/memos/legacy-note')).toMatchObject({ source: 30, content: 'updated' })
   })
 })

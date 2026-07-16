@@ -103,6 +103,21 @@ describe('document recycle bin', () => {
     })
   })
 
+  it('keeps a legacy recycled File inactive when its stored Path is invalid', async () => {
+    const client = createClient({ url: `file:${databasePath}` })
+    const inserted = await client.execute({
+      sql: `INSERT INTO markdown (source, path, title, content, deletedAt) VALUES (?, ?, ?, ?, ?)`,
+      args: [30, '/memo/legacy.md', 'legacy.md', 'legacy', Math.floor(Date.now() / 1000)],
+    })
+    client.close()
+
+    const id = Number(inserted.lastInsertRowid)
+    const result = await restore(testEnv, id)
+
+    expect(result).toEqual({ status: 'invalid_path', path: '/memo/legacy.md' })
+    expect((await readAnyById(testEnv, id))?.deletedAt).toBeInstanceOf(Date)
+  })
+
   it('permanently deletes only documents that are already in the recycle bin', async () => {
     const [file] = await add(testEnv, { path: '/post/hello', content: 'content' })
 

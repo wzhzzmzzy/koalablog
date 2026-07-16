@@ -2,8 +2,7 @@
 import type { FileRecord } from '@/db/types'
 import ArticleClient from '@/components/article-view/client.astro'
 import ArticleView from '@/components/article-view/index.astro'
-import { getSourceFromPath } from '@/db'
-import { read, readActivePaths } from '@/db/markdown'
+import { readActivePaths, readByPath } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
 import { renderIt } from '@/lib/markdown/render-it'
 import { retriveRss } from '@/lib/utils/rss'
@@ -15,7 +14,7 @@ if (slug === 'rss.xml') {
 }
 
 const path = `/${slug || ''}`
-const maybePage: FileRecord | undefined = await read(Astro.locals.runtime?.env, getSourceFromPath(path), path)
+const maybePage: FileRecord | undefined = await readByPath(Astro.locals.runtime?.env, path)
 
 if (!maybePage) {
   return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)

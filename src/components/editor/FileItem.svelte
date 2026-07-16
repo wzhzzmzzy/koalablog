@@ -22,5 +22,5 @@
   }}
 >
     <FileText size={14} class="opacity-70 shrink-0 " />
-    <span class="text-sm text-[--koala-text]">{item.title}.md</span>
+    <span class="text-sm text-[--koala-text]">{item.title}</span>
 </button>

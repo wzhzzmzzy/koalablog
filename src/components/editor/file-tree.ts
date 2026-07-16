@@ -1,14 +1,14 @@
 import type { FileRecord } from '@/db/types'
 
-export interface DocumentTreeNode {
+export interface FileTreeNode {
   name: string
   fullPath: string
-  children: Record<string, DocumentTreeNode>
+  children: Record<string, FileTreeNode>
   items: FileRecord[]
 }
 
-export function buildDocumentTree(files: FileRecord[]) {
-  const root: DocumentTreeNode = { name: '', fullPath: '/', children: {}, items: [] }
+export function buildFileTree(files: FileRecord[]) {
+  const root: FileTreeNode = { name: '', fullPath: '/', children: {}, items: [] }
   const activeFiles = files
     .filter(file => !file.deletedAt)
     .sort((a, b) => a.path.localeCompare(b.path) || a.createdAt.getTime() - b.createdAt.getTime())
@@ -31,7 +31,7 @@ export function buildDocumentTree(files: FileRecord[]) {
   return root
 }
 
-export function getTrashedDocuments(files: FileRecord[]) {
+export function getTrashedFiles(files: FileRecord[]) {
   return files
     .filter(file => file.deletedAt)
     .sort((a, b) => b.deletedAt!.getTime() - a.deletedAt!.getTime() || b.id - a.id)

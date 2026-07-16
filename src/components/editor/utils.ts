@@ -94,7 +94,33 @@ export function formatActionError(message: string) {
   }
 }
 
-export function findPreviousActiveDocument(history: string[], files: FileRecord[]) {
+export function sourceConflictFromActionError(error: { code?: string, message: string }): FileRecord | null {
+  if (error.code !== 'CONFLICT')
+    return null
+  try {
+    const payload = JSON.parse(error.message) as { code?: string, current?: FileRecord }
+    return payload.code === 'source_conflict' && payload.current ? payload.current : null
+  }
+  catch {
+    return null
+  }
+}
+
+export function formatFileSaveError(error: { code?: string, message: string }) {
+  if (error.code === 'CONFLICT') {
+    try {
+      const payload = JSON.parse(error.message) as { code?: string, path?: string }
+      if (payload.code === 'path_conflict')
+        return `Another active File already uses ${payload.path}.`
+    }
+    catch {
+      // Fall through to ordinary formatting.
+    }
+  }
+  return formatActionError(error.message)
+}
+
+export function findPreviousActiveFile(history: string[], files: FileRecord[]) {
   const previousPath = history.at(-2)
   return files.find(file => !file.deletedAt && file.path === previousPath)
 }

@@ -257,8 +257,10 @@ async function uploadToKoalablog(memo) {
   return batchUploadToKoalablog([memo])
 }
 
-async function batchUploadToKoalablog(memos) {
+async function batchUploadToKoalablog(memos, remoteFileMap) {
+  const remoteFiles = remoteFileMap || new Map((await fetchRemoteFiles()).map(file => [file.path, file]))
   const payload = memos.map(memo => ({
+    id: remoteFiles.get(memo.path)?.id || 0,
     path: memo.path,
     content: memo.content
       // ![[attachments/...]] → ![](/attachments/...)
@@ -271,6 +273,7 @@ async function batchUploadToKoalablog(memos) {
       .replace(/\[\[((?:\.\.\/)+attachments\/[^\]|]+)\|([^\]]+)\]\]/g, '[$2]($1)')
       .replace(/\[\[((?:\.\.\/)+attachments\/[^\]|]+)\]\]/g, '[$1]($1)'),
     private: true,
+    baseRevision: remoteFiles.get(memo.path)?.revision || 0,
   }))
 
   const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/batch`, {
@@ -288,7 +291,11 @@ async function batchUploadToKoalablog(memos) {
     throw new Error(err)
   }
   
-  return res.json()
+  const result = await res.json()
+  for (const file of result.results || []) {
+    remoteFiles.set(file.path, file)
+  }
+  return result
 }
 
 async function deleteFromKoalablog(path) {
@@ -332,8 +339,8 @@ async function batchDeleteFromKoalablog(paths) {
   return res.json()
 }
 
-async function fetchRemoteMemos() {
-  const sources = ['memo', 'wiki']
+async function fetchRemoteFiles() {
+  const sources = ['memo', 'wiki', 'page']
   const records = await Promise.all(sources.map(async (source) => {
     const res = await undiciFetch(`${config.koalablogUrl}/api/markdown/batch?source=${source}`, {
       headers: {
@@ -639,6 +646,8 @@ async function fullSync() {
     log(`⚠️ No valid memos to sync`)
     return
   }
+
+  const remoteFileMap = new Map((await fetchRemoteFiles()).map(file => [file.path, file]))
   
   log(`📎 Syncing attachments...`)
   let totalAttachmentsUploaded = 0
@@ -671,7 +680,7 @@ async function fullSync() {
     log(`   Batch ${i + 1}/${batches.length}: uploading ${batch.length} files...`)
     
     try {
-      const result = await batchUploadToKoalablog(batch)
+      const result = await batchUploadToKoalablog(batch, remoteFileMap)
       totalUploaded += result.count || 0
       totalSkipped += result.skipped || 0
       log(`   ✅ Batch ${i + 1}: ${result.count || 0} uploaded, ${result.skipped || 0} skipped`)
@@ -686,10 +695,10 @@ async function fullSync() {
   log(`🔍 Checking for remote records to delete...`)
   
   try {
-    const remoteMemos = await fetchRemoteMemos()
+    const remoteFiles = await fetchRemoteFiles()
     const localPaths = new Set(memos.map(m => m.path))
     
-    const toDelete = remoteMemos
+    const toDelete = remoteFiles
       .filter((record) => {
         if (localPaths.has(record.path))
           return false

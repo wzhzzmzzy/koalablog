@@ -27,14 +27,14 @@ function getStoredDrafts(): [string, FileRecord][] {
 
 export const editorStore = $state<{
   items: FileRecord[]
-  currentMarkdown: FileRecord | null
+  currentFile: FileRecord | null
   loading: boolean
   hasAttemptedLoad: boolean
   history: string[]
   showSidebar: boolean
 }>({
   items: [],
-  currentMarkdown: null,
+  currentFile: null,
   loading: false,
   hasAttemptedLoad: false,
   history: [],
@@ -122,8 +122,8 @@ export function replaceItemsByPrefix(prefix: string, freshItems: FileRecord[]) {
   ]
 }
 
-export function setCurrentMarkdown(file: FileRecord | null) {
-  editorStore.currentMarkdown = file
+export function setCurrentFile(file: FileRecord | null) {
+  editorStore.currentFile = file
 }
 
 export function pushHistory(path: string) {

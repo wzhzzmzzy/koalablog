@@ -1,6 +1,6 @@
 import type { ValidRedirectStatus } from 'astro'
 import { MarkdownSource } from '@/db'
-import { read } from '@/db/markdown'
+import { readByPath } from '@/db/markdown'
 import { to } from 'await-to-js'
 
 interface AppInject {
@@ -16,7 +16,7 @@ export async function readArticle({ locals, redirect, url }: AppInject, source: 
   if (routePath.startsWith('memos/')) {
     prefix = '/'
   }
-  const [error, article] = await to(read(env, source, `${prefix}${routePath}`))
+  const [error, article] = await to(readByPath(env, `${prefix}${routePath}`))
 
   if (error) {
     return redirect('/500')

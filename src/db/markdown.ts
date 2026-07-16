@@ -115,40 +115,18 @@ export async function batchAdd(env: Env, files: BatchFileInput[]) {
   return connectDB(env).insert(markdown).values(files.map(insertValues)).returning()
 }
 
-export async function batchUpsert(env: Env, files: BatchFileInput[]) {
-  if (files.length === 0)
-    return []
-  return connectDB(env)
-    .insert(markdown)
-    .values(files.map(insertValues))
-    .onConflictDoUpdate({
-      target: markdown.path,
-      targetWhere: isNull(markdown.deletedAt),
-      set: {
-        title: sql.raw(`excluded.${markdown.title.name}`),
-        content: sql.raw(`excluded.${markdown.content.name}`),
-        source: sql.raw(`excluded.${markdown.source.name}`),
-        tags: sql.raw(`excluded.${markdown.tags.name}`),
-        outgoing_links: sql.raw(`excluded.${markdown.outgoing_links.name}`),
-        private: sql.raw(`excluded.${markdown.private.name}`),
-        remoteTruth: false,
-        revision: sql`${markdown.revision} + 1`,
-        updatedAt: new Date(),
-      },
-    })
-    .returning()
-}
-
-export async function saveFile(env: Env, input: SaveFileInput): Promise<SaveFileResult> {
+async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boolean): Promise<SaveFileResult> {
   const values = {
     ...sourceValues(input.path, input.content),
     private: input.private,
-    remoteTruth: true,
+    remoteTruth,
     updatedAt: new Date(),
   }
   const db = connectDB(env)
 
   if (input.id === 0) {
+    if (input.baseRevision !== 0)
+      return { status: 'not_found' }
     try {
       const [file] = await db.insert(markdown).values(values).returning()
       return { status: 'saved', file }
@@ -180,8 +158,16 @@ export async function saveFile(env: Env, input: SaveFileInput): Promise<SaveFile
   if (file)
     return { status: 'saved', file }
 
-  const current = await readById(env, input.id)
+  const current = await readAnyById(env, input.id)
   return current ? { status: 'conflict', current } : { status: 'not_found' }
+}
+
+export function saveFile(env: Env, input: SaveFileInput) {
+  return saveSourceFile(env, input, true)
+}
+
+export function saveSyncedFile(env: Env, input: SaveFileInput) {
+  return saveSourceFile(env, input, false)
 }
 
 export async function updatePrivate(
@@ -203,7 +189,7 @@ export async function updatePrivate(
   if (file)
     return { status: 'saved', file }
 
-  const current = await readById(env, id)
+  const current = await readAnyById(env, id)
   return current ? { status: 'conflict', current } : { status: 'not_found' }
 }
 
@@ -248,6 +234,10 @@ export async function restore(env: Env, id: number, renameOnConflict = false) {
     return { status: 'not_found' as const }
   if (!file.deletedAt)
     return { status: 'restored' as const, file }
+
+  const parsedPath = parseAbsoluteFilePath(file.path)
+  if (!parsedPath.ok)
+    return { status: 'invalid_path' as const, path: file.path }
 
   const db = connectDB(env)
   const conflict = await db.query.markdown.findFirst({
@@ -365,6 +355,15 @@ export function read(env: Env, source: MarkdownSource, path: string) {
   return connectDB(env).query.markdown.findFirst({
     where: and(
       eq(markdown.source, source),
+      eq(markdown.path, requiredPath(path)),
+      isNull(markdown.deletedAt),
+    ),
+  })
+}
+
+export function readByPath(env: Env, path: string) {
+  return connectDB(env).query.markdown.findFirst({
+    where: and(
       eq(markdown.path, requiredPath(path)),
       isNull(markdown.deletedAt),
     ),

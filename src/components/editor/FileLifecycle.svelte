@@ -6,18 +6,18 @@
   import { notify, removeDraft } from './store.svelte';
 
   interface Props {
-    markdown: FileRecord;
+    file: FileRecord;
     onUpdate?: (file: FileRecord) => void;
     onPurge?: (id: number) => void;
   }
 
-  let { markdown, onUpdate, onPurge }: Props = $props();
+  let { file, onUpdate, onPurge }: Props = $props();
   let showTrashConfirm = $state(false);
   let showPurgeConfirm = $state(false);
   let restoreConflict = $state<{ suggestedPath: string; suggestedTitle: string } | null>(null);
   let activeDialog: HTMLDivElement | undefined = $state();
-  const trashed = $derived(Boolean(markdown.deletedAt));
-  const dialogTitleId = $derived(`document-lifecycle-dialog-${markdown.id}`);
+  const trashed = $derived(Boolean(file.deletedAt));
+  const dialogTitleId = $derived(`file-lifecycle-dialog-${file.id}`);
 
   async function focusDialog() {
     await tick();
@@ -44,21 +44,21 @@
     await focusDialog();
   }
 
-  async function trashDocument() {
-    const result = await actions.db.markdown.trash({ id: markdown.id });
+  async function trashFile() {
+    const result = await actions.db.markdown.trash({ id: file.id });
     if (result.error || !result.data || result.data.status !== 'trashed') {
       notify('error', result.error?.message || 'File was not found');
       return;
     }
 
     closeDialogs();
-    removeDraft(markdown.path);
+    removeDraft(file.path);
     onUpdate?.(result.data.file);
     notify('success', 'Moved to recycle bin', 3000);
   }
 
-  async function restoreDocument(renameOnConflict = false) {
-    const result = await actions.db.markdown.restore({ id: markdown.id, renameOnConflict });
+  async function restoreFile(renameOnConflict = false) {
+    const result = await actions.db.markdown.restore({ id: file.id, renameOnConflict });
     if (result.error || !result.data) {
       notify('error', result.error?.message || 'Restore failed');
       return;
@@ -71,6 +71,10 @@
       await focusDialog();
       return;
     }
+    if (result.data.status === 'invalid_path') {
+      notify('error', `Cannot restore invalid legacy Path: ${result.data.path}`);
+      return;
+    }
     if (result.data.status !== 'restored') {
       notify('error', 'File was not found');
       return;
@@ -81,27 +85,27 @@
     notify('success', `Restored as ${result.data.file.path}`, 3000);
   }
 
-  async function purgeDocument() {
-    const result = await actions.db.markdown.purge({ id: markdown.id });
+  async function purgeFile() {
+    const result = await actions.db.markdown.purge({ id: file.id });
     if (result.error || result.data?.status !== 'purged') {
       notify('error', result.error?.message || 'File was not found');
       return;
     }
 
     closeDialogs();
-    onPurge?.(markdown.id);
+    onPurge?.(file.id);
     notify('success', 'Permanently deleted', 3000);
   }
 </script>
 
 {#if trashed}
-  <button type="button" class="icon btn" onclick={() => restoreDocument(false)} aria-label="Restore" title="Restore">
+  <button type="button" class="icon btn" onclick={() => restoreFile(false)} aria-label="Restore" title="Restore">
     <RotateCcw size={20} />
   </button>
   <button type="button" class="icon !text-[--koala-error-text] btn" onclick={openPurgeConfirm} aria-label="Permanently delete" title="Permanently delete">
     <Trash2 size={20} />
   </button>
-{:else if markdown.id > 0}
+{:else if file.id > 0}
   <button type="button" class="icon !text-[--koala-error-text] btn" onclick={openTrashConfirm} aria-label="Move to recycle bin" title="Move to recycle bin">
     <Trash2 size={20} />
   </button>
@@ -122,7 +126,7 @@
       <p class="mb-6">The File can be restored later.</p>
       <div class="flex justify-end gap-3">
         <button type="button" class="icon btn" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
-        <button type="button" class="icon !text-[--koala-error-text] btn" onclick={trashDocument} aria-label="Move to recycle bin">
+        <button type="button" class="icon !text-[--koala-error-text] btn" onclick={trashFile} aria-label="Move to recycle bin">
           <Trash2 size={20} />
         </button>
       </div>
@@ -145,7 +149,7 @@
       <p class="mb-6">This cannot be undone. Other Files with the same Title will not be affected.</p>
       <div class="flex justify-end gap-3">
         <button type="button" class="icon btn" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
-        <button type="button" class="icon !text-[--koala-error-text] btn" onclick={purgeDocument} aria-label="Permanently delete">
+        <button type="button" class="icon !text-[--koala-error-text] btn" onclick={purgeFile} aria-label="Permanently delete">
           <Trash2 size={20} />
         </button>
       </div>
@@ -171,7 +175,7 @@
       </p>
       <div class="flex justify-end gap-3">
         <button type="button" class="icon btn" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
-        <button type="button" class="btn flex items-center gap-2" onclick={() => restoreDocument(true)}>
+        <button type="button" class="btn flex items-center gap-2" onclick={() => restoreFile(true)}>
           <RotateCcw size={20} />
           <span>Restore renamed</span>
         </button>

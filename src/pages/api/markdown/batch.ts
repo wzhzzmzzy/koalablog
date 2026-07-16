@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
-import { batchTrashByPaths, batchUpsert, FileInputError, readAll } from '@/db/markdown'
+import { batchTrashByPaths, FileInputError, readAll, saveSyncedFile } from '@/db/markdown'
 import { authInterceptor } from '@/lib/auth'
 
 function json(body: unknown, status = 200) {
@@ -40,9 +40,11 @@ export const GET: APIRoute = async (ctx) => {
 }
 
 interface BatchSourceInput {
+  id: number
   path: string
   content: string
-  private?: boolean
+  private: boolean
+  baseRevision: number
 }
 
 function parseBatchInput(body: unknown): { files?: BatchSourceInput[], error?: string } {
@@ -58,13 +60,23 @@ function parseBatchInput(body: unknown): { files?: BatchSourceInput[], error?: s
     const item = candidate as Record<string, unknown>
     if ('title' in item || 'subject' in item)
       return { error: 'File input must not include title' }
-    if ('link' in item || 'source' in item || 'tags' in item || 'outgoingLinks' in item)
+    if (['link', 'source', 'tags', 'outgoingLinks', 'remoteTruth', 'revision', 'createdAt', 'updatedAt', 'deletedAt'].some(field => field in item))
       return { error: 'File metadata is derived by the server' }
+    if (Object.keys(item).some(field => !['id', 'path', 'content', 'private', 'baseRevision'].includes(field)))
+      return { error: 'File input contains unsupported fields' }
     if (typeof item.path !== 'string' || typeof item.content !== 'string')
       return { error: 'Every File input requires path and content strings' }
-    if (item.private !== undefined && typeof item.private !== 'boolean')
+    if (!Number.isInteger(item.id) || (item.id as number) < 0 || !Number.isInteger(item.baseRevision) || (item.baseRevision as number) < 0)
+      return { error: 'Every File input requires id and baseRevision integers' }
+    if (typeof item.private !== 'boolean')
       return { error: 'File private must be a boolean' }
-    files.push({ path: item.path, content: item.content, private: item.private as boolean | undefined })
+    files.push({
+      id: item.id as number,
+      path: item.path,
+      content: item.content,
+      private: item.private,
+      baseRevision: item.baseRevision as number,
+    })
   }
   return { files }
 }
@@ -79,11 +91,19 @@ export const POST: APIRoute = async (ctx) => {
     if (parsed.error)
       return json({ error: parsed.error }, 400)
 
-    const results = await batchUpsert(ctx.locals.runtime?.env, parsed.files!)
+    const results = await Promise.all(parsed.files!.map(file => saveSyncedFile(ctx.locals.runtime?.env, file)))
+    if (results.some(result => result.status === 'conflict'))
+      return json({ error: 'source_conflict', results }, 409)
+    if (results.some(result => result.status === 'path_conflict'))
+      return json({ error: 'path_conflict', results }, 409)
+    if (results.some(result => result.status === 'not_found'))
+      return json({ error: 'not_found', results }, 404)
+
+    const files = results.map(result => result.status === 'saved' ? result.file : null).filter(file => file !== null)
     return json({
       success: true,
-      count: results.length,
-      results: results.map(file => ({
+      count: files.length,
+      results: files.map(file => ({
         id: file.id,
         path: file.path,
         title: file.title,

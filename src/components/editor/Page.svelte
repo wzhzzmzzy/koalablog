@@ -7,15 +7,15 @@
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
-  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
+  import { editorStore, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
 
   interface Props {
-    initialMarkdown: FileRecord;
+    initialFile: FileRecord;
     initialItems?: FileRecord[] | null;
     isMobile?: boolean;
   }
 
-  let { initialMarkdown, initialItems = null, isMobile = false }: Props = $props();
+  let { initialFile, initialItems = null, isMobile = false }: Props = $props();
 
   // 启用自动持久化
   useEditorPersistence();
@@ -34,18 +34,18 @@
   }
   
   // Init History and Current
-  if (!initialMarkdown.deletedAt) pushHistory(initialMarkdown.path);
-  setCurrentMarkdown(initialMarkdown);
+  if (!initialFile.deletedAt) pushHistory(initialFile.path);
+  setCurrentFile(initialFile);
 
-  // Sync URL with currentMarkdown
+  // Sync URL with the current File.
   $effect(() => {
-    if (editorStore.currentMarkdown) {
+    if (editorStore.currentFile) {
       const url = new URL(window.location.href);
-      if (editorStore.currentMarkdown.deletedAt) {
+      if (editorStore.currentFile.deletedAt) {
         url.searchParams.delete('path');
-        url.searchParams.set('id', String(editorStore.currentMarkdown.id));
-      } else if (url.searchParams.get('path') !== editorStore.currentMarkdown.path || url.searchParams.has('id')) {
-        url.searchParams.set('path', editorStore.currentMarkdown.path);
+        url.searchParams.set('id', String(editorStore.currentFile.id));
+      } else if (url.searchParams.get('path') !== editorStore.currentFile.path || url.searchParams.has('id')) {
+        url.searchParams.set('path', editorStore.currentFile.path);
         url.searchParams.delete('id');
       }
       if (url.href !== window.location.href) window.history.pushState({}, '', url);
@@ -55,9 +55,9 @@
   function handleSelect(m: FileRecord) {
     if (!m.deletedAt && m.path) pushHistory(m.path);
     if (!m.deletedAt && drafts.has(m.path)) {
-      setCurrentMarkdown(drafts.get(m.path)!)
+      setCurrentFile(drafts.get(m.path)!)
     } else {
-      setCurrentMarkdown(m);
+      setCurrentFile(m);
     }
 
     if (window.innerWidth < 768) {
@@ -67,28 +67,28 @@
 
   function handleSave(m: FileRecord) {
     updateLastHistory(m.path);
-    setCurrentMarkdown(m);
+    setCurrentFile(m);
     upsertItem(m);
   }
 
   function handleUpdate(m: FileRecord) {
-    setCurrentMarkdown(m);
+    setCurrentFile(m);
     upsertItem(m);
   }
 
   function selectFallback() {
     const fallback = editorStore.items.find(item => !item.deletedAt) ?? initFileRecord();
-    setCurrentMarkdown(fallback);
+    setCurrentFile(fallback);
   }
 
   function handlePurge(id: number) {
-    const purgedCurrent = editorStore.currentMarkdown?.id === id;
+    const purgedCurrent = editorStore.currentFile?.id === id;
     removeItem(id);
     if (purgedCurrent) selectFallback();
   }
 
   function handleEmptyTrash() {
-    const removedCurrent = Boolean(editorStore.currentMarkdown?.deletedAt);
+    const removedCurrent = Boolean(editorStore.currentFile?.deletedAt);
     removeTrashedItems();
     if (removedCurrent) selectFallback();
   }
@@ -137,7 +137,7 @@
       }
       setPath(candidate);
     }
-    setCurrentMarkdown(newFile);
+    setCurrentFile(newFile);
   }
 </script>
 
@@ -147,7 +147,7 @@
     <div class="{editorStore.showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
         <div class="flex-1 overflow-hidden pt-5">
              <Sidebar
-                currentId={editorStore.currentMarkdown?.id || 0}
+                currentId={editorStore.currentFile?.id || 0}
                 onSelect={handleSelect}
                 onCreate={createNew}
                 onRefresh={handleRefresh}
@@ -158,10 +158,10 @@
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        {#if editorStore.currentMarkdown}
+        {#if editorStore.currentFile}
              <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
                  <Editor 
-                    markdown={editorStore.currentMarkdown} 
+                    file={editorStore.currentFile}
                     onSave={handleSave}
                     onUpdate={handleUpdate}
                     onPurge={handlePurge}

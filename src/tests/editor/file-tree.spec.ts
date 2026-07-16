@@ -1,10 +1,10 @@
-import { buildDocumentTree, getTrashedDocuments } from '@/components/editor/document-tree'
+import { buildFileTree, getTrashedFiles } from '@/components/editor/file-tree'
 import { drafts, editorStore, replaceItemsByPrefix, setItems } from '@/components/editor/store.svelte'
 import { initFileRecord } from '@/db/types'
 import { describe, expect, it } from 'vitest'
 
-describe('editor document tree', () => {
-  it('keeps active documents in the path tree and duplicate deleted documents in the recycle bin', () => {
+describe('editor File tree', () => {
+  it('keeps active Files in the Path tree and duplicate deleted Files in the recycle bin', () => {
     const active = { ...initFileRecord(), id: 1, path: '/post/active', title: 'active' }
     const older = {
       ...initFileRecord(),
@@ -21,9 +21,9 @@ describe('editor document tree', () => {
       deletedAt: new Date('2026-07-15T10:00:00Z'),
     }
 
-    const documents = [older, active, newer]
-    const tree = buildDocumentTree(documents)
-    const recycleBin = getTrashedDocuments(documents)
+    const files = [older, active, newer]
+    const tree = buildFileTree(files)
+    const recycleBin = getTrashedFiles(files)
 
     expect(tree.children.post.items.map(item => item.id)).toEqual([active.id])
     expect(recycleBin.map(item => item.id)).toEqual([newer.id, older.id])

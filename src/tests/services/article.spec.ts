@@ -2,9 +2,9 @@ import { MarkdownSource } from '@/db'
 import { readArticle } from '@/lib/services/article'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ read: vi.fn() }))
+const mocks = vi.hoisted(() => ({ readByPath: vi.fn() }))
 
-vi.mock('@/db/markdown', () => ({ read: mocks.read }))
+vi.mock('@/db/markdown', () => ({ readByPath: mocks.readByPath }))
 
 function appInject() {
   return {
@@ -20,7 +20,7 @@ function appInject() {
 describe('public File route lookup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.read.mockResolvedValue({ id: 1, private: false })
+    mocks.readByPath.mockResolvedValue({ id: 1, private: false })
   })
 
   it('maps legacy route parameters to canonical absolute Paths', async () => {
@@ -30,8 +30,8 @@ describe('public File route lookup', () => {
     await readArticle(inject, MarkdownSource.Memo, 'project/note')
     await readArticle(inject, MarkdownSource.Memo, 'memos/legacy')
 
-    expect(mocks.read).toHaveBeenNthCalledWith(1, { DB: 'db' }, MarkdownSource.Post, '/post/hello')
-    expect(mocks.read).toHaveBeenNthCalledWith(2, { DB: 'db' }, MarkdownSource.Memo, '/memo/project/note')
-    expect(mocks.read).toHaveBeenNthCalledWith(3, { DB: 'db' }, MarkdownSource.Memo, '/memos/legacy')
+    expect(mocks.readByPath).toHaveBeenNthCalledWith(1, { DB: 'db' }, '/post/hello')
+    expect(mocks.readByPath).toHaveBeenNthCalledWith(2, { DB: 'db' }, '/memo/project/note')
+    expect(mocks.readByPath).toHaveBeenNthCalledWith(3, { DB: 'db' }, '/memos/legacy')
   })
 })

@@ -35,7 +35,7 @@ export function getSourceFromPath(path: string): MarkdownSource {
   if (relativePath.startsWith('wiki/')) {
     return MarkdownSource.Wiki
   }
-  if (relativePath.startsWith('memo/')) {
+  if (relativePath.startsWith('memo/') || relativePath.startsWith('memos/')) {
     return MarkdownSource.Memo
   }
   if (relativePath.startsWith('post/')) {

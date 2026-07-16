@@ -4,7 +4,7 @@
   import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2, X } from '@lucide/svelte';
   import { editorStore, notify } from './store.svelte';
   import FileItem from './FileItem.svelte';
-  import { buildDocumentTree, getTrashedDocuments, type DocumentTreeNode } from './document-tree';
+  import { buildFileTree, getTrashedFiles, type FileTreeNode } from './file-tree';
 
   interface Props {
     onSelect: (file: FileRecord) => void;
@@ -16,8 +16,8 @@
 
   let { onSelect, onCreate, onRefresh, onEmptyTrash, currentId }: Props = $props();
 
-  const tree = $derived(buildDocumentTree(editorStore.items));
-  const recycleBin = $derived(getTrashedDocuments(editorStore.items));
+  const tree = $derived(buildFileTree(editorStore.items));
+  const recycleBin = $derived(getTrashedFiles(editorStore.items));
 
   // Folder expansion state
   let expandedFolders = $state<Record<string, boolean>>({});
@@ -112,7 +112,7 @@
   }
 </script>
 
-{#snippet folderNode(node: DocumentTreeNode)}
+{#snippet folderNode(node: FileTreeNode)}
   <div>
     {#if node.name}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -135,6 +135,7 @@
             <button 
                 class="outline-none border-none bg-transparent p-0.5 rounded cursor-pointer" 
                 onclick={(e) => { e.stopPropagation(); onCreate(node.fullPath); }}
+                aria-label="Create new file in {node.name}"
                 title="Create new file in {node.name}"
             >
                 <Plus size={14} class="text-[--koala-text]" />
