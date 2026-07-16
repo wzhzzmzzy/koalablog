@@ -122,6 +122,8 @@ function snapshotRows(input: unknown): unknown[] {
   if (!Array.isArray(input))
     throw new MigrationAuditInputError('Migration snapshot must be an array')
   if (input.every(item => item && typeof item === 'object' && Array.isArray((item as { results?: unknown }).results))) {
+    if (input.some(item => (item as { success?: unknown }).success !== true))
+      throw new MigrationAuditInputError('Wrangler D1 migration snapshot contains an unsuccessful query result')
     return input.flatMap(item => (item as { results: unknown[] }).results)
   }
   return input

@@ -57,8 +57,6 @@ export const successfulLegacyFileRows: LegacyFileRow[] = [
     content: 'older recycled post',
     deletedAt: new Date('2026-02-02T00:00:00.000Z'),
   }),
-  makeLegacyFileRow({ id: 15, source: MarkdownSource.Post, link: 'post/shared', subject: 'shared' }),
-  makeLegacyFileRow({ id: 16, source: MarkdownSource.Wiki, link: 'wiki/shared', subject: 'shared' }),
 ]
 
 export const blockingLegacyFileRows: LegacyFileRow[] = [
@@ -80,3 +78,27 @@ export const blockingLegacyFileRows: LegacyFileRow[] = [
   }),
   makeLegacyFileRow({ id: 5, source: MarkdownSource.Post, link: 'post/bad.md', subject: 'bad.md' }),
 ]
+
+export const restoreConflictLegacyFixture = {
+  rows: [
+    makeLegacyFileRow({ id: 20, source: MarkdownSource.Post, link: 'post/shared', subject: 'Current Post' }),
+    makeLegacyFileRow({
+      id: 21,
+      source: MarkdownSource.Wiki,
+      link: 'wiki/shared',
+      subject: 'Archived Wiki',
+      deletedAt: new Date('2026-03-01T00:00:00.000Z'),
+    }),
+    makeLegacyFileRow({
+      id: 22,
+      source: MarkdownSource.Post,
+      link: 'post/shared',
+      subject: 'Archived Post',
+      deletedAt: new Date('2026-03-02T00:00:00.000Z'),
+    }),
+  ],
+  cases: [
+    { recycledId: 21, activeId: 20, legacyConflict: 'title_only', expectedAfterMigration: 'restorable' },
+    { recycledId: 22, activeId: 20, legacyConflict: 'path', expectedAfterMigration: 'conflict' },
+  ],
+} as const

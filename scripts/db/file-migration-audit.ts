@@ -7,6 +7,7 @@ import {
   parseLegacyFileSnapshot,
 } from '../../src/lib/files/migration-audit'
 import { archiveFileMigrationAudit } from '../../src/lib/files/migration-audit-runner'
+import { parseCliArguments } from './cli-arguments'
 
 interface AuditArguments {
   sqlite?: string
@@ -19,14 +20,10 @@ function usage(): string {
 }
 
 function parseArguments(input: string[]): AuditArguments {
-  const values = new Map<string, string>()
-  for (let index = 0; index < input.length; index += 2) {
-    const flag = input[index]
-    const value = input[index + 1]
-    if (!flag?.startsWith('--') || !value)
-      throw new Error(usage())
-    values.set(flag.slice(2), value)
-  }
+  const { values } = parseCliArguments(input, {
+    valueFlags: ['sqlite', 'snapshot', 'output'],
+    usage: usage(),
+  })
 
   const sqlite = values.get('sqlite')
   const snapshot = values.get('snapshot')

@@ -40,7 +40,7 @@ The fixtures include:
 - one active row and two recycled rows sharing `/post/hello`;
 - an invalid extension-bearing active Path;
 - a private Unicode memo, root page, remote-truth post, tags, and absolute references;
-- two active Files at different Paths with the same derived Title, proving Title duplication is not a Path collision;
+- an active File plus two recycled Files that are valid under the legacy indexes: a different-Path/same-Title restore remains allowed, while the same-Path restore remains a conflict;
 - stable explicit IDs and timestamps used by the preservation and backup checks.
 
 ## Recovery evidence
@@ -54,8 +54,8 @@ The fixtures include:
 
 | Check | Result |
 | --- | --- |
-| Focused audit/backup/Path/recycle-bin/tree suite | Pass: 5 files, 34 tests |
-| Full `pnpm test` | Pass: 19 files, 145 tests |
+| Focused audit/backup/Path/recycle-bin/tree suite | Pass: 5 files, 35 tests |
+| Full `pnpm test` | Pass: 19 files, 146 tests |
 | Changed-file ESLint | Pass |
 | `pnpm exec astro check` | No new diagnostics; blocked by the two existing errors in `drizzle.config.ts` and `src/pages/api/playground/compile.ts` |
 | `pnpm run build:cf` | Pass |
@@ -66,4 +66,17 @@ The fixtures include:
 
 The existing `markdown-parser` tests continue to emit their pre-existing incomplete-DOM-mock stderr while passing. Gate 1B does not touch that parser.
 
-The final Standards and Spec review result is appended after review. Gate 1C must not start if this record contains a failing implementation check or an unresolved Gate 1B review finding.
+## Review resolution
+
+The required Standards and Spec reviews were run against `6b34459...HEAD`. Review fixes include:
+
+- split both large test-suite callbacks so every function remains below the repository's 100-line limit;
+- centralize CLI flag/value parsing for the audit and backup commands;
+- replace an impossible two-active/same-subject legacy fixture with a real legacy-schema restore fixture;
+- prove that a different-Path/same-Title recycled File remains restorable while a same-Path recycled File still conflicts;
+- reject unsuccessful Wrangler D1 result envelopes instead of treating them as an empty ready snapshot;
+- make restore expectations declared once in the fixture and consumed by the integration test.
+
+The final Standards review has no hard findings or remaining smell judgement calls. The final Spec review has no Gate 1B findings or scope expansion.
+
+Gate 1C must not start if this record contains a failing implementation check or an unresolved Gate 1B review finding.

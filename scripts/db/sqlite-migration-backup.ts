@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import { createVerifiedSQLiteBackup } from '../../src/db/file-migration'
+import { parseCliArguments } from './cli-arguments'
 
 interface BackupArguments {
   source: string
@@ -20,16 +21,11 @@ function usage(): string {
 }
 
 function parseArguments(input: string[]): BackupArguments {
-  const maintenanceConfirmed = input.includes('--maintenance-confirmed')
-  const positional = input.filter(value => value !== '--maintenance-confirmed')
-  const values = new Map<string, string>()
-  for (let index = 0; index < positional.length; index += 2) {
-    const flag = positional[index]
-    const value = positional[index + 1]
-    if (!flag?.startsWith('--') || !value)
-      throw new Error(usage())
-    values.set(flag.slice(2), value)
-  }
+  const { values, flags } = parseCliArguments(input, {
+    valueFlags: ['source', 'backup', 'rehearsal', 'manifest', 'commit', 'migration', 'operator', 'timestamp'],
+    booleanFlags: ['maintenance-confirmed'],
+    usage: usage(),
+  })
 
   const required = ['source', 'backup', 'rehearsal', 'manifest', 'commit', 'migration', 'operator', 'timestamp'] as const
   if (required.some(field => !values.get(field)))
@@ -43,7 +39,7 @@ function parseArguments(input: string[]): BackupArguments {
     migration: values.get('migration')!,
     operator: values.get('operator')!,
     timestamp: values.get('timestamp')!,
-    maintenanceConfirmed,
+    maintenanceConfirmed: flags.has('maintenance-confirmed'),
   }
 }
 
