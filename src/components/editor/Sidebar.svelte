@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Markdown } from '@/db/types';
   import { actions } from 'astro:actions';
-  import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2 } from '@lucide/svelte';
+  import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2, X } from '@lucide/svelte';
   import { editorStore, notify } from './store.svelte';
   import FileItem from './FileItem.svelte';
   import { buildDocumentTree, getTrashedDocuments, type DocumentTreeNode } from './document-tree';
@@ -184,10 +184,9 @@
           onclick={toggleRecycleBin}
           title="Recycle bin"
         >
-          {#if recycleBinExpanded}<ChevronDown size={20} />{:else}<ChevronRight size={20} />{/if}
           <Trash2 size={20} />
-          <span class="truncate text-sm text-[--koala-subtext-0]">.recycleBin</span>
-          <span class="text-xs text-[--koala-subtext-0]">{recycleBin.length}</span>
+          <span class="truncate text-sm text-[--koala-subtext-0]">Recycle Bin:</span>
+          <span class="text-sm text-[--koala-subtext-0]">{recycleBin.length}</span>
         </button>
         <button
           class="icon btn !p-1 !text-[--koala-error-text]"
@@ -196,7 +195,7 @@
           aria-label="Empty recycle bin"
           title="Empty recycle bin"
         >
-          {#if emptyingTrash}<LoaderCircle size={20} class="animate-spin" />{:else}<Trash2 size={20} />{/if}
+          {#if emptyingTrash}<LoaderCircle size={20} class="animate-spin" />{:else}<X size={20} />{/if}
         </button>
       </div>
 

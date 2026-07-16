@@ -110,7 +110,7 @@
 {#if showTrashConfirm}
   <div
     bind:this={activeDialog}
-    class="fixed inset-0 bg-[--koala-catppuccin-crust] flex items-center justify-center z-50"
+    class="fixed inset-0 flex items-center justify-center z-50"
     role="dialog"
     tabindex="-1"
     aria-modal="true"
@@ -133,7 +133,7 @@
 {#if showPurgeConfirm}
   <div
     bind:this={activeDialog}
-    class="fixed inset-0 bg-[--koala-catppuccin-crust] flex items-center justify-center z-50"
+    class="fixed inset-0 flex items-center justify-center z-50"
     role="dialog"
     tabindex="-1"
     aria-modal="true"
