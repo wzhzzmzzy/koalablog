@@ -2,14 +2,15 @@
 import { storage } from './local'
 // #endif
 
-export async function getConfig(env: Env | undefined, key: string) {
+export async function getConfig(env: Env | undefined, key: string): Promise<string | null> {
   // use cloudflare kv
   if (env?.CF_PAGES) {
     return env.KOALA.get(key)
   }
   // #if !CF_PAGES
   else {
-    return await storage.get(key)
+    const value = await storage.get(key)
+    return typeof value === 'string' ? value : null
   }
   // #endif
   return ''

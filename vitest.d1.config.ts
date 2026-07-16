@@ -20,6 +20,9 @@ export default defineWorkersConfig({
           d1Databases: {
             DB: 'gate-1a-template-catalog-test',
           },
+          kvNamespaces: {
+            KOALA: 'gate-1a-global-config-test',
+          },
         },
       },
     },

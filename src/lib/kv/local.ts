@@ -17,7 +17,7 @@ async function initStore(filePath: string) {
 export class KvStore {
   _init = false
   _dirty = false
-  storage: Record<string, any> = {}
+  storage: Record<string, unknown> = {}
 
   constructor(private readonly filePath = DB_PATH) {}
 
@@ -44,7 +44,7 @@ export class KvStore {
     return this.storage[key] ?? undefined
   }
 
-  async set(key: string, value: any) {
+  async set(key: string, value: unknown) {
     if (!this._init) {
       await this.init()
     }

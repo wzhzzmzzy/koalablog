@@ -39,7 +39,7 @@ The generated migration contains no `ALTER`, replacement, index, or data operati
 | `pnpm run build` | Existing configuration blocker: no default SSR adapter outside Cloudflare mode |
 | Full `pnpm run lint` | Existing repository baseline blocker: 553 findings; changed-file lint passes |
 | Fresh Wrangler D1 migration in `/private/tmp/koalablog-gate1a-d1-v3` | Pass: `0000` and `0001` applied; Catalog table exists with zero rows before initialization |
-| `pnpm run test:d1` | Test added; managed sandbox could not start the isolated Workers runtime, and sandbox-exit approval was rejected |
+| `pnpm run test:d1` | SQLite and D1 now register the same six Catalog contract cases; the managed sandbox still cannot start the isolated Workers runtime, and sandbox-exit approval was rejected |
 
 The existing `markdown-parser` tests continue to emit their pre-existing incomplete-DOM-mock stderr while passing. Gate 1A does not change that production parser or its tests.
 
@@ -55,6 +55,10 @@ The required Standards and Spec reviews were run against `main...HEAD`. Review f
 - replace the heterogeneous `as never` config merge with explicit typed scope merges;
 - route onboarding database reset through the Drizzle-owned `src/db` layer;
 - reuse the existing Source classification owner.
+- route SQLite and D1 Catalog test setup through Drizzle and register one shared contract suite for both backends;
+- keep the local KV store type-safe with `unknown` values and narrow custom KV reads at the string boundary.
+
+An earlier sandbox-exit attempt reached the D1 suite and exposed an `incomplete input` failure in its direct `D1.exec` migration setup. That setup has been replaced with one migration statement executed through the Drizzle D1 adapter. The current managed environment does not permit a post-fix Workers runtime rerun, so Gate 1A retains that external verification blocker rather than claiming a D1 pass.
 
 ## Legacy Path evidence for Gate 1B
 
