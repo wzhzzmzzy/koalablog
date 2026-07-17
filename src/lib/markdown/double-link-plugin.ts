@@ -1,9 +1,10 @@
 import type MarkdownIt from 'markdown-it'
 import type { RuleInline } from 'markdown-it/lib/parser_inline.mjs'
+import { parseAbsoluteFilePath } from '@/lib/files/path'
 
 export interface DoubleLinkPluginOptions {
   className?: string
-  allPostLinks?: { subject: string, link: string }[]
+  allFilePaths?: string[]
   target?: '_self' | '_blank'
 }
 
@@ -11,7 +12,7 @@ function doubleLinkPlugin(md: MarkdownIt, options: DoubleLinkPluginOptions = {})
   // 默认配置
   const defaults: DoubleLinkPluginOptions = {
     className: 'outgoing-link',
-    allPostLinks: [],
+    allFilePaths: [],
     target: '_blank',
   }
 
@@ -35,9 +36,8 @@ function doubleLinkPlugin(md: MarkdownIt, options: DoubleLinkPluginOptions = {})
     if (endPos === -1)
       return false
 
-    // 提取链接标题
-    const title = state.src.slice(start + marker.length, endPos).trim()
-    if (!title)
+    const reference = state.src.slice(start + marker.length, endPos).trim()
+    if (!reference)
       return false
 
     // 如果是 silent 模式，只返回是否匹配
@@ -46,7 +46,7 @@ function doubleLinkPlugin(md: MarkdownIt, options: DoubleLinkPluginOptions = {})
 
     // 创建 token
     const token = state.push('double_link', 'a', 0)
-    token.content = title
+    token.content = reference
     token.markup = marker
 
     // 更新解析位置
@@ -58,17 +58,17 @@ function doubleLinkPlugin(md: MarkdownIt, options: DoubleLinkPluginOptions = {})
   // 渲染规则
   md.renderer.rules.double_link = function (tokens, idx, _options, _env, _renderer) {
     const token = tokens[idx]
-    const title = token.content
-    const allPostLinks: DoubleLinkPluginOptions['allPostLinks'] = (md as any).allPostLinks || opts.allPostLinks
-    const post = allPostLinks?.find(i => i.subject === title)
-    const href = post ? post.link.startsWith('http') ? post.link : `/${post.link}` : ''
-    const link = post?.link
+    const reference = token.content
+    const parsed = parseAbsoluteFilePath(reference)
+    const allFilePaths: string[] = (md as any).allFilePaths || opts.allFilePaths
+    const path = parsed.ok ? parsed.value : ''
+    const href = path && allFilePaths.includes(path) ? path : ''
 
     const attrs = [
       ['href', href],
       ['class', opts.className],
       ['target', opts.target],
-      ['data-link', link],
+      ['data-path', href],
     ]
 
     // 构建属性字符串
@@ -76,7 +76,7 @@ function doubleLinkPlugin(md: MarkdownIt, options: DoubleLinkPluginOptions = {})
       .map(([name, value]) => value ? `${name}="${md.utils.escapeHtml(value)}"` : '')
       .join(' ')
 
-    return `<a ${attrsStr}>${md.utils.escapeHtml(title)}</a>`
+    return `<a ${attrsStr}>${md.utils.escapeHtml(reference)}</a>`
   }
 
   // 注册内联规则

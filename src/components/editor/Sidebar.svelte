@@ -1,23 +1,25 @@
 <script lang="ts">
-  import type { Markdown } from '@/db/types';
+  import type { FileRecord } from '@/db/types';
+  import type { AbsolutePathPrefix } from '@/lib/files/types';
   import { actions } from 'astro:actions';
   import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2, X } from '@lucide/svelte';
   import { editorStore, notify } from './store.svelte';
   import FileItem from './FileItem.svelte';
-  import { buildDocumentTree, getTrashedDocuments, type DocumentTreeNode } from './document-tree';
+  import { buildFileTree, getTrashedFiles, isFileTreeEmpty, type FileTreeNode } from './file-tree';
 
   interface Props {
-    onSelect: (m: Markdown) => void;
-    onCreate: (prefix: string) => void;
+    onSelect: (file: FileRecord) => void;
+    onCreate: (prefix: AbsolutePathPrefix) => void;
     onRefresh?: (prefix: string) => Promise<void> | void;
     onEmptyTrash: () => void;
     currentId: number;
+    templatePrefixes?: AbsolutePathPrefix[];
   }
 
-  let { onSelect, onCreate, onRefresh, onEmptyTrash, currentId }: Props = $props();
+  let { onSelect, onCreate, onRefresh, onEmptyTrash, currentId, templatePrefixes = [] }: Props = $props();
 
-  const tree = $derived(buildDocumentTree(editorStore.items));
-  const recycleBin = $derived(getTrashedDocuments(editorStore.items));
+  const tree = $derived(buildFileTree(editorStore.items, templatePrefixes));
+  const recycleBin = $derived(getTrashedFiles(editorStore.items));
 
   // Folder expansion state
   let expandedFolders = $state<Record<string, boolean>>({});
@@ -61,19 +63,19 @@
     }
   }
 
-  function handleTopLevelFileSelect(item: Markdown) {
+  function handleTopLevelFileSelect(item: FileRecord) {
     onSelect(item);
-    void refreshPath('');
+    void refreshPath('/');
   }
 
   function toggleRecycleBin() {
     recycleBinExpanded = !recycleBinExpanded;
-    if (recycleBinExpanded) void refreshPath('');
+    if (recycleBinExpanded) void refreshPath('/');
   }
 
   async function handleEmptyTrash(event: MouseEvent) {
     event.stopPropagation();
-    if (emptyingTrash || recycleBin.length === 0 || !window.confirm('Permanently delete every document in the recycle bin?')) return;
+    if (emptyingTrash || recycleBin.length === 0 || !window.confirm('Permanently delete every File in the recycle bin?')) return;
 
     emptyingTrash = true;
     const result = await actions.db.markdown.emptyTrash();
@@ -84,7 +86,7 @@
     }
 
     onEmptyTrash();
-    notify('success', `Permanently deleted ${result.data?.count ?? 0} document(s)`, 3000);
+    notify('success', `Permanently deleted ${result.data?.count ?? 0} File(s)`, 3000);
   }
 
   // Auto-expand current item's path
@@ -92,13 +94,14 @@
      if (currentId) {
          const currentItem = editorStore.items.find(i => i.id === currentId);
          if (currentItem) {
-             const parts = currentItem.link.split('/');
+             const parts = currentItem.path.split('/').filter(Boolean);
              parts.pop(); // remove filename
              let path = '';
              for (const part of parts) {
-                 path += part + '/';
-                 if (expandedFolders[path] === undefined) {
-                      expandedFolders[path] = true;
+                 path += `/${part}`;
+                 const prefix = `${path}/`;
+                 if (expandedFolders[prefix] === undefined) {
+                      expandedFolders[prefix] = true;
                  }
              }
          }
@@ -111,20 +114,20 @@
   }
 </script>
 
-{#snippet folderNode(node: DocumentTreeNode)}
+{#snippet folderNode(node: FileTreeNode)}
   <div>
     {#if node.name}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div 
           class="flex items-center justify-between group cursor-pointer select-none p-2"
-          onclick={() => toggleFolder(node.fullPath)}
+          onclick={() => toggleFolder(node.prefix)}
           aria-roledescription="button"
         >
             <div class="flex items-center gap-1.5 text-sm font-medium text-[--koala-subtext-0]">
-                {#if refreshingFolders[getRefreshKey(node.fullPath)]}
+                {#if refreshingFolders[getRefreshKey(node.prefix)]}
                     <LoaderCircle size={14} class="animate-spin" />
-                {:else if expandedFolders[node.fullPath]}
+                {:else if expandedFolders[node.prefix]}
                     <ChevronDown size={14} />
                 {:else}
                     <ChevronRight size={14} />
@@ -133,7 +136,8 @@
             </div>
             <button 
                 class="outline-none border-none bg-transparent p-0.5 rounded cursor-pointer" 
-                onclick={(e) => { e.stopPropagation(); onCreate(node.fullPath); }}
+                onclick={(e) => { e.stopPropagation(); onCreate(node.prefix); }}
+                aria-label="Create new file in {node.name}"
                 title="Create new file in {node.name}"
             >
                 <Plus size={14} class="text-[--koala-text]" />
@@ -141,7 +145,7 @@
         </div>
     {/if}
 
-    {#if !node.name || expandedFolders[node.fullPath]}
+    {#if !node.name || expandedFolders[node.prefix]}
         <div class="{node.name ? 'border-l border-[--koala-border-subtle] ml-2 pl-2' : ''}">
             {#each Object.values(node.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
                 {@render folderNode(child)}
@@ -156,7 +160,7 @@
 
 
 <div class="h-full flex flex-col w-full overflow-y-auto">
-  {#if editorStore.items.length === 0 && !editorStore.loading}
+  {#if isFileTreeEmpty(tree) && !editorStore.loading}
     <div class="p-4 text-center text-[--koala-subtext-0] text-sm">No files found.</div>
   {:else}
       {#each Object.values(tree.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
@@ -170,7 +174,7 @@
   <button
     class="outline-none border-none w-full text-left p-2 hover:bg-[--koala-hover-block] transition-colors
            bg-transparent relative flex items-center gap-1.5 rounded opacity-60 italic shrink-0"
-    onclick={() => onCreate('')}
+    onclick={() => onCreate('/')}
   >
       <Plus size={14} class="shrink-0 text-[--koala-text]" />
       <span class="truncate text-sm text-[--koala-text]">New file...</span>
@@ -206,10 +210,10 @@
               class="outline-none border-none w-full text-left px-2 py-1.5 hover:bg-[--koala-hover-block] transition-colors
                      {item.id === currentId ? 'bg-[--koala-focusing-block]' : 'bg-transparent'} rounded"
               onclick={() => onSelect(item)}
-              title={`${item.link} · ${formatDate(item.deletedAt)} · #${item.id}`}
+              title={`${item.path} · ${formatDate(item.deletedAt)} · #${item.id}`}
             >
-              <span class="block truncate text-sm text-[--koala-text]">{item.link.split('/').pop() || item.link}.md</span>
-              <span class="block truncate text-xs text-[--koala-subtext-0]">{item.link} · {formatDate(item.deletedAt)}</span>
+              <span class="block truncate text-sm text-[--koala-text]">{item.title}</span>
+              <span class="block truncate text-xs text-[--koala-subtext-0]">{item.path} · {formatDate(item.deletedAt)}</span>
             </button>
           {/each}
         </div>

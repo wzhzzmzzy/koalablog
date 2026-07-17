@@ -1,4 +1,5 @@
-import { all, batchImport, byPrefix, emptyTrash, getNewMemoSubject, purge, restore, trash, updateRefs } from './db/markdown'
+import { all, batchImport, byPrefix, create, emptyTrash, purge, restore, trash } from './db/markdown'
+import { read as readTemplates, replace as replaceTemplates } from './db/templates'
 import { login } from './form/login'
 import { save, setPrivate } from './form/markdown'
 import { onboarding } from './form/onboarding'
@@ -19,12 +20,15 @@ export const server = {
     settings,
   },
   db: {
+    templates: {
+      read: readTemplates,
+      replace: replaceTemplates,
+    },
     markdown: {
       all,
       batchImport,
       byPrefix,
-      updateRefs,
-      getNewMemoSubject,
+      create,
       trash,
       restore,
       purge,

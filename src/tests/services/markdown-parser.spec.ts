@@ -1,34 +1,5 @@
 import { parseMarkdownContent } from '@/lib/services/markdown-parser'
-import { beforeAll, describe, expect, it } from 'vitest'
-
-// Mock DOM for testing
-beforeAll(() => {
-  globalThis.document = {
-    createElement: (tag: string) => {
-      if (tag === 'div') {
-        return {
-          innerHTML: '',
-          querySelectorAll: (selector: string) => {
-            // Mock query selectors for testing
-            if (selector === 'a.outgoing-link') {
-              return [{
-                textContent: 'Test Link',
-                dataset: { link: 'test-link' },
-              }]
-            }
-            if (selector === 'span.tag') {
-              return [{
-                getAttribute: (attr: string) => attr === 'data-tag' ? 'test-tag' : null,
-              }]
-            }
-            return []
-          },
-        }
-      }
-      return {}
-    },
-  } as any
-})
+import { describe, expect, it } from 'vitest'
 
 describe('markdown-parser', () => {
   it('should parse markdown with meta frontmatter', async () => {
@@ -54,12 +25,11 @@ This is a test post.`
   it('should parse content without frontmatter', async () => {
     const content = `# Regular Markdown
 
-No frontmatter here.`
+No frontmatter here. #tag [[/wiki/entry]] [[Title]]`
 
     const result = await parseMarkdownContent(content, { includeMeta: true })
 
-    // Should handle gracefully even with parsing errors
-    expect(result.outgoingLinks).toEqual([])
-    expect(result.tags).toEqual([])
+    expect(result.outgoingPaths).toEqual(['/wiki/entry'])
+    expect(result.tags).toEqual(['tag'])
   })
 })

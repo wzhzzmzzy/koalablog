@@ -1,7 +1,5 @@
-import type { Markdown } from '@/db/types'
-import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
+import type { FileRecord } from '@/db/types'
 import { convertToWebP, uploadFile } from '@/lib/services/file-reader'
-import { parseJson } from '@/lib/utils/parse-json'
 
 /**
  * 从剪贴板事件中提取图片文件
@@ -80,13 +78,11 @@ export function formatActionError(message: string) {
       return message
 
     const fieldNames: Record<string, string> = {
-      link: 'File Path',
-      subject: 'Title',
+      path: 'File Path',
       content: 'Content',
-      source: 'Source',
       private: 'Visibility',
       id: 'ID',
-      outgoingLinks: 'Links',
+      baseRevision: 'Base revision',
     }
     return errors.map((error: { path?: string[], message: string }) => {
       const field = error.path?.[0]
@@ -98,20 +94,48 @@ export function formatActionError(message: string) {
   }
 }
 
-export function findPreviousActiveDocument(history: string[], documents: Markdown[]) {
-  const previousLink = history.at(-2)
-  return documents.find(document => !document.deletedAt && document.link === previousLink)
+type FileSaveConflict =
+  | { code: 'source_conflict', current: FileRecord }
+  | { code: 'path_conflict', path: string }
+
+function reviveFileRecord(input: FileRecord): FileRecord {
+  return {
+    ...input,
+    createdAt: new Date(input.createdAt),
+    updatedAt: new Date(input.updatedAt),
+    deletedAt: input.deletedAt ? new Date(input.deletedAt) : null,
+  }
 }
 
-export function changedOutgoingLinkRefs(documents: Markdown[], oldLink: string, newLink: string) {
-  return documents.flatMap((document) => {
-    const outgoingLinks = parseJson<DoubleLinkPluginOptions['allPostLinks']>(document.outgoing_links || null) || []
-    if (!outgoingLinks.some(link => link.link === oldLink))
-      return []
+export function decodeFileSaveConflict(error: { code?: string, message: string }): FileSaveConflict | null {
+  if (error.code !== 'CONFLICT')
+    return null
+  try {
+    const payload = JSON.parse(error.message) as Partial<FileSaveConflict>
+    if (payload.code === 'source_conflict' && payload.current)
+      return { code: payload.code, current: reviveFileRecord(payload.current) }
+    if (payload.code === 'path_conflict' && payload.path)
+      return { code: payload.code, path: payload.path }
+    return null
+  }
+  catch {
+    return null
+  }
+}
 
-    return [{
-      id: document.id,
-      outgoingLinks: outgoingLinks.map(link => ({ ...link, link: link.link === oldLink ? newLink : link.link })),
-    }]
-  })
+export function sourceConflictFromActionError(error: { code?: string, message: string }): FileRecord | null {
+  const conflict = decodeFileSaveConflict(error)
+  return conflict?.code === 'source_conflict' ? conflict.current : null
+}
+
+export function formatFileSaveError(error: { code?: string, message: string }) {
+  const conflict = decodeFileSaveConflict(error)
+  if (conflict?.code === 'path_conflict')
+    return `Another active File already uses ${conflict.path}.`
+  return formatActionError(error.message)
+}
+
+export function findPreviousActiveFile(history: string[], files: FileRecord[]) {
+  const previousPath = history.at(-2)
+  return files.find(file => !file.deletedAt && file.path === previousPath)
 }

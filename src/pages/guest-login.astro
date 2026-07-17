@@ -11,7 +11,7 @@ if (!maybePage) {
 }
 ---
 <Layout>
-  <guest-login-form data-link={maybePage.link}>
+  <guest-login-form data-path={maybePage.path}>
     <form id="login-form" method="POST" class="max-w-md mx-auto mt-10">
       <div class="mb-6">
         <label for="passkey" class="block mb-2 text-sm font-medium">Passkey</label>
@@ -93,8 +93,8 @@ class GuestLoginForm extends HTMLElement {
       return
     }
 
-    const redirectTo = this.dataset.link
-    window.location.replace(`/${redirectTo || ''}`)
+    const redirectTo = this.dataset.path
+    window.location.replace(redirectTo || '/')
   }
 }
 

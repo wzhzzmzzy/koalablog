@@ -1,4 +1,4 @@
-import { DELETE, GET } from '@/pages/api/markdown/batch'
+import { DELETE, GET, POST } from '@/pages/api/markdown/batch'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -8,9 +8,9 @@ const mocks = vi.hoisted(() => ({
       role: ctx.request.headers.get('Authorization') === 'Bearer token' ? 'admin' : '',
     }
   }),
-  batchTrashByLinks: vi.fn(),
-  batchUpsert: vi.fn(),
+  batchTrashByPaths: vi.fn(),
   readAll: vi.fn(),
+  saveSyncedFile: vi.fn(),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -18,9 +18,10 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 vi.mock('@/db/markdown', () => ({
-  batchTrashByLinks: mocks.batchTrashByLinks,
-  batchUpsert: mocks.batchUpsert,
+  batchTrashByPaths: mocks.batchTrashByPaths,
+  FileInputError: class FileInputError extends Error {},
   readAll: mocks.readAll,
+  saveSyncedFile: mocks.saveSyncedFile,
 }))
 
 function createContext(request: Request) {
@@ -34,14 +35,14 @@ function createContext(request: Request) {
   } as any
 }
 
-describe('markdown batch API', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+beforeEach(() => {
+  vi.clearAllMocks()
+})
 
+describe('markdown batch API reads and deletes', () => {
   it('lists wiki records when source=wiki', async () => {
     mocks.readAll.mockResolvedValue([
-      { id: 1, link: 'wiki/entities/transformer-architecture', subject: 'Transformer Architecture' },
+      { id: 1, path: '/wiki/entities/transformer-architecture', title: 'transformer-architecture', revision: 3 },
     ])
 
     const response = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=wiki', {
@@ -51,31 +52,151 @@ describe('markdown batch API', () => {
     expect(response.status).toBe(200)
     expect(mocks.readAll).toHaveBeenCalledWith({ DB: 'db' }, 31)
     expect(await response.json()).toEqual([
-      { id: 1, link: 'wiki/entities/transformer-architecture', subject: 'Transformer Architecture' },
+      { id: 1, path: '/wiki/entities/transformer-architecture', title: 'transformer-architecture', revision: 3 },
     ])
   })
 
-  it('returns one explicit soft-delete result for every requested link', async () => {
-    mocks.batchTrashByLinks.mockResolvedValue([
-      { status: 'trashed', link: 'wiki/a', document: { id: 1 } },
-      { status: 'not_found', link: 'wiki/missing' },
+  it('returns one explicit soft-delete result for every requested Path', async () => {
+    mocks.batchTrashByPaths.mockResolvedValue([
+      { status: 'trashed', path: '/wiki/a', file: { id: 1 } },
+      { status: 'not_found', path: '/wiki/missing' },
     ])
 
     const response = await DELETE(createContext(new Request('https://koala.test/api/markdown/batch', {
       method: 'DELETE',
       headers: { Authorization: 'Bearer token' },
-      body: JSON.stringify(['wiki/a', 'wiki/missing']),
+      body: JSON.stringify(['/wiki/a', '/wiki/missing']),
     })))
 
     expect(response.status).toBe(200)
-    expect(mocks.batchTrashByLinks).toHaveBeenCalledWith({ DB: 'db' }, ['wiki/a', 'wiki/missing'])
+    expect(mocks.batchTrashByPaths).toHaveBeenCalledWith({ DB: 'db' }, ['/wiki/a', '/wiki/missing'])
     expect(await response.json()).toMatchObject({
       success: true,
       count: 1,
       results: [
-        { status: 'trashed', link: 'wiki/a' },
-        { status: 'not_found', link: 'wiki/missing' },
+        { status: 'trashed', path: '/wiki/a' },
+        { status: 'not_found', path: '/wiki/missing' },
       ],
+    })
+  })
+})
+
+describe('markdown batch API Source validation', () => {
+  it('rejects an independently supplied Title from batch Source writes', async () => {
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        path: '/wiki/architecture',
+        id: 1,
+        baseRevision: 3,
+        title: 'Independent title',
+        content: '# Architecture',
+        private: false,
+      }]),
+    })))
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'File input must not include title' })
+    expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
+  })
+
+  it('requires optimistic revision fields for every batch Source write', async () => {
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        path: '/wiki/architecture',
+        content: '# Architecture',
+        private: false,
+      }]),
+    })))
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Every File input requires id and baseRevision integers' })
+    expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
+  })
+
+  it('rejects remote-truth state because the server derives sync metadata', async () => {
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        id: 1,
+        path: '/wiki/architecture',
+        content: '# Architecture',
+        private: false,
+        baseRevision: 3,
+        remoteTruth: true,
+      }]),
+    })))
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'File metadata is derived by the server' })
+    expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('markdown batch API optimistic Source writes', () => {
+  it('returns HTTP 409 with the current File when a batch Source precondition is stale', async () => {
+    const current = {
+      id: 1,
+      path: '/wiki/architecture',
+      title: 'architecture',
+      content: 'server Source',
+      revision: 4,
+    }
+    mocks.saveSyncedFile.mockResolvedValue({ status: 'conflict', current })
+
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        id: 1,
+        path: '/wiki/architecture',
+        content: 'local Source',
+        private: false,
+        baseRevision: 3,
+      }]),
+    })))
+
+    expect(response.status).toBe(409)
+    expect(mocks.saveSyncedFile).toHaveBeenCalledWith({ DB: 'db' }, {
+      id: 1,
+      path: '/wiki/architecture',
+      content: 'local Source',
+      private: false,
+      baseRevision: 3,
+    })
+    expect(await response.json()).toEqual({
+      error: 'source_conflict',
+      results: [{ status: 'conflict', current }],
+    })
+  })
+
+  it('returns the new revision after a preconditioned batch Source Save', async () => {
+    mocks.saveSyncedFile.mockResolvedValue({
+      status: 'saved',
+      file: { id: 1, path: '/wiki/architecture', title: 'architecture', revision: 4 },
+    })
+
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        id: 1,
+        path: '/wiki/architecture',
+        content: 'next Source',
+        private: false,
+        baseRevision: 3,
+      }]),
+    })))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      success: true,
+      count: 1,
+      results: [{ id: 1, path: '/wiki/architecture', title: 'architecture', revision: 4 }],
     })
   })
 })

@@ -1,159 +1,147 @@
 import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
-import { batchTrashByLinks, batchUpsert, readAll } from '@/db/markdown'
+import { batchTrashByPaths, FileInputError, readAll, saveSyncedFile } from '@/db/markdown'
 import { authInterceptor } from '@/lib/auth'
 
-export const GET: APIRoute = async (ctx) => {
-  await authInterceptor(ctx)
-
-  if (ctx.locals.session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
-  const sourceParam = ctx.url.searchParams.get('source')
-  const source = sourceParam === 'post'
-    ? MarkdownSource.Post
-    : sourceParam === 'page'
-      ? MarkdownSource.Page
-      : sourceParam === 'wiki'
-        ? MarkdownSource.Wiki
-        : MarkdownSource.Memo
-
-  const env = ctx.locals.runtime?.env
-  const records = await readAll(env, source)
-
-  return new Response(JSON.stringify(records.map(r => ({
-    id: r.id,
-    link: r.link,
-    subject: r.subject,
-  }))), {
-    status: 200,
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
     headers: { 'Content-Type': 'application/json' },
   })
 }
 
-export const POST: APIRoute = async (ctx) => {
+async function requireAdmin(ctx: Parameters<APIRoute>[0]) {
   await authInterceptor(ctx)
+  return ctx.locals.session.role === 'admin' ? null : json({ error: 'Unauthorized' }, 401)
+}
 
-  if (ctx.locals.session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
+function requestedSource(value: string | null) {
+  if (value === 'post')
+    return MarkdownSource.Post
+  if (value === 'page')
+    return MarkdownSource.Page
+  if (value === 'wiki')
+    return MarkdownSource.Wiki
+  return MarkdownSource.Memo
+}
+
+export const GET: APIRoute = async (ctx) => {
+  const unauthorized = await requireAdmin(ctx)
+  if (unauthorized)
+    return unauthorized
+
+  const files = await readAll(ctx.locals.runtime?.env, requestedSource(ctx.url.searchParams.get('source')))
+  return json(files.map(file => ({
+    id: file.id,
+    path: file.path,
+    title: file.title,
+    revision: file.revision,
+  })))
+}
+
+interface BatchSourceInput {
+  id: number
+  path: string
+  content: string
+  private: boolean
+  baseRevision: number
+}
+
+function parseBatchInput(body: unknown): { files?: BatchSourceInput[], error?: string } {
+  if (!Array.isArray(body))
+    return { error: 'Request body must be an array' }
+  if (body.length === 0)
+    return { error: 'Request body cannot be empty' }
+
+  const files: BatchSourceInput[] = []
+  for (const candidate of body) {
+    if (!candidate || typeof candidate !== 'object')
+      return { error: 'Every item must be a File input object' }
+    const item = candidate as Record<string, unknown>
+    if ('title' in item || 'subject' in item)
+      return { error: 'File input must not include title' }
+    if (['link', 'source', 'tags', 'outgoingLinks', 'remoteTruth', 'revision', 'createdAt', 'updatedAt', 'deletedAt'].some(field => field in item))
+      return { error: 'File metadata is derived by the server' }
+    if (Object.keys(item).some(field => !['id', 'path', 'content', 'private', 'baseRevision'].includes(field)))
+      return { error: 'File input contains unsupported fields' }
+    if (typeof item.path !== 'string' || typeof item.content !== 'string')
+      return { error: 'Every File input requires path and content strings' }
+    if (!Number.isInteger(item.id) || (item.id as number) < 0 || !Number.isInteger(item.baseRevision) || (item.baseRevision as number) < 0)
+      return { error: 'Every File input requires id and baseRevision integers' }
+    if (typeof item.private !== 'boolean')
+      return { error: 'File private must be a boolean' }
+    files.push({
+      id: item.id as number,
+      path: item.path,
+      content: item.content,
+      private: item.private,
+      baseRevision: item.baseRevision as number,
     })
   }
+  return { files }
+}
+
+export const POST: APIRoute = async (ctx) => {
+  const unauthorized = await requireAdmin(ctx)
+  if (unauthorized)
+    return unauthorized
 
   try {
-    const body = await ctx.request.json()
+    const parsed = parseBatchInput(await ctx.request.json())
+    if (parsed.error)
+      return json({ error: parsed.error }, 400)
 
-    if (!Array.isArray(body)) {
-      return new Response(JSON.stringify({ error: 'Request body must be an array' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
+    const results = await Promise.all(parsed.files!.map(file => saveSyncedFile(ctx.locals.runtime?.env, file)))
+    if (results.some(result => result.status === 'conflict'))
+      return json({ error: 'source_conflict', results }, 409)
+    if (results.some(result => result.status === 'path_conflict'))
+      return json({ error: 'path_conflict', results }, 409)
+    if (results.some(result => result.status === 'not_found'))
+      return json({ error: 'not_found', results }, 404)
 
-    if (body.length === 0) {
-      return new Response(JSON.stringify({ error: 'Request body cannot be empty' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-
-    const env = ctx.locals.runtime?.env
-    const posts = body.map((item: {
-      source?: MarkdownSource
-      subject: string
-      content: string
-      link?: string
-      private?: boolean
-      tags?: string
-      outgoingLinks?: Array<{ subject: string, link: string }>
-    }) => ({
-      source: item.source ?? MarkdownSource.Memo,
-      subject: item.subject,
-      content: item.content,
-      link: item.link,
-      private: item.private ?? false,
-      tags: item.tags,
-      outgoing_links: item.outgoingLinks ? JSON.stringify(item.outgoingLinks) : undefined,
-    }))
-
-    const results = await batchUpsert(env, posts)
-
-    return new Response(JSON.stringify({
+    const files = results.map(result => result.status === 'saved' ? result.file : null).filter(file => file !== null)
+    return json({
       success: true,
-      count: results.length,
-      results: results.map((r: { id: number, link: string, subject: string }) => ({ id: r.id, link: r.link, subject: r.subject })),
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      count: files.length,
+      results: files.map(file => ({
+        id: file.id,
+        path: file.path,
+        title: file.title,
+        revision: file.revision,
+      })),
     })
   }
-  catch (e) {
-    const message = e instanceof Error ? e.message : 'Unknown error'
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  catch (error) {
+    if (error instanceof FileInputError)
+      return json({ error: error.message, code: error.code }, 400)
+    return json({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
   }
 }
 
 export const DELETE: APIRoute = async (ctx) => {
-  await authInterceptor(ctx)
-
-  if (ctx.locals.session.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
+  const unauthorized = await requireAdmin(ctx)
+  if (unauthorized)
+    return unauthorized
 
   try {
     const body = await ctx.request.json()
+    if (!Array.isArray(body))
+      return json({ error: 'Request body must be an array of absolute Paths' }, 400)
+    if (body.length === 0)
+      return json({ error: 'Request body cannot be empty' }, 400)
+    if (body.some(path => typeof path !== 'string'))
+      return json({ error: 'Every item must be an absolute Path string' }, 400)
 
-    if (!Array.isArray(body)) {
-      return new Response(JSON.stringify({ error: 'Request body must be an array of links' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-
-    if (body.length === 0) {
-      return new Response(JSON.stringify({ error: 'Request body cannot be empty' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-
-    const links = body.filter((item): item is string => typeof item === 'string')
-
-    if (links.length !== body.length) {
-      return new Response(JSON.stringify({ error: 'Every item must be a link string' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-
-    const env = ctx.locals.runtime?.env
-    const results = await batchTrashByLinks(env, links)
-
-    return new Response(JSON.stringify({
+    const results = await batchTrashByPaths(ctx.locals.runtime?.env, body)
+    return json({
       success: true,
       count: results.filter(result => result.status === 'trashed').length,
       results,
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
     })
   }
-  catch (e) {
-    const message = e instanceof Error ? e.message : 'Unknown error'
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  catch (error) {
+    if (error instanceof FileInputError)
+      return json({ error: error.message, code: error.code }, 400)
+    return json({ error: error instanceof Error ? error.message : 'Unknown error' }, 500)
   }
 }

@@ -1,3 +1,5 @@
+import { GET, POST } from '@/pages/api/markdown/remote-truth'
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -19,8 +21,6 @@ vi.mock('@/db/markdown', () => ({
   readRemoteTruth: mocks.readRemoteTruth,
 }))
 
-import { GET, POST } from '@/pages/api/markdown/remote-truth'
-
 function createContext(request: Request) {
   return {
     request,
@@ -38,7 +38,7 @@ describe('markdown remote-truth API', () => {
 
   it('returns remote truth records for bearer-authenticated admins', async () => {
     const items = [
-      { id: 1, link: 'memo/one', subject: 'One', content: '# One' },
+      { id: 1, path: '/memo/one', title: 'one', content: '# One', revision: 2 },
     ]
     mocks.readRemoteTruth.mockResolvedValue(items)
 
@@ -57,7 +57,7 @@ describe('markdown remote-truth API', () => {
     const single = await POST(createContext(new Request('https://koala.test/api/markdown/remote-truth', {
       method: 'POST',
       headers: {
-        Authorization: 'Bearer token',
+        'Authorization': 'Bearer token',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ id: 1 }),
@@ -66,7 +66,7 @@ describe('markdown remote-truth API', () => {
     const many = await POST(createContext(new Request('https://koala.test/api/markdown/remote-truth', {
       method: 'POST',
       headers: {
-        Authorization: 'Bearer token',
+        'Authorization': 'Bearer token',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ ids: [2, 3] }),

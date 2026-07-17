@@ -1,19 +1,20 @@
 ---
-import type { Markdown } from '@/db/types'
+import type { FileRecord } from '@/db/types'
 import { MarkdownSource } from '@/db'
 import { addHeadingIds, extractHeadings } from '@/lib/utils/heading-id'
 import { formatDate } from 'date-fns'
 import Outline from './outline.svelte'
 
 interface Props {
-  article: Markdown
+  article: FileRecord
   content: string
   renderLangSet?: Set<string>
+  activePaths?: string[]
   showOutline?: boolean
   showDate?: boolean
 }
 
-const { article, content, renderLangSet } = Astro.props
+const { article, content, renderLangSet, activePaths = [] } = Astro.props
 
 const source = article?.source
 const showOutline = Astro.props.showOutline || source === MarkdownSource.Post
@@ -24,16 +25,16 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
 ---
 
 <main class="article-main">
-  <article-client data-article={JSON.stringify(article)} data-lang-set={langSet} data-show-outline={showOutline}>
+  <article-client data-article={JSON.stringify(article)} data-active-paths={JSON.stringify(activePaths)} data-lang-set={langSet} data-show-outline={showOutline}>
     <div class="article-header">
       <h2 style="position: relative; margin-top: 0;">
-        { article.subject }
+        { article.title }
       </h2>
       {showDate && (
         <p>{ formatDate(article.createdAt, 'yyyy年 MM月 dd日') }</p>
       )}
       {showOutline && (
-        <Outline client:load title={article.subject} headings={headings} />
+        <Outline client:load title={article.title} headings={headings} />
       )}
     </div>
     <article id="article" />
@@ -42,9 +43,6 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
 </main>
 
 <script>
-import type { DoubleLinkPluginOptions } from '@/lib/markdown/double-link-plugin'
-import { parseJson } from '@/lib/utils/parse-json'
-
 class ArticleClient extends HTMLElement {
   articleEl: HTMLElement | null = null
   serverArticleEl: HTMLElement | null = null
@@ -61,15 +59,14 @@ class ArticleClient extends HTMLElement {
 
     const article = JSON.parse(this.dataset.article || '')
     const langSet = this.dataset.langSet?.split(',') || []
-    let outgoingLinks: DoubleLinkPluginOptions['allPostLinks'] | null = null
-    outgoingLinks = parseJson(article.outgoing_links)
+    const activePaths = JSON.parse(this.dataset.activePaths || '[]') as string[]
 
     const [mdModule, headingIdModule] = await Promise.all([
       this.mdModulePromise,
       import('@/lib/utils/heading-id'),
     ])
 
-    const content = article ? (await mdModule.md({ langSet, allPostLinks: outgoingLinks || [] })).render(article?.content ?? '') : ''
+    const content = article ? (await mdModule.md({ langSet, allFilePaths: activePaths })).render(article?.content ?? '') : ''
     const contentWithIds = await headingIdModule.addHeadingIds(content)
 
     this.serverArticleEl?.remove()
@@ -83,4 +80,3 @@ class ArticleClient extends HTMLElement {
 
 customElements.define('article-client', ArticleClient)
 </script>
-

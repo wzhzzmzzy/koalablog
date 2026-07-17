@@ -1,20 +1,22 @@
 <script lang="ts">
   import { actions } from 'astro:actions';
-  import { MarkdownSource, getSourceFromLink } from '@/db';
-  import type { Markdown } from '@/db/types';
-  import { initMarkdown } from '@/db/types';
+  import type { FileRecord } from '@/db/types';
+  import type { AbsolutePathPrefix } from '@/lib/files/types';
+  import { tick } from 'svelte';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
-  import { editorStore, setItems, setCurrentMarkdown, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
+  import { editorStore, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
+  import { formatFileSaveError } from './utils';
 
   interface Props {
-    initialMarkdown: Markdown;
-    initialItems?: Markdown[] | null;
+    initialFile: FileRecord | null;
+    initialItems?: FileRecord[] | null;
+    templatePrefixes?: AbsolutePathPrefix[];
     isMobile?: boolean;
   }
 
-  let { initialMarkdown, initialItems = null, isMobile = false }: Props = $props();
+  let { initialFile, initialItems = null, templatePrefixes = [], isMobile = false }: Props = $props();
 
   // 启用自动持久化
   useEditorPersistence();
@@ -33,30 +35,30 @@
   }
   
   // Init History and Current
-  if (!initialMarkdown.deletedAt) pushHistory(initialMarkdown.link);
-  setCurrentMarkdown(initialMarkdown);
+  if (initialFile && !initialFile.deletedAt) pushHistory(initialFile.path);
+  setCurrentFile(initialFile);
 
-  // Sync URL with currentMarkdown
+  // Sync URL with the current File.
   $effect(() => {
-    if (editorStore.currentMarkdown) {
+    if (editorStore.currentFile) {
       const url = new URL(window.location.href);
-      if (editorStore.currentMarkdown.deletedAt) {
-        url.searchParams.delete('link');
-        url.searchParams.set('id', String(editorStore.currentMarkdown.id));
-      } else if (url.searchParams.get('link') !== editorStore.currentMarkdown.link || url.searchParams.has('id')) {
-        url.searchParams.set('link', editorStore.currentMarkdown.link);
+      if (editorStore.currentFile.deletedAt) {
+        url.searchParams.delete('path');
+        url.searchParams.set('id', String(editorStore.currentFile.id));
+      } else if (url.searchParams.get('path') !== editorStore.currentFile.path || url.searchParams.has('id')) {
+        url.searchParams.set('path', editorStore.currentFile.path);
         url.searchParams.delete('id');
       }
       if (url.href !== window.location.href) window.history.pushState({}, '', url);
     }
   });
 
-  function handleSelect(m: Markdown) {
-    if (!m.deletedAt && m.link) pushHistory(m.link);
-    if (!m.deletedAt && drafts.has(m.link)) {
-      setCurrentMarkdown(drafts.get(m.link)!)
+  function handleSelect(m: FileRecord) {
+    if (!m.deletedAt && m.path) pushHistory(m.path);
+    if (!m.deletedAt && drafts.has(m.path)) {
+      setCurrentFile(drafts.get(m.path)!)
     } else {
-      setCurrentMarkdown(m);
+      setCurrentFile(m);
     }
 
     if (window.innerWidth < 768) {
@@ -64,30 +66,30 @@
     }
   }
 
-  function handleSave(m: Markdown) {
-    updateLastHistory(m.link);
-    setCurrentMarkdown(m);
+  function handleSave(m: FileRecord) {
+    updateLastHistory(m.path);
+    setCurrentFile(m);
     upsertItem(m);
   }
 
-  function handleUpdate(m: Markdown) {
-    setCurrentMarkdown(m);
+  function handleUpdate(m: FileRecord) {
+    setCurrentFile(m);
     upsertItem(m);
   }
 
   function selectFallback() {
-    const fallback = editorStore.items.find(item => !item.deletedAt) ?? initMarkdown();
-    setCurrentMarkdown(fallback);
+    const fallback = editorStore.items.find(item => !item.deletedAt) ?? null;
+    setCurrentFile(fallback);
   }
 
   function handlePurge(id: number) {
-    const purgedCurrent = editorStore.currentMarkdown?.id === id;
+    const purgedCurrent = editorStore.currentFile?.id === id;
     removeItem(id);
     if (purgedCurrent) selectFallback();
   }
 
   function handleEmptyTrash() {
-    const removedCurrent = Boolean(editorStore.currentMarkdown?.deletedAt);
+    const removedCurrent = Boolean(editorStore.currentFile?.deletedAt);
     removeTrashedItems();
     if (removedCurrent) selectFallback();
   }
@@ -104,34 +106,21 @@
     replaceItemsByPrefix(prefix, result.data || []);
   }
 
-  async function createNew(prefix: string) {
-    const targetSource = getSourceFromLink(prefix);
-    const newMd = initMarkdown(targetSource);
-    
-    if (targetSource === MarkdownSource.Memo) {
-      const result = await actions.db.markdown.getNewMemoSubject();
-      if (result.data) {
-        newMd.subject = result.data;
-        newMd.link = `${prefix}${result.data}`
-        newMd.private = true
-      } else if (result.error) {
-          console.error('Error fetching memo subject', result.error);
-          newMd.link = prefix;
-      }
-    } else {
-      let baseName = 'unnamed';
-      let counter = 0;
-      let candidate = `${prefix}${baseName}`;
-      
-      const exists = (link: string) => editorStore.items.some(i => !i.deletedAt && i.link === link);
-
-      while(exists(candidate)) {
-        counter++;
-        candidate = `${prefix}${baseName}-${counter}`;
-      }
-      newMd.link = candidate;
+  async function createNew(targetPrefix: AbsolutePathPrefix) {
+    const result = await actions.db.markdown.create({ targetPrefix });
+    if (result.error || !result.data) {
+      notify('error', result.error ? formatFileSaveError(result.error) : 'File creation failed');
+      return;
     }
-    setCurrentMarkdown(newMd);
+
+    const file = result.data;
+    upsertItem(file);
+    pushHistory(file.path);
+    setCurrentFile(file);
+    notify('success', `Created ${file.path}`, 3000);
+    if (window.innerWidth < 768) setShowSidebar(false);
+    await tick();
+    document.querySelector<HTMLInputElement>('#path-input')?.focus();
   }
 </script>
 
@@ -141,7 +130,8 @@
     <div class="{editorStore.showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
         <div class="flex-1 overflow-hidden pt-5">
              <Sidebar
-                currentId={editorStore.currentMarkdown?.id || 0}
+                currentId={editorStore.currentFile?.id || 0}
+                {templatePrefixes}
                 onSelect={handleSelect}
                 onCreate={createNew}
                 onRefresh={handleRefresh}
@@ -152,10 +142,10 @@
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        {#if editorStore.currentMarkdown}
+        {#if editorStore.currentFile}
              <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
                  <Editor 
-                    markdown={editorStore.currentMarkdown} 
+                    file={editorStore.currentFile}
                     onSave={handleSave}
                     onUpdate={handleUpdate}
                     onPurge={handlePurge}

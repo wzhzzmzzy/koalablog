@@ -1,6 +1,7 @@
 ---
 import ExportZip from '@/components/io/export-zip.svelte'
 import ImportFile from '@/components/io/import-file.svelte'
+import TemplateUtility from '@/components/settings/TemplateUtility.svelte'
 import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import { readToday } from '@/db/ossAccess'
 import DashboardLayout from '@/layouts/dashboard.astro'
@@ -142,6 +143,7 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
     <h2>Utility</h2>
 
     <section class="flex gap-3 flex-col">
+      <TemplateUtility client:visible />
       <ImportFile client:load />
       <ExportZip client:load />
     </section>
