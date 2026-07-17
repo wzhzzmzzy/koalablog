@@ -50,4 +50,17 @@ describe('file Prefix refresh', () => {
 
     expect(files.map(file => file.path)).toEqual(['/project/inside'])
   })
+
+  it('treats SQL wildcard characters in a Prefix as literal Path characters', async () => {
+    await add(env, { path: '/project_/inside', content: 'underscore' })
+    await add(env, { path: '/projectX/other', content: 'outside' })
+    await add(env, { path: '/100%/inside', content: 'percent' })
+    await add(env, { path: '/100x/other', content: 'outside' })
+
+    const underscore = await readByPrefix(env, '/project_/')
+    const percent = await readByPrefix(env, '/100%/')
+
+    expect(underscore.map(file => file.path)).toEqual(['/project_/inside'])
+    expect(percent.map(file => file.path)).toEqual(['/100%/inside'])
+  })
 })

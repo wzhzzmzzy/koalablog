@@ -2,7 +2,8 @@
   import type { FileRecord } from '@/db/types';
   import { ArrowLeft, Check, Eye, House, Link, Lock, LockOpen, Menu, Save, SquarePen, Upload } from '@lucide/svelte';
   import FileLifecycle from './FileLifecycle.svelte';
-  import { editorStore, toggleSidebar, type EditBufferServerValues } from './store.svelte';
+  import type { EditBufferServerValues } from './edit-buffer.svelte';
+  import { editorStore, toggleSidebar } from './store.svelte';
 
   type ClickHandler = (event: MouseEvent) => void | Promise<void>;
 
@@ -84,6 +85,7 @@
       class="w-full bg-transparent border-none outline-none text-sm text-[--koala-subtext-0] h-8 text-center"
       type="text"
       name="path"
+      aria-label="Absolute File Path"
       bind:value={pathValue}
       onkeydown={(event) => event.key === 'Enter' && event.preventDefault()}
       placeholder="Input Path..."

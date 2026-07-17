@@ -3,7 +3,8 @@
   import { actions } from 'astro:actions';
   import { RotateCcw, Trash2, X } from '@lucide/svelte';
   import { tick } from 'svelte';
-  import { notify, removeEditBuffer } from './store.svelte';
+  import { removeEditBuffer } from './edit-buffer.svelte';
+  import { notify } from './store.svelte';
 
   interface Props {
     file: FileRecord;

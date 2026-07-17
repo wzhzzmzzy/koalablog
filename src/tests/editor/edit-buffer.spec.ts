@@ -1,12 +1,14 @@
 import {
   EDIT_BUFFERS_STORAGE_KEY,
   editBuffers,
-  editorStore,
   initializeEditBuffers,
   LEGACY_DRAFTS_STORAGE_KEY,
+  setEditBuffer,
+} from '@/components/editor/edit-buffer.svelte'
+import {
+  editorStore,
   replaceItemsByPrefix,
   setCurrentFile,
-  setEditBuffer,
   setItems,
 } from '@/components/editor/store.svelte'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
@@ -25,6 +27,14 @@ class MemoryStorage {
 
   removeItem(key: string) {
     this.values.delete(key)
+  }
+}
+
+class FailingEditBufferStorage extends MemoryStorage {
+  setItem(key: string, value: string) {
+    if (key === EDIT_BUFFERS_STORAGE_KEY)
+      throw new Error('storage full')
+    super.setItem(key, value)
   }
 }
 
@@ -86,6 +96,19 @@ describe('editor Edit Buffer persistence', () => {
     initializeEditBuffers([active, deleted], storage)
 
     expect(Array.from(editBuffers.entries())).toEqual([[active.id, buffer]])
+  })
+
+  it('keeps legacy state when persisting the migrated Edit Buffer fails', () => {
+    const active = makeFileRecord({ id: 7, path: '/memo/active', content: 'server', revision: 4 })
+    const storage = new FailingEditBufferStorage()
+    const legacy = JSON.stringify([
+      [active.path, { ...active, content: 'local' }],
+    ])
+    storage.setItem(LEGACY_DRAFTS_STORAGE_KEY, legacy)
+
+    expect(() => initializeEditBuffers([active], storage)).toThrowError('storage full')
+
+    expect(storage.getItem(LEGACY_DRAFTS_STORAGE_KEY)).toBe(legacy)
   })
 })
 

@@ -1,5 +1,6 @@
+import { editBuffers, setEditBuffer } from '@/components/editor/edit-buffer.svelte'
 import { buildFileTree, getTrashedFiles, isFileTreeEmpty } from '@/components/editor/file-tree'
-import { editBuffers, editorStore, replaceItemsByPrefix, setEditBuffer, setItems } from '@/components/editor/store.svelte'
+import { editorStore, replaceItemsByPrefix, setItems } from '@/components/editor/store.svelte'
 import { parseAbsolutePathPrefix } from '@/lib/files/path'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
 import { describe, expect, it } from 'vitest'

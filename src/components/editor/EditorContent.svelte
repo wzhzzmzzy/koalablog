@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { EditBufferServerValues } from './store.svelte';
+  import type { EditBufferServerValues } from './edit-buffer.svelte';
 
   interface Props {
     title: string;

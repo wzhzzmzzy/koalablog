@@ -9,7 +9,8 @@
   import EditorContent from './EditorContent.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
   import { findPreviousActiveFile, formatFileSaveError, generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition, sourceConflictFromActionError, uploadEditorImage } from './utils';
-  import { editorStore, editBuffers, upsertItem, popHistory, setCurrentFile, setEditBuffer, removeEditBuffer, notify, type EditBufferServerValues } from './store.svelte';
+  import { editBuffers, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
+  import { editorStore, upsertItem, popHistory, setCurrentFile, notify } from './store.svelte';
   interface Props {
 			file: FileRecord;
 	    onSave?: (file: FileRecord) => void;

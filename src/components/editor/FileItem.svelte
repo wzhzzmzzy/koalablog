@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types';
   import { FileText } from '@lucide/svelte';
-  import { editBuffers } from './store.svelte';
+  import { editBuffers } from './edit-buffer.svelte';
 
   interface Props {
     item: FileRecord;

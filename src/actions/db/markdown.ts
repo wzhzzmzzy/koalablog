@@ -157,9 +157,19 @@ export const batchImport = defineAction({
   accept: 'json',
   handler: async (input, ctx) => {
     await authGuard(ctx)
-    return batchAdd(ctx.locals.runtime?.env, input.map(file => ({
-      ...file,
-      private: file.path.startsWith('/memo/'),
-    })))
+    return batchAdd(ctx.locals.runtime?.env, input.map((file) => {
+      const parsed = parseAbsoluteFilePath(file.path)
+      if (!parsed.ok) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: `Invalid File Path: ${parsed.error.code}`,
+        })
+      }
+      return {
+        path: parsed.value,
+        content: file.content,
+        private: parsed.value.startsWith('/memo/'),
+      }
+    }))
   },
 })

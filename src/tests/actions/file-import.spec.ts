@@ -29,6 +29,18 @@ describe('markdown disk import action', () => {
     ])
   })
 
+  it('normalizes File Path before deriving the Visibility Default and writing', async () => {
+    mocks.batchAdd.mockResolvedValue([{ id: 1, path: '/memo/note', title: 'note', content: 'source' }])
+
+    await batchImport.orThrow.call(context, [
+      { path: '//memo//note', content: 'source' },
+    ])
+
+    expect(mocks.batchAdd).toHaveBeenCalledWith({ DB: 'db' }, [
+      { path: '/memo/note', content: 'source', private: true },
+    ])
+  })
+
   it('rejects extension-bearing and non-absolute File Paths before writing', async () => {
     await expect(batchImport.orThrow.call(context, [
       { path: '/memo/note.svelte', content: 'source' },

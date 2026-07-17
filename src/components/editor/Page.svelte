@@ -6,7 +6,8 @@
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
-  import { editorStore, initializeEditBuffers, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
+  import { initializeEditBuffers, useEditBufferPersistence } from './edit-buffer.svelte';
+  import { editorStore, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, notify, toggleSidebar, setShowSidebar, useSidebarPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
   import { formatFileSaveError } from './utils';
 
   interface Props {
@@ -25,7 +26,8 @@
   }
 
   // 启用自动持久化
-  useEditorPersistence();
+  useEditBufferPersistence();
+  useSidebarPersistence();
 
   // Only override sidebar if no stored preference exists or it's mobile
   if (typeof localStorage !== 'undefined' && localStorage.getItem(SIDEBAR_STORAGE_KEY) === null) {

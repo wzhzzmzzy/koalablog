@@ -212,6 +212,7 @@ export async function restore(env: Env, id: number, renameOnConflict = false) {
   if (!conflict) {
     try {
       const [restored] = await db.update(markdown).set({
+        title: deriveTitle(parsedPath.value),
         deletedAt: null,
         updatedAt: new Date(),
         revision: sql`${markdown.revision} + 1`,
@@ -375,7 +376,7 @@ export function readByPrefix(env: Env, prefix: string) {
   if (!parsed.ok)
     throw new FileInputError('invalid_path', `Invalid Path Prefix: ${parsed.error.code}`)
   return connectDB(env).query.markdown.findMany({
-    where: like(markdown.path, `${parsed.value}%`),
+    where: sql`substr(${markdown.path}, 1, ${parsed.value.length}) = ${parsed.value}`,
     orderBy: desc(markdown.createdAt),
   })
 }

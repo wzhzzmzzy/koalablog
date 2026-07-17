@@ -1,4 +1,5 @@
 <script lang="ts">
+import { getMarkdownSourceKey, MarkdownSource } from "@/db";
 import { supportFSApi } from "@/lib/services/file-reader";
 import { importFromFilePicker } from "@/lib/services/io";
 import { actions } from "astro:actions";
@@ -12,6 +13,13 @@ const ImportStatus = {
   LOADING: 'loading',
   SAVING: 'saving'
 } as const
+
+const fileCollectionSources = [
+  MarkdownSource.Post,
+  MarkdownSource.Page,
+  MarkdownSource.Memo,
+  MarkdownSource.Wiki,
+] as const
 
 type ImportStatusType = typeof ImportStatus[keyof typeof ImportStatus]
 
@@ -85,8 +93,8 @@ onMount(() => {
       console.error('Failed to load existing File Paths:', allFilesFromDB.error)
     } else {
       const data = allFilesFromDB.data
-      allFilePaths = ['posts', 'pages', 'memos', 'wikis']
-        .flatMap(collection => data?.[collection as keyof typeof data] ?? [])
+      allFilePaths = fileCollectionSources
+        .flatMap(source => data?.[getMarkdownSourceKey(source)] ?? [])
         .map(file => file.path)
     }
   })
