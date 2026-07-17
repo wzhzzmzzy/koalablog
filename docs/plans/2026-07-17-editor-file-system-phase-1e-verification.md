@@ -85,4 +85,6 @@ Bearer batch API 继续使用绝对 Path、稳定 ID 和 `baseRevision`，并在
 
 ## 复审入口
 
-初始 Gate 1E 提交完成后，以 `7839202...HEAD` 为范围执行 Standards/Spec 双轴复审。首轮发现已修复：Edit Buffer 拆为独立模块，服务端列表刷新统一 reconciliation，Source Key 不再硬编码，Path 输入补充无障碍名称；同时补齐 Prefix 字面匹配、普通 restore Title 派生和 import 规范化后 Visibility Default。第二轮继续收口 Unicode Prefix、restore canonical Path、全部 File 集合的 Source Key 推导、File 命名、共享冲突错误处理和共享服务端快照 projector，并把 `index.svelte` 控制在 400 行以内。修复后必须重新运行聚焦测试、完整测试、D1、变更文件 ESLint、Astro 检查和 Cloudflare 构建，并再次完成双轴复审，Gate 1E 才能最终关闭。
+初始 Gate 1E 提交完成后，以 `7839202...HEAD` 为范围执行 Standards/Spec 双轴复审。首轮发现已修复：Edit Buffer 拆为独立模块，服务端列表刷新统一 reconciliation，Source Key 不再硬编码，Path 输入补充无障碍名称；同时补齐 Prefix 字面匹配、普通 restore Title 派生和 import 规范化后 Visibility Default。第二轮继续收口 Unicode Prefix、restore canonical Path、全部 File 集合的 Source Key 推导、File 命名、共享冲突错误处理和共享服务端快照 projector，并把 `index.svelte` 控制在 400 行以内。
+
+所有修复完成后已重跑聚焦测试、完整测试、D1、变更文件 ESLint、Astro 检查、Cloudflare 构建和真实浏览器 smoke。最终双轴复审结果为 Standards 0 项、Spec 0 项；Gate 1E 正式关闭，可以进入 Phase 2。
