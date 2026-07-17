@@ -1,7 +1,8 @@
+import { filePathFromMarkdownDiskPath } from '@/lib/files/disk'
 import { actions } from 'astro:actions'
 
 export function supportFSApi(): boolean {
-  return typeof window !== 'undefined' && 'showOpenFilePicker' in window
+  return typeof window !== 'undefined' && 'showDirectoryPicker' in window
 }
 
 interface ShowOpenFilePickerOptions {
@@ -111,12 +112,12 @@ export async function pickDirectoryWithFilePicker(): Promise<Array<{ path: strin
 
   async function readDirectory(dirHandler: any, basePath = '') {
     for await (const [name, handle] of dirHandler.entries()) {
-      if (handle.kind === 'file' && name.endsWith('.md')) {
+      if (handle.kind === 'file') {
+        const diskPath = basePath ? `${basePath}/${name}` : name
+        const path = filePathFromMarkdownDiskPath(diskPath)
         try {
           const file = await handle.getFile()
           const content = await file.text()
-          const fileName = basePath ? `${basePath}/${name}` : name
-          const path = `/${fileName.replace(/\.md$/, '')}`
           mdFiles.push({ path, content })
         }
         catch (error) {

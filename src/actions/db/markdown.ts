@@ -11,7 +11,7 @@ import {
   restore as restoreFile,
   trash as trashFile,
 } from '@/db/markdown'
-import { parseAbsolutePathPrefix } from '@/lib/files/path'
+import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
@@ -98,7 +98,13 @@ export const all = defineAction({
 })
 
 export const byPrefix = defineAction({
-  input: z.object({ prefix: z.string().default('') }).default({ prefix: '' }),
+  input: z.object({
+    prefix: z.string().superRefine((prefix, ctx) => {
+      const parsed = parseAbsolutePathPrefix(prefix)
+      if (!parsed.ok)
+        ctx.addIssue({ code: 'custom', message: `Invalid Path Prefix: ${parsed.error.code}` })
+    }).default('/'),
+  }).default({ prefix: '/' }),
   handler: async ({ prefix }, ctx) => {
     await authGuard(ctx)
     return readByPrefix(ctx.locals.runtime?.env, prefix)
@@ -141,19 +147,19 @@ export const emptyTrash = defineAction({
 
 export const batchImport = defineAction({
   input: z.array(z.object({
-    path: z.string(),
+    path: z.string().superRefine((path, ctx) => {
+      const parsed = parseAbsoluteFilePath(path)
+      if (!parsed.ok)
+        ctx.addIssue({ code: 'custom', message: `Invalid File Path: ${parsed.error.code}` })
+    }),
     content: z.string(),
-    private: z.boolean().optional(),
-    createdAt: z.coerce.date().optional(),
-    updatedAt: z.coerce.date().optional(),
-    deletedAt: z.coerce.date().nullable().optional(),
   }).strict()),
   accept: 'json',
   handler: async (input, ctx) => {
     await authGuard(ctx)
     return batchAdd(ctx.locals.runtime?.env, input.map(file => ({
       ...file,
-      deletedAt: file.deletedAt ?? undefined,
+      private: file.path.startsWith('/memo/'),
     })))
   },
 })

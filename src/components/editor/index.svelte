@@ -6,11 +6,10 @@
   import type MarkdownIt from 'markdown-it';
   import { actions } from 'astro:actions';
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
-  import { Save, Upload, Eye, SquarePen, Link, Check, ArrowLeft, Menu, Lock, LockOpen, House } from '@lucide/svelte';
-  import FileLifecycle from './FileLifecycle.svelte';
   import EditorContent from './EditorContent.svelte';
+  import EditorToolbar from './EditorToolbar.svelte';
   import { findPreviousActiveFile, formatFileSaveError, generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition, sourceConflictFromActionError, uploadEditorImage } from './utils';
-  import { editorStore, upsertItem, popHistory, setCurrentFile, setDraft, removeDraft, drafts, notify, toggleSidebar } from './store.svelte';
+  import { editorStore, editBuffers, upsertItem, popHistory, setCurrentFile, setEditBuffer, removeEditBuffer, notify, type EditBufferServerValues } from './store.svelte';
   interface Props {
 			file: FileRecord;
 	    onSave?: (file: FileRecord) => void;
@@ -18,38 +17,59 @@
 	    onPurge?: (id: number) => void;
 			}
   let { file, onSave, onUpdate, onPurge }: Props = $props()
-  let textareaValue = $state(file.content ?? '')
-  let privateValue = $state(file.private ?? false)
+  const initialBuffer = editBuffers.get(file.id)
+  let textareaValue = $state(initialBuffer?.content ?? file.content ?? '')
+  let privateValue = $state(initialBuffer?.private ?? file.private ?? false)
   let previewHtml = $state('')
-  let pathValue = $state(file.path ?? '')
-  let baseRevisionValue = $state(file.revision)
-  let conflict = $state<FileRecord | null>(null)
+  let pathValue = $state(initialBuffer?.path ?? file.path ?? '')
+  let baseRevisionValue = $state(initialBuffer?.baseRevision ?? file.revision)
+  let conflict = $state<EditBufferServerValues | null>(initialBuffer?.conflict?.server ?? null)
   let titleValue = $derived(pathValue.split('/').filter(Boolean).at(-1) ?? '')
   let source = $derived(getSourceFromPath(pathValue))
   let trashed = $derived(Boolean(file.deletedAt))
-  let changed = $derived(!trashed && drafts.has(file.path))
+  let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
+
+  function isDirtyAgainst(server: FileRecord) {
+    return pathValue !== server.path
+      || textareaValue !== (server.content ?? '')
+      || privateValue !== server.private
+  }
+
+  function syncEditBuffer(server: FileRecord) {
+    const dirty = isDirtyAgainst(server)
+    if (dirty || conflict) {
+      setEditBuffer({
+        fileId: server.id,
+        path: pathValue,
+        content: textareaValue,
+        private: privateValue,
+        baseRevision: baseRevisionValue,
+        dirty,
+        conflict: conflict ? { server: conflict } : null,
+      })
+    }
+    else {
+      removeEditBuffer(server.id)
+    }
+  }
 
   $effect(() => {
-    if (trashed) {
+    if (trashed)
       return
-    }
-    const rawData = editorStore.items.find(i => file.id > 0 ? i.id === file.id : i.path === file.path)
-    if (!rawData) return;
-    const isDirty = pathValue !== rawData.path || textareaValue !== (rawData.content ?? '')
-    if (isDirty) {
-      setDraft(file.path, { ...file, title: titleValue, content: textareaValue, path: pathValue })
-    } else {
-      removeDraft(file.path)
-    }
+    const server = editorStore.items.find(item => item.id === file.id) ?? file
+    syncEditBuffer(server)
   })
 
-  $effect(() => {
+  // Hydrate the newly selected File before the persistence effect can observe
+  // the old File's local values under the new stable ID.
+  $effect.pre(() => {
     const data = file
-    textareaValue = data.content ?? '';
-    privateValue = data.private ?? false;
-    pathValue = data.path ?? '';
-    baseRevisionValue = data.revision;
-    conflict = null;
+    const buffer = editBuffers.get(data.id)
+    textareaValue = buffer?.content ?? data.content ?? '';
+    privateValue = buffer?.private ?? data.private ?? false;
+    pathValue = buffer?.path ?? data.path ?? '';
+    baseRevisionValue = buffer?.baseRevision ?? data.revision;
+    conflict = buffer?.conflict?.server ?? null;
   });
 
   $effect(() => {
@@ -209,24 +229,63 @@
 
   function useServerVersion() {
     if (!conflict || !window.confirm('Replace the local Edit Buffer with the current server File?')) return;
-    removeDraft(file.path);
-    file = conflict;
-    onUpdate?.(conflict);
-    setCurrentFile(conflict);
+    const server = editorStore.items.find(item => item.id === file.id)
+    if (!server) return;
+    removeEditBuffer(file.id);
+    conflict = null;
+    file = server;
+    onUpdate?.(server);
+    setCurrentFile(server);
   }
 
   function retryLocalAgainstCurrentRevision() {
     if (!conflict || !window.confirm(`Keep the local Edit Buffer and retry against server revision ${conflict.revision}?`)) return;
     baseRevisionValue = conflict.revision;
-    upsertItem(conflict);
     conflict = null;
+    const server = editorStore.items.find(item => item.id === file.id)
+    if (server)
+      syncEditBuffer(server)
     notify('warning', 'Local Edit Buffer kept. Review it, then Save again.', 4000);
+  }
+
+  function applyServerConflict(server: FileRecord) {
+    if (!isDirtyAgainst(file)) {
+      removeEditBuffer(file.id)
+      conflict = null
+      file = server
+      onUpdate?.(server)
+      setCurrentFile(server)
+      notify('info', 'Loaded the newer server File.', 3000)
+      return false
+    }
+
+    conflict = {
+      path: server.path,
+      content: server.content ?? null,
+      private: server.private,
+      revision: server.revision,
+    }
+    setEditBuffer({
+      fileId: file.id,
+      path: pathValue,
+      content: textareaValue,
+      private: privateValue,
+      baseRevision: baseRevisionValue,
+      dirty: true,
+      conflict: { server: conflict },
+    })
+    upsertItem(server)
+    file = server
+    onUpdate?.(server)
+    return true
   }
 
   async function togglePrivate(e: Event) {
     e.preventDefault()
     if (trashed) return
+    const previousPrivateValue = privateValue
     const newPrivateValue = !privateValue
+    privateValue = newPrivateValue
 
     if (file.id > 0) {
       const formData = new FormData()
@@ -237,24 +296,27 @@
       const result = await actions.form.setPrivate(formData)
       
       if (result.error) {
-        conflict = sourceConflictFromActionError(result.error);
-        notify(conflict ? 'warning' : 'error', conflict ? 'The server File changed. Your local Edit Buffer was kept.' : formatFileSaveError(result.error))
+        const server = sourceConflictFromActionError(result.error)
+        if (server) {
+          const keptLocal = applyServerConflict(server)
+          if (keptLocal)
+            notify('warning', 'The server File changed. Your local Edit Buffer was kept.')
+        }
+        else {
+          privateValue = previousPrivateValue
+          notify('error', formatFileSaveError(result.error))
+        }
       } else {
         if (result.data) {
           const updated = result.data
           baseRevisionValue = updated.revision;
-          // Preserve the current Edit Buffer when updating the store.
-          const preserved = {
-            ...updated,
-            title: titleValue,
-            content: textareaValue,
-            path: pathValue,
-          }
-          file = preserved;
+          conflict = null
           upsertItem(updated)
-          setCurrentFile(preserved)
+          file = updated
+          onUpdate?.(updated)
+          setCurrentFile(updated)
+          syncEditBuffer(updated)
         }
-        privateValue = newPrivateValue
       }
     }
   }
@@ -274,22 +336,27 @@
     formData.append('private', String(privateValue));
     formData.append('baseRevision', baseRevisionValue.toString())
 
-    const oldPath = file.path
-
     const result = await actions.form.save(formData)
 
     if (result.error) {
-      conflict = sourceConflictFromActionError(result.error);
-      notify(conflict ? 'warning' : 'error', conflict ? 'The server File changed. Your local Edit Buffer was kept.' : formatFileSaveError(result.error))
+      const server = sourceConflictFromActionError(result.error)
+      if (server) {
+        const keptLocal = applyServerConflict(server)
+        if (keptLocal)
+          notify('warning', 'The server File changed. Your local Edit Buffer was kept.')
+      }
+      else {
+        notify('error', formatFileSaveError(result.error))
+      }
     } else {
       notify('success', 'Saved Success', 3000)
       if (result.data) {
         file = result.data
         baseRevisionValue = file.revision;
+        conflict = null
+        removeEditBuffer(file.id)
         onSave?.(file)
         upsertItem(file)
-        removeDraft(oldPath)
-        removeDraft(file.path)
       }
     }
   }
@@ -297,90 +364,25 @@
 
 <div class="w-full flex-1 flex flex-col pt-5">
   <form method="POST" class="flex-1 flex flex-col h-full overflow-hidden">
-    <div class="flex justify-between items-center mb-2 gap-4 shrink-0">
-      <div class="flex items-center gap-2 shrink-0">
-        <button 
-          type="button"
-          class="icon btn"
-          onclick={(e) => { e.preventDefault(); toggleSidebar(); }}
-          aria-label="Toggle sidebar"
-          title="Toggle sidebar"
-        >
-          <Menu size={20} />
-        </button>
-        <button 
-          type="button"
-          class="icon btn"
-          onclick={backToDashboard}
-          aria-label="Back to dashboard"
-          title="Back to dashboard"
-        >
-          <House size={20} />
-        </button>
-        <button type="button" class="icon btn {editorStore.history.length <= 1 ? 'hidden' : ''}" onclick={back} aria-label="Back to previous File" title="Back to previous File"><ArrowLeft size={20} /></button>
-      </div>
-
-      <div class="flex-1 max-w-xl mx-auto flex items-center gap-2 bg-[--koala-bg] rounded px-2">
-        <input
-          id="path-input"
-          class="w-full bg-transparent border-none outline-none text-sm text-[--koala-subtext-0] h-8 text-center"
-          type="text"
-          name="path"
-          bind:value={pathValue}
-          onkeydown={(e) => e.key === 'Enter' && e.preventDefault()}
-          placeholder="Input Path..."
-          readonly={trashed}
-        />
-      </div>
-
-      <div class="flex items-center gap-1 shrink-0">
-        {#if trashed}
-          <FileLifecycle {file} {onUpdate} {onPurge} />
-        {:else}
-        <button
-          type="button"
-          class="icon btn {file.id > 0 ? '' : 'opacity-30 !cursor-not-allowed'}"
-          onclick={togglePrivate}
-          disabled={!(file.id > 0)}
-          aria-label={file.id > 0 ? (privateValue ? "Make public" : "Make private") : "Save first to set privacy"}
-          title={file.id > 0 ? (privateValue ? "Private" : "Public") : "Save first to set privacy"}
-        >
-          {#if privateValue}
-            <Lock size={20} />
-          {:else}
-            <LockOpen size={20} />
-          {/if}
-        </button>
-        <button id="save" class="icon btn {changed ? '!text-[--koala-success-text]' : '' }" onclick={save} disabled={Boolean(conflict)} aria-label="Save File" title={conflict ? 'Resolve the Source conflict first' : 'Save'}><Save size={20} /></button>
-
-        <button id="upload" class="icon btn" onclick={upload} aria-label="Upload image" title="Upload Image"><Upload size={20} /></button>
-        <button id="preview" class="icon btn" onclick={preview} aria-label={showPreview ? "Edit Source" : "Preview File"} title="Toggle Preview">
-        {#if showPreview}
-            <SquarePen size={20} />
-        {:else}
-            <Eye size={20} />
-        {/if}
-        </button>
-        {#if file.id > 0}
-        <FileLifecycle {file} {onUpdate} {onPurge} />
-        <button
-            type="button"
-            class="icon btn"
-            onclick={copyLink}
-            aria-label="Copy File link"
-            title="Copy Link"
-        >
-            {#if copyBtnText === 'Copied'}
-            <Check size={20} />
-            {:else}
-            <Link size={20} />
-            {/if}
-        </button>
-        {/if}
-        {/if}
-      </div>
-    </div>
-
+    <EditorToolbar
+      {file}
+      bind:pathValue
+      {privateValue}
+      {changed}
+      {conflict}
+      {showPreview}
+      {copyBtnText}
+      {trashed}
+      onBackToDashboard={backToDashboard}
+      onBack={back}
+      onTogglePrivate={togglePrivate}
+      onSave={save}
+      onUpload={upload}
+      onPreview={preview}
+      onCopyLink={copyLink}
+      {onUpdate}
+      {onPurge}
+    />
     <EditorContent
       title={titleValue}
       bind:value={textareaValue}

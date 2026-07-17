@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { FileRecord } from '@/db/types';
+  import type { EditBufferServerValues } from './store.svelte';
 
   interface Props {
     title: string;
@@ -7,7 +7,7 @@
     showPreview: boolean;
     previewHtml: string;
     trashed: boolean;
-    conflict: FileRecord | null;
+    conflict: EditBufferServerValues | null;
     baseRevision: number;
     onUseServer: () => void;
     onRebase: () => void;

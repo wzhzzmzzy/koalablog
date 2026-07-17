@@ -6,7 +6,7 @@
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
-  import { editorStore, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, drafts, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
+  import { editorStore, initializeEditBuffers, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, notify, toggleSidebar, setShowSidebar, useEditorPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
   import { formatFileSaveError } from './utils';
 
   interface Props {
@@ -18,13 +18,14 @@
 
   let { initialFile, initialItems = null, templatePrefixes = [], isMobile = false }: Props = $props();
 
-  // 启用自动持久化
-  useEditorPersistence();
-
   // 统一初始化 Store
   if (initialItems) {
+    initializeEditBuffers(initialItems);
     setItems(initialItems);
   }
+
+  // 启用自动持久化
+  useEditorPersistence();
 
   // Only override sidebar if no stored preference exists or it's mobile
   if (typeof localStorage !== 'undefined' && localStorage.getItem(SIDEBAR_STORAGE_KEY) === null) {
@@ -55,11 +56,7 @@
 
   function handleSelect(m: FileRecord) {
     if (!m.deletedAt && m.path) pushHistory(m.path);
-    if (!m.deletedAt && drafts.has(m.path)) {
-      setCurrentFile(drafts.get(m.path)!)
-    } else {
-      setCurrentFile(m);
-    }
+    setCurrentFile(m);
 
     if (window.innerWidth < 768) {
       setShowSidebar(false);

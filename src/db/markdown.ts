@@ -1,6 +1,6 @@
 import type { AbsoluteFilePath } from '@/lib/files/types'
 import { analyzeMarkdownSource } from '@/lib/files/analysis'
-import { classifySource, deriveTitle, parseAbsoluteFilePath } from '@/lib/files/path'
+import { classifySource, deriveTitle, parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
@@ -371,11 +371,11 @@ export function clearRemoteTruth(env: Env, id: number) {
 }
 
 export function readByPrefix(env: Env, prefix: string) {
-  if (!prefix)
-    return justReadAll(env)
-  const canonicalPrefix = prefix === '/' ? '/' : `${prefix.replace(/^\/+|\/+$/g, '')}/`
+  const parsed = parseAbsolutePathPrefix(prefix)
+  if (!parsed.ok)
+    throw new FileInputError('invalid_path', `Invalid Path Prefix: ${parsed.error.code}`)
   return connectDB(env).query.markdown.findMany({
-    where: like(markdown.path, `${canonicalPrefix}%`),
+    where: like(markdown.path, `${parsed.value}%`),
     orderBy: desc(markdown.createdAt),
   })
 }
