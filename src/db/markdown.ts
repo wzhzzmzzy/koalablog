@@ -1,6 +1,6 @@
 import type { AbsoluteFilePath } from '@/lib/files/types'
 import { analyzeMarkdownSource } from '@/lib/files/analysis'
-import { classifySource, deriveTitle, parseAbsoluteFilePath } from '@/lib/files/path'
+import { classifySource, deriveTitle, parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
@@ -203,15 +203,21 @@ export async function restore(env: Env, id: number, renameOnConflict = false) {
   const parsedPath = parseAbsoluteFilePath(file.path)
   if (!parsedPath.ok)
     return { status: 'invalid_path' as const, path: file.path }
+  const canonicalIdentity = {
+    path: parsedPath.value,
+    title: deriveTitle(parsedPath.value),
+    source: classifySource(parsedPath.value),
+  }
 
   const db = connectDB(env)
   const conflict = await db.query.markdown.findFirst({
     columns: { id: true },
-    where: and(isNull(markdown.deletedAt), eq(markdown.path, file.path)),
+    where: and(isNull(markdown.deletedAt), eq(markdown.path, canonicalIdentity.path)),
   })
   if (!conflict) {
     try {
       const [restored] = await db.update(markdown).set({
+        ...canonicalIdentity,
         deletedAt: null,
         updatedAt: new Date(),
         revision: sql`${markdown.revision} + 1`,
@@ -226,7 +232,7 @@ export async function restore(env: Env, id: number, renameOnConflict = false) {
   }
 
   if (!renameOnConflict) {
-    const suggestion = await nextRestoredIdentity(env, file.path)
+    const suggestion = await nextRestoredIdentity(env, canonicalIdentity.path)
     return {
       status: 'conflict' as const,
       suggestedPath: suggestion.path,
@@ -235,7 +241,7 @@ export async function restore(env: Env, id: number, renameOnConflict = false) {
   }
 
   while (true) {
-    const candidate = await nextRestoredIdentity(env, file.path)
+    const candidate = await nextRestoredIdentity(env, canonicalIdentity.path)
     try {
       const [restored] = await db.update(markdown).set({
         ...candidate,
@@ -371,11 +377,11 @@ export function clearRemoteTruth(env: Env, id: number) {
 }
 
 export function readByPrefix(env: Env, prefix: string) {
-  if (!prefix)
-    return justReadAll(env)
-  const canonicalPrefix = prefix === '/' ? '/' : `${prefix.replace(/^\/+|\/+$/g, '')}/`
+  const parsed = parseAbsolutePathPrefix(prefix)
+  if (!parsed.ok)
+    throw new FileInputError('invalid_path', `Invalid Path Prefix: ${parsed.error.code}`)
   return connectDB(env).query.markdown.findMany({
-    where: like(markdown.path, `${canonicalPrefix}%`),
+    where: sql`instr(${markdown.path}, ${parsed.value}) = 1`,
     orderBy: desc(markdown.createdAt),
   })
 }

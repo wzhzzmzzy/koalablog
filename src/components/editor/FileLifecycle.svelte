@@ -3,7 +3,8 @@
   import { actions } from 'astro:actions';
   import { RotateCcw, Trash2, X } from '@lucide/svelte';
   import { tick } from 'svelte';
-  import { notify, removeDraft } from './store.svelte';
+  import { removeEditBuffer } from './edit-buffer.svelte';
+  import { notify } from './store.svelte';
 
   interface Props {
     file: FileRecord;
@@ -52,7 +53,7 @@
     }
 
     closeDialogs();
-    removeDraft(file.path);
+    removeEditBuffer(file.id);
     onUpdate?.(result.data.file);
     notify('success', 'Moved to recycle bin', 3000);
   }

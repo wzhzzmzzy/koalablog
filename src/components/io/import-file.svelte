@@ -1,7 +1,7 @@
 <script lang="ts">
+import { flattenFileCollections } from "@/lib/files/collection";
 import { supportFSApi } from "@/lib/services/file-reader";
 import { importFromFilePicker } from "@/lib/services/io";
-import { batchParseMarkdown, stripMetaBlock, type ParsedMarkdownResult } from "@/lib/services/markdown-parser";
 import { actions } from "astro:actions";
 import { onMount } from "svelte";
 import to from 'await-to-js'
@@ -11,7 +11,6 @@ import './import-file.scss';
 const ImportStatus = {
   IDLE: 'idle',
   LOADING: 'loading',
-  PARSING: 'parsing', 
   SAVING: 'saving'
 } as const
 
@@ -25,7 +24,6 @@ let saveError = $state<string | null>(null)
 
 // File data
 let foundFiles = $state<Array<{ path: string, content: string }>>([])
-let parsedFiles = $state<Array<ParsedMarkdownResult & { path: string, originalContent: string }>>([])
 let selectedFiles = $state<Set<number>>(new Set())
 let duplicateFiles = $state<Set<number>>(new Set())
 
@@ -53,7 +51,6 @@ const scrollUtils = {
 const resetState = () => {
   showDrawer = false
   foundFiles = []
-  parsedFiles = []
   selectedFiles = new Set()
   duplicateFiles = new Set()
   status = ImportStatus.IDLE
@@ -62,30 +59,12 @@ const resetState = () => {
   triggerButton?.focus()
 }
 
-const createFallbackParsedFiles = (files: Array<{ path: string, content: string }>) => {
-  return files.map(file => ({
-    path: file.path,
-    originalContent: file.content,
-    html: '',
-    meta: undefined,
-    outgoingPaths: [],
-    tags: [],
-    error: 'Failed to parse markdown'
-  }))
-}
-
 const checkForDuplicates = () => {
   const duplicates = new Set<number>()
   const newSelected = new Set<number>()
   
   foundFiles.forEach((file, index) => {
-    const parsedFile = parsedFiles[index]
-    const metaPath = parsedFile?.meta?.path as string | undefined
-    const legacyLink = parsedFile?.meta?.link as string | undefined
-    const path = metaPath || (legacyLink ? `/${legacyLink.replace(/^\/+/, '')}` : file.path)
-    const deletedAt = parsedFile?.meta?.deletedAt as string | null | undefined
-    
-    const isDuplicate = !deletedAt && allFilePaths.includes(path)
+    const isDuplicate = allFilePaths.includes(file.path)
     
     if (isDuplicate) {
       duplicates.add(index)
@@ -102,12 +81,13 @@ const checkForDuplicates = () => {
 onMount(() => {
   supportFilePicker = supportFSApi()
 
-  // Load posts for link resolution
-  actions.db.markdown.all({ source: 'post' }).then((allPostsFromDB) => {
-    if (allPostsFromDB.error) {
-      console.error('Failed to load posts for link resolution:', allPostsFromDB.error)
+  actions.db.markdown.all({ includeTrash: false }).then((allFilesFromDB) => {
+    if (allFilesFromDB.error) {
+      console.error('Failed to load existing File Paths:', allFilesFromDB.error)
     } else {
-      allFilePaths = allPostsFromDB.data?.posts?.map(file => file.path) || []
+      const data = allFilesFromDB.data
+      allFilePaths = flattenFileCollections(data ?? {})
+        .map(file => file.path)
     }
   })
   
@@ -122,6 +102,7 @@ const onImport = async () => {
   const [importError, result] = await to(importFromFilePicker())
   if (importError) {
     console.error('Import failed:', importError)
+    saveError = importError instanceof Error ? importError.message : 'Import failed'
     status = ImportStatus.IDLE
     return
   }
@@ -136,20 +117,7 @@ const onImport = async () => {
   selectedFiles = new Set()
   showDrawer = true
   scrollUtils.lock()
-  
-  // Parse markdown files
-  status = ImportStatus.PARSING
-  const [parseError, parsed] = await to(batchParseMarkdown(result, {
-    includeMeta: true,
-    allFilePaths
-  }))
-  
-  parsedFiles = parseError ? createFallbackParsedFiles(result) : parsed
-  if (parseError) {
-    console.error('Failed to parse markdown files:', parseError)
-  }
-  
-  // Check for duplicates and update selection
+
   checkForDuplicates()
   
   status = ImportStatus.IDLE
@@ -218,33 +186,13 @@ const onSave = async () => {
   status = ImportStatus.SAVING
   saveError = null
   
-  // Prepare selected posts data
-  const selectedPosts = Array.from(selectedFiles).map(index => {
-    const originalFile = foundFiles[index]
-    const parsedFile = parsedFiles[index]
-    
-    // Extract meta fields
-    const meta = parsedFile?.meta
-    const createdAt = meta?.createdAt as string | undefined
-    const updatedAt = meta?.updatedAt as string | undefined
-    const metaPath = meta?.path as string | undefined
-    const legacyLink = meta?.link as string | undefined
-    const path = metaPath || (legacyLink ? `/${legacyLink.replace(/^\/+/, '')}` : originalFile.path)
-    const isPrivate = meta?.private as boolean | undefined
-    const deletedAt = meta?.deletedAt as string | null | undefined
-    
-    return {
-      path,
-      content: stripMetaBlock(originalFile.content),
-      private: isPrivate,
-      createdAt,
-      updatedAt,
-      deletedAt,
-    }
-  })
+  const selectedFilesToImport = Array.from(selectedFiles).map(index => ({
+    path: foundFiles[index].path,
+    content: foundFiles[index].content,
+  }))
   
   // Save to database
-  const result = await actions.db.markdown.batchImport(selectedPosts)
+  const result = await actions.db.markdown.batchImport(selectedFilesToImport)
   
   if (result.error) {
     saveError = result.error.message
@@ -272,14 +220,16 @@ const onSave = async () => {
   >
     {#if status === ImportStatus.LOADING}
       Loading...
-    {:else if status === ImportStatus.PARSING}
-      Parsing...
     {:else if status === ImportStatus.SAVING}
       Saving...
     {:else}
       Choose File
     {/if}
   </button>
+
+{#if saveError && !showDrawer}
+  <p class="error mb-0" role="alert">{saveError}</p>
+{/if}
 
 <!-- Slide-out drawer -->
 {#if showDrawer}
@@ -376,21 +326,6 @@ const onSave = async () => {
                     <div>{file.content.length} characters</div>
                     {#if isDuplicate}
                       <p class="error">This File already exists at the same Path</p>
-                    {:else if parsedFiles[index]?.error}
-                      <p class="error">{parsedFiles[index].error}</p>
-                    {:else if parsedFiles[index]}
-                      {@const parsed = parsedFiles[index]}
-                      {#if parsed.tags?.length > 0}
-                        <div>🏷️ Tags: {parsed.tags.join(', ')}</div>
-                      {/if}
-                      {#if parsed.outgoingPaths?.length > 0}
-                        <div>🔗 Links: {parsed.outgoingPaths.length}</div>
-                      {/if}
-                      {#if parsed.meta && Object.keys(parsed.meta).length > 0}
-                        <div>📋 Meta: {Object.keys(parsed.meta).length} fields</div>
-                      {/if}
-                    {:else if status === ImportStatus.PARSING}
-                      <div class="text-blue-500">⏳ Parsing...</div>
                     {/if}
                   </div>
                 </div>

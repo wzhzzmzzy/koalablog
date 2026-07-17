@@ -1,5 +1,6 @@
 import type { AllCollection } from '@/actions/db/markdown'
-import type { FileRecord } from '@/db/types'
+import { flattenFileCollections } from '@/lib/files/collection'
+import { markdownExportEntries } from '@/lib/files/disk'
 import { actions } from 'astro:actions'
 import { format } from 'date-fns'
 import { pickDirectoryWithFilePicker, supportFSApi } from './file-reader'
@@ -27,10 +28,10 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-export async function exportAllPosts() {
+export async function exportAllFiles() {
   const fflateLoader = import('fflate/browser')
-  const allMarkdown = await actions.db.markdown.all({ includeTrash: true })
-  const data = allMarkdown.data as (AllCollection & { recycleBin?: AllCollection }) | undefined
+  const allMarkdown = await actions.db.markdown.all({ includeTrash: false })
+  const data = allMarkdown.data as AllCollection | undefined
 
   if (!data) {
     throw new Error('No data to export')
@@ -38,59 +39,10 @@ export async function exportAllPosts() {
 
   const textEncoder = new TextEncoder()
 
-  // 创建文件结构
-  const zipFiles: Record<string, Uint8Array> = {}
-
-  // 创建包含meta数据的内容函数
-  const createContentWithMeta = (markdown: FileRecord) => {
-    const meta = {
-      title: markdown.title,
-      path: markdown.path,
-      tags: markdown.tags,
-      source: markdown.source, // 0=post, 1=page, etc (based on enum or value in DB)
-      createdAt: markdown.createdAt,
-      updatedAt: markdown.updatedAt,
-      private: markdown.private,
-      deletedAt: markdown.deletedAt,
-    }
-
-    const formatTags = (tags: string | null | undefined) => {
-      if (!tags)
-        return '[]'
-      // 假设 tags 是逗号分隔的字符串
-      const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
-      if (tagList.length === 0)
-        return '[]'
-      return `[${tagList.map(t => `"${t}"`).join(', ')}]`
-    }
-
-    const metaHeader = `---
-title: "${meta.title.replace(/"/g, '\\"')}"
-path: "${meta.path}"
-tags: ${formatTags(meta.tags)}
-source: ${meta.source}
-createdAt: "${meta.createdAt.toISOString()}"
-updatedAt: "${meta.updatedAt.toISOString()}"
-private: ${!!meta.private}
-deletedAt: ${meta.deletedAt ? `"${meta.deletedAt.toISOString()}"` : 'null'}
----
-
-`
-
-    return metaHeader + (markdown.content || '')
-  }
-
-  const collections = ['posts', 'pages', 'memos', 'wikis'] as const
-  const safeName = (markdown: FileRecord) => markdown.title.replace(/[/\\?%*:|"<>]/g, '-')
-
-  for (const collection of collections) {
-    data[collection]?.forEach((document) => {
-      zipFiles[`${collection}/${safeName(document)}-${document.id}.md`] = textEncoder.encode(createContentWithMeta(document))
-    })
-    data.recycleBin?.[collection]?.forEach((document) => {
-      zipFiles[`recycleBin/${collection}/${safeName(document)}-${document.id}.md`] = textEncoder.encode(createContentWithMeta(document))
-    })
-  }
+  const files = flattenFileCollections(data)
+  const zipFiles = Object.fromEntries(
+    Object.entries(markdownExportEntries(files)).map(([path, source]) => [path, textEncoder.encode(source)]),
+  )
   const fflate = await fflateLoader
   return new Promise<void>((resolve, reject) => {
     fflate.zip(zipFiles, (err, data) => {

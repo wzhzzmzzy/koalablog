@@ -1,5 +1,6 @@
+import { editBuffers, setEditBuffer } from '@/components/editor/edit-buffer.svelte'
 import { buildFileTree, getTrashedFiles, isFileTreeEmpty } from '@/components/editor/file-tree'
-import { drafts, editorStore, replaceItemsByPrefix, setItems } from '@/components/editor/store.svelte'
+import { editorStore, replaceItemsByPrefix, setItems } from '@/components/editor/store.svelte'
 import { parseAbsolutePathPrefix } from '@/lib/files/path'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
 import { describe, expect, it } from 'vitest'
@@ -37,7 +38,7 @@ describe('editor File tree', () => {
     expect(recycleBin.map(item => item.id)).toEqual([newer.id, older.id])
   })
 
-  it('refreshes a path without confusing a deleted duplicate with the active draft', () => {
+  it('refreshes a Path without confusing a deleted duplicate with the active Edit Buffer', () => {
     const active = makeFileRecord({ id: 1, path: '/post/same', title: 'same', content: 'saved' })
     const deleted = {
       ...makeFileRecord(),
@@ -47,18 +48,25 @@ describe('editor File tree', () => {
       content: 'deleted',
       deletedAt: new Date('2026-07-15T10:00:00Z'),
     }
-    const draft = { ...active, content: 'draft' }
-    drafts.clear()
-    drafts.set(active.path, draft)
+    editBuffers.clear()
+    setEditBuffer({
+      fileId: active.id,
+      path: active.path,
+      content: 'local',
+      private: active.private,
+      baseRevision: active.revision,
+      dirty: true,
+      conflict: null,
+    })
     setItems([active, deleted])
 
     replaceItemsByPrefix('/post/', [{ ...active, content: 'fresh' }, deleted])
 
     expect(editorStore.items.map(item => item.id).sort()).toEqual([active.id, deleted.id])
-    expect(editorStore.items.find(item => item.id === active.id)).toEqual(draft)
+    expect(editorStore.items.find(item => item.id === active.id)?.content).toBe('fresh')
     expect(editorStore.items.find(item => item.id === deleted.id)).toEqual(deleted)
-    expect(drafts.get(active.path)).toEqual(draft)
-    drafts.clear()
+    expect(editBuffers.get(active.id)?.content).toBe('local')
+    editBuffers.clear()
   })
 
   it('projects non-root Template Prefixes before any File exists', () => {

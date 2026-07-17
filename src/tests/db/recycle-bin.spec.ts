@@ -114,6 +114,46 @@ describe('file recycle bin restore', () => {
     })
   })
 
+  it('derives Title from Path when restoring without a Path conflict', async () => {
+    const client = createClient({ url: `file:${databasePath()}` })
+    const inserted = await client.execute({
+      sql: `INSERT INTO markdown (source, path, title, content, deletedAt) VALUES (?, ?, ?, ?, ?)`,
+      args: [10, '/post//canonical-title', 'stale-title', 'content', Math.floor(Date.now() / 1000)],
+    })
+    client.close()
+
+    const id = Number(inserted.lastInsertRowid)
+    const result = await restore(testEnv, id)
+
+    expect(result).toMatchObject({
+      status: 'restored',
+      file: {
+        id,
+        path: '/post/canonical-title',
+        title: 'canonical-title',
+        deletedAt: null,
+      },
+    })
+  })
+
+  it('detects restore conflicts against the canonical Path', async () => {
+    const client = createClient({ url: `file:${databasePath()}` })
+    const inserted = await client.execute({
+      sql: `INSERT INTO markdown (source, path, title, content, deletedAt) VALUES (?, ?, ?, ?, ?)`,
+      args: [10, '/post//occupied', 'stale-title', 'old', Math.floor(Date.now() / 1000)],
+    })
+    client.close()
+    await add(testEnv, { path: '/post/occupied', content: 'active' })
+
+    const result = await restore(testEnv, Number(inserted.lastInsertRowid))
+
+    expect(result).toEqual({
+      status: 'conflict',
+      suggestedPath: '/post/occupied-restored',
+      suggestedTitle: 'occupied-restored',
+    })
+  })
+
   it('keeps a legacy recycled File inactive when its stored Path is invalid', async () => {
     const client = createClient({ url: `file:${databasePath()}` })
     const inserted = await client.execute({

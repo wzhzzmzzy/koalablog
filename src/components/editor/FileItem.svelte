@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types';
   import { FileText } from '@lucide/svelte';
-  import { drafts } from './store.svelte';
+  import { editBuffers } from './edit-buffer.svelte';
 
   interface Props {
     item: FileRecord;
@@ -16,7 +16,7 @@
   class="outline-none border-none w-full text-left p-2 hover:bg-[--koala-hover-block] transition-colors
          {item.id === currentId ? 'bg-[--koala-focusing-block]' : 'bg-transparent'}
          relative flex items-center gap-1.5 rounded
-        {drafts.has(item.path) ? '!text-[--koala-warning-text] font-italic' : 'text-[--koala-text]'}"
+        {editBuffers.has(item.id) ? '!text-[--koala-warning-text] font-italic' : 'text-[--koala-text]'}"
   onclick={() => {
     onSelect(item)
   }}

@@ -1,28 +1,13 @@
 import type { FileRecord } from '@/db/types'
-import { SvelteMap } from 'svelte/reactivity'
+import { editBuffers, reconcileEditBuffer, removeEditBuffer } from './edit-buffer.svelte'
 
 export const SIDEBAR_STORAGE_KEY = 'koala-editor-sidebar'
-export const DRAFTS_STORAGE_KEY = 'koala-editor-drafts'
 
 function getStoredSidebar() {
   if (typeof localStorage === 'undefined')
     return true
   const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
   return stored === null ? true : stored === 'true'
-}
-
-function getStoredDrafts(): [string, FileRecord][] {
-  if (typeof localStorage === 'undefined')
-    return []
-  const stored = localStorage.getItem(DRAFTS_STORAGE_KEY)
-  if (!stored)
-    return []
-  try {
-    return JSON.parse(stored)
-  }
-  catch {
-    return []
-  }
 }
 
 export const editorStore = $state<{
@@ -65,29 +50,12 @@ export function notify(type: 'info' | 'success' | 'error' | 'warning', text: str
   }
 }
 
-export const drafts = new SvelteMap<string, FileRecord>(getStoredDrafts())
-
-// Hook to enable auto-persistence
-export function useEditorPersistence() {
-  $effect(() => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(DRAFTS_STORAGE_KEY, JSON.stringify(Array.from(drafts.entries())))
-    }
-  })
-
+export function useSidebarPersistence() {
   $effect(() => {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(SIDEBAR_STORAGE_KEY, String(editorStore.showSidebar))
     }
   })
-}
-
-export function setDraft(path: string, file: FileRecord) {
-  drafts.set(path, file)
-}
-
-export function removeDraft(path: string) {
-  drafts.delete(path)
 }
 
 export function setShowSidebar(show: boolean) {
@@ -98,8 +66,34 @@ export function toggleSidebar() {
   editorStore.showSidebar = !editorStore.showSidebar
 }
 
+function applyServerItems(nextItems: FileRecord[], refreshedItems: FileRecord[], authoritative: boolean) {
+  if (authoritative) {
+    const nextIds = new Set(nextItems.map(item => item.id))
+    for (const fileId of editBuffers.keys()) {
+      if (!nextIds.has(fileId))
+        removeEditBuffer(fileId)
+    }
+  }
+
+  for (const file of refreshedItems) {
+    if (file.deletedAt)
+      removeEditBuffer(file.id)
+    else
+      reconcileEditBuffer(file)
+  }
+
+  editorStore.items = nextItems
+  if (editorStore.currentFile) {
+    const current = nextItems.find(item => item.id === editorStore.currentFile!.id)
+    if (current)
+      editorStore.currentFile = current
+    else if (authoritative)
+      editorStore.currentFile = nextItems.find(item => !item.deletedAt) ?? null
+  }
+}
+
 export function setItems(newItems: FileRecord[]) {
-  editorStore.items = newItems
+  applyServerItems(newItems, newItems, true)
   editorStore.hasAttemptedLoad = true
 }
 
@@ -108,18 +102,12 @@ function isWithinPrefix(path: string, prefix: string) {
 }
 
 export function replaceItemsByPrefix(prefix: string, freshItems: FileRecord[]) {
-  const preservedDraftItems = editorStore.items
-    .filter(item => !item.deletedAt && isWithinPrefix(item.path, prefix) && drafts.has(item.path))
-    .map(item => drafts.get(item.path) ?? item)
-
-  const preservedDraftIds = new Set(preservedDraftItems.map(item => item.id))
-  const nextItems = freshItems.filter(item => (item.deletedAt || !drafts.has(item.path)) && !preservedDraftIds.has(item.id))
-
-  editorStore.items = [
+  const isAuthoritativeRefresh = prefix === '/'
+  const nextItems = [
     ...editorStore.items.filter(item => !isWithinPrefix(item.path, prefix)),
-    ...nextItems,
-    ...preservedDraftItems,
+    ...freshItems,
   ]
+  applyServerItems(nextItems, freshItems, isAuthoritativeRefresh)
 }
 
 export function setCurrentFile(file: FileRecord | null) {
@@ -154,9 +142,14 @@ export function upsertItem(item: FileRecord) {
 }
 
 export function removeItem(id: number) {
+  removeEditBuffer(id)
   editorStore.items = editorStore.items.filter(item => item.id !== id)
 }
 
 export function removeTrashedItems() {
+  for (const item of editorStore.items) {
+    if (item.deletedAt)
+      removeEditBuffer(item.id)
+  }
   editorStore.items = editorStore.items.filter(item => !item.deletedAt)
 }
