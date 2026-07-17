@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getMarkdownSourceKey, MarkdownSource } from "@/db";
+import { flattenFileCollections } from "@/lib/files/collection";
 import { supportFSApi } from "@/lib/services/file-reader";
 import { importFromFilePicker } from "@/lib/services/io";
 import { actions } from "astro:actions";
@@ -13,13 +13,6 @@ const ImportStatus = {
   LOADING: 'loading',
   SAVING: 'saving'
 } as const
-
-const fileCollectionSources = [
-  MarkdownSource.Post,
-  MarkdownSource.Page,
-  MarkdownSource.Memo,
-  MarkdownSource.Wiki,
-] as const
 
 type ImportStatusType = typeof ImportStatus[keyof typeof ImportStatus]
 
@@ -93,8 +86,7 @@ onMount(() => {
       console.error('Failed to load existing File Paths:', allFilesFromDB.error)
     } else {
       const data = allFilesFromDB.data
-      allFilePaths = fileCollectionSources
-        .flatMap(source => data?.[getMarkdownSourceKey(source)] ?? [])
+      allFilePaths = flattenFileCollections(data ?? {})
         .map(file => file.path)
     }
   })
@@ -194,13 +186,13 @@ const onSave = async () => {
   status = ImportStatus.SAVING
   saveError = null
   
-  const selectedPosts = Array.from(selectedFiles).map(index => ({
+  const selectedFilesToImport = Array.from(selectedFiles).map(index => ({
     path: foundFiles[index].path,
     content: foundFiles[index].content,
   }))
   
   // Save to database
-  const result = await actions.db.markdown.batchImport(selectedPosts)
+  const result = await actions.db.markdown.batchImport(selectedFilesToImport)
   
   if (result.error) {
     saveError = result.error.message

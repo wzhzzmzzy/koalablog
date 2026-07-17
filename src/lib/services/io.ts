@@ -1,4 +1,5 @@
 import type { AllCollection } from '@/actions/db/markdown'
+import { flattenFileCollections } from '@/lib/files/collection'
 import { markdownExportEntries } from '@/lib/files/disk'
 import { actions } from 'astro:actions'
 import { format } from 'date-fns'
@@ -27,7 +28,7 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-export async function exportAllPosts() {
+export async function exportAllFiles() {
   const fflateLoader = import('fflate/browser')
   const allMarkdown = await actions.db.markdown.all({ includeTrash: false })
   const data = allMarkdown.data as AllCollection | undefined
@@ -38,8 +39,7 @@ export async function exportAllPosts() {
 
   const textEncoder = new TextEncoder()
 
-  const collections = ['posts', 'pages', 'memos', 'wikis'] as const
-  const files = collections.flatMap(collection => data[collection] ?? [])
+  const files = flattenFileCollections(data)
   const zipFiles = Object.fromEntries(
     Object.entries(markdownExportEntries(files)).map(([path, source]) => [path, textEncoder.encode(source)]),
   )

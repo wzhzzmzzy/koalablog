@@ -63,4 +63,12 @@ describe('file Prefix refresh', () => {
     expect(underscore.map(file => file.path)).toEqual(['/project_/inside'])
     expect(percent.map(file => file.path)).toEqual(['/100%/inside'])
   })
+
+  it('matches a Unicode Prefix by code point rather than UTF-16 length', async () => {
+    await add(env, { path: '/😀/inside', content: 'emoji' })
+
+    const files = await readByPrefix(env, '/😀/')
+
+    expect(files.map(file => file.path)).toEqual(['/😀/inside'])
+  })
 })

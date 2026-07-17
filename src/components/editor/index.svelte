@@ -9,7 +9,7 @@
   import EditorContent from './EditorContent.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
   import { findPreviousActiveFile, formatFileSaveError, generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition, sourceConflictFromActionError, uploadEditorImage } from './utils';
-  import { editBuffers, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
+  import { editBuffers, editBufferServerValues, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
   import { editorStore, upsertItem, popHistory, setCurrentFile, notify } from './store.svelte';
   interface Props {
 			file: FileRecord;
@@ -260,12 +260,7 @@
       return false
     }
 
-    conflict = {
-      path: server.path,
-      content: server.content ?? null,
-      private: server.private,
-      revision: server.revision,
-    }
+    conflict = editBufferServerValues(server)
     setEditBuffer({
       fileId: file.id,
       path: pathValue,
@@ -279,6 +274,18 @@
     file = server
     onUpdate?.(server)
     return true
+  }
+
+  function handleFileMutationError(error: { code?: string, message: string }, rollback?: () => void) {
+    const server = sourceConflictFromActionError(error)
+    if (server) {
+      const keptLocal = applyServerConflict(server)
+      if (keptLocal)
+        notify('warning', 'The server File changed. Your local Edit Buffer was kept.')
+      return
+    }
+    rollback?.()
+    notify('error', formatFileSaveError(error))
   }
 
   async function togglePrivate(e: Event) {
@@ -297,16 +304,9 @@
       const result = await actions.form.setPrivate(formData)
       
       if (result.error) {
-        const server = sourceConflictFromActionError(result.error)
-        if (server) {
-          const keptLocal = applyServerConflict(server)
-          if (keptLocal)
-            notify('warning', 'The server File changed. Your local Edit Buffer was kept.')
-        }
-        else {
+        handleFileMutationError(result.error, () => {
           privateValue = previousPrivateValue
-          notify('error', formatFileSaveError(result.error))
-        }
+        })
       } else {
         if (result.data) {
           const updated = result.data
@@ -340,15 +340,7 @@
     const result = await actions.form.save(formData)
 
     if (result.error) {
-      const server = sourceConflictFromActionError(result.error)
-      if (server) {
-        const keptLocal = applyServerConflict(server)
-        if (keptLocal)
-          notify('warning', 'The server File changed. Your local Edit Buffer was kept.')
-      }
-      else {
-        notify('error', formatFileSaveError(result.error))
-      }
+      handleFileMutationError(result.error)
     } else {
       notify('success', 'Saved Success', 3000)
       if (result.data) {

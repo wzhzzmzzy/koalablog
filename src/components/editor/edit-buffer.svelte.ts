@@ -189,7 +189,7 @@ export function removeEditBuffer(fileId: number) {
   editBuffers.delete(fileId)
 }
 
-function serverValues(file: FileRecord): EditBufferServerValues {
+export function editBufferServerValues(file: FileRecord): EditBufferServerValues {
   return {
     path: file.path,
     content: file.content ?? null,
@@ -209,7 +209,7 @@ export function reconcileEditBuffer(file: FileRecord) {
   if (file.revision > buffer.baseRevision) {
     setEditBuffer({
       ...buffer,
-      conflict: { server: serverValues(file) },
+      conflict: { server: editBufferServerValues(file) },
     })
   }
 }

@@ -118,7 +118,7 @@ describe('file recycle bin restore', () => {
     const client = createClient({ url: `file:${databasePath()}` })
     const inserted = await client.execute({
       sql: `INSERT INTO markdown (source, path, title, content, deletedAt) VALUES (?, ?, ?, ?, ?)`,
-      args: [10, '/post/canonical-title', 'stale-title', 'content', Math.floor(Date.now() / 1000)],
+      args: [10, '/post//canonical-title', 'stale-title', 'content', Math.floor(Date.now() / 1000)],
     })
     client.close()
 
@@ -133,6 +133,24 @@ describe('file recycle bin restore', () => {
         title: 'canonical-title',
         deletedAt: null,
       },
+    })
+  })
+
+  it('detects restore conflicts against the canonical Path', async () => {
+    const client = createClient({ url: `file:${databasePath()}` })
+    const inserted = await client.execute({
+      sql: `INSERT INTO markdown (source, path, title, content, deletedAt) VALUES (?, ?, ?, ?, ?)`,
+      args: [10, '/post//occupied', 'stale-title', 'old', Math.floor(Date.now() / 1000)],
+    })
+    client.close()
+    await add(testEnv, { path: '/post/occupied', content: 'active' })
+
+    const result = await restore(testEnv, Number(inserted.lastInsertRowid))
+
+    expect(result).toEqual({
+      status: 'conflict',
+      suggestedPath: '/post/occupied-restored',
+      suggestedTitle: 'occupied-restored',
     })
   })
 

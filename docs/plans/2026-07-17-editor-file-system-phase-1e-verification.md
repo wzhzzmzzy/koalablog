@@ -18,10 +18,10 @@ Gate 1E 没有引入 CodeMirror、Renderer Mode、Svelte Source、编译器或 R
 ## 生命周期、Path 与引用
 
 - File Path 继续使用绝对、无扩展名、active 唯一的身份；Title 仍只由 Path basename 派生。
-- Prefix 刷新现在校验绝对 Path Prefix，并使用保留前导 `/` 的字面段边界查询。`/project/` 不再错误查询为 `project/%`，也不会命中 `/projected/`；Path 中的 `_`、`%` 也不会被 SQL 当成通配符。
+- Prefix 刷新现在校验绝对 Path Prefix，并使用保留前导 `/` 的字面段边界查询。`/project/` 不再错误查询为 `project/%`，也不会命中 `/projected/`；Path 中的 `_`、`%` 不会被 SQL 当成通配符，emoji 等非 BMP Unicode Prefix 也不受 JavaScript 与 SQLite 字符长度差异影响。
 - scoped refresh 只替换该 Prefix 的服务端 File 投影；只有根 `/` 全量刷新才把缺失 ID 当作 purge 证据。
 - 双链插件仍只解析绝对 `[[/path]]`，相对/Title shorthand 不解析；rename/move 不改写其他 File 的 Source。
-- recycle-bin restore 仍只按 active Path 判断冲突；普通 restore 和接受 rename restore 都由最终 Path 重新派生 Title，重复 recycled File 行为保持不变。
+- recycle-bin restore 仍只按规范化后的 active Path 判断冲突；普通 restore 会写回 canonical Path 并派生 Title，接受 rename restore 也由最终 Path 派生 Title，重复 recycled File 行为保持不变。
 
 ## Edit Buffer 存储与响应式修复
 
@@ -73,7 +73,7 @@ Bearer batch API 继续使用绝对 Path、稳定 ID 和 `baseRevision`，并在
 | 检查项 | 结果 |
 | --- | --- |
 | Gate 1E 聚焦 Vitest | 通过：Edit Buffer、File Tree、Prefix DB、disk、directory picker、import Action、Save、recycle bin、batch API、remote truth、absolute references 和 public route 均通过 |
-| 完整 `pnpm test` | 通过：32 个文件，184 项测试 |
+| 完整 `pnpm test` | 通过：32 个文件，186 项测试 |
 | `pnpm test:d1` | 通过：3 个文件，10 项测试；沙箱内 Workers pool 无诊断退出，沙箱外本地运行通过 |
 | Gate 1E 变更文件 ESLint | 通过；Svelte 文件不在当前 ESLint 配置内 |
 | 完整 `pnpm run lint` | 被 467 个既有历史诊断阻断，集中在旧文档、sync-vault、playground、生成类型和未改动页面；没有 Gate 1E 变更文件诊断 |
@@ -85,4 +85,4 @@ Bearer batch API 继续使用绝对 Path、稳定 ID 和 `baseRevision`，并在
 
 ## 复审入口
 
-初始 Gate 1E 提交完成后，以 `7839202...HEAD` 为范围执行 Standards/Spec 双轴复审。首轮发现已修复：Edit Buffer 拆为独立模块，服务端列表刷新统一 reconciliation，Source Key 不再硬编码，Path 输入补充无障碍名称；同时补齐 Prefix 字面匹配、普通 restore Title 派生和 import 规范化后 Visibility Default。修复后必须重新运行聚焦测试、完整测试、D1、变更文件 ESLint、Astro 检查和 Cloudflare 构建，并再次完成双轴复审，Gate 1E 才能最终关闭。
+初始 Gate 1E 提交完成后，以 `7839202...HEAD` 为范围执行 Standards/Spec 双轴复审。首轮发现已修复：Edit Buffer 拆为独立模块，服务端列表刷新统一 reconciliation，Source Key 不再硬编码，Path 输入补充无障碍名称；同时补齐 Prefix 字面匹配、普通 restore Title 派生和 import 规范化后 Visibility Default。第二轮继续收口 Unicode Prefix、restore canonical Path、全部 File 集合的 Source Key 推导、File 命名、共享冲突错误处理和共享服务端快照 projector，并把 `index.svelte` 控制在 400 行以内。修复后必须重新运行聚焦测试、完整测试、D1、变更文件 ESLint、Astro 检查和 Cloudflare 构建，并再次完成双轴复审，Gate 1E 才能最终关闭。
