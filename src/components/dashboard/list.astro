@@ -1,6 +1,7 @@
 ---
 import { MarkdownSource } from '@/db'
 import { readList } from '@/db/markdown'
+import { getDisplayTitle } from '@/lib/files/display-title'
 import { getMarkdownPreviewText } from '@/lib/utils/markdown-preview'
 import { format, isSameYear } from 'date-fns'
 
@@ -61,7 +62,7 @@ const memoPreviews = isMemoList
               <li class={`flex gap-3 ${isMemoList ? 'mb-3 items-start' : 'mb-2'}`}>
                 { item.createdAt ? <span class="flex-shrink-0"><i>{ formatDate(item.createdAt) }</i></span> : null }
                 <div class="min-w-0">
-                  <a href={item.path}><span>{ item.title } </span></a>
+                  <a href={item.path}><span>{ getDisplayTitle(item) } </span></a>
                   {
                     isMemoList && memoPreviews.get(item.path)
                       ? <p class="mt-1 text-sm opacity-70 whitespace-pre-line">{memoPreviews.get(item.path)}</p>

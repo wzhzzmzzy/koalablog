@@ -35,7 +35,8 @@
   type="text"
   class="text-[--koala-text] {showPreview ? 'hidden' : ''} w-full text-xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
   value={title}
-  placeholder="Title"
+  placeholder="File name"
+  aria-label="File name"
   readonly
 />
 

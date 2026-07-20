@@ -3,6 +3,7 @@
   import type { FileRecord } from '@/db/types';
   import { onMount } from 'svelte';
   import { md } from '@/lib/markdown';
+  import { getDisplayTitle } from '@/lib/files/display-title';
   import type MarkdownIt from 'markdown-it';
   import { actions } from 'astro:actions';
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
@@ -27,6 +28,7 @@
   let conflict = $state<EditBufferServerValues | null>(initialBuffer?.conflict?.server ?? null)
   let titleValue = $derived(pathValue.split('/').filter(Boolean).at(-1) ?? '')
   let source = $derived(getSourceFromPath(pathValue))
+  let displayTitleValue = $derived(getDisplayTitle({ source, title: titleValue, content: textareaValue }))
   let trashed = $derived(Boolean(file.deletedAt))
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
 
@@ -78,7 +80,7 @@
   })
 
   $effect(() => {
-    document.title = `[Editor] ${titleValue || 'New File'}`
+    document.title = `[Editor] ${displayTitleValue || 'New File'}`
   })
 
   let mdInstance: MarkdownIt | null = null
@@ -112,8 +114,8 @@
 
   async function refreshPreview() {
     let previewMd = textareaValue
-    if (titleValue) {
-      previewMd = `# ${titleValue}\n\n${textareaValue}`
+    if (displayTitleValue) {
+      previewMd = `# ${displayTitleValue}\n\n${textareaValue}`
     }
     if (mdInstance) {
       previewHtml = mdInstance.render(previewMd)

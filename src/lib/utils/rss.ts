@@ -1,5 +1,6 @@
 import type { APIContext } from 'astro'
 import { readActivePaths, readAllPublic } from '@/db/markdown'
+import { getDisplayTitle } from '@/lib/files/display-title'
 import { rawMd } from '@/lib/markdown'
 import rss from '@astrojs/rss'
 
@@ -27,7 +28,7 @@ export async function retriveRss(ctx: APIContext) {
       const content = md.render(post.content || '')
       const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
       return {
-        title: post.title,
+        title: getDisplayTitle(post),
         link: post.path,
         categories: (post.tags || '')?.split(','),
         pubDate: post.createdAt,

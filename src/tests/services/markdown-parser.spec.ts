@@ -32,4 +32,11 @@ No frontmatter here. #tag [[/wiki/entry]] [[Title]]`
     expect(result.outgoingPaths).toEqual(['/wiki/entry'])
     expect(result.tags).toEqual(['tag'])
   })
+
+  it('does not strip frontmatter when metadata parsing is excluded', async () => {
+    const result = await parseMarkdownContent('---\ntitle: Visible source\n---\n\nBody', { includeMeta: false })
+
+    expect(result.meta).toBeUndefined()
+    expect(result.html).toContain('title: Visible source')
+  })
 })
