@@ -1,0 +1,10 @@
+---
+import TemplateManager from '@/components/template/TemplateManager.svelte'
+import DashboardLayout from '@/layouts/dashboard.astro'
+---
+
+<DashboardLayout title="[Dashboard] Creation Templates">
+  <div class="w-full box-border px-4 pb-8 sm:px-6">
+    <TemplateManager client:load />
+  </div>
+</DashboardLayout>
