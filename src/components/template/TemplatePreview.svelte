@@ -8,6 +8,7 @@
   }
 
   let { preview, targetPrefix, onprefixchange }: Props = $props();
+  const invalidTargetPrefix = $derived(preview.status === 'invalid_target_prefix');
 </script>
 
 <aside class="col-span-1 min-w-0 border-t border-[--koala-border] bg-[--koala-input-bg] p-4 md:col-span-2 xl:col-span-1 xl:border-l xl:border-t-0" aria-labelledby="template-preview-title" aria-live="polite">
@@ -19,6 +20,8 @@
       class="input box-border w-full rounded border border-[--koala-border] bg-[--koala-input-bg] font-mono text-sm text-[--koala-text] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[--koala-link] focus-visible:outline-offset-1"
       value={targetPrefix}
       oninput={(event) => onprefixchange(event.currentTarget.value)}
+      aria-invalid={invalidTargetPrefix}
+      aria-describedby={invalidTargetPrefix ? 'preview-target-prefix-error' : undefined}
       placeholder="/memo/project/"
       autocomplete="off"
     />
@@ -40,7 +43,7 @@
     {:else if preview.status === 'invalid_template'}
       <p class="error m-0 text-sm">Selected Template is invalid: {preview.errors.map(issue => issue.message).join('; ')}</p>
     {:else}
-      <p class="error m-0 text-sm">{preview.message}</p>
+      <p id="preview-target-prefix-error" class="error m-0 text-sm">{preview.message}</p>
     {/if}
   </div>
 </aside>
