@@ -1,6 +1,7 @@
 ---
 import type { FileRecord } from '@/db/types'
 import { MarkdownSource } from '@/db'
+import { getDisplayTitle } from '@/lib/files/display-title'
 import { addHeadingIds, extractHeadings } from '@/lib/utils/heading-id'
 import { formatDate } from 'date-fns'
 import Outline from './outline.svelte'
@@ -14,6 +15,7 @@ interface Props {
 const { article, content, showOutline = false } = Astro.props
 
 const source = article?.source
+const displayTitle = getDisplayTitle(article)
 const contentWithIds = await addHeadingIds(content)
 const headings = showOutline ? await extractHeadings(contentWithIds) : []
 ---
@@ -23,10 +25,10 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
       source === MarkdownSource.Post
     ? (
     <>
-      <h2>{ article.title }</h2>
+      <h2>{ displayTitle }</h2>
       <p>{ formatDate(article.createdAt, 'yyyy-MM-dd') }</p>
       {showOutline && (
-        <Outline client:load title={article.title} headings={headings} />
+        <Outline client:load title={displayTitle} headings={headings} />
       )}
     </>
     )

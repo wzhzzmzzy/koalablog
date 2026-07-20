@@ -1,6 +1,7 @@
 ---
 import type { FileRecord } from '@/db/types'
 import { MarkdownSource } from '@/db'
+import { getDisplayTitle } from '@/lib/files/display-title'
 import { addHeadingIds, extractHeadings } from '@/lib/utils/heading-id'
 import { formatDate } from 'date-fns'
 import Outline from './outline.svelte'
@@ -17,6 +18,7 @@ interface Props {
 const { article, content, renderLangSet, activePaths = [] } = Astro.props
 
 const source = article?.source
+const displayTitle = getDisplayTitle(article)
 const showOutline = Astro.props.showOutline || source === MarkdownSource.Post
 const showDate = Astro.props.showDate || source === MarkdownSource.Post
 const langSet = Array.from(renderLangSet || []).join(',')
@@ -28,13 +30,13 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
   <article-client data-article={JSON.stringify(article)} data-active-paths={JSON.stringify(activePaths)} data-lang-set={langSet} data-show-outline={showOutline}>
     <div class="article-header">
       <h2 style="position: relative; margin-top: 0;">
-        { article.title }
+        { displayTitle }
       </h2>
       {showDate && (
         <p>{ formatDate(article.createdAt, 'yyyy年 MM月 dd日') }</p>
       )}
       {showOutline && (
-        <Outline client:load title={article.title} headings={headings} />
+        <Outline client:load title={displayTitle} headings={headings} />
       )}
     </div>
     <article id="article" />

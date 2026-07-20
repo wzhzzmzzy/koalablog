@@ -33,7 +33,7 @@ export async function parseMarkdownContent(
   } = options
 
   try {
-    // Create markdown instance with meta parsing enabled
+    // Keep callers that exclude meta on the renderer behavior they requested.
     const mdInstance = rawMd({
       meta: includeMeta,
       allFilePaths,

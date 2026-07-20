@@ -10,6 +10,11 @@ export interface ParsedMeta {
   [key: string]: string | boolean | null
 }
 
+export interface ParsedFrontmatter {
+  meta: ParsedMeta
+  content: string
+}
+
 function parseMetaValue(value: string): string | boolean | null {
   // 去除前后空格
   const trimmed = value.trim()
@@ -77,6 +82,24 @@ export function parseMetaContent(content: string): ParsedMeta {
   return meta
 }
 
+export function parseFrontmatter(content: string, delimiter = '---'): ParsedFrontmatter | undefined {
+  if (!content.startsWith(delimiter))
+    return undefined
+
+  const delimiterEnd = content.indexOf(`\n${delimiter}`, delimiter.length)
+  if (delimiterEnd === -1)
+    return undefined
+
+  const metaContent = content.slice(delimiter.length, delimiterEnd).trim()
+  const contentStart = delimiterEnd + delimiter.length + 1
+  const remainingContent = content.slice(contentStart).replace(/^\n+/, '')
+
+  return {
+    meta: parseMetaContent(metaContent),
+    content: remainingContent,
+  }
+}
+
 function metaPlugin(md: MarkdownIt, options: MetaPluginOptions = {}) {
   const opts = {
     delimiter: '---',
@@ -89,35 +112,16 @@ function metaPlugin(md: MarkdownIt, options: MetaPluginOptions = {}) {
     const src = state.src
     const delimiter = opts.delimiter
 
-    // Check if content starts with delimiter
-    if (!src.startsWith(delimiter)) {
+    const frontmatter = parseFrontmatter(src, delimiter)
+    if (!frontmatter) {
       return false
     }
-
-    // Find the end delimiter
-    const delimiterEnd = src.indexOf(`\n${delimiter}`, delimiter.length)
-    if (delimiterEnd === -1) {
-      return false
-    }
-
-    // Extract meta content (between delimiters)
-    const metaContent = src.slice(delimiter.length, delimiterEnd).trim()
-
-    // Parse meta content
-    const parsedMeta = parseMetaContent(metaContent);
 
     // Store meta in the markdown instance
-    (md as any).meta = parsedMeta
-
-    // Remove meta section from source, keeping only the markdown content
-    const contentStart = delimiterEnd + delimiter.length + 1
-    let remainingContent = src.slice(contentStart)
-
-    // Remove leading newlines from remaining content
-    remainingContent = remainingContent.replace(/^\n+/, '')
+    ;(md as any).meta = frontmatter.meta
 
     // Update the state source
-    state.src = remainingContent
+    state.src = frontmatter.content
 
     return true
   }

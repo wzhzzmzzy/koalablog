@@ -57,6 +57,7 @@ export async function md(opt: {
 
   if (!cacheMd) {
     // Register meta plugin first to process frontmatter before other plugins
+    useMetaPlugin(md)
     expandable(md)
     tex(md)
     // FIXME:
@@ -80,12 +81,14 @@ export function rawMd(opt: {
   meta?: boolean
   allFilePaths?: DoubleLinkPluginOptions['allFilePaths']
 } = {}) {
-  const cacheMd = MdCacheMap.get('rawMd')
+  const meta = opt.meta ?? true
+  const cacheMd = meta ? MdCacheMap.get('rawMd') : undefined
   const md: KoalaMdInstance = cacheMd || MarkdownIt({ html: true })
 
   if (!cacheMd) {
     // Register meta plugin first to process frontmatter before other plugins
-    opt.meta && useMetaPlugin(md)
+    if (meta)
+      useMetaPlugin(md)
     expandable(md)
     opt.tex && tex(md)
 
@@ -104,7 +107,8 @@ export function rawMd(opt: {
       const rawCodeHtml = defaultFence(tokens, idx, options, env, self)
       return `<div class="code-block"><span class="code-lang">${(lang || '').toUpperCase()}</span><div class="code-content">${rawCodeHtml}</div></div>\n`
     }
-    MdCacheMap.set('rawMd', md)
+    if (meta)
+      MdCacheMap.set('rawMd', md)
   }
   else {
     md.allFilePaths = opt.allFilePaths

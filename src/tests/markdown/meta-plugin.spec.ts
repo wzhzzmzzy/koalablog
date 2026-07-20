@@ -1,8 +1,34 @@
-import { useMetaPlugin } from '@/lib/markdown/meta-plugin'
+import { md, rawMd } from '@/lib/markdown'
+import { parseFrontmatter, useMetaPlugin } from '@/lib/markdown/meta-plugin'
 import MarkdownIt from 'markdown-it'
 import { describe, expect, it } from 'vitest'
 
 describe('meta-plugin', () => {
+  it('parses frontmatter into metadata and renderable content', () => {
+    expect(parseFrontmatter('---\ntitle: "Post title"\n---\n\nBody')).toEqual({
+      meta: { title: 'Post title' },
+      content: 'Body',
+    })
+  })
+
+  it('strips frontmatter in the raw renderer used by RSS and large posts', () => {
+    const renderer = rawMd()
+    const result = renderer.render('---\ntitle: "Post title"\n---\n\n# Body')
+
+    expect((renderer as any).meta).toEqual({ title: 'Post title' })
+    expect(result).toContain('<h1>Body</h1>')
+    expect(result).not.toContain('Post title')
+  })
+
+  it('strips frontmatter in the standard renderer used by short posts', async () => {
+    const renderer = await md()
+    const result = renderer.render('---\ntitle: "Post title"\n---\n\n# Body')
+
+    expect((renderer as any).meta).toEqual({ title: 'Post title' })
+    expect(result).toContain('<h1>Body</h1>')
+    expect(result).not.toContain('Post title')
+  })
+
   it('should parse basic frontmatter with string values', () => {
     const md = MarkdownIt()
     useMetaPlugin(md)
