@@ -33,11 +33,14 @@ if (host === 'localhost') {
       <a class="origin" target="_blank" href={origin}>
         <pre class="mt-1">{host}</pre>
       </a>
-      <nav>
+      <nav class="flex gap-2.5">
         {DASHBOARD_SETTINGS_ROUTE.map(route => (
         <a
           href={`/dashboard/${route.link}`}
-          class="no-underline"
+          class:list={[
+            'no-underline',
+            { 'font-semibold underline underline-offset-4': activeRoute === route.link },
+          ]}
           aria-current={activeRoute === route.link ? 'page' : undefined}
         >
           {route.name}
@@ -53,16 +56,3 @@ if (host === 'localhost') {
     <slot name="footer" />
   </footer>
 </Layout>
-
-<style>
-nav {
-  display: flex;
-  gap: 10px;
-}
-
-nav a[aria-current="page"] {
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-</style>
