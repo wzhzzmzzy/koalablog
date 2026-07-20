@@ -30,6 +30,16 @@ export function duplicateTemplatePrefixes(templates: CreationTemplateV1[]) {
   return new Set(Array.from(counts).filter(([, count]) => count > 1).map(([prefix]) => prefix))
 }
 
+export function duplicateTemplateIds(templates: CreationTemplateV1[]) {
+  const counts = new Map<string, number>()
+  for (const template of templates) {
+    const id = template.id
+    if (id)
+      counts.set(id, (counts.get(id) ?? 0) + 1)
+  }
+  return new Set(Array.from(counts).filter(([, count]) => count > 1).map(([id]) => id))
+}
+
 export function previewTemplateCatalog(
   templates: CreationTemplateV1[],
   sampleTargetPrefix: string,

@@ -14,6 +14,7 @@ const { title: metaTitle, showHeader = true } = Astro.props
 
 let host = Astro.url.hostname
 const origin = Astro.url.origin
+const activeRoute = Astro.url.pathname.split('/').filter(Boolean)[1]
 const title = Astro.locals.config.pageConfig.title ?? ''
 if (host === 'localhost') {
   host += `:${Astro.url.port}`
@@ -34,7 +35,11 @@ if (host === 'localhost') {
       </a>
       <nav>
         {DASHBOARD_SETTINGS_ROUTE.map(route => (
-        <a href={`/dashboard/${route.link}`} class="no-underline">
+        <a
+          href={`/dashboard/${route.link}`}
+          class="no-underline"
+          aria-current={activeRoute === route.link ? 'page' : undefined}
+        >
           {route.name}
         </a>
         ))}
@@ -53,5 +58,11 @@ if (host === 'localhost') {
 nav {
   display: flex;
   gap: 10px;
+}
+
+nav a[aria-current="page"] {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 </style>
