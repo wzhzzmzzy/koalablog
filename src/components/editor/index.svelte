@@ -324,7 +324,7 @@
   }
 </script>
 
-<div class="w-full flex-1 flex flex-col pt-5">
+<div class="w-full flex-1 min-h-0 flex flex-col pt-5">
   <form method="POST" class="flex-1 flex flex-col h-full overflow-hidden">
     <EditorToolbar
       {file}

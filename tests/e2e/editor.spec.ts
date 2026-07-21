@@ -298,6 +298,82 @@ test('dropping an image uses the drop coordinates instead of the stale selection
   await expect(source).toBeFocused()
 })
 
+test('Markdown search replaces every match', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('alpha alpha')
+  await source.press('Meta+f')
+  const find = page.getByRole('textbox', { name: 'Find' })
+  await find.fill('alpha')
+  await page.getByRole('button', { name: 'replace', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Replace' }).fill('beta')
+  await page.getByRole('button', { name: 'replace all', exact: true }).click()
+
+  await expectEditorText(source, 'beta beta')
+})
+
+test('Markdown brackets, indentation, and multiple selections remain editable', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('')
+  await source.pressSequentially('(')
+  await source.pressSequentially('x')
+  await expectEditorText(source, '(x)')
+
+  await source.fill('- item')
+  await source.press('Home')
+  await source.press('Tab')
+  await expectEditorText(source, '  - item')
+  await source.press('Shift+Tab')
+  await expectEditorText(source, '- item')
+
+  await source.fill('word word')
+  await source.press('Home')
+  for (let index = 0; index < 4; index++) await source.press('Shift+ArrowRight')
+  await source.press('Meta+d')
+  await source.pressSequentially('X')
+  await expectEditorText(source, 'X X')
+})
+
+test('folds, line numbers, and the active line restore by File ID', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('# Heading\nbody\n\n# Next\nend')
+  await expect(page.locator('.cm-lineNumbers')).toBeVisible()
+  await expect(page.locator('.cm-lineNumbers .cm-activeLineGutter')).toBeVisible()
+  await page.locator('[title="Fold line"]').first().click()
+  await expect(page.locator('[title="Unfold line"]:visible').first()).toBeVisible()
+
+  await page.getByRole('button', { name: 'second', exact: true }).click()
+  await page.getByRole('button', { name: 'phase-two', exact: true }).click()
+
+  await expect(page.locator('[title="Unfold line"]:visible').first()).toBeVisible()
+  await page.locator('[title="Unfold line"]:visible').first().click()
+  await expect.poll(async () => (await editorText(source)).replace(/\n{2,}/g, '\n'))
+    .toBe('# Heading\nbody\n# Next\nend')
+})
+
+test('narrow screens hide gutters while keeping Source scrolling and editing', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 640 })
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  const longSource = Array.from({ length: 80 }, (_, index) => `line ${index + 1}`).join('\n')
+  await source.fill(longSource)
+  await expect(page.locator('.cm-gutters')).toBeHidden()
+  await source.press('Control+End')
+  await expect.poll(() => page.locator('.cm-scroller').evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+  await source.pressSequentially(' mobile')
+  await expect.poll(() => editorText(source)).toContain('line 80 mobile')
+})
+
 test('same-ID accepted Source replacement clears stale undo history', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')

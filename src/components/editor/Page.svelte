@@ -128,7 +128,7 @@
   }
 </script>
 
-<div class="flex flex-1 h-full overflow-hidden w-full">
+<div class="flex h-screen overflow-hidden w-full">
     <Notification />
     <!-- Sidebar Container -->
     <div class="{editorStore.showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
