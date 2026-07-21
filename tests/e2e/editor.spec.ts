@@ -112,9 +112,13 @@ test('switching Files restores Source, selection, and undo by File ID', async ({
   await source.press('ArrowLeft')
   await source.press('ArrowLeft')
 
-  await page.getByRole('button', { name: 'second', exact: true }).click()
+  const secondButton = page.getByRole('button', { name: 'second', exact: true })
+  await secondButton.click()
+  await expect(secondButton).toBeFocused()
   await expect(page.getByRole('textbox', { name: 'File Source for /second' })).toBeVisible()
-  await page.getByRole('button', { name: 'phase-two', exact: true }).click()
+  const phaseTwoButton = page.getByRole('button', { name: 'phase-two', exact: true })
+  await phaseTwoButton.click()
+  await expect(phaseTwoButton).toBeFocused()
 
   source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await page.getByRole('button', { name: 'Preview File' }).click()
@@ -374,6 +378,26 @@ test('narrow screens hide gutters while keeping Source scrolling and editing', a
   await expect.poll(() => editorText(source)).toContain('line 80 mobile')
 })
 
+test('desktop Source scroll restores independently from selection by File ID', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  const scroller = page.locator('.cm-scroller')
+  const longSource = Array.from({ length: 120 }, (_, index) => `line ${index + 1}`).join('\n')
+  await source.fill(longSource)
+  await source.press('Control+Home')
+  await scroller.hover()
+  await page.mouse.wheel(0, 2400)
+  await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+  const savedScrollTop = await scroller.evaluate(element => element.scrollTop)
+
+  await page.getByRole('button', { name: 'second', exact: true }).click()
+  await page.getByRole('button', { name: 'phase-two', exact: true }).click()
+
+  await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(savedScrollTop / 2)
+})
+
 test('same-ID accepted Source replacement clears stale undo history', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
@@ -414,4 +438,16 @@ test('emptying the recycle bin discards every trashed File and selects a fallbac
   await expect(page.getByRole('textbox', { name: 'File Source for /phase-two' })).toBeVisible()
   await expect(page.getByText('Permanently deleted 1 File(s)', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Empty recycle bin' })).toHaveCount(0)
+})
+
+test('creating a File focuses its Path without focusing Source', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  await page.getByRole('button', { name: 'Create new file in memo' }).click()
+
+  const path = page.getByRole('textbox', { name: 'Absolute File Path' })
+  await expect(path).toBeFocused()
+  await expect(path).toHaveValue(/^\/memo\//)
+  await expect(page.getByRole('textbox', { name: /^File Source for \/memo\// })).not.toBeFocused()
 })
