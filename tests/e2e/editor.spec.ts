@@ -78,6 +78,37 @@ test('File Source exposes the stable editor contract', async ({ page }) => {
   await expectEditorText(source, 'First line\nSecond line updated')
 })
 
+test('Blink IME composition commits once without replacing Source', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('IME: ')
+  await source.press('ArrowLeft')
+  await source.press('ArrowRight')
+
+  const client = await page.context().newCDPSession(page)
+  await client.send('Input.imeSetComposition', {
+    text: 'zhongwen',
+    selectionStart: 8,
+    selectionEnd: 8,
+  })
+  await expectEditorText(source, 'IME: zhongwen')
+  await client.send('Input.imeSetComposition', {
+    text: '中文',
+    selectionStart: 2,
+    selectionEnd: 2,
+  })
+  await expectEditorText(source, 'IME: 中文')
+  await client.send('Input.insertText', { text: '中文' })
+  await client.detach()
+
+  await expectEditorText(source, 'IME: 中文')
+  await expect(source).toBeFocused()
+  await source.press('Meta+z')
+  await expectEditorText(source, 'IME: ')
+})
+
 test('FileEditor saves exactly once from Path and Source while preserving focus', async ({ page }) => {
   const saveRequests: string[] = []
   page.on('request', (request) => {

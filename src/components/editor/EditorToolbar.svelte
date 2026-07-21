@@ -48,7 +48,7 @@
   }: Props = $props();
 </script>
 
-<div class="flex justify-between items-center mb-2 gap-4 shrink-0">
+<div class="flex flex-wrap md:flex-nowrap justify-between items-center mb-2 gap-2 md:gap-4 shrink-0">
   <div class="flex items-center gap-2 shrink-0">
     <button
       type="button"
@@ -79,7 +79,7 @@
     </button>
   </div>
 
-  <div class="flex-1 max-w-xl mx-auto flex items-center gap-2 bg-[--koala-bg] rounded px-2">
+  <div class="order-last basis-full w-full md:order-none md:basis-auto md:w-auto flex-1 max-w-xl mx-auto flex items-center gap-2 bg-[--koala-bg] rounded px-2">
     <input
       id="path-input"
       class="w-full bg-transparent border-none outline-none text-sm text-[--koala-subtext-0] h-8 text-center"
@@ -93,7 +93,7 @@
     />
   </div>
 
-  <div class="flex items-center gap-1 shrink-0">
+  <div class="flex flex-wrap justify-end items-center gap-0 md:gap-1 md:shrink-0">
     {#if trashed}
       <FileLifecycle {file} {onUpdate} {onPurge} />
     {:else}
