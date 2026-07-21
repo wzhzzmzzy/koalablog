@@ -84,9 +84,7 @@ src/components/editor/
   TextEditor.svelte
   edit-buffer.svelte.ts
   text-editor/
-    adapter-selection.ts
-    textarea-adapter.ts
-    codemirror-adapter.ts
+    codemirror-adapter.svelte
     state-registry.ts
     markdown-language.ts
     images.ts
@@ -96,8 +94,7 @@ src/components/editor/
 - `src/lib/files/analysis.ts` is the single Source analyzer for tags and absolute File References.
 - `FileEditor` owns File fields, Save/conflict orchestration, the single page-level `Mod-s` listener, lifecycle actions, and Markdown Preview.
 - `TextEditor` exposes the stable Interface.
-- adapters own text mechanics only.
-- `adapter-selection.ts` contains the private production adapter constant. It is not a prop, user setting, URL parameter, or localStorage value; rollback changes the constant and redeploys.
+- `codemirror-adapter.svelte` owns text mechanics only.
 - `state-registry.ts` and its `Map<FileId, EditorState>` are private to the Text Editor module.
 - `edit-buffer` persists recoverable unsaved File values, not CodeMirror state.
 

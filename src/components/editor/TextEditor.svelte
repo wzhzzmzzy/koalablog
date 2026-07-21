@@ -12,9 +12,7 @@
 </script>
 
 <script lang="ts">
-  import { TEXT_EDITOR_ADAPTER } from './text-editor/adapter-selection';
   import CodeMirrorAdapter from './text-editor/codemirror-adapter.svelte';
-  import TextareaAdapter from './text-editor/textarea-adapter.svelte';
 
   interface Props {
     fileId: number;
@@ -37,24 +35,12 @@
   }
 </script>
 
-{#if TEXT_EDITOR_ADAPTER === 'textarea'}
-  <TextareaAdapter
-    bind:this={adapter}
-    {fileId}
-    {filePath}
-    {value}
-    {readonly}
-    {onChange}
-    {uploadImage}
-  />
-{:else}
-  <CodeMirrorAdapter
-    bind:this={adapter}
-    {fileId}
-    {filePath}
-    {value}
-    {readonly}
-    {onChange}
-    {uploadImage}
-  />
-{/if}
+<CodeMirrorAdapter
+  bind:this={adapter}
+  {fileId}
+  {filePath}
+  {value}
+  {readonly}
+  {onChange}
+  {uploadImage}
+/>
