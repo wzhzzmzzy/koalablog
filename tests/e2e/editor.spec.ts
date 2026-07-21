@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer'
+import { createClient } from '@libsql/client'
 import { expect, type Locator, test } from '@playwright/test'
 
 const onePixelPng = Buffer.from(
@@ -42,6 +43,15 @@ async function dispatchImageTransfer(
       })
     element.dispatchEvent(event)
   }, { type, name, coordinates, base64: onePixelPng.toString('base64') })
+}
+
+async function replaceServerSource(id: number, content: string) {
+  const client = createClient({ url: 'file:.playwright/local.db' })
+  await client.execute({
+    sql: 'UPDATE markdown SET content = ?, revision = revision + 1 WHERE id = ?',
+    args: [content, id],
+  })
+  client.close()
 }
 
 test('File Source exposes the stable editor contract', async ({ page }) => {
@@ -286,4 +296,46 @@ test('dropping an image uses the drop coordinates instead of the stale selection
   const text = await editorText(source)
   expect(text.indexOf('![](')).toBeGreaterThan(text.indexOf('second'))
   await expect(source).toBeFocused()
+})
+
+test('same-ID accepted Source replacement clears stale undo history', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('locally saved Source')
+  await page.getByRole('button', { name: 'Save File' }).click()
+  await expect(page.getByText('Saved Success')).toBeVisible()
+
+  await replaceServerSource(1, 'accepted server Source')
+  await page.getByRole('button', { name: 'phase-two', exact: true }).click()
+  await expectEditorText(source, 'accepted server Source')
+
+  await source.focus()
+  await source.press('Meta+z')
+  await expectEditorText(source, 'accepted server Source')
+})
+
+test('permanently deleting the current File selects an active fallback', async ({ page }) => {
+  await page.goto('/dashboard/edit?id=2')
+  await page.waitForLoadState('networkidle')
+
+  await page.getByRole('button', { name: 'Permanently delete' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Permanently delete?' })
+  await dialog.getByRole('button', { name: 'Permanently delete' }).click()
+
+  await expect(page.getByRole('textbox', { name: 'File Source for /phase-two' })).toBeVisible()
+  await expect(page.getByText('Permanently deleted', { exact: true })).toBeVisible()
+})
+
+test('emptying the recycle bin discards every trashed File and selects a fallback', async ({ page }) => {
+  await page.goto('/dashboard/edit?id=4')
+  await page.waitForLoadState('networkidle')
+  page.once('dialog', dialog => dialog.accept())
+
+  await page.getByRole('button', { name: 'Empty recycle bin' }).click()
+
+  await expect(page.getByRole('textbox', { name: 'File Source for /phase-two' })).toBeVisible()
+  await expect(page.getByText('Permanently deleted 1 File(s)', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Empty recycle bin' })).toHaveCount(0)
 })

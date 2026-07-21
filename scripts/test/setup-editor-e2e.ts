@@ -60,4 +60,11 @@ await client.execute({
   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   args: [20, '/second', 'second', 'Second file', '', '[]', '[]', 0, 0, 1],
 })
+await client.execute({
+  sql: `INSERT INTO markdown (
+    source, path, title, content, tags, incoming_links, outgoing_links,
+    private, remoteTruth, revision, deletedAt
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())`,
+  args: [20, '/trashed-second', 'trashed-second', 'Second read-only Source', '', '[]', '[]', 0, 0, 1],
+})
 client.close()
