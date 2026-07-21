@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition } from '../utils';
+  import { findImageRemoval, findImageReplacement, imagesFromClipboard, imagesFromDrop, prepareImageBatch, type ImageTextChange, type PendingImage } from './images';
 
   interface Props {
     fileId: number;
@@ -12,59 +12,58 @@
 
   let { fileId, filePath, value, readonly, onChange, uploadImage }: Props = $props();
   let textarea: HTMLTextAreaElement | undefined = $state();
+  let documentValue = $state(value);
+
+  $effect(() => {
+    documentValue = value;
+  });
 
   export function focus() {
     textarea?.focus();
   }
 
-  async function upload(file: File, placeholder?: string) {
+  function applyChange(change: ImageTextChange | null) {
+    if (!change) return;
+    documentValue = documentValue.slice(0, change.from) + change.insert + documentValue.slice(change.to);
+    onChange(documentValue);
+  }
+
+  async function upload(pending: PendingImage) {
     try {
-      const { url } = await uploadImage(file);
-      const markdown = `![](${url})`;
-      const nextValue = placeholder
-        ? value.replace(placeholder, markdown)
-        : `${value}\n${markdown}`;
-      onChange(nextValue);
+      const { url } = await uploadImage(pending.file);
+      applyChange(findImageReplacement(documentValue, pending, url));
     }
     catch {
-      if (placeholder) onChange(value.replace(placeholder, ''));
+      applyChange(findImageRemoval(documentValue, pending));
     }
   }
 
-  export async function insertImages(files: File[]) {
-    if (readonly) return;
-    const image = files.find(file => file.type.startsWith('image/'));
-    if (image) await upload(image);
-  }
-
-  function insertPendingImages(files: File[], position: number) {
-    let nextValue = value;
-    const pending: Array<{ file: File; placeholder: string }> = [];
-
-    for (const file of files) {
-      const placeholder = generatePlaceholder(file.name);
-      nextValue = insertTextAtPosition(nextValue, placeholder, position);
-      pending.push({ file, placeholder });
-    }
-
-    onChange(nextValue);
-    for (const item of pending) void upload(item.file, item.placeholder);
+  export function insertImages(files: File[]): Promise<void> {
+    if (readonly) return Promise.resolve();
+    const batch = prepareImageBatch(files);
+    if (batch.items.length === 0) return Promise.resolve();
+    const from = textarea?.selectionStart ?? documentValue.length;
+    const to = textarea?.selectionEnd ?? from;
+    documentValue = documentValue.slice(0, from) + batch.text + documentValue.slice(to);
+    onChange(documentValue);
+    for (const pending of batch.items) void upload(pending);
+    return Promise.resolve();
   }
 
   function handlePaste(event: ClipboardEvent) {
     if (readonly) return;
-    const files = getImagesFromClipboard(event);
+    const files = imagesFromClipboard(event);
     if (files.length === 0) return;
     event.preventDefault();
-    insertPendingImages(files, textarea?.selectionStart ?? value.length);
+    void insertImages(files);
   }
 
   function handleDrop(event: DragEvent) {
     if (readonly) return;
-    const files = getImagesFromDrop(event);
+    const files = imagesFromDrop(event);
     if (files.length === 0) return;
     event.preventDefault();
-    insertPendingImages(files, textarea?.selectionStart || value.length);
+    void insertImages(files);
   }
 </script>
 
@@ -75,8 +74,11 @@
   placeholder="Type here..."
   aria-label={`File Source for ${filePath}`}
   data-file-id={fileId}
-  {value}
-  oninput={(event) => onChange(event.currentTarget.value)}
+  value={documentValue}
+  oninput={(event) => {
+    documentValue = event.currentTarget.value;
+    onChange(documentValue);
+  }}
   onpaste={handlePaste}
   ondrop={handleDrop}
   {readonly}

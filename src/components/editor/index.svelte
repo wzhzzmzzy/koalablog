@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getSourceFromPath, getMarkdownSourceKey } from '@/db'
   import type { FileRecord } from '@/db/types';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { md } from '@/lib/markdown';
   import { getDisplayTitle } from '@/lib/files/display-title';
   import type MarkdownIt from 'markdown-it';
@@ -142,16 +142,22 @@
 
   async function upload(e: Event) {
     e.preventDefault()
-    const files = await pickFileWithFileInput()
+    const files = await pickFileWithFileInput('image/*', true)
     if (files.length > 0) {
       await editorContent?.insertImages(Array.from(files))
+      editorContent?.focus()
     }
   }
 
   let showPreview = $state(false)
-  function preview(e: Event) {
+  async function preview(e: Event) {
     e.preventDefault()
+    const returningToEdit = showPreview
     showPreview = !showPreview
+    if (returningToEdit) {
+      await tick()
+      editorContent?.focus()
+    }
   }
 
   let copyBtnText = $state('Link')

@@ -68,10 +68,11 @@ export function convertToWebP(file: File | string, quality = 0.8) {
   })
 }
 
-export async function pickFileWithFileInput(accept: string = 'image/*') {
+export async function pickFileWithFileInput(accept: string = 'image/*', multiple = false) {
   const fileInput = document.createElement('input')
   fileInput.type = 'file'
   fileInput.accept = accept
+  fileInput.multiple = multiple
   fileInput.style.display = 'none'
   document.body.insertAdjacentElement('afterend', fileInput)
   fileInput.click()
