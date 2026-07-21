@@ -8,7 +8,6 @@
   import { imagesFromClipboard, imagesFromDrop, prepareImageBatch, type PendingImage } from './images';
   import { markdownEditorExtensions } from './markdown-language';
   import { reconcileEditorInput } from './state-registry';
-  import { koalaEditorTheme } from './theme';
 
   interface Props {
     fileId: number;
@@ -52,7 +51,6 @@
       extensions: [
         imageHistory.extension,
         markdownEditorExtensions(imageHistory.keyBindings),
-        koalaEditorTheme,
         accessCompartment.of(accessExtension(readonly)),
         labelCompartment.of(labelExtension(filePath, fileId)),
         EditorView.domEventHandlers({
@@ -154,11 +152,10 @@
 
     const targetFileId = activeFileId;
     const selection = view.state.selection.main;
-    const batchId = imageHistory.batchId(batch);
     view.dispatch({
       changes: { from: selection.from, to: selection.to, insert: batch.text },
       selection: { anchor: selection.from + batch.text.length },
-      effects: imageHistory.appliedEffect(batchId),
+      effects: imageHistory.appliedEffect(),
       annotations: isolateHistory.of('full'),
     });
     imageHistory.register(targetFileId, batch, selection.from);
@@ -208,4 +205,20 @@
   });
 </script>
 
-<div bind:this={container} class="h-full w-full min-h-0"></div>
+<div
+  bind:this={container}
+  class="h-full w-full min-h-0
+    [&_.cm-editor]:h-full [&_.cm-editor]:bg-transparent [&_.cm-editor]:text-sm [&_.cm-editor]:text-[--koala-editor-text]
+    [&_.cm-editor.cm-focused]:outline-none
+    [&_.cm-scroller]:overflow-auto [&_.cm-scroller]:[font-family:var(--koala-font-mono)]
+    [&_.cm-scroller]:leading-[1.6] [&_.cm-scroller]:[touch-action:pan-x_pan-y]
+    [&_.cm-content]:min-h-full [&_.cm-content]:py-2 [&_.cm-content]:[caret-color:var(--koala-editor-text)]
+    [&_.cm-line]:px-2
+    [&_.cm-gutters]:bg-transparent [&_.cm-gutters]:border-r [&_.cm-gutters]:border-[--koala-border-subtle]
+    [&_.cm-gutters]:text-[--koala-subtext-0] lt-sm:[&_.cm-gutters]:hidden
+    [&_.cm-activeLine]:bg-[--koala-focusing-block] [&_.cm-activeLineGutter]:bg-[--koala-focusing-block]
+    [&_.cm-selectionBackground]:!bg-[--koala-editor-selection-bg] [&_::selection]:!bg-[--koala-editor-selection-bg]
+    [&_.cm-cursor]:[border-left-color:var(--koala-editor-text)] [&_.cm-dropCursor]:[border-left-color:var(--koala-editor-text)]
+    [&_.cm-searchMatch]:bg-[--koala-warning-bg] [&_.cm-searchMatch]:outline [&_.cm-searchMatch]:outline-[--koala-warning-text]
+    [&_.cm-searchMatch.cm-searchMatch-selected]:bg-[--koala-focusing-block]"
+></div>

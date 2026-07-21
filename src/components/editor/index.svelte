@@ -21,7 +21,7 @@
 			}
   let { file, onSave, onUpdate, onPurge }: Props = $props()
   const initialBuffer = editBuffers.get(file.id)
-  let textareaValue = $state(initialBuffer?.content ?? file.content ?? '')
+  let sourceValue = $state(initialBuffer?.content ?? file.content ?? '')
   let privateValue = $state(initialBuffer?.private ?? file.private ?? false)
   let previewHtml = $state('')
   let pathValue = $state(initialBuffer?.path ?? file.path ?? '')
@@ -29,14 +29,14 @@
   let conflict = $state<EditBufferServerValues | null>(initialBuffer?.conflict?.server ?? null)
   let titleValue = $derived(pathValue.split('/').filter(Boolean).at(-1) ?? '')
   let source = $derived(getSourceFromPath(pathValue))
-  let displayTitleValue = $derived(getDisplayTitle({ source, title: titleValue, content: textareaValue }))
+  let displayTitleValue = $derived(getDisplayTitle({ source, title: titleValue, content: sourceValue }))
   let trashed = $derived(Boolean(file.deletedAt))
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
   let editorContent: TextEditorHandle | undefined = $state()
 
   function isDirtyAgainst(server: FileRecord) {
     return pathValue !== server.path
-      || textareaValue !== (server.content ?? '')
+      || sourceValue !== (server.content ?? '')
       || privateValue !== server.private
   }
 
@@ -46,7 +46,7 @@
       setEditBuffer({
         fileId: server.id,
         path: pathValue,
-        content: textareaValue,
+        content: sourceValue,
         private: privateValue,
         baseRevision: baseRevisionValue,
         dirty,
@@ -70,7 +70,7 @@
   $effect.pre(() => {
     const data = file
     const buffer = editBuffers.get(data.id)
-    textareaValue = buffer?.content ?? data.content ?? '';
+    sourceValue = buffer?.content ?? data.content ?? '';
     privateValue = buffer?.private ?? data.private ?? false;
     pathValue = buffer?.path ?? data.path ?? '';
     baseRevisionValue = buffer?.baseRevision ?? data.revision;
@@ -115,9 +115,9 @@
   });
 
   async function refreshPreview() {
-    let previewMd = textareaValue
+    let previewMd = sourceValue
     if (displayTitleValue) {
-      previewMd = `# ${displayTitleValue}\n\n${textareaValue}`
+      previewMd = `# ${displayTitleValue}\n\n${sourceValue}`
     }
     if (mdInstance) {
       previewHtml = mdInstance.render(previewMd)
@@ -233,7 +233,7 @@
     setEditBuffer({
       fileId: file.id,
       path: pathValue,
-      content: textareaValue,
+      content: sourceValue,
       private: privateValue,
       baseRevision: baseRevisionValue,
       dirty: true,
@@ -302,7 +302,7 @@
     const formData = new FormData()
     formData.append('id', file.id.toString())
     formData.append('path', pathValue)
-    formData.append('content', textareaValue)
+    formData.append('content', sourceValue)
     formData.append('private', String(privateValue));
     formData.append('baseRevision', baseRevisionValue.toString())
 
@@ -350,7 +350,7 @@
       title={titleValue}
       fileId={file.id}
       filePath={pathValue}
-      value={textareaValue}
+      value={sourceValue}
       {showPreview}
       {previewHtml}
       {trashed}
@@ -358,7 +358,7 @@
       baseRevision={baseRevisionValue}
       onUseServer={useServerVersion}
       onRebase={retryLocalAgainstCurrentRevision}
-      onChange={(value) => { textareaValue = value; }}
+      onChange={(value) => { sourceValue = value; }}
       {uploadImage}
     />
   </form>
