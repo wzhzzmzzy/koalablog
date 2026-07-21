@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { createClient } from '@libsql/client'
-import { expect, type Locator, test } from '@playwright/test'
+import { expect, type Locator, type Page, test } from '@playwright/test'
 
 const onePixelPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nJ8AAAAASUVORK5CYII=',
@@ -9,8 +9,6 @@ const onePixelPng = Buffer.from(
 
 async function editorText(source: Locator) {
   return source.evaluate((element) => {
-    if (element instanceof HTMLTextAreaElement)
-      return element.value
     // CodeMirror renders each logical line in a separate element.
     // eslint-disable-next-line unicorn/prefer-dom-node-text-content
     return (element as HTMLElement).innerText
@@ -52,6 +50,18 @@ async function replaceServerSource(id: number, content: string) {
     args: [content, id],
   })
   client.close()
+}
+
+async function gateUpload(page: Page) {
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/_actions/oss.upload', async (route) => {
+    await gate
+    await route.continue()
+  })
+  return release
 }
 
 test('File Source exposes the stable editor contract', async ({ page }) => {
@@ -165,14 +175,7 @@ test('toolbar inserts a multi-image batch as one undoable action', async ({ page
 })
 
 test('undo during upload discards the late result', async ({ page }) => {
-  let releaseUpload!: () => void
-  const uploadGate = new Promise<void>((resolve) => {
-    releaseUpload = resolve
-  })
-  await page.route('**/_actions/oss.upload', async (route) => {
-    await uploadGate
-    await route.continue()
-  })
+  const releaseUpload = await gateUpload(page)
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
 
@@ -194,14 +197,7 @@ test('undo during upload discards the late result', async ({ page }) => {
 })
 
 test('redo during upload waits for final Markdown without restoring a placeholder', async ({ page }) => {
-  let releaseUpload!: () => void
-  const uploadGate = new Promise<void>((resolve) => {
-    releaseUpload = resolve
-  })
-  await page.route('**/_actions/oss.upload', async (route) => {
-    await uploadGate
-    await route.continue()
-  })
+  const releaseUpload = await gateUpload(page)
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
 
@@ -227,14 +223,7 @@ test('redo during upload waits for final Markdown without restoring a placeholde
 })
 
 test('removing a placeholder discards its late upload result', async ({ page }) => {
-  let releaseUpload!: () => void
-  const uploadGate = new Promise<void>((resolve) => {
-    releaseUpload = resolve
-  })
-  await page.route('**/_actions/oss.upload', async (route) => {
-    await uploadGate
-    await route.continue()
-  })
+  const releaseUpload = await gateUpload(page)
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
 
@@ -414,6 +403,55 @@ test('same-ID accepted Source replacement clears stale undo history', async ({ p
   await source.focus()
   await source.press('Meta+z')
   await expectEditorText(source, 'accepted server Source')
+})
+
+test('dirty same-ID refresh retains Source and exposes the newer server conflict', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('local unsaved Source')
+  await replaceServerSource(1, 'newer server Source')
+  await page.getByRole('button', { name: 'phase-two', exact: true }).click()
+
+  await expectEditorText(source, 'local unsaved Source')
+  await expect(page.getByText(/Server revision \d+ differs from the Edit Buffer base revision \d+\./)).toBeVisible()
+  await expect(page.getByText('The local Source is still intact.', { exact: false })).toBeVisible()
+})
+
+test('renaming a File preserves Source selection, scroll, folds, and undo', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  const lines = ['# Folded', 'hidden', '', '# Long section', ...Array.from({ length: 100 }, (_, index) => `line ${index + 1}`)]
+  await source.fill(lines.join('\n'))
+  await page.locator('[title="Fold line"]').first().click()
+  await expect(page.locator('[title="Unfold line"]:visible').first()).toBeVisible()
+
+  await source.press('Control+End')
+  await source.press('Shift+Home')
+  const scroller = page.locator('.cm-scroller')
+  const savedScrollTop = await scroller.evaluate(element => element.scrollTop)
+  expect(savedScrollTop).toBeGreaterThan(0)
+
+  const path = page.getByRole('textbox', { name: 'Absolute File Path' })
+  await path.fill('/phase-two-renamed')
+  await page.getByRole('button', { name: 'Save File' }).click()
+  await expect(page.getByText('Saved Success')).toBeVisible()
+
+  const renamedSource = page.getByRole('textbox', { name: 'File Source for /phase-two-renamed' })
+  await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(savedScrollTop / 2)
+  await scroller.evaluate((element) => {
+    element.scrollTop = 0
+  })
+  await expect(page.locator('[title="Unfold line"]:visible').first()).toBeVisible()
+  await renamedSource.focus()
+  await renamedSource.pressSequentially('renamed tail')
+  await expect.poll(() => editorText(renamedSource)).toContain('line 99\nrenamed tail')
+  await renamedSource.press('Meta+z')
+  await expect.poll(() => editorText(renamedSource)).toContain('line 100')
+  expect(await editorText(renamedSource)).not.toContain('renamed tail')
 })
 
 test('permanently deleting the current File selects an active fallback', async ({ page }) => {

@@ -46,6 +46,18 @@ describe('file Save action', () => {
     expect(mocks.saveFile).not.toHaveBeenCalled()
   })
 
+  it('normalizes multipart line endings before saving Source', async () => {
+    const form = validForm()
+    form.set('content', 'first\r\nsecond\rthird')
+    mocks.saveFile.mockResolvedValue({ status: 'saved', file: { id: 7 } })
+
+    await save.orThrow.call(context, form)
+
+    expect(mocks.saveFile).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      content: 'first\nsecond\nthird',
+    }))
+  })
+
   it('surfaces a stale base revision as HTTP 409 source_conflict with current values', async () => {
     const current = {
       id: 7,

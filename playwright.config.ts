@@ -17,7 +17,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: /editor-mobile\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'mobile-chromium',
+      testMatch: /editor-mobile\.spec\.ts/,
+      use: { ...devices['Pixel 5'] },
     },
   ],
   webServer: {
