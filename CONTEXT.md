@@ -60,6 +60,10 @@ _Avoid_: Link, directory path
 The extensionless file name derived strictly from the final segment of a file path. It cannot differ from or change independently of that path.
 _Avoid_: Display title, subject, metadata title
 
+**Post Display Title**:
+The reader-facing title of a Markdown Post, resolved from a non-empty string `title` in its leading YAML frontmatter and otherwise falling back to the derived File Title. It affects the Post header, browser/SEO title, post lists, RSS, and editor preview. It is not persisted as independent File metadata, does not affect paths or references, and is preserved as ordinary Source during import, export, and sync.
+_Avoid_: File Title, subject, a second database title
+
 **File Reference**:
 An explicit, literal reference to another file by its absolute file path, such as `[[/project/foo]]`. Titles are never resolved as shorthand references, and moving or renaming the target does not rewrite referring files.
 _Avoid_: Title link, ambiguous link, implicit file

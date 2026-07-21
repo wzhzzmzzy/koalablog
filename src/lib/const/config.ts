@@ -9,6 +9,7 @@ export interface DashboardRoute {
 export const DASHBOARD_SETTINGS_ROUTE: Array<DashboardRoute> = ([
   { link: 'edit', mode: 'editor' },
   { link: 'oss', name: 'OSS', mode: 'standalong' },
+  { link: 'template', name: 'Template', mode: 'standalone' },
   { link: 'settings', mode: 'standalone' },
 ] as Pick<DashboardRoute, 'link' | 'mode' | 'name'>[])
   .map(i => ({ ...i, name: i.name || upperFirst(i.link || 'home') }))

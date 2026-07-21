@@ -1,5 +1,5 @@
 import type { CreationTemplateV1 } from '@/lib/files/types'
-import { duplicateTemplatePrefixes, normalizedTemplatePrefix, previewTemplateCatalog } from '@/components/settings/template-utility-model'
+import { duplicateTemplateIds, duplicateTemplatePrefixes, normalizedTemplatePrefix, previewTemplateCatalog } from '@/components/template/template-manager-model'
 import { describe, expect, it } from 'vitest'
 
 const template: CreationTemplateV1 = {
@@ -10,7 +10,7 @@ const template: CreationTemplateV1 = {
   content: '{{title}} at {{path}}',
 }
 
-describe('template Utility model', () => {
+describe('template manager model', () => {
   it('detects duplicate normalized Prefixes', () => {
     expect(duplicateTemplatePrefixes([
       template,
@@ -18,6 +18,14 @@ describe('template Utility model', () => {
       { ...template, id: 'post', prefix: '/post/' },
     ])).toEqual(new Set(['/memo/']))
     expect(normalizedTemplatePrefix('/memo//')).toBe('/memo/')
+  })
+
+  it('detects duplicate Template IDs', () => {
+    expect(duplicateTemplateIds([
+      template,
+      { ...template, prefix: '/post/' },
+      { ...template, id: 'post', prefix: '/wiki/' },
+    ])).toEqual(new Set(['memo']))
   })
 
   it('previews the longest Template under a normalized sample target Prefix', () => {
