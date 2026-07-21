@@ -222,6 +222,33 @@ test('redo during upload waits for final Markdown without restoring a placeholde
   expect(await editorText(source)).not.toContain('Uploading')
 })
 
+test('a new edit branch discards the previous image redo batch', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('base')
+
+  let chooserPromise = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Upload image' }).click()
+  await (await chooserPromise).setFiles({ name: 'first-branch.png', mimeType: 'image/png', buffer: onePixelPng })
+  await expect.poll(async () => (await editorText(source)).includes('![](/api/oss/')).toBe(true)
+  await source.press('Meta+z')
+  await expectEditorText(source, 'base')
+
+  await source.pressSequentially(' branch')
+  chooserPromise = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Upload image' }).click()
+  await (await chooserPromise).setFiles({ name: 'second-branch.png', mimeType: 'image/png', buffer: onePixelPng })
+  await expect.poll(async () => (await editorText(source)).includes('![](/api/oss/')).toBe(true)
+  const secondBranch = await editorText(source)
+
+  await source.press('Meta+z')
+  await expectEditorText(source, 'base branch')
+  await source.press('Meta+Shift+z')
+  await expectEditorText(source, secondBranch)
+})
+
 test('removing a placeholder discards its late upload result', async ({ page }) => {
   const releaseUpload = await gateUpload(page)
   await page.goto('/dashboard/edit?path=/phase-two')
@@ -424,6 +451,7 @@ test('renaming a File preserves Source selection, scroll, folds, and undo', asyn
   await page.waitForLoadState('networkidle')
 
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  const originalSource = await editorText(source)
   const lines = ['# Folded', 'hidden', '', '# Long section', ...Array.from({ length: 100 }, (_, index) => `line ${index + 1}`)]
   await source.fill(lines.join('\n'))
   await page.locator('[title="Fold line"]').first().click()
@@ -452,6 +480,8 @@ test('renaming a File preserves Source selection, scroll, folds, and undo', asyn
   await renamedSource.press('Meta+z')
   await expect.poll(() => editorText(renamedSource)).toContain('line 100')
   expect(await editorText(renamedSource)).not.toContain('renamed tail')
+  await renamedSource.press('Meta+z')
+  await expectEditorText(renamedSource, originalSource)
 })
 
 test('permanently deleting the current File selects an active fallback', async ({ page }) => {

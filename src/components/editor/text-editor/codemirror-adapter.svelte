@@ -109,20 +109,16 @@
     flushSettledUploads(nextFileId);
   }
 
-  function applySettledUpload(pending: PendingImage, url?: string) {
-    imageHistory.settle(pending, url);
-  }
-
   function flushSettledUploads(targetFileId: number) {
     const settled = settledUploads.get(targetFileId);
     if (!settled) return;
     settledUploads.delete(targetFileId);
-    for (const result of settled) applySettledUpload(result.pending, result.url);
+    for (const result of settled) imageHistory.settle(result.pending, result.url);
   }
 
   function completeUpload(targetFileId: number, pending: PendingImage, url?: string) {
     if (view && activeFileId === targetFileId) {
-      applySettledUpload(pending, url);
+      imageHistory.settle(pending, url);
       return;
     }
     const settled = settledUploads.get(targetFileId) ?? [];

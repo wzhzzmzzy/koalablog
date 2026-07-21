@@ -43,8 +43,8 @@ function markerExtension(marker: StateEffectType<ImageHistoryDirection>) {
   })
 }
 
-function isHistoryTransaction(transaction: Transaction, marker: StateEffectType<ImageHistoryDirection>) {
-  return transaction.effects.some(effect => effect.is(marker))
+function historyDirection(transaction: Transaction, marker: StateEffectType<ImageHistoryDirection>) {
+  return transaction.effects.find(effect => effect.is(marker))?.value
 }
 
 function touchesOwnedRange(transaction: Transaction, item: TrackedImage) {
@@ -68,7 +68,13 @@ function trackImageBatches(
     if (transaction.changes.empty)
       continue
     const internal = transaction.annotation(Transaction.addToHistory) === false
-    const history = isHistoryTransaction(transaction, marker)
+    const direction = historyDirection(transaction, marker)
+    if (!internal && direction !== 'undo' && direction !== 'redo') {
+      for (const batch of batches) {
+        if (batch.fileId === activeFileId && !batch.active)
+          batches.delete(batch)
+      }
+    }
     for (const batch of batches) {
       if (batch.fileId !== activeFileId || !batch.active)
         continue
@@ -79,7 +85,7 @@ function trackImageBatches(
           item.valid = false
           continue
         }
-        if (!internal && !history && touchesOwnedRange(transaction, item)) {
+        if (!internal && direction === undefined && touchesOwnedRange(transaction, item)) {
           item.valid = false
           continue
         }
