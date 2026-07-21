@@ -9,7 +9,8 @@
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
   import EditorContent from './EditorContent.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
-  import { findPreviousActiveFile, formatFileSaveError, generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition, sourceConflictFromActionError, uploadEditorImage } from './utils';
+  import { findPreviousActiveFile, formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
+  import type { TextEditorHandle } from './TextEditor.svelte';
   import { editBuffers, editBufferServerValues, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
   import { editorStore, upsertItem, popHistory, setCurrentFile, notify } from './store.svelte';
   interface Props {
@@ -31,6 +32,7 @@
   let displayTitleValue = $derived(getDisplayTitle({ source, title: titleValue, content: textareaValue }))
   let trashed = $derived(Boolean(file.deletedAt))
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
+  let editorContent: TextEditorHandle | undefined = $state()
 
   function isDirtyAgainst(server: FileRecord) {
     return pathValue !== server.path
@@ -90,7 +92,7 @@
     const handleKeydown = (e: KeyboardEvent) => {
       if (e.repeat) return
 
-      if (!trashed && e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 's') {
+      if (!trashed && (e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault()
         void save(e)
       }
@@ -126,19 +128,15 @@
     }
   }
 
-  async function processFileUpload(file: File, placeholder?: string) {
+  async function uploadImage(file: File) {
     try {
-      const markdownLink = await uploadEditorImage(file)
-      textareaValue = placeholder
-        ? textareaValue.replace(placeholder, markdownLink)
-        : `${textareaValue}\n${markdownLink}`
+      const result = await uploadEditorImage(file)
       notify('success', 'Uploaded Successfully', 3000)
-    } catch(e: any) {
-      notify('error', e.message)
-      if (placeholder) {
-        // Remove placeholder on error
-        textareaValue = textareaValue.replace(placeholder, '')
-      }
+      return result
+    }
+    catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Upload failed')
+      throw error
     }
   }
 
@@ -146,44 +144,7 @@
     e.preventDefault()
     const files = await pickFileWithFileInput()
     if (files.length > 0) {
-      await processFileUpload(files[0])
-    }
-  }
-
-  function handlePaste(e: ClipboardEvent) {
-    if (trashed) return
-    const files = getImagesFromClipboard(e)
-    if (files.length > 0) {
-      e.preventDefault()
-      const textarea = e.target as HTMLTextAreaElement
-      const startPos = textarea.selectionStart
-      
-      files.forEach(file => {
-        const placeholder = generatePlaceholder(file.name)
-        textareaValue = insertTextAtPosition(textareaValue, placeholder, startPos)
-        
-        // Start upload process
-        processFileUpload(file, placeholder)
-      })
-    }
-  }
-
-  function handleDrop(e: DragEvent) {
-    if (trashed) return
-    const files = getImagesFromDrop(e)
-    if (files.length > 0) {
-      e.preventDefault()
-      const textarea = e.target as HTMLTextAreaElement
-      // Note: Drop position calculation is complex, here we simplify to inserting at current cursor or end
-      // For better UX, we could use document.caretPositionFromPoint but it's not standard
-      // So we fallback to selectionStart (where user clicked before drag) or simply append
-      const startPos = textarea.selectionStart || textareaValue.length
-      
-      files.forEach(file => {
-        const placeholder = generatePlaceholder(file.name)
-        textareaValue = insertTextAtPosition(textareaValue, placeholder, startPos)
-        processFileUpload(file, placeholder)
-      })
+      await editorContent?.insertImages(Array.from(files))
     }
   }
 
@@ -379,8 +340,11 @@
       {onPurge}
     />
     <EditorContent
+      bind:this={editorContent}
       title={titleValue}
-      bind:value={textareaValue}
+      fileId={file.id}
+      filePath={pathValue}
+      value={textareaValue}
       {showPreview}
       {previewHtml}
       {trashed}
@@ -388,8 +352,8 @@
       baseRevision={baseRevisionValue}
       onUseServer={useServerVersion}
       onRebase={retryLocalAgainstCurrentRevision}
-      onPaste={handlePaste}
-      onDrop={handleDrop}
+      onChange={(value) => { textareaValue = value; }}
+      {uploadImage}
     />
   </form>
 </div>

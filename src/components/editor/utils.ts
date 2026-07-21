@@ -64,7 +64,7 @@ export async function uploadEditorImage(file: File) {
     throw new Error('Upload failed')
 
   const [source, key] = result.data.split('/')
-  return `![](/api/oss/${source}_${key})`
+  return { url: `/api/oss/${source}_${key}` }
 }
 
 export function formatActionError(message: string) {
