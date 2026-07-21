@@ -1,6 +1,8 @@
 import { Buffer } from 'node:buffer'
-import { createClient } from '@libsql/client'
 import { expect, type Locator, type Page, test } from '@playwright/test'
+import { eq, sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/libsql'
+import { markdown } from '../../src/db/schema'
 
 const onePixelPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nJ8AAAAASUVORK5CYII=',
@@ -44,12 +46,12 @@ async function dispatchImageTransfer(
 }
 
 async function replaceServerSource(id: number, content: string) {
-  const client = createClient({ url: 'file:.playwright/local.db' })
-  await client.execute({
-    sql: 'UPDATE markdown SET content = ?, revision = revision + 1 WHERE id = ?',
-    args: [content, id],
-  })
-  client.close()
+  const database = drizzle({ connection: { url: 'file:.playwright/local.db' } })
+  await database.update(markdown).set({
+    content,
+    revision: sql`${markdown.revision} + 1`,
+  }).where(eq(markdown.id, id))
+  database.$client.close()
 }
 
 async function gateUpload(page: Page) {

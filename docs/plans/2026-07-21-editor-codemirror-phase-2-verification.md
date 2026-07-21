@@ -89,6 +89,7 @@ Spec 首轮 3 项的处理结果：
 - 新 history 分支会丢弃当前 File 的 inactive 图片 batch，防止 redo 用深度相同但已失效的旧 batch 投影图片；
 - rename 验收增加第二次 undo，明确证明 rename 前的 Source 历史仍然存在；
 - 删除只转发 `imageHistory.settle()` 的 `applySettledUpload()` 中间层。
+- Phase 2 新增的 SQLite 测试 fixture 与 server refresh helper 统一改由 Drizzle migrator/ORM 访问，不再直接调用 libsql DDL/DML。
 
 上线前浏览器补充复核又关闭 1 个移动端缺陷：
 

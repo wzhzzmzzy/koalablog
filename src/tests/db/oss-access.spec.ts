@@ -3,7 +3,8 @@ import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { incrementToday, readToday } from '@/db/ossAccess'
-import { createClient } from '@libsql/client'
+import { drizzle } from 'drizzle-orm/libsql'
+import { migrate } from 'drizzle-orm/libsql/migrator'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const testEnv = {} as Env
@@ -14,17 +15,9 @@ describe('oss access accounting', () => {
     databasePath = join(tmpdir(), `koalablog-oss-access-${randomUUID()}.db`)
     vi.stubEnv('SQLITE_URL', `file:${databasePath}`)
 
-    const client = createClient({ url: `file:${databasePath}` })
-    await client.executeMultiple(`
-      CREATE TABLE oss_access (
-        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-        date text NOT NULL,
-        readTimes integer DEFAULT 0,
-        operateTimes integer DEFAULT 0
-      );
-      CREATE UNIQUE INDEX oss_access_date_unique ON oss_access (date);
-    `)
-    client.close()
+    const database = drizzle({ connection: { url: `file:${databasePath}` } })
+    await migrate(database, { migrationsFolder: 'migrations' })
+    database.$client.close()
   })
 
   afterEach(async () => {
