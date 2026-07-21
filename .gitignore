@@ -26,5 +26,8 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 local.db
+/.playwright/
+/playwright-report/
+/test-results/
 
 koala.config.json
