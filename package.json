@@ -78,7 +78,6 @@
     "jose": "^6.0.10",
     "markdown-it": "^14.1.0",
     "markdown-it-container": "^4.0.0",
-    "monaco-editor": "^0.52.2",
     "node-html-parser": "^7.0.1",
     "ofetch": "^1.4.1",
     "shiki": "^3.2.2",
