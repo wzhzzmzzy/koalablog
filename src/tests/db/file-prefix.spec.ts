@@ -42,7 +42,7 @@ afterEach(async () => {
 })
 
 describe('file Prefix refresh', () => {
-  it('returns only Files from the Prefix and its immediate child Prefixes', async () => {
+  it('returns only Files directly under the Prefix', async () => {
     await add(env, { path: '/root', content: 'root' })
     await add(env, { path: '/project/inside', content: 'inside' })
     await add(env, { path: '/project/nested/deep', content: 'deep' })
@@ -52,12 +52,10 @@ describe('file Prefix refresh', () => {
     const projectFiles = await readByPrefix(env, '/project/')
 
     expect(rootFiles.map(file => file.path).sort()).toEqual([
-      '/project/inside',
       '/root',
     ])
     expect(projectFiles.map(file => file.path).sort()).toEqual([
       '/project/inside',
-      '/project/nested/deep',
     ])
   })
 
