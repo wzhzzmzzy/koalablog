@@ -102,17 +102,15 @@ function isWithinPrefixRefreshScope(path: string, prefix: string) {
     return false
 
   const relativePath = path.slice(prefix.length)
-  const firstSeparator = relativePath.indexOf('/')
-  return firstSeparator === -1 || !relativePath.includes('/', firstSeparator + 1)
+  return relativePath.length > 0 && !relativePath.includes('/')
 }
 
 export function replaceItemsByPrefix(prefix: string, freshItems: FileRecord[]) {
-  const isAuthoritativeRefresh = prefix === '/'
   const nextItems = [
     ...editorStore.items.filter(item => !isWithinPrefixRefreshScope(item.path, prefix)),
     ...freshItems,
   ]
-  applyServerItems(nextItems, freshItems, isAuthoritativeRefresh)
+  applyServerItems(nextItems, freshItems, false)
 }
 
 export function setCurrentFile(file: FileRecord | null) {

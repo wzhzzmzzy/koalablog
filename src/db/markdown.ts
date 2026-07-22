@@ -384,7 +384,7 @@ export function readByPrefix(env: Env, prefix: string) {
   return connectDB(env).query.markdown.findMany({
     where: and(
       sql`instr(${markdown.path}, ${parsed.value}) = 1`,
-      sql`length(${relativePath}) - length(replace(${relativePath}, '/', '')) <= 1`,
+      sql`length(${relativePath}) - length(replace(${relativePath}, '/', '')) = 0`,
     ),
     orderBy: desc(markdown.createdAt),
   })

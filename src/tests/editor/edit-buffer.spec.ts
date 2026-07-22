@@ -164,7 +164,7 @@ describe('editor Edit Buffer refresh reconciliation', () => {
 })
 
 describe('editor Edit Buffer lifecycle', () => {
-  it('removes the Edit Buffer and current private state when refresh confirms purge', () => {
+  it('removes the Edit Buffer and current private state when a full refresh confirms purge', () => {
     const purged = makeFileRecord({ id: 7, path: '/memo/purged', content: 'server', revision: 4 })
     const fallback = makeFileRecord({ id: 8, path: '/post/fallback' })
     setItems([purged, fallback])
@@ -179,16 +179,16 @@ describe('editor Edit Buffer lifecycle', () => {
       conflict: null,
     })
 
-    replaceItemsByPrefix('/', [fallback])
+    setItems([fallback])
 
     expect(editBuffers.has(purged.id)).toBe(false)
     expect(editorStore.items).toEqual([fallback])
     expect(editorStore.currentFile).toEqual(fallback)
   })
 
-  it('preserves the Edit Buffer when a scoped refresh cannot distinguish move from purge', () => {
-    const moved = makeFileRecord({ id: 7, path: '/memo/moved', content: 'server', revision: 4 })
-    const fallback = makeFileRecord({ id: 8, path: '/project/fallback' })
+  it('preserves the Edit Buffer when a root Prefix refresh cannot distinguish move from purge', () => {
+    const moved = makeFileRecord({ id: 7, path: '/moved', content: 'server', revision: 4 })
+    const fallback = makeFileRecord({ id: 8, path: '/fallback' })
     const buffer = {
       fileId: moved.id,
       path: '/project/moved',
@@ -202,7 +202,7 @@ describe('editor Edit Buffer lifecycle', () => {
     setCurrentFile(moved)
     setEditBuffer(buffer)
 
-    replaceItemsByPrefix('/memo/', [])
+    replaceItemsByPrefix('/', [fallback])
 
     expect(editBuffers.get(moved.id)).toEqual(buffer)
     expect(editorStore.currentFile).toEqual(moved)
