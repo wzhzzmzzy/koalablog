@@ -1,8 +1,10 @@
+import type { RendererMode } from '../../src/lib/files/types'
 import { Buffer } from 'node:buffer'
 import { expect, type Locator, type Page, test } from '@playwright/test'
 import { eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { markdown } from '../../src/db/schema'
+import { calculateSourceHash } from '../../src/lib/files/source-hash'
 
 const onePixelPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nJ8AAAAASUVORK5CYII=',
@@ -45,13 +47,34 @@ async function dispatchImageTransfer(
   }, { type, name, coordinates, base64: onePixelPng.toString('base64') })
 }
 
-async function replaceServerSource(id: number, content: string) {
+async function replaceServerRendererAndSourceState(id: number, content: string, renderer?: RendererMode) {
   const database = drizzle({ connection: { url: 'file:.playwright/local.db' } })
-  await database.update(markdown).set({
+  const [current] = await database.select({ renderer: markdown.renderer })
+    .from(markdown)
+    .where(eq(markdown.id, id))
+  if (!current) {
+    database.$client.close()
+    throw new Error(`Missing File ${id}`)
+  }
+  const nextRenderer = renderer ?? current.renderer
+  const [updated] = await database.update(markdown).set({
+    renderer: nextRenderer,
     content,
+    sourceHash: await calculateSourceHash(nextRenderer, content),
     revision: sql`${markdown.revision} + 1`,
-  }).where(eq(markdown.id, id))
+  }).where(eq(markdown.id, id)).returning({ revision: markdown.revision })
   database.$client.close()
+  return updated.revision
+}
+
+async function storedEditBuffer(page: Page, fileId: number) {
+  return page.evaluate(({ key, id }) => {
+    const stored = localStorage.getItem(key)
+    if (!stored)
+      return null
+    const value = JSON.parse(stored) as { buffers?: Array<{ fileId?: number }> }
+    return value.buffers?.find(buffer => buffer.fileId === id) ?? null
+  }, { key: 'koala-editor-edit-buffers', id: fileId })
 }
 
 async function gateUpload(page: Page) {
@@ -456,7 +479,7 @@ test('same-ID accepted Source replacement clears stale undo history', async ({ p
   await page.getByRole('button', { name: 'Save File' }).click()
   await expect(page.getByText('Saved Success')).toBeVisible()
 
-  await replaceServerSource(1, 'accepted server Source')
+  await replaceServerRendererAndSourceState(1, 'accepted server Source')
   await page.getByRole('button', { name: 'phase-two', exact: true }).click()
   await expectEditorText(source, 'accepted server Source')
 
@@ -471,12 +494,61 @@ test('dirty same-ID refresh retains Source and exposes the newer server conflict
 
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await source.fill('local unsaved Source')
-  await replaceServerSource(1, 'newer server Source')
+  await replaceServerRendererAndSourceState(1, 'newer server Source')
   await page.getByRole('button', { name: 'phase-two', exact: true }).click()
 
   await expectEditorText(source, 'local unsaved Source')
   await expect(page.getByText(/Server revision \d+ differs from the Edit Buffer base revision \d+\./)).toBeVisible()
   await expect(page.getByText('The local Source is still intact.', { exact: false })).toBeVisible()
+})
+
+test('rebasing a conflict keeps the local Renderer and Source', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('local Source kept during rebase')
+  const serverRevision = await replaceServerRendererAndSourceState(1, 'newer Svelte server Source', 'svelte')
+  await page.getByRole('button', { name: 'phase-two', exact: true }).click()
+
+  await expect.poll(() => storedEditBuffer(page, 1)).toMatchObject({
+    renderer: 'markdown',
+    content: 'local Source kept during rebase',
+    conflict: { server: { renderer: 'svelte', content: 'newer Svelte server Source' } },
+  })
+
+  page.once('dialog', dialog => dialog.accept())
+  await page.getByRole('button', { name: 'Keep local and rebase' }).click()
+
+  await expectEditorText(source, 'local Source kept during rebase')
+  await expect.poll(() => storedEditBuffer(page, 1)).toMatchObject({
+    renderer: 'markdown',
+    content: 'local Source kept during rebase',
+    baseRevision: serverRevision,
+    conflict: null,
+  })
+})
+
+test('using the server version removes the local buffer and restores server Source', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/second')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /second' })
+  await source.fill('local Source to discard')
+  await replaceServerRendererAndSourceState(3, 'server Svelte Source', 'svelte')
+  await page.getByRole('button', { name: 'second', exact: true }).click()
+
+  await expect.poll(() => storedEditBuffer(page, 3)).toMatchObject({
+    renderer: 'markdown',
+    content: 'local Source to discard',
+    conflict: { server: { renderer: 'svelte', content: 'server Svelte Source' } },
+  })
+
+  page.once('dialog', dialog => dialog.accept())
+  await page.getByRole('button', { name: 'Use server version' }).click()
+
+  await expectEditorText(source, 'server Svelte Source')
+  await expect.poll(() => storedEditBuffer(page, 3)).toBeNull()
 })
 
 test('renaming a File preserves Source selection, scroll, folds, and undo', async ({ page }) => {

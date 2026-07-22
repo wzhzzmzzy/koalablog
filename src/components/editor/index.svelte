@@ -11,7 +11,7 @@
   import EditorToolbar from './EditorToolbar.svelte';
   import { findPreviousActiveFile, formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
   import type { TextEditorHandle } from './TextEditor.svelte';
-  import { editBuffers, editBufferServerValues, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
+  import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
   import { editorStore, upsertItem, popHistory, setCurrentFile, notify } from './store.svelte';
   interface Props {
 			file: FileRecord;
@@ -21,6 +21,7 @@
 			}
   let { file, onSave, onUpdate, onPurge }: Props = $props()
   const initialBuffer = editBuffers.get(file.id)
+  let rendererValue = $state(initialBuffer?.renderer ?? file.renderer)
   let sourceValue = $state(initialBuffer?.content ?? file.content ?? '')
   let privateValue = $state(initialBuffer?.private ?? file.private ?? false)
   let previewHtml = $state('')
@@ -35,9 +36,12 @@
   let editorContent: TextEditorHandle | undefined = $state()
 
   function isDirtyAgainst(server: FileRecord) {
-    return pathValue !== server.path
-      || sourceValue !== (server.content ?? '')
-      || privateValue !== server.private
+    return isEditBufferDirty({
+      path: pathValue,
+      renderer: rendererValue,
+      content: sourceValue,
+      private: privateValue,
+    }, server)
   }
 
   function syncEditBuffer(server: FileRecord) {
@@ -46,6 +50,7 @@
       setEditBuffer({
         fileId: server.id,
         path: pathValue,
+        renderer: rendererValue,
         content: sourceValue,
         private: privateValue,
         baseRevision: baseRevisionValue,
@@ -70,6 +75,7 @@
   $effect.pre(() => {
     const data = file
     const buffer = editBuffers.get(data.id)
+    rendererValue = buffer?.renderer ?? data.renderer;
     sourceValue = buffer?.content ?? data.content ?? '';
     privateValue = buffer?.private ?? data.private ?? false;
     pathValue = buffer?.path ?? data.path ?? '';
@@ -233,6 +239,7 @@
     setEditBuffer({
       fileId: file.id,
       path: pathValue,
+      renderer: rendererValue,
       content: sourceValue,
       private: privateValue,
       baseRevision: baseRevisionValue,
