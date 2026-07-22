@@ -1,11 +1,12 @@
-import type { CreationTemplateV1, TemplateCatalogV1 } from '@/lib/files/types'
+import type { CreationTemplateV1, CreationTemplateV2, TemplateCatalogV1, TemplateCatalogV2 } from '@/lib/files/types'
 import { connectDB } from '@/db'
-import { DEFAULT_MEMO_TEMPLATE_V1, validateTemplateV1 } from '@/lib/files/template'
+import { DEFAULT_MEMO_TEMPLATE_V2, upgradeTemplateCatalogV1, validateTemplateV1, validateTemplateV2 } from '@/lib/files/template'
 import { and, eq } from 'drizzle-orm'
 import { creationTemplateCatalog } from './schema'
 
 const CATALOG_KEY = 'koala:creation-templates'
-const CATALOG_SCHEMA_VERSION = 1 as const
+const CATALOG_SCHEMA_V1 = 1 as const
+const CATALOG_SCHEMA_V2 = 2 as const
 
 export class TemplateCatalogStorageError extends Error {
   constructor(
@@ -19,7 +20,13 @@ export class TemplateCatalogStorageError extends Error {
 
 export type TemplateCatalogReadResult =
   | { status: 'absent' }
-  | { status: 'ready', catalog: TemplateCatalogV1 }
+  | { status: 'ready', catalog: TemplateCatalogV1 | TemplateCatalogV2 }
+
+export type TemplateCatalogUpgradeResult =
+  | { status: 'absent' }
+  | { status: 'already_current', catalog: TemplateCatalogV2 }
+  | { status: 'upgraded', catalog: TemplateCatalogV2 }
+  | { status: 'conflict', currentRevision: number }
 
 interface StoredCatalogRow {
   schemaVersion: number
@@ -27,12 +34,15 @@ interface StoredCatalogRow {
   payload: string
 }
 
-function validatedTemplates(input: unknown): CreationTemplateV1[] {
+function validatedTemplates<T extends CreationTemplateV1>(
+  input: unknown,
+  validate: (candidate: unknown) => { ok: true, value: T } | { ok: false, error: { field: string, message: string }[] },
+): T[] {
   if (!Array.isArray(input))
     throw new TemplateCatalogStorageError('invalid_storage', 'Template Catalog payload must be an array')
 
   const templates = input.map((candidate) => {
-    const result = validateTemplateV1(candidate)
+    const result = validate(candidate)
     if (!result.ok) {
       throw new TemplateCatalogStorageError(
         'invalid_catalog',
@@ -64,9 +74,12 @@ function validatedTemplates(input: unknown): CreationTemplateV1[] {
   return templates
 }
 
-function parseStoredTemplates(payload: string): CreationTemplateV1[] {
+function parseStoredTemplates<T extends CreationTemplateV1>(
+  payload: string,
+  validate: (candidate: unknown) => { ok: true, value: T } | { ok: false, error: { field: string, message: string }[] },
+): T[] {
   try {
-    return validatedTemplates(JSON.parse(payload))
+    return validatedTemplates(JSON.parse(payload), validate)
   }
   catch (error) {
     if (error instanceof TemplateCatalogStorageError)
@@ -75,19 +88,26 @@ function parseStoredTemplates(payload: string): CreationTemplateV1[] {
   }
 }
 
-function catalogFromRow(row: StoredCatalogRow): TemplateCatalogV1 {
-  if (row.schemaVersion !== CATALOG_SCHEMA_VERSION) {
-    throw new TemplateCatalogStorageError(
-      'invalid_storage',
-      `Unsupported Template Catalog schema: ${row.schemaVersion}`,
-    )
+function catalogFromRow(row: StoredCatalogRow): TemplateCatalogV1 | TemplateCatalogV2 {
+  if (row.schemaVersion === CATALOG_SCHEMA_V1) {
+    return {
+      schemaVersion: CATALOG_SCHEMA_V1,
+      revision: row.revision,
+      templates: parseStoredTemplates(row.payload, validateTemplateV1),
+    }
+  }
+  if (row.schemaVersion === CATALOG_SCHEMA_V2) {
+    return {
+      schemaVersion: CATALOG_SCHEMA_V2,
+      revision: row.revision,
+      templates: parseStoredTemplates(row.payload, validateTemplateV2),
+    }
   }
 
-  return {
-    schemaVersion: CATALOG_SCHEMA_VERSION,
-    revision: row.revision,
-    templates: parseStoredTemplates(row.payload),
-  }
+  throw new TemplateCatalogStorageError(
+    'invalid_storage',
+    `Unsupported Template Catalog schema: ${row.schemaVersion}`,
+  )
 }
 
 export async function readTemplateCatalog(env?: Env): Promise<TemplateCatalogReadResult> {
@@ -106,14 +126,14 @@ export async function readTemplateCatalog(env?: Env): Promise<TemplateCatalogRea
   }
 }
 
-export async function ensureTemplateCatalogInitialized(env?: Env): Promise<TemplateCatalogV1> {
+export async function ensureTemplateCatalogInitialized(env?: Env): Promise<TemplateCatalogV1 | TemplateCatalogV2> {
   const [row] = await connectDB(env)
     .insert(creationTemplateCatalog)
     .values({
       key: CATALOG_KEY,
-      schemaVersion: CATALOG_SCHEMA_VERSION,
+      schemaVersion: CATALOG_SCHEMA_V2,
       revision: 1,
-      payload: JSON.stringify([DEFAULT_MEMO_TEMPLATE_V1]),
+      payload: JSON.stringify([DEFAULT_MEMO_TEMPLATE_V2]),
     })
     .onConflictDoUpdate({
       target: creationTemplateCatalog.key,
@@ -126,19 +146,64 @@ export async function ensureTemplateCatalogInitialized(env?: Env): Promise<Templ
   return catalogFromRow(row)
 }
 
-export async function replaceTemplateCatalog(
+export async function upgradeStoredTemplateCatalog(
   env: Env | undefined,
   baseRevision: number,
-  input: CreationTemplateV1[],
-): Promise<
-  | { status: 'saved', catalog: TemplateCatalogV1 }
-  | { status: 'conflict', currentRevision: number }
-  > {
-  const templates = validatedTemplates(input)
+): Promise<TemplateCatalogUpgradeResult> {
+  const current = await readTemplateCatalog(env)
+  if (current.status === 'absent')
+    return current
+  if (current.catalog.schemaVersion === CATALOG_SCHEMA_V2)
+    return { status: 'already_current', catalog: current.catalog }
+  if (current.catalog.revision !== baseRevision)
+    return { status: 'conflict', currentRevision: current.catalog.revision }
+
+  const upgraded = upgradeTemplateCatalogV1(current.catalog)
   const revision = baseRevision + 1
   const [saved] = await connectDB(env)
     .update(creationTemplateCatalog)
     .set({
+      schemaVersion: CATALOG_SCHEMA_V2,
+      revision,
+      payload: JSON.stringify(upgraded.templates),
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(creationTemplateCatalog.key, CATALOG_KEY),
+      eq(creationTemplateCatalog.schemaVersion, CATALOG_SCHEMA_V1),
+      eq(creationTemplateCatalog.revision, baseRevision),
+    ))
+    .returning()
+
+  if (saved) {
+    return {
+      status: 'upgraded',
+      catalog: { ...upgraded, revision },
+    }
+  }
+
+  const latest = await readTemplateCatalog(env)
+  if (latest.status === 'absent')
+    return latest
+  if (latest.catalog.schemaVersion === CATALOG_SCHEMA_V2)
+    return { status: 'already_current', catalog: latest.catalog }
+  return { status: 'conflict', currentRevision: latest.catalog.revision }
+}
+
+export async function replaceTemplateCatalog(
+  env: Env | undefined,
+  baseRevision: number,
+  input: CreationTemplateV2[],
+): Promise<
+  | { status: 'saved', catalog: TemplateCatalogV2 }
+  | { status: 'conflict', currentRevision: number }
+  > {
+  const templates = validatedTemplates(input, validateTemplateV2)
+  const revision = baseRevision + 1
+  const [saved] = await connectDB(env)
+    .update(creationTemplateCatalog)
+    .set({
+      schemaVersion: CATALOG_SCHEMA_V2,
       revision,
       payload: JSON.stringify(templates),
       updatedAt: new Date(),
@@ -153,7 +218,7 @@ export async function replaceTemplateCatalog(
     return {
       status: 'saved',
       catalog: {
-        schemaVersion: CATALOG_SCHEMA_VERSION,
+        schemaVersion: CATALOG_SCHEMA_V2,
         revision: saved.revision,
         templates,
       },

@@ -59,7 +59,10 @@ function useFileCreationDatabase() {
 
 async function storeTemplates(templates: CreationTemplateV1[]) {
   const catalog = await ensureTemplateCatalogInitialized(env)
-  const saved = await replaceTemplateCatalog(env, catalog.revision, templates)
+  const saved = await replaceTemplateCatalog(env, catalog.revision, templates.map(template => ({
+    ...template,
+    renderer: 'markdown',
+  })))
   if (saved.status !== 'saved')
     throw new Error('Expected Template fixture replacement to succeed')
 }

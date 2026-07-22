@@ -1,6 +1,6 @@
 import type { AbsoluteFilePath, AbsolutePathPrefix, CreationTemplateV1, TemplateError } from '@/lib/files/types'
 import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
-import { instantiateTemplateV1, selectTemplateV1 } from '@/lib/files/template'
+import { instantiateTemplateV1, selectTemplateV1, templateV1CompatibilityView } from '@/lib/files/template'
 import { RENDERER_MODE } from '@/lib/files/types'
 import { add, isActivePathConstraintError } from './markdown'
 import { readTemplateCatalog } from './template-catalog'
@@ -74,7 +74,7 @@ export async function createFile(env: Env | undefined, input: CreateFileInput): 
   if (catalog.status === 'absent')
     return { status: 'catalog_absent' }
 
-  const template = selectTemplateV1(catalog.catalog.templates, targetPrefix.value)
+  const template = selectTemplateV1(catalog.catalog.templates.map(templateV1CompatibilityView), targetPrefix.value)
   const attemptLimit = canRetryTemplate(template) ? FILE_CREATION_ATTEMPT_LIMIT : 1
   const now = new Date()
   let lastPath: AbsoluteFilePath | null = null

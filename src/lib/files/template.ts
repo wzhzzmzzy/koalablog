@@ -44,6 +44,16 @@ export function upgradeTemplateCatalogV1(catalog: TemplateCatalogV1): TemplateCa
   }
 }
 
+export function templateV1CompatibilityView(template: CreationTemplateV1): CreationTemplateV1 {
+  return {
+    id: template.id,
+    prefix: template.prefix,
+    titlePattern: template.titlePattern,
+    pathPattern: template.pathPattern,
+    content: template.content,
+  }
+}
+
 function templateError(code: TemplateError['code'], field: TemplateField, message: string): TemplateError {
   return { code, field, message }
 }

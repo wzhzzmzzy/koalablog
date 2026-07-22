@@ -26,21 +26,38 @@ describe('template Catalog actions', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('reads the explicit stored Catalog state for an admin', async () => {
-    const result = { status: 'ready', catalog: { schemaVersion: 1, revision: 3, templates: [template] } }
-    mocks.readTemplateCatalog.mockResolvedValue(result)
+    const stored = {
+      status: 'ready',
+      catalog: { schemaVersion: 2, revision: 3, templates: [{ ...template, renderer: 'markdown' }] },
+    }
+    mocks.readTemplateCatalog.mockResolvedValue(stored)
 
-    await expect(read.orThrow.call(context, {})).resolves.toEqual(result)
+    await expect(read.orThrow.call(context, {})).resolves.toEqual({
+      status: 'ready',
+      catalog: { schemaVersion: 1, revision: 3, templates: [template] },
+    })
     expect(mocks.authGuard).toHaveBeenCalledOnce()
     expect(mocks.readTemplateCatalog).toHaveBeenCalledWith({ DB: 'db' })
   })
 
   it('saves large Template Content independently at the supplied Catalog revision', async () => {
     const largeTemplate = { ...template, content: 'x'.repeat(100_000) }
-    const catalog = { schemaVersion: 1, revision: 4, templates: [largeTemplate] }
-    mocks.replaceTemplateCatalog.mockResolvedValue({ status: 'saved', catalog })
+    const storedCatalog = {
+      schemaVersion: 2,
+      revision: 4,
+      templates: [{ ...largeTemplate, renderer: 'markdown' }],
+    }
+    mocks.replaceTemplateCatalog.mockResolvedValue({ status: 'saved', catalog: storedCatalog })
 
-    await expect(replace.orThrow.call(context, { baseRevision: 3, templates: [largeTemplate] })).resolves.toEqual(catalog)
-    expect(mocks.replaceTemplateCatalog).toHaveBeenCalledWith({ DB: 'db' }, 3, [largeTemplate])
+    await expect(replace.orThrow.call(context, { baseRevision: 3, templates: [largeTemplate] })).resolves.toEqual({
+      schemaVersion: 1,
+      revision: 4,
+      templates: [largeTemplate],
+    })
+    expect(mocks.replaceTemplateCatalog).toHaveBeenCalledWith({ DB: 'db' }, 3, [{
+      ...largeTemplate,
+      renderer: 'markdown',
+    }])
   })
 
   it('returns HTTP 409 template_catalog_conflict for a stale revision', async () => {
