@@ -1,6 +1,6 @@
 import type { CreationTemplateV1, TemplateError } from '@/lib/files/types'
 import { parseAbsolutePathPrefix } from '@/lib/files/path'
-import { instantiateTemplateV1, selectTemplateV1 } from '@/lib/files/template'
+import { instantiateTemplateV1, selectTemplateByPrefix } from '@/lib/files/template'
 
 export type TemplateCatalogPreview =
   | { status: 'invalid_target_prefix', message: string }
@@ -53,7 +53,7 @@ export function previewTemplateCatalog(
     }
   }
 
-  const template = selectTemplateV1(templates, targetPrefix.value)
+  const template = selectTemplateByPrefix(templates, targetPrefix.value)
   if (!template)
     return { status: 'no_template', targetPrefix: targetPrefix.value }
 

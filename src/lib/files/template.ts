@@ -166,10 +166,10 @@ function renderPattern(pattern: string, values: Record<string, string>, now: Dat
   }
 }
 
-export function selectTemplateV1(
-  templates: CreationTemplateV1[],
+export function selectTemplateByPrefix<T extends CreationTemplateV1>(
+  templates: T[],
   targetPrefix: TemplateContext['targetPrefix'],
-): CreationTemplateV1 | null {
+): T | null {
   return templates
     .flatMap((template) => {
       const prefix = parseAbsolutePathPrefix(template.prefix)

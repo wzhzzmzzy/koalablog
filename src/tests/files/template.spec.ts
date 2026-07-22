@@ -4,7 +4,7 @@ import {
   DEFAULT_MEMO_TEMPLATE_V2,
   instantiateTemplateV1,
   instantiateTemplateV2,
-  selectTemplateV1,
+  selectTemplateByPrefix,
   upgradeTemplateCatalogV1,
   validateTemplateV1,
   validateTemplateV2,
@@ -60,7 +60,7 @@ describe('creation Template v1', () => {
     if (!target.ok)
       return
 
-    const selected = selectTemplateV1([
+    const selected = selectTemplateByPrefix([
       memoTemplate,
       { ...memoTemplate, id: 'root', prefix: '/' },
       { ...memoTemplate, id: 'project', prefix: '/memo/project/' },
