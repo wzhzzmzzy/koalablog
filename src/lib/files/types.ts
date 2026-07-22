@@ -4,6 +4,17 @@ declare const absolutePathPrefixBrand: unique symbol
 export type AbsoluteFilePath = string & { readonly [absoluteFilePathBrand]: true }
 export type AbsolutePathPrefix = string & { readonly [absolutePathPrefixBrand]: true }
 
+export const RENDERER_MODE = {
+  Markdown: 'markdown',
+  Svelte: 'svelte',
+} as const
+
+export type RendererMode = typeof RENDERER_MODE[keyof typeof RENDERER_MODE]
+
+export function isRendererMode(input: unknown): input is RendererMode {
+  return input === RENDERER_MODE.Markdown || input === RENDERER_MODE.Svelte
+}
+
 export type Result<T, E> =
   | { ok: true, value: T }
   | { ok: false, error: E }
