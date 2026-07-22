@@ -127,6 +127,12 @@ function defineCatalogLifecycleContract(harness: TemplateCatalogContractHarness)
       await expect(upgradeStoredTemplateCatalog(harness.env, 1)).resolves.toEqual({ status: 'absent' })
       await expect(readTemplateCatalog(harness.env)).resolves.toEqual({ status: 'absent' })
     })
+  })
+}
+
+function defineCatalogReplacementContract(harness: TemplateCatalogContractHarness) {
+  describe(`template Catalog ${harness.name} replacement`, () => {
+    useCatalogHarness(harness)
 
     it('writes the memo preset once and never restores it over an empty Catalog', async () => {
       const initialized = await initializeCatalogV2(harness.env)
@@ -237,5 +243,6 @@ function defineCatalogValidationContract(harness: TemplateCatalogContractHarness
 
 export function defineTemplateCatalogContract(harness: TemplateCatalogContractHarness): void {
   defineCatalogLifecycleContract(harness)
+  defineCatalogReplacementContract(harness)
   defineCatalogValidationContract(harness)
 }

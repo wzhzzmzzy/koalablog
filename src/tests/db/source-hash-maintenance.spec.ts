@@ -15,6 +15,149 @@ import { createD1SourceHashOperatorStore } from '../../../scripts/db/source-hash
 
 const run = promisify(execFile)
 
+interface MaintenanceRehearsalPaths {
+  database: string
+  backup: string
+  rehearsal: string
+  manifest: string
+  report: string
+  auditReport: string
+}
+
+function rehearsalPaths(): MaintenanceRehearsalPaths {
+  const token = randomUUID()
+  const path = (suffix: string) => join(tmpdir(), `koalablog-source-hash-maintenance-${token}.${suffix}`)
+  return {
+    database: path('db'),
+    backup: path('backup.db'),
+    rehearsal: path('rehearsal.db'),
+    manifest: path('backup.json'),
+    report: path('report.json'),
+    auditReport: path('audit.json'),
+  }
+}
+
+function maintenanceDatabase(path: string) {
+  return drizzleSqlite({ connection: { url: `file:${path}` }, schema: { creationTemplateCatalog } })
+}
+
+async function prepareMaintenanceRehearsal(paths: MaintenanceRehearsalPaths): Promise<void> {
+  const database = maintenanceDatabase(paths.database)
+  const initialize = await readFile('migrations/0000_init.sql', 'utf8')
+  for (const statement of initialize.split('--> statement-breakpoint').map(value => value.trim()).filter(Boolean))
+    await database.run(sql.raw(statement))
+  await database.run(sql`
+    INSERT INTO markdown (id, source, link, subject, content)
+    VALUES (41, 30, 'memo/maintenance', 'maintenance', 'hello')
+  `)
+
+  const backup = await createVerifiedSQLiteBackup({
+    sourceDatabasePath: paths.database,
+    backupDatabasePath: paths.backup,
+    rehearsalDatabasePath: paths.rehearsal,
+    maintenanceConfirmed: true,
+    applicationCommit: 'deadbeef',
+    migrationVersion: 'pre-0003',
+    operator: 'test-operator',
+    operatorTimestamp: '2026-07-22T10:00:00.000Z',
+  })
+  await writeFile(paths.manifest, `${JSON.stringify(backup, null, 2)}\n`)
+
+  for (const migrationName of [
+    '0001_creation_template_catalog.sql',
+    '0002_file_source_schema.sql',
+    '0003_file_renderer_source_hash.sql',
+  ]) {
+    const migration = await readFile(`migrations/${migrationName}`, 'utf8')
+    for (const statement of migration.split('--> statement-breakpoint').map(value => value.trim()).filter(Boolean))
+      await database.run(sql.raw(statement))
+  }
+  await database.insert(creationTemplateCatalog).values({
+    key: 'koala:creation-templates',
+    schemaVersion: 1,
+    revision: 7,
+    payload: JSON.stringify([DEFAULT_MEMO_TEMPLATE_V1]),
+  })
+}
+
+function maintenanceCommand(
+  paths: MaintenanceRehearsalPaths,
+  command: 'backfill' | 'audit',
+  timestamp: string,
+): string[] {
+  return [
+    '--import',
+    'tsx',
+    `scripts/db/source-hash-${command}.ts`,
+    '--sqlite',
+    paths.database,
+    '--backup-manifest',
+    paths.manifest,
+    '--output',
+    command === 'backfill' ? paths.report : paths.auditReport,
+    '--commit',
+    'deadbeef',
+    '--migration-stage',
+    '0003',
+    '--operator',
+    'test-operator',
+    '--timestamp',
+    timestamp,
+    '--batch-size',
+    '1',
+    '--maintenance-confirmed',
+  ]
+}
+
+async function expectReadyMaintenanceReport(paths: MaintenanceRehearsalPaths, stdout: string): Promise<void> {
+  const database = maintenanceDatabase(paths.database)
+  const report = JSON.parse(await readFile(paths.report, 'utf8'))
+  const [source] = await database.all<Record<string, unknown>>(sql.raw('SELECT renderer, content, sourceHash, revision FROM markdown WHERE id = 41'))
+  const [catalog] = await database.all<Record<string, unknown>>(sql.raw(`SELECT schemaVersion, revision, payload FROM creation_template_catalog WHERE key = 'koala:creation-templates'`))
+
+  expect(stdout).toContain('Source Hash maintenance READY')
+  expect(report).toMatchObject({
+    schemaVersion: 1,
+    status: 'ready',
+    target: { kind: 'sqlite', database: paths.database },
+    applicationCommit: 'deadbeef',
+    migrationStage: '0003',
+    templateCatalog: { status: 'upgraded', previousRevision: 7, currentRevision: 8 },
+    backfill: {
+      batches: 2,
+      counts: { processed: 1, updated: 1, skipped: 0, invalid: 0, retried: 0 },
+      skippedRevisions: [],
+    },
+    audit: { status: 'ready', summary: { total: 1, current: 1, missing: 0, mismatched: 0, invalid: 0 } },
+  })
+  expect(source).toMatchObject({ renderer: 'markdown', content: 'hello', revision: 1 })
+  expect(source.sourceHash).toMatch(/^[a-f0-9]{64}$/)
+  expect(catalog).toMatchObject({ schemaVersion: 2, revision: 8 })
+  expect(JSON.parse(catalog.payload as string)).toEqual([
+    expect.objectContaining({ id: 'memo-default', renderer: 'markdown' }),
+  ])
+}
+
+async function expectReadyAuditReport(paths: MaintenanceRehearsalPaths, stdout: string): Promise<void> {
+  const auditEvidence = JSON.parse(await readFile(paths.auditReport, 'utf8'))
+  expect(stdout).toContain('Source Hash audit READY')
+  expect(auditEvidence).toMatchObject({
+    schemaVersion: 1,
+    status: 'ready',
+    target: { kind: 'sqlite', database: paths.database },
+    applicationCommit: 'deadbeef',
+    migrationStage: '0003',
+    maintenanceConfirmed: true,
+    audit: { status: 'ready', summary: { total: 1, current: 1 } },
+  })
+  expect(auditEvidence).not.toHaveProperty('backfill')
+  expect(auditEvidence).not.toHaveProperty('templateCatalog')
+}
+
+async function cleanupMaintenanceRehearsal(paths: MaintenanceRehearsalPaths): Promise<void> {
+  await Promise.all(Object.values(paths).map(path => unlink(path).catch(() => undefined)))
+}
+
 describe('source Hash maintenance CLI guardrails', () => {
   it('normalizes nullable columns encoded by Wrangler JSON', async () => {
     const store = createD1SourceHashOperatorStore(
@@ -98,147 +241,16 @@ describe('source Hash maintenance CLI guardrails', () => {
   }, 15_000)
 
   it('rehearses SQLite backup, Template upgrade, bounded backfill, and final audit', async () => {
-    const token = randomUUID()
-    const databasePath = join(tmpdir(), `koalablog-source-hash-maintenance-${token}.db`)
-    const backupPath = join(tmpdir(), `koalablog-source-hash-maintenance-${token}.backup.db`)
-    const rehearsalPath = join(tmpdir(), `koalablog-source-hash-maintenance-${token}.rehearsal.db`)
-    const manifestPath = join(tmpdir(), `koalablog-source-hash-maintenance-${token}.backup.json`)
-    const reportPath = join(tmpdir(), `koalablog-source-hash-maintenance-${token}.report.json`)
-    const auditReportPath = join(tmpdir(), `koalablog-source-hash-maintenance-${token}.audit.json`)
-    const database = drizzleSqlite({ connection: { url: `file:${databasePath}` }, schema: { creationTemplateCatalog } })
-
+    const paths = rehearsalPaths()
     try {
-      const initialize = await readFile('migrations/0000_init.sql', 'utf8')
-      for (const statement of initialize.split('--> statement-breakpoint').map(value => value.trim()).filter(Boolean))
-        await database.run(sql.raw(statement))
-      await database.run(sql`
-        INSERT INTO markdown (id, source, link, subject, content)
-        VALUES (41, 30, 'memo/maintenance', 'maintenance', 'hello')
-      `)
-
-      const backup = await createVerifiedSQLiteBackup({
-        sourceDatabasePath: databasePath,
-        backupDatabasePath: backupPath,
-        rehearsalDatabasePath: rehearsalPath,
-        maintenanceConfirmed: true,
-        applicationCommit: 'deadbeef',
-        migrationVersion: 'pre-0003',
-        operator: 'test-operator',
-        operatorTimestamp: '2026-07-22T10:00:00.000Z',
-      })
-      await writeFile(manifestPath, `${JSON.stringify(backup, null, 2)}\n`)
-
-      for (const migrationName of [
-        '0001_creation_template_catalog.sql',
-        '0002_file_source_schema.sql',
-        '0003_file_renderer_source_hash.sql',
-      ]) {
-        const migration = await readFile(`migrations/${migrationName}`, 'utf8')
-        for (const statement of migration.split('--> statement-breakpoint').map(value => value.trim()).filter(Boolean))
-          await database.run(sql.raw(statement))
-      }
-      await database.insert(creationTemplateCatalog).values({
-        key: 'koala:creation-templates',
-        schemaVersion: 1,
-        revision: 7,
-        payload: JSON.stringify([DEFAULT_MEMO_TEMPLATE_V1]),
-      })
-
-      const { stdout } = await run('node', [
-        '--import',
-        'tsx',
-        'scripts/db/source-hash-backfill.ts',
-        '--sqlite',
-        databasePath,
-        '--backup-manifest',
-        manifestPath,
-        '--output',
-        reportPath,
-        '--commit',
-        'deadbeef',
-        '--migration-stage',
-        '0003',
-        '--operator',
-        'test-operator',
-        '--timestamp',
-        '2026-07-22T10:30:00.000Z',
-        '--batch-size',
-        '1',
-        '--maintenance-confirmed',
-      ], { cwd: process.cwd() })
-
-      const report = JSON.parse(await readFile(reportPath, 'utf8'))
-      const [source] = await database.all<Record<string, unknown>>(sql.raw('SELECT renderer, content, sourceHash, revision FROM markdown WHERE id = 41'))
-      const [catalog] = await database.all<Record<string, unknown>>(sql.raw(`SELECT schemaVersion, revision, payload FROM creation_template_catalog WHERE key = 'koala:creation-templates'`))
-
-      expect(stdout).toContain('Source Hash maintenance READY')
-      expect(report).toMatchObject({
-        schemaVersion: 1,
-        status: 'ready',
-        target: { kind: 'sqlite', database: databasePath },
-        applicationCommit: 'deadbeef',
-        migrationStage: '0003',
-        templateCatalog: { status: 'upgraded', previousRevision: 7, currentRevision: 8 },
-        backfill: {
-          batches: 2,
-          counts: { processed: 1, updated: 1, skipped: 0, invalid: 0, retried: 0 },
-          skippedRevisions: [],
-        },
-        audit: { status: 'ready', summary: { total: 1, current: 1, missing: 0, mismatched: 0, invalid: 0 } },
-      })
-      expect(source).toMatchObject({ renderer: 'markdown', content: 'hello', revision: 1 })
-      expect(source.sourceHash).toMatch(/^[a-f0-9]{64}$/)
-      expect(catalog).toMatchObject({ schemaVersion: 2, revision: 8 })
-      expect(JSON.parse(catalog.payload as string)).toEqual([
-        expect.objectContaining({ id: 'memo-default', renderer: 'markdown' }),
-      ])
-
-      const { stdout: auditStdout } = await run('node', [
-        '--import',
-        'tsx',
-        'scripts/db/source-hash-audit.ts',
-        '--sqlite',
-        databasePath,
-        '--backup-manifest',
-        manifestPath,
-        '--output',
-        auditReportPath,
-        '--commit',
-        'deadbeef',
-        '--migration-stage',
-        '0003',
-        '--operator',
-        'test-operator',
-        '--timestamp',
-        '2026-07-22T10:45:00.000Z',
-        '--batch-size',
-        '1',
-        '--maintenance-confirmed',
-      ], { cwd: process.cwd() })
-      const auditEvidence = JSON.parse(await readFile(auditReportPath, 'utf8'))
-
-      expect(auditStdout).toContain('Source Hash audit READY')
-      expect(auditEvidence).toMatchObject({
-        schemaVersion: 1,
-        status: 'ready',
-        target: { kind: 'sqlite', database: databasePath },
-        applicationCommit: 'deadbeef',
-        migrationStage: '0003',
-        maintenanceConfirmed: true,
-        audit: { status: 'ready', summary: { total: 1, current: 1 } },
-      })
-      expect(auditEvidence).not.toHaveProperty('backfill')
-      expect(auditEvidence).not.toHaveProperty('templateCatalog')
+      await prepareMaintenanceRehearsal(paths)
+      const backfill = await run('node', maintenanceCommand(paths, 'backfill', '2026-07-22T10:30:00.000Z'), { cwd: process.cwd() })
+      await expectReadyMaintenanceReport(paths, backfill.stdout)
+      const audit = await run('node', maintenanceCommand(paths, 'audit', '2026-07-22T10:45:00.000Z'), { cwd: process.cwd() })
+      await expectReadyAuditReport(paths, audit.stdout)
     }
     finally {
-      await Promise.all([
-        unlink(databasePath).catch(() => undefined),
-        unlink(backupPath).catch(() => undefined),
-        unlink(rehearsalPath).catch(() => undefined),
-        unlink(manifestPath).catch(() => undefined),
-        unlink(reportPath).catch(() => undefined),
-        unlink(auditReportPath).catch(() => undefined),
-      ])
+      await cleanupMaintenanceRehearsal(paths)
     }
   }, 15_000)
 })

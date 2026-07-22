@@ -259,7 +259,9 @@ describe('markdown batch API optimistic Source writes', () => {
       }],
     })
   })
+})
 
+describe('markdown batch API Svelte Source writes', () => {
   it('accepts Svelte Source and reports that a browser Rebuild is required', async () => {
     mocks.saveSyncedFile.mockResolvedValue({
       status: 'saved',

@@ -27,6 +27,12 @@ export const SOURCE_HASH_FIXTURES: SourceHashFixture[] = [
     expected: 'f22a36807e299b6fba30270ddf4a78edc542b12146be91c0e639a3bbd7a4042d',
   },
   {
+    name: 'whitespace-only Markdown',
+    renderer: RENDERER_MODE.Markdown,
+    content: ' \t\n',
+    expected: 'b2208a8eb84386c4a755485c5141c4c984a4e20b3130e0bba8d6bc7a29cd512c',
+  },
+  {
     name: 'Markdown with LF',
     renderer: RENDERER_MODE.Markdown,
     content: 'line 1\nline 2',

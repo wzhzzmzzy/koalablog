@@ -8,6 +8,8 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 import { promisify } from 'node:util'
 import { createClient } from '@libsql/client'
+import { sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/libsql'
 
 const run = promisify(execFile)
 
@@ -43,57 +45,54 @@ function sourceRow(row: Record<string, unknown>): SourceHashAuditRow {
 }
 
 function createSQLiteStore(client: Client): SourceHashOperatorStore {
+  const database = drizzle(client)
   return {
     readMissingBatch: async (afterId, limit) => {
-      const result = await client.execute({
-        sql: `SELECT id, renderer, content, sourceHash, revision, deletedAt
+      const rows = await database.all<Record<string, unknown>>(sql`
+        SELECT id, renderer, content, sourceHash, revision, deletedAt
           FROM markdown
-          WHERE id > ? AND sourceHash IS NULL
+          WHERE id > ${afterId} AND sourceHash IS NULL
           ORDER BY id
-          LIMIT ?`,
-        args: [afterId, limit],
-      })
-      return result.rows.map(row => sourceRow(row as Record<string, unknown>))
+          LIMIT ${limit}
+      `)
+      return rows.map(sourceRow)
     },
     readAuditBatch: async (afterId, limit) => {
-      const result = await client.execute({
-        sql: `SELECT id, renderer, content, sourceHash, revision, deletedAt
+      const rows = await database.all<Record<string, unknown>>(sql`
+        SELECT id, renderer, content, sourceHash, revision, deletedAt
           FROM markdown
-          WHERE id > ?
+          WHERE id > ${afterId}
           ORDER BY id
-          LIMIT ?`,
-        args: [afterId, limit],
-      })
-      return result.rows.map(row => sourceRow(row as Record<string, unknown>))
+          LIMIT ${limit}
+      `)
+      return rows.map(sourceRow)
     },
     compareAndSetSourceHash: async (input) => {
-      const result = await client.execute({
-        sql: `UPDATE markdown
-          SET sourceHash = ?
-          WHERE id = ? AND revision = ? AND sourceHash IS NULL`,
-        args: [input.sourceHash, input.id, input.baseRevision],
-      })
+      const result = await database.run(sql`
+        UPDATE markdown
+          SET sourceHash = ${input.sourceHash}
+          WHERE id = ${input.id}
+            AND revision = ${input.baseRevision}
+            AND sourceHash IS NULL
+      `)
       return result.rowsAffected === 1
     },
     readById: async (id) => {
-      const result = await client.execute({
-        sql: `SELECT id, renderer, content, sourceHash, revision, deletedAt
+      const [row] = await database.all<Record<string, unknown>>(sql`
+        SELECT id, renderer, content, sourceHash, revision, deletedAt
           FROM markdown
-          WHERE id = ?
-          LIMIT 1`,
-        args: [id],
-      })
-      return result.rows[0] ? sourceRow(result.rows[0] as Record<string, unknown>) : null
+          WHERE id = ${id}
+          LIMIT 1
+      `)
+      return row ? sourceRow(row) : null
     },
     readTemplateCatalogRow: async () => {
-      const result = await client.execute({
-        sql: `SELECT schemaVersion, revision, payload
+      const [row] = await database.all<Record<string, unknown>>(sql`
+        SELECT schemaVersion, revision, payload
           FROM creation_template_catalog
           WHERE key = 'koala:creation-templates'
-          LIMIT 1`,
-        args: [],
-      })
-      const row = result.rows[0]
+          LIMIT 1
+      `)
       return row
         ? {
             schemaVersion: Number(row.schemaVersion),
@@ -103,14 +102,16 @@ function createSQLiteStore(client: Client): SourceHashOperatorStore {
         : null
     },
     compareAndSetTemplateCatalog: async (input) => {
-      const result = await client.execute({
-        sql: `UPDATE creation_template_catalog
-          SET schemaVersion = 2, revision = ?, payload = ?, updatedAt = unixepoch()
+      const result = await database.run(sql`
+        UPDATE creation_template_catalog
+          SET schemaVersion = 2,
+            revision = ${input.baseRevision + 1},
+            payload = ${input.payload},
+            updatedAt = unixepoch()
           WHERE key = 'koala:creation-templates'
             AND schemaVersion = 1
-            AND revision = ?`,
-        args: [input.baseRevision + 1, input.payload, input.baseRevision],
-      })
+            AND revision = ${input.baseRevision}
+      `)
       return result.rowsAffected === 1
     },
     close: () => client.close(),
@@ -123,6 +124,10 @@ export function createSQLiteSourceHashOperatorStore(databasePath: string): Sourc
 }
 
 async function executeD1(target: D1OperatorTarget, statement: string): Promise<Record<string, unknown>[]> {
+  // This operator-only adapter is the deliberate exception to the product's
+  // Drizzle-only database rule. A Node maintenance CLI has no Cloudflare Env
+  // binding, and Wrangler exposes remote D1 solely through `d1 execute` SQL.
+  // Keep this raw boundary isolated here and out of request-time application code.
   const arguments_ = [
     'exec',
     'wrangler',

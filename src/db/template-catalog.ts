@@ -34,6 +34,14 @@ export interface StoredCatalogRow {
   payload: string
 }
 
+export interface TemplateCatalogUpgradeStore {
+  readTemplateCatalogRow: () => Promise<StoredCatalogRow | null>
+  compareAndSetTemplateCatalog: (input: {
+    baseRevision: number
+    payload: string
+  }) => Promise<boolean>
+}
+
 function validatedTemplates<T extends CreationTemplateV1>(
   input: unknown,
   validate: (candidate: unknown) => { ok: true, value: T } | { ok: false, error: { field: string, message: string }[] },
@@ -110,12 +118,39 @@ export function parseStoredTemplateCatalogRow(row: StoredCatalogRow): TemplateCa
   )
 }
 
+function createTemplateCatalogUpgradeStore(env?: Env): TemplateCatalogUpgradeStore {
+  const database = connectDB(env)
+  return {
+    readTemplateCatalogRow: async () => {
+      const [row] = await database
+        .select()
+        .from(creationTemplateCatalog)
+        .where(eq(creationTemplateCatalog.key, CREATION_TEMPLATE_CATALOG_KEY))
+        .limit(1)
+      return row ?? null
+    },
+    compareAndSetTemplateCatalog: async (input) => {
+      const [saved] = await database
+        .update(creationTemplateCatalog)
+        .set({
+          schemaVersion: CATALOG_SCHEMA_V2,
+          revision: input.baseRevision + 1,
+          payload: input.payload,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(creationTemplateCatalog.key, CREATION_TEMPLATE_CATALOG_KEY),
+          eq(creationTemplateCatalog.schemaVersion, CATALOG_SCHEMA_V1),
+          eq(creationTemplateCatalog.revision, input.baseRevision),
+        ))
+        .returning()
+      return Boolean(saved)
+    },
+  }
+}
+
 export async function readTemplateCatalog(env?: Env): Promise<TemplateCatalogReadResult> {
-  const [row] = await connectDB(env)
-    .select()
-    .from(creationTemplateCatalog)
-    .where(eq(creationTemplateCatalog.key, CREATION_TEMPLATE_CATALOG_KEY))
-    .limit(1)
+  const row = await createTemplateCatalogUpgradeStore(env).readTemplateCatalogRow()
 
   if (!row)
     return { status: 'absent' }
@@ -146,48 +181,46 @@ export async function ensureTemplateCatalogInitialized(env?: Env): Promise<Templ
   return parseStoredTemplateCatalogRow(row)
 }
 
+export async function upgradeTemplateCatalogFromStore(
+  store: TemplateCatalogUpgradeStore,
+  expectedRevision?: number,
+): Promise<TemplateCatalogUpgradeResult> {
+  const row = await store.readTemplateCatalogRow()
+  if (!row)
+    return { status: 'absent' }
+
+  const catalog = parseStoredTemplateCatalogRow(row)
+  if (catalog.schemaVersion === CATALOG_SCHEMA_V2)
+    return { status: 'already_current', catalog }
+  if (expectedRevision !== undefined && catalog.revision !== expectedRevision)
+    return { status: 'conflict', currentRevision: catalog.revision }
+
+  const upgraded = upgradeTemplateCatalogV1(catalog)
+  const saved = await store.compareAndSetTemplateCatalog({
+    baseRevision: catalog.revision,
+    payload: JSON.stringify(upgraded.templates),
+  })
+  if (saved) {
+    return {
+      status: 'upgraded',
+      catalog: { ...upgraded, revision: catalog.revision + 1 },
+    }
+  }
+
+  const latestRow = await store.readTemplateCatalogRow()
+  if (!latestRow)
+    return { status: 'absent' }
+  const latest = parseStoredTemplateCatalogRow(latestRow)
+  return latest.schemaVersion === CATALOG_SCHEMA_V2
+    ? { status: 'already_current', catalog: latest }
+    : { status: 'conflict', currentRevision: latest.revision }
+}
+
 export async function upgradeStoredTemplateCatalog(
   env: Env | undefined,
   baseRevision: number,
 ): Promise<TemplateCatalogUpgradeResult> {
-  const current = await readTemplateCatalog(env)
-  if (current.status === 'absent')
-    return current
-  if (current.catalog.schemaVersion === CATALOG_SCHEMA_V2)
-    return { status: 'already_current', catalog: current.catalog }
-  if (current.catalog.revision !== baseRevision)
-    return { status: 'conflict', currentRevision: current.catalog.revision }
-
-  const upgraded = upgradeTemplateCatalogV1(current.catalog)
-  const revision = baseRevision + 1
-  const [saved] = await connectDB(env)
-    .update(creationTemplateCatalog)
-    .set({
-      schemaVersion: CATALOG_SCHEMA_V2,
-      revision,
-      payload: JSON.stringify(upgraded.templates),
-      updatedAt: new Date(),
-    })
-    .where(and(
-      eq(creationTemplateCatalog.key, CREATION_TEMPLATE_CATALOG_KEY),
-      eq(creationTemplateCatalog.schemaVersion, CATALOG_SCHEMA_V1),
-      eq(creationTemplateCatalog.revision, baseRevision),
-    ))
-    .returning()
-
-  if (saved) {
-    return {
-      status: 'upgraded',
-      catalog: { ...upgraded, revision },
-    }
-  }
-
-  const latest = await readTemplateCatalog(env)
-  if (latest.status === 'absent')
-    return latest
-  if (latest.catalog.schemaVersion === CATALOG_SCHEMA_V2)
-    return { status: 'already_current', catalog: latest.catalog }
-  return { status: 'conflict', currentRevision: latest.catalog.revision }
+  return upgradeTemplateCatalogFromStore(createTemplateCatalogUpgradeStore(env), baseRevision)
 }
 
 export async function replaceTemplateCatalog(

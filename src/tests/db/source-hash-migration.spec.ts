@@ -118,7 +118,9 @@ describe('gate 3A Renderer and Source Hash migration', () => {
     expect(columns.find(column => column.name === 'sourceHash')).toMatchObject({ notnull: 0 })
     expect(row).toEqual({ id: 51, sourceHash: null })
   })
+})
 
+describe('gate 3A Source Hash backfill and non-null migration', () => {
   it('converges from 0003 through backfill to the non-null Source Hash schema', async () => {
     const database = connect()
     await applyThroughFileSourceMigration(database)
@@ -188,7 +190,9 @@ describe('gate 3A Renderer and Source Hash migration', () => {
     expect(secondMigrationLog).toEqual(firstMigrationLog)
     expect(integrity).toEqual([{ integrity_check: 'ok' }])
   })
+})
 
+describe('gate 3A migration runner behavior', () => {
   it('rolls back a failed migrator batch and does not record 0003 as applied', async () => {
     const database = connect()
     await applyThroughFileSourceMigration(database)

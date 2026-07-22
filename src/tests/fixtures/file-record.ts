@@ -10,7 +10,7 @@ export function makeFileRecord(overrides: Partial<FileRecord> = {}): FileRecord 
     title: 'fixture',
     renderer: 'markdown',
     content: '',
-    sourceHash: null,
+    sourceHash: 'c4a3e04fa78d47ace9853e81fcedcf84172449d37a72852120d3a41b14a6c1f5',
     tags: null,
     incoming_links: null,
     outgoing_links: null,

@@ -8,7 +8,7 @@ export interface FileRecord {
   title: string
   renderer: RendererMode
   content: string
-  sourceHash: string | null
+  sourceHash: string
   tags?: string | null
   incoming_links?: string | null
   outgoing_links?: string | null

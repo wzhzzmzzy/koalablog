@@ -2,8 +2,7 @@ import type { SourceHashBackfillBatchResult } from '../../src/db/source-hash-mai
 import type { SourceHashAuditReport } from '../../src/lib/files/source-hash-audit'
 import type { SourceHashOperatorStore } from './source-hash-maintenance-target'
 import { runSourceHashBackfillBatch, runStoredSourceHashAudit } from '../../src/db/source-hash-maintenance'
-import { parseStoredTemplateCatalogRow } from '../../src/db/template-catalog'
-import { upgradeTemplateCatalogV1 } from '../../src/lib/files/template'
+import { upgradeTemplateCatalogFromStore } from '../../src/db/template-catalog'
 
 export type SourceHashMaintenanceTarget =
   | { kind: 'sqlite', database: string, backupManifest: string }
@@ -46,33 +45,17 @@ export interface SourceHashMaintenanceReport {
 }
 
 async function upgradeTemplateCatalog(store: SourceHashOperatorStore): Promise<SourceHashMaintenanceReport['templateCatalog']> {
-  const row = await store.readTemplateCatalogRow()
-  if (!row)
-    return { status: 'absent' }
-
-  const catalog = parseStoredTemplateCatalogRow(row)
-  if (catalog.schemaVersion === 2)
-    return { status: 'already_current', currentRevision: catalog.revision }
-
-  const upgraded = upgradeTemplateCatalogV1(catalog)
-  if (await store.compareAndSetTemplateCatalog({
-    baseRevision: catalog.revision,
-    payload: JSON.stringify(upgraded.templates),
-  })) {
+  const result = await upgradeTemplateCatalogFromStore(store)
+  if (result.status === 'upgraded') {
     return {
-      status: 'upgraded',
-      previousRevision: catalog.revision,
-      currentRevision: catalog.revision + 1,
+      status: result.status,
+      previousRevision: result.catalog.revision - 1,
+      currentRevision: result.catalog.revision,
     }
   }
-
-  const latestRow = await store.readTemplateCatalogRow()
-  if (!latestRow)
-    return { status: 'absent' }
-  const latest = parseStoredTemplateCatalogRow(latestRow)
-  if (latest.schemaVersion === 2)
-    return { status: 'already_current', currentRevision: latest.revision }
-  return { status: 'conflict', currentRevision: latest.revision }
+  if (result.status === 'already_current')
+    return { status: result.status, currentRevision: result.catalog.revision }
+  return result
 }
 
 function emptyCounts(): SourceHashBackfillBatchResult['counts'] {

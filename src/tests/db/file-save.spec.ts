@@ -116,6 +116,10 @@ describe('file Source Save derivation', () => {
       file: { remoteTruth: false },
     })
   })
+})
+
+describe('file Source Save Path conflicts', () => {
+  useFileSaveDatabase()
 
   it('reports an occupied active Path without mutating either File', async () => {
     const first = await saveFile(env, {
@@ -241,6 +245,10 @@ describe('file Source Save preconditions', () => {
     })
     expect(await readById(env, created.file.id)).toMatchObject(saved?.status === 'saved' ? saved.file : {})
   })
+})
+
+describe('file Source Save lifecycle conflicts', () => {
+  useFileSaveDatabase()
 
   it('returns the recycled server File when a Save loses a race with trash', async () => {
     const created = await saveFile(env, {
