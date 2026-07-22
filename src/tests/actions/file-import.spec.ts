@@ -24,8 +24,8 @@ describe('markdown disk import action', () => {
     ])
 
     expect(mocks.batchAdd).toHaveBeenCalledWith({ DB: 'db' }, [
-      { path: '/memo/note', content: source, private: true },
-      { path: '/post/note', content: source, private: false },
+      { path: '/memo/note', renderer: 'markdown', content: source, private: true },
+      { path: '/post/note', renderer: 'markdown', content: source, private: false },
     ])
   })
 
@@ -37,7 +37,7 @@ describe('markdown disk import action', () => {
     ])
 
     expect(mocks.batchAdd).toHaveBeenCalledWith({ DB: 'db' }, [
-      { path: '/memo/note', content: 'source', private: true },
+      { path: '/memo/note', renderer: 'markdown', content: 'source', private: true },
     ])
   })
 

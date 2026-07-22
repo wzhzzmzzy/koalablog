@@ -12,6 +12,7 @@ import {
   trash as trashFile,
 } from '@/db/markdown'
 import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
+import { RENDERER_MODE } from '@/lib/files/types'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
@@ -167,6 +168,7 @@ export const batchImport = defineAction({
       }
       return {
         path: parsed.value,
+        renderer: RENDERER_MODE.Markdown,
         content: file.content,
         private: parsed.value.startsWith('/memo/'),
       }

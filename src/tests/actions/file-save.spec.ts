@@ -54,7 +54,20 @@ describe('file Save action', () => {
     await save.orThrow.call(context, form)
 
     expect(mocks.saveFile).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      renderer: 'markdown',
       content: 'first\nsecond\nthird',
+    }))
+  })
+
+  it('passes an explicit Svelte Renderer to the database Save', async () => {
+    const form = validForm()
+    form.set('renderer', 'svelte')
+    mocks.saveFile.mockResolvedValue({ status: 'saved', file: { id: 7 } })
+
+    await save.orThrow.call(context, form)
+
+    expect(mocks.saveFile).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      renderer: 'svelte',
     }))
   })
 

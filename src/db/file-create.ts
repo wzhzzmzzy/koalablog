@@ -1,6 +1,7 @@
 import type { AbsoluteFilePath, AbsolutePathPrefix, CreationTemplateV1, TemplateError } from '@/lib/files/types'
 import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { instantiateTemplateV1, selectTemplateV1 } from '@/lib/files/template'
+import { RENDERER_MODE } from '@/lib/files/types'
 import { add, isActivePathConstraintError } from './markdown'
 import { readTemplateCatalog } from './template-catalog'
 
@@ -86,6 +87,7 @@ export async function createFile(env: Env | undefined, input: CreateFileInput): 
     try {
       const [file] = await add(env ?? {} as Env, {
         path: candidate.path,
+        renderer: RENDERER_MODE.Markdown,
         content: candidate.content,
         private: candidate.path.startsWith('/memo/'),
         remoteTruth: true,

@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
 import { batchTrashByPaths, FileInputError, readAll, saveSyncedFile } from '@/db/markdown'
 import { authInterceptor } from '@/lib/auth'
+import { isRendererMode, RENDERER_MODE, type RendererMode } from '@/lib/files/types'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -25,6 +26,10 @@ function requestedSource(value: string | null) {
   return MarkdownSource.Memo
 }
 
+function artifactStatus(renderer: RendererMode) {
+  return renderer === RENDERER_MODE.Markdown ? 'not_applicable' as const : 'rebuild_required' as const
+}
+
 export const GET: APIRoute = async (ctx) => {
   const unauthorized = await requireAdmin(ctx)
   if (unauthorized)
@@ -35,6 +40,9 @@ export const GET: APIRoute = async (ctx) => {
     id: file.id,
     path: file.path,
     title: file.title,
+    renderer: file.renderer,
+    sourceHash: file.sourceHash,
+    artifactStatus: artifactStatus(file.renderer),
     revision: file.revision,
   })))
 }
@@ -42,6 +50,7 @@ export const GET: APIRoute = async (ctx) => {
 interface BatchSourceInput {
   id: number
   path: string
+  renderer: RendererMode
   content: string
   private: boolean
   baseRevision: number
@@ -62,8 +71,10 @@ function parseBatchInput(body: unknown): { files?: BatchSourceInput[], error?: s
       return { error: 'File input must not include title' }
     if (['link', 'source', 'tags', 'outgoingLinks', 'remoteTruth', 'revision', 'createdAt', 'updatedAt', 'deletedAt'].some(field => field in item))
       return { error: 'File metadata is derived by the server' }
-    if (Object.keys(item).some(field => !['id', 'path', 'content', 'private', 'baseRevision'].includes(field)))
+    if (Object.keys(item).some(field => !['id', 'path', 'renderer', 'content', 'private', 'baseRevision'].includes(field)))
       return { error: 'File input contains unsupported fields' }
+    if ('renderer' in item && !isRendererMode(item.renderer))
+      return { error: 'File renderer must be markdown or svelte' }
     if (typeof item.path !== 'string' || typeof item.content !== 'string')
       return { error: 'Every File input requires path and content strings' }
     if (!Number.isInteger(item.id) || (item.id as number) < 0 || !Number.isInteger(item.baseRevision) || (item.baseRevision as number) < 0)
@@ -73,6 +84,7 @@ function parseBatchInput(body: unknown): { files?: BatchSourceInput[], error?: s
     files.push({
       id: item.id as number,
       path: item.path,
+      renderer: isRendererMode(item.renderer) ? item.renderer : RENDERER_MODE.Markdown,
       content: item.content,
       private: item.private,
       baseRevision: item.baseRevision as number,
@@ -107,6 +119,9 @@ export const POST: APIRoute = async (ctx) => {
         id: file.id,
         path: file.path,
         title: file.title,
+        renderer: file.renderer,
+        sourceHash: file.sourceHash,
+        artifactStatus: artifactStatus(file.renderer),
         revision: file.revision,
       })),
     })

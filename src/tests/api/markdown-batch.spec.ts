@@ -42,7 +42,14 @@ beforeEach(() => {
 describe('markdown batch API reads and deletes', () => {
   it('lists wiki records when source=wiki', async () => {
     mocks.readAll.mockResolvedValue([
-      { id: 1, path: '/wiki/entities/transformer-architecture', title: 'transformer-architecture', revision: 3 },
+      {
+        id: 1,
+        path: '/wiki/entities/transformer-architecture',
+        title: 'transformer-architecture',
+        renderer: 'markdown',
+        sourceHash: 'stored-source-hash',
+        revision: 3,
+      },
     ])
 
     const response = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=wiki', {
@@ -52,7 +59,15 @@ describe('markdown batch API reads and deletes', () => {
     expect(response.status).toBe(200)
     expect(mocks.readAll).toHaveBeenCalledWith({ DB: 'db' }, 31)
     expect(await response.json()).toEqual([
-      { id: 1, path: '/wiki/entities/transformer-architecture', title: 'transformer-architecture', revision: 3 },
+      {
+        id: 1,
+        path: '/wiki/entities/transformer-architecture',
+        title: 'transformer-architecture',
+        renderer: 'markdown',
+        sourceHash: 'stored-source-hash',
+        artifactStatus: 'not_applicable',
+        revision: 3,
+      },
     ])
   })
 
@@ -135,6 +150,25 @@ describe('markdown batch API Source validation', () => {
     expect(await response.json()).toEqual({ error: 'File metadata is derived by the server' })
     expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
   })
+
+  it('rejects an unknown Renderer before saving Source', async () => {
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        id: 1,
+        path: '/wiki/architecture',
+        renderer: 'html',
+        content: '# Architecture',
+        private: false,
+        baseRevision: 3,
+      }]),
+    })))
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'File renderer must be markdown or svelte' })
+    expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
+  })
 })
 
 describe('markdown batch API optimistic Source writes', () => {
@@ -143,7 +177,9 @@ describe('markdown batch API optimistic Source writes', () => {
       id: 1,
       path: '/wiki/architecture',
       title: 'architecture',
+      renderer: 'markdown',
       content: 'server Source',
+      sourceHash: 'server-source-hash',
       revision: 4,
     }
     mocks.saveSyncedFile.mockResolvedValue({ status: 'conflict', current })
@@ -164,6 +200,7 @@ describe('markdown batch API optimistic Source writes', () => {
     expect(mocks.saveSyncedFile).toHaveBeenCalledWith({ DB: 'db' }, {
       id: 1,
       path: '/wiki/architecture',
+      renderer: 'markdown',
       content: 'local Source',
       private: false,
       baseRevision: 3,
@@ -177,7 +214,14 @@ describe('markdown batch API optimistic Source writes', () => {
   it('returns the new revision after a preconditioned batch Source Save', async () => {
     mocks.saveSyncedFile.mockResolvedValue({
       status: 'saved',
-      file: { id: 1, path: '/wiki/architecture', title: 'architecture', revision: 4 },
+      file: {
+        id: 1,
+        path: '/wiki/architecture',
+        title: 'architecture',
+        renderer: 'markdown',
+        sourceHash: 'f22a36807e299b6fba30270ddf4a78edc542b12146be91c0e639a3bbd7a4042d',
+        revision: 4,
+      },
     })
 
     const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
@@ -193,10 +237,76 @@ describe('markdown batch API optimistic Source writes', () => {
     })))
 
     expect(response.status).toBe(200)
+    expect(mocks.saveSyncedFile).toHaveBeenCalledWith({ DB: 'db' }, {
+      id: 1,
+      path: '/wiki/architecture',
+      renderer: 'markdown',
+      content: 'next Source',
+      private: false,
+      baseRevision: 3,
+    })
     expect(await response.json()).toEqual({
       success: true,
       count: 1,
-      results: [{ id: 1, path: '/wiki/architecture', title: 'architecture', revision: 4 }],
+      results: [{
+        id: 1,
+        path: '/wiki/architecture',
+        title: 'architecture',
+        renderer: 'markdown',
+        sourceHash: 'f22a36807e299b6fba30270ddf4a78edc542b12146be91c0e639a3bbd7a4042d',
+        artifactStatus: 'not_applicable',
+        revision: 4,
+      }],
+    })
+  })
+
+  it('accepts Svelte Source and reports that a browser Rebuild is required', async () => {
+    mocks.saveSyncedFile.mockResolvedValue({
+      status: 'saved',
+      file: {
+        id: 2,
+        path: '/page/application',
+        title: 'application',
+        renderer: 'svelte',
+        sourceHash: 'svelte-source-hash',
+        revision: 5,
+      },
+    })
+
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        id: 2,
+        path: '/page/application',
+        renderer: 'svelte',
+        content: '<h1>Application</h1>',
+        private: false,
+        baseRevision: 4,
+      }]),
+    })))
+
+    expect(response.status).toBe(200)
+    expect(mocks.saveSyncedFile).toHaveBeenCalledWith({ DB: 'db' }, {
+      id: 2,
+      path: '/page/application',
+      renderer: 'svelte',
+      content: '<h1>Application</h1>',
+      private: false,
+      baseRevision: 4,
+    })
+    expect(await response.json()).toEqual({
+      success: true,
+      count: 1,
+      results: [{
+        id: 2,
+        path: '/page/application',
+        title: 'application',
+        renderer: 'svelte',
+        sourceHash: 'svelte-source-hash',
+        artifactStatus: 'rebuild_required',
+        revision: 5,
+      }],
     })
   })
 })

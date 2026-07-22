@@ -1,3 +1,4 @@
+import type { RendererMode } from '@/lib/files/types'
 import type { MarkdownSource } from '.'
 
 export interface FileRecord {
@@ -5,7 +6,9 @@ export interface FileRecord {
   source: MarkdownSource
   path: string
   title: string
-  content?: string | null
+  renderer: RendererMode
+  content: string
+  sourceHash: string | null
   tags?: string | null
   incoming_links?: string | null
   outgoing_links?: string | null

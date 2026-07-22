@@ -134,7 +134,7 @@ describe('server File creation collision behavior', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 6, 16, 6, 7))
     await ensureTemplateCatalogInitialized(env)
-    await batchAdd(env, [{ path: '/memo/202607160607', content: 'occupied' }])
+    await batchAdd(env, [{ path: '/memo/202607160607', renderer: 'markdown', content: 'occupied' }])
 
     const result = await createFile(env, { targetPrefix: '/memo/' })
 
@@ -146,7 +146,7 @@ describe('server File creation collision behavior', () => {
 
   it('returns path_conflict without renaming a fixed Template result', async () => {
     await storeTemplates([fixedTemplate()])
-    await batchAdd(env, [{ path: '/post/welcome', content: 'occupied' }])
+    await batchAdd(env, [{ path: '/post/welcome', renderer: 'markdown', content: 'occupied' }])
 
     expect(await createFile(env, { targetPrefix: '/post/' })).toEqual({
       status: 'path_conflict',
@@ -158,6 +158,7 @@ describe('server File creation collision behavior', () => {
     await storeTemplates([])
     await batchAdd(env, Array.from({ length: 100 }, (_, index) => ({
       path: `/wiki/unnamed${index === 0 ? '' : `-${index}`}`,
+      renderer: 'markdown' as const,
       content: 'occupied',
     })))
 

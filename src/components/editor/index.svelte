@@ -302,6 +302,7 @@
     const formData = new FormData()
     formData.append('id', file.id.toString())
     formData.append('path', pathValue)
+    formData.append('renderer', file.renderer)
     formData.append('content', sourceValue)
     formData.append('private', String(privateValue));
     formData.append('baseRevision', baseRevisionValue.toString())

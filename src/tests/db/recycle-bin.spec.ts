@@ -52,7 +52,7 @@ describe('file recycle bin trash', () => {
   useRecycleBinDatabase()
 
   it('moves a File to the recycle bin without changing its identity', async () => {
-    const [file] = await add(testEnv, { path: '/post/hello', content: 'content' })
+    const [file] = await add(testEnv, { path: '/post/hello', renderer: 'markdown', content: 'content' })
 
     const result = await trash(testEnv, file.id)
     const trashed = await readAnyById(testEnv, file.id)
@@ -67,9 +67,9 @@ describe('file recycle bin trash', () => {
   })
 
   it('keeps repeated deletions of the same File identity as separate entries', async () => {
-    const [first] = await add(testEnv, { path: '/post/hello', content: 'first' })
+    const [first] = await add(testEnv, { path: '/post/hello', renderer: 'markdown', content: 'first' })
     await trash(testEnv, first.id)
-    const [second] = await add(testEnv, { path: '/post/hello', content: 'second' })
+    const [second] = await add(testEnv, { path: '/post/hello', renderer: 'markdown', content: 'second' })
     await trash(testEnv, second.id)
 
     const entries = await readTrash(testEnv)
@@ -83,9 +83,9 @@ describe('file recycle bin restore', () => {
   const databasePath = useRecycleBinDatabase()
 
   it('reports a safe rename when the original identity is occupied', async () => {
-    const [trashed] = await add(testEnv, { path: '/post/hello', content: 'old' })
+    const [trashed] = await add(testEnv, { path: '/post/hello', renderer: 'markdown', content: 'old' })
     await trash(testEnv, trashed.id)
-    await add(testEnv, { path: '/post/hello', content: 'new' })
+    await add(testEnv, { path: '/post/hello', renderer: 'markdown', content: 'new' })
 
     const result = await restore(testEnv, trashed.id)
 
@@ -98,10 +98,10 @@ describe('file recycle bin restore', () => {
   })
 
   it('restores with the next available identity when rename is accepted', async () => {
-    const [trashed] = await add(testEnv, { path: '/post/hello', content: 'old' })
+    const [trashed] = await add(testEnv, { path: '/post/hello', renderer: 'markdown', content: 'old' })
     await trash(testEnv, trashed.id)
-    await add(testEnv, { path: '/post/hello', content: 'new' })
-    await add(testEnv, { path: '/post/hello-restored', content: 'occupied' })
+    await add(testEnv, { path: '/post/hello', renderer: 'markdown', content: 'new' })
+    await add(testEnv, { path: '/post/hello-restored', renderer: 'markdown', content: 'occupied' })
 
     const result = await restore(testEnv, trashed.id, true)
 
@@ -145,7 +145,7 @@ describe('file recycle bin restore', () => {
       args: [10, '/post//occupied', 'stale-title', 'old', Math.floor(Date.now() / 1000)],
     })
     client.close()
-    await add(testEnv, { path: '/post/occupied', content: 'active' })
+    await add(testEnv, { path: '/post/occupied', renderer: 'markdown', content: 'active' })
 
     const result = await restore(testEnv, Number(inserted.lastInsertRowid))
 
@@ -176,7 +176,7 @@ describe('file recycle bin purge and batch trash', () => {
   useRecycleBinDatabase()
 
   it('permanently deletes only Files that are already in the recycle bin', async () => {
-    const [file] = await add(testEnv, { path: '/post/hello', content: 'content' })
+    const [file] = await add(testEnv, { path: '/post/hello', renderer: 'markdown', content: 'content' })
 
     expect(await purge(testEnv, file.id)).toEqual({ status: 'not_found' })
     expect(await readAnyById(testEnv, file.id)).toBeDefined()
@@ -187,9 +187,9 @@ describe('file recycle bin purge and batch trash', () => {
   })
 
   it('empties the recycle bin without deleting active Files', async () => {
-    const [active] = await add(testEnv, { path: '/post/active', content: 'active' })
-    const [first] = await add(testEnv, { path: '/post/first', content: 'first' })
-    const [second] = await add(testEnv, { path: '/post/second', content: 'second' })
+    const [active] = await add(testEnv, { path: '/post/active', renderer: 'markdown', content: 'active' })
+    const [first] = await add(testEnv, { path: '/post/first', renderer: 'markdown', content: 'first' })
+    const [second] = await add(testEnv, { path: '/post/second', renderer: 'markdown', content: 'second' })
     await trash(testEnv, first.id)
     await trash(testEnv, second.id)
 
@@ -199,7 +199,7 @@ describe('file recycle bin purge and batch trash', () => {
   })
 
   it('reports duplicate batch Paths once without inflating the changed count', async () => {
-    const [file] = await add(testEnv, { path: '/wiki/a', content: 'content' })
+    const [file] = await add(testEnv, { path: '/wiki/a', renderer: 'markdown', content: 'content' })
 
     const results = await batchTrashByPaths(testEnv, ['/wiki/a', '/wiki/a', '/wiki/missing'])
 
