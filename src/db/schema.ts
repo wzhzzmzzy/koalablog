@@ -1,12 +1,15 @@
 import { sql } from 'drizzle-orm'
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { RENDERER_MODE } from '../lib/files/types'
 
 export const markdown = sqliteTable('markdown', {
   id: integer().primaryKey({ autoIncrement: true }),
   source: integer().notNull(),
   path: text().notNull(),
   title: text().notNull(),
-  content: text(),
+  renderer: text({ enum: [RENDERER_MODE.Markdown, RENDERER_MODE.Svelte] }).default(RENDERER_MODE.Markdown).notNull(),
+  content: text().notNull(),
+  sourceHash: text(),
   // format:
   // tag1,tag2,tag3
   tags: text(),

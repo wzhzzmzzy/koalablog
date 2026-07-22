@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import legacySchema from '../../migrations/0000_init.sql?raw'
 import catalogMigration from '../../migrations/0001_creation_template_catalog.sql?raw'
 import sourceMigration from '../../migrations/0002_file_source_schema.sql?raw'
+import sourceHashMigration from '../../migrations/0003_file_renderer_source_hash.sql?raw'
 
 function statements(sql: string) {
   return sql.split('--> statement-breakpoint').map(statement => statement.trim()).filter(Boolean)
@@ -22,6 +23,7 @@ describe('Gate 1D D1 File creation', () => {
     for (const statement of statements(legacySchema).filter(statement => statement.includes('markdown')))
       await env.DB.prepare(statement).run()
     await runStatements(sourceMigration)
+    await runStatements(sourceHashMigration)
     await runStatements(catalogMigration)
   })
 
