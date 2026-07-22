@@ -4,7 +4,7 @@ import { DEFAULT_MEMO_TEMPLATE_V2, upgradeTemplateCatalogV1, validateTemplateV1,
 import { and, eq } from 'drizzle-orm'
 import { creationTemplateCatalog } from './schema'
 
-const CATALOG_KEY = 'koala:creation-templates'
+export const CREATION_TEMPLATE_CATALOG_KEY = 'koala:creation-templates'
 const CATALOG_SCHEMA_V1 = 1 as const
 const CATALOG_SCHEMA_V2 = 2 as const
 
@@ -28,7 +28,7 @@ export type TemplateCatalogUpgradeResult =
   | { status: 'upgraded', catalog: TemplateCatalogV2 }
   | { status: 'conflict', currentRevision: number }
 
-interface StoredCatalogRow {
+export interface StoredCatalogRow {
   schemaVersion: number
   revision: number
   payload: string
@@ -88,7 +88,7 @@ function parseStoredTemplates<T extends CreationTemplateV1>(
   }
 }
 
-function catalogFromRow(row: StoredCatalogRow): TemplateCatalogV1 | TemplateCatalogV2 {
+export function parseStoredTemplateCatalogRow(row: StoredCatalogRow): TemplateCatalogV1 | TemplateCatalogV2 {
   if (row.schemaVersion === CATALOG_SCHEMA_V1) {
     return {
       schemaVersion: CATALOG_SCHEMA_V1,
@@ -114,7 +114,7 @@ export async function readTemplateCatalog(env?: Env): Promise<TemplateCatalogRea
   const [row] = await connectDB(env)
     .select()
     .from(creationTemplateCatalog)
-    .where(eq(creationTemplateCatalog.key, CATALOG_KEY))
+    .where(eq(creationTemplateCatalog.key, CREATION_TEMPLATE_CATALOG_KEY))
     .limit(1)
 
   if (!row)
@@ -122,7 +122,7 @@ export async function readTemplateCatalog(env?: Env): Promise<TemplateCatalogRea
 
   return {
     status: 'ready',
-    catalog: catalogFromRow(row),
+    catalog: parseStoredTemplateCatalogRow(row),
   }
 }
 
@@ -130,20 +130,20 @@ export async function ensureTemplateCatalogInitialized(env?: Env): Promise<Templ
   const [row] = await connectDB(env)
     .insert(creationTemplateCatalog)
     .values({
-      key: CATALOG_KEY,
+      key: CREATION_TEMPLATE_CATALOG_KEY,
       schemaVersion: CATALOG_SCHEMA_V2,
       revision: 1,
       payload: JSON.stringify([DEFAULT_MEMO_TEMPLATE_V2]),
     })
     .onConflictDoUpdate({
       target: creationTemplateCatalog.key,
-      set: { key: CATALOG_KEY },
+      set: { key: CREATION_TEMPLATE_CATALOG_KEY },
     })
     .returning()
 
   if (!row)
     throw new TemplateCatalogStorageError('invalid_storage', 'Template Catalog initialization did not persist')
-  return catalogFromRow(row)
+  return parseStoredTemplateCatalogRow(row)
 }
 
 export async function upgradeStoredTemplateCatalog(
@@ -169,7 +169,7 @@ export async function upgradeStoredTemplateCatalog(
       updatedAt: new Date(),
     })
     .where(and(
-      eq(creationTemplateCatalog.key, CATALOG_KEY),
+      eq(creationTemplateCatalog.key, CREATION_TEMPLATE_CATALOG_KEY),
       eq(creationTemplateCatalog.schemaVersion, CATALOG_SCHEMA_V1),
       eq(creationTemplateCatalog.revision, baseRevision),
     ))
@@ -209,7 +209,7 @@ export async function replaceTemplateCatalog(
       updatedAt: new Date(),
     })
     .where(and(
-      eq(creationTemplateCatalog.key, CATALOG_KEY),
+      eq(creationTemplateCatalog.key, CREATION_TEMPLATE_CATALOG_KEY),
       eq(creationTemplateCatalog.revision, baseRevision),
     ))
     .returning()

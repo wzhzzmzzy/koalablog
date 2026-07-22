@@ -175,9 +175,11 @@ export function backfillSourceHashBatch(env: Env | undefined, input: SourceHashB
   return runSourceHashBackfillBatch(createSourceHashMaintenanceStore(env), input)
 }
 
-export async function auditStoredSourceHashes(env?: Env, batchSize = MAX_MAINTENANCE_BATCH_SIZE): Promise<SourceHashAuditReport> {
+export async function runStoredSourceHashAudit(
+  store: SourceHashMaintenanceStore,
+  batchSize = MAX_MAINTENANCE_BATCH_SIZE,
+): Promise<SourceHashAuditReport> {
   validateBatchLimit(batchSize)
-  const store = createSourceHashMaintenanceStore(env)
   const summary: SourceHashAuditReport['summary'] = {
     total: 0,
     active: 0,
@@ -208,4 +210,8 @@ export async function auditStoredSourceHashes(env?: Env, batchSize = MAX_MAINTEN
     summary,
     issues,
   }
+}
+
+export function auditStoredSourceHashes(env?: Env, batchSize = MAX_MAINTENANCE_BATCH_SIZE): Promise<SourceHashAuditReport> {
+  return runStoredSourceHashAudit(createSourceHashMaintenanceStore(env), batchSize)
 }
