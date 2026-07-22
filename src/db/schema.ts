@@ -9,7 +9,7 @@ export const markdown = sqliteTable('markdown', {
   title: text().notNull(),
   renderer: text({ enum: [RENDERER_MODE.Markdown, RENDERER_MODE.Svelte] }).default(RENDERER_MODE.Markdown).notNull(),
   content: text().notNull(),
-  sourceHash: text(),
+  sourceHash: text().notNull(),
   // format:
   // tag1,tag2,tag3
   tags: text(),

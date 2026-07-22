@@ -29,6 +29,13 @@
       "when": 1784712165353,
       "tag": "0003_file_renderer_source_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784719386470,
+      "tag": "0004_require_source_hash",
+      "breakpoints": true
     }
   ]
 }

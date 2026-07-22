@@ -4,6 +4,7 @@ import process from 'node:process'
 import { drizzle } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
 import * as schema from '../../src/db/schema'
+import { calculateSourceHash } from '../../src/lib/files/source-hash'
 
 const root = process.cwd()
 const dataDirectory = path.join(root, '.playwright')
@@ -36,6 +37,7 @@ await database.insert(schema.markdown).values([
     path: '/phase-two',
     title: 'phase-two',
     content: 'First line\nSecond line',
+    sourceHash: await calculateSourceHash('markdown', 'First line\nSecond line'),
     tags: '',
     incoming_links: '[]',
     outgoing_links: '[]',
@@ -45,6 +47,7 @@ await database.insert(schema.markdown).values([
     path: '/trashed',
     title: 'trashed',
     content: 'Read-only Source',
+    sourceHash: await calculateSourceHash('markdown', 'Read-only Source'),
     tags: '',
     incoming_links: '[]',
     outgoing_links: '[]',
@@ -55,6 +58,7 @@ await database.insert(schema.markdown).values([
     path: '/second',
     title: 'second',
     content: 'Second file',
+    sourceHash: await calculateSourceHash('markdown', 'Second file'),
     tags: '',
     incoming_links: '[]',
     outgoing_links: '[]',
@@ -64,6 +68,7 @@ await database.insert(schema.markdown).values([
     path: '/trashed-second',
     title: 'trashed-second',
     content: 'Second read-only Source',
+    sourceHash: await calculateSourceHash('markdown', 'Second read-only Source'),
     tags: '',
     incoming_links: '[]',
     outgoing_links: '[]',

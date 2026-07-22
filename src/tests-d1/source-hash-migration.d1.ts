@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import legacySchema from '../../migrations/0000_init.sql?raw'
 import fileSourceMigration from '../../migrations/0002_file_source_schema.sql?raw'
 import sourceHashMigration from '../../migrations/0003_file_renderer_source_hash.sql?raw'
+import requireSourceHashMigration from '../../migrations/0004_require_source_hash.sql?raw'
 
 function statements(migration: string): string[] {
   return migration.split('--> statement-breakpoint').map(statement => statement.trim()).filter(Boolean)
@@ -12,6 +13,10 @@ function statements(migration: string): string[] {
 async function runStatements(migration: string): Promise<void> {
   for (const statement of statements(migration))
     await env.DB.prepare(statement).run()
+}
+
+async function runBatch(migration: string): Promise<void> {
+  await env.DB.batch(statements(migration).map(statement => env.DB.prepare(statement)))
 }
 
 describe('Gate 3A D1-compatible Renderer and Source Hash migration', () => {
@@ -61,5 +66,39 @@ describe('Gate 3A D1-compatible Renderer and Source Hash migration', () => {
       'markdown_active_path_unique',
       'markdown_deleted_at_idx',
     ])
+  })
+
+  it('refuses the non-null schema while a D1 File is still missing its Source Hash', async () => {
+    await runStatements(sourceHashMigration)
+    await env.DB.prepare(`
+      INSERT INTO markdown (id, source, path, title, content)
+      VALUES (51, 30, '/missing-hash', 'missing-hash', 'content')
+    `).run()
+
+    await expect(runBatch(requireSourceHashMigration)).rejects.toThrow(/NOT NULL constraint failed/)
+
+    const columns = await env.DB.prepare('PRAGMA table_info(markdown)').all<{ name: string, notnull: number }>()
+    const row = await env.DB.prepare('SELECT id, sourceHash FROM markdown WHERE id = 51').first<Record<string, unknown>>()
+    expect(columns.results.find(column => column.name === 'sourceHash')).toMatchObject({ notnull: 0 })
+    expect(row).toEqual({ id: 51, sourceHash: null })
+  })
+
+  it('preserves a backfilled D1 File while requiring its Source Hash', async () => {
+    await runStatements(sourceHashMigration)
+    await env.DB.prepare(`
+      INSERT INTO markdown (id, source, path, title, content, sourceHash)
+      VALUES (52, 30, '/backfilled', 'backfilled', 'content', 'backfilled-source-hash')
+    `).run()
+
+    await runBatch(requireSourceHashMigration)
+
+    const columns = await env.DB.prepare('PRAGMA table_info(markdown)').all<{ name: string, notnull: number }>()
+    const row = await env.DB.prepare('SELECT id, sourceHash FROM markdown WHERE id = 52').first<Record<string, unknown>>()
+    expect(columns.results.find(column => column.name === 'sourceHash')).toMatchObject({ notnull: 1 })
+    expect(row).toEqual({ id: 52, sourceHash: 'backfilled-source-hash' })
+    await expect(env.DB.prepare(`
+      INSERT INTO markdown (source, path, title, content)
+      VALUES (30, '/missing', 'missing', 'missing hash')
+    `).run()).rejects.toThrow(/NOT NULL constraint failed/)
   })
 })

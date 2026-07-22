@@ -3,11 +3,14 @@ import { randomUUID } from 'node:crypto'
 import { readFile, unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { runSourceHashBackfillBatch, runStoredSourceHashAudit } from '@/db/source-hash-maintenance'
+import { calculateSourceHash } from '@/lib/files/source-hash'
 import { legacySourceMigrationRows, migratedSourceRows } from '@/tests/fixtures/source-hash-migration'
 import { sql } from 'drizzle-orm'
 import { drizzle as drizzleSqlite } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { createSQLiteSourceHashOperatorStore } from '../../../scripts/db/source-hash-maintenance-target'
 
 const FILE_SOURCE_MIGRATION_MILLIS = 1_784_201_001_945
 
@@ -95,19 +98,81 @@ describe('gate 3A Renderer and Source Hash migration', () => {
     `)).rejects.toThrow(/NOT NULL constraint failed/)
   })
 
+  it('refuses to require Source Hash while any File is still missing one', async () => {
+    const database = connect()
+    await applyThroughFileSourceMigration(database)
+    await applyMigration(database, 'migrations/0003_file_renderer_source_hash.sql')
+    await database.run(sql`
+      INSERT INTO markdown (id, source, path, title, content)
+      VALUES (51, 30, '/missing-hash', 'missing-hash', 'content')
+    `)
+    const migration = await readFile('migrations/0004_require_source_hash.sql', 'utf8')
+
+    await expect(database.transaction(async (transaction) => {
+      for (const statement of statements(migration))
+        await transaction.run(sql.raw(statement))
+    })).rejects.toThrow(/NOT NULL constraint failed/)
+
+    const columns = await database.all<{ name: string, notnull: number }>(sql.raw('PRAGMA table_info(markdown)'))
+    const [row] = await database.all<Record<string, unknown>>(sql.raw('SELECT id, sourceHash FROM markdown WHERE id = 51'))
+    expect(columns.find(column => column.name === 'sourceHash')).toMatchObject({ notnull: 0 })
+    expect(row).toEqual({ id: 51, sourceHash: null })
+  })
+
+  it('converges from 0003 through backfill to the non-null Source Hash schema', async () => {
+    const database = connect()
+    await applyThroughFileSourceMigration(database)
+    await insertLegacyRows(database, legacySourceMigrationRows)
+    await applyMigration(database, 'migrations/0003_file_renderer_source_hash.sql')
+
+    const store = createSQLiteSourceHashOperatorStore(databasePath)
+    try {
+      const first = await runSourceHashBackfillBatch(store, { afterId: 0, limit: 2 })
+      const second = await runSourceHashBackfillBatch(store, { afterId: first.nextAfterId, limit: 2 })
+      expect(first.counts.updated + second.counts.updated).toBe(legacySourceMigrationRows.length)
+      await expect(runStoredSourceHashAudit(store, 2)).resolves.toMatchObject({ status: 'ready' })
+    }
+    finally {
+      store.close()
+    }
+
+    await applyMigration(database, 'migrations/0004_require_source_hash.sql')
+
+    const rows = await database.all<Record<string, unknown>>(sql.raw('SELECT * FROM markdown ORDER BY id'))
+    const expected = await Promise.all(migratedSourceRows.map(async row => ({
+      ...row,
+      sourceHash: await calculateSourceHash(row.renderer, row.content),
+    })))
+    const columns = await database.all<{ name: string, notnull: number }>(sql.raw('PRAGMA table_info(markdown)'))
+    const indexes = await database.all<{ name: string }>(sql.raw(`SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'markdown' ORDER BY name`))
+
+    expect(rows).toEqual(expected)
+    expect(columns.find(column => column.name === 'sourceHash')).toMatchObject({ notnull: 1 })
+    expect(indexes.map(index => index.name)).toEqual([
+      'markdown_active_path_unique',
+      'markdown_deleted_at_idx',
+    ])
+  })
+
   it('installs from empty and treats a second Drizzle migrator run as a no-op', async () => {
     const database = connect()
 
     await migrate(database, { migrationsFolder: 'migrations' })
     await database.run(sql`
-      INSERT INTO markdown (id, source, path, title, content)
-      VALUES (51, 30, '/fresh', 'fresh', '<h1>fresh</h1>')
+      INSERT INTO markdown (id, source, path, title, content, sourceHash)
+      VALUES (51, 30, '/fresh', 'fresh', '<h1>fresh</h1>', 'fresh-source-hash')
     `)
 
     const [freshRow] = await database.all<Record<string, unknown>>(sql.raw('SELECT * FROM markdown WHERE id = 51'))
+    const columns = await database.all<{ name: string, notnull: number }>(sql.raw('PRAGMA table_info(markdown)'))
     const firstMigrationLog = await database.all<{ created_at: number }>(sql.raw('SELECT created_at FROM __drizzle_migrations ORDER BY created_at'))
-    expect(freshRow).toMatchObject({ renderer: 'markdown', sourceHash: null, content: '<h1>fresh</h1>' })
-    expect(firstMigrationLog).toHaveLength(4)
+    expect(freshRow).toMatchObject({ renderer: 'markdown', sourceHash: 'fresh-source-hash', content: '<h1>fresh</h1>' })
+    expect(columns.find(column => column.name === 'sourceHash')).toMatchObject({ notnull: 1 })
+    expect(firstMigrationLog).toHaveLength(5)
+    await expect(database.run(sql`
+      INSERT INTO markdown (source, path, title, content)
+      VALUES (30, '/missing', 'missing', 'missing hash')
+    `)).rejects.toThrow(/NOT NULL constraint failed/)
 
     await database.run(sql`
       UPDATE markdown

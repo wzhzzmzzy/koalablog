@@ -10,6 +10,8 @@ import {
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+const PRE_0004_MISSING_SOURCE_HASH = null as unknown as string
+
 interface SourceHashMaintenanceHarness {
   name: string
   env: Env
@@ -35,7 +37,7 @@ export function defineSourceHashMaintenanceContract(harness: SourceHashMaintenan
           title: 'counter',
           renderer: 'svelte',
           content: '<script>let count = 0</script>\n<button>{count}</button>',
-          sourceHash: null,
+          sourceHash: PRE_0004_MISSING_SOURCE_HASH,
         },
         {
           id: 2,
@@ -44,7 +46,7 @@ export function defineSourceHashMaintenanceContract(harness: SourceHashMaintenan
           title: 'alpha',
           renderer: 'markdown',
           content: 'alpha',
-          sourceHash: null,
+          sourceHash: PRE_0004_MISSING_SOURCE_HASH,
           revision: 9,
           updatedAt: new Date(1_760_000_000_000),
         },
@@ -55,7 +57,7 @@ export function defineSourceHashMaintenanceContract(harness: SourceHashMaintenan
           title: 'recycled',
           renderer: 'markdown',
           content: '',
-          sourceHash: null,
+          sourceHash: PRE_0004_MISSING_SOURCE_HASH,
           deletedAt: new Date(1_770_000_000_000),
         },
       ])
@@ -108,7 +110,7 @@ export function defineSourceHashMaintenanceContract(harness: SourceHashMaintenan
         title: 'live',
         renderer: 'markdown',
         content: 'old Source',
-        sourceHash: null,
+        sourceHash: PRE_0004_MISSING_SOURCE_HASH,
       })
       const store = createSourceHashMaintenanceStore(harness.env)
       let sourceSaved = false
@@ -153,7 +155,7 @@ export function defineSourceHashMaintenanceContract(harness: SourceHashMaintenan
         title: 'metadata-race',
         renderer: 'markdown',
         content: '',
-        sourceHash: null,
+        sourceHash: PRE_0004_MISSING_SOURCE_HASH,
       })
       const store = createSourceHashMaintenanceStore(harness.env)
       let revisionChanged = false
@@ -193,7 +195,7 @@ export function defineSourceHashMaintenanceContract(harness: SourceHashMaintenan
         title: 'invalid-renderer',
         renderer: 'invalid' as 'markdown',
         content: 'Source',
-        sourceHash: null,
+        sourceHash: PRE_0004_MISSING_SOURCE_HASH,
       })
 
       await expect(backfillSourceHashBatch(harness.env, { afterId: 0, limit: 10 })).resolves.toMatchObject({
