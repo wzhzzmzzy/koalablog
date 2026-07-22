@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs'
+import process from 'node:process'
 
-const DB_PATH = 'koala.config.json'
+const DB_PATH = process.env.KOALA_CONFIG_PATH || 'koala.config.json'
 
 // 初始化存储
 async function initStore(filePath: string) {

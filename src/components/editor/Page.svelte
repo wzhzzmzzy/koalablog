@@ -6,6 +6,7 @@
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import Notification from './Notification.svelte';
+  import { discardEditorState } from './TextEditor.svelte';
   import { initializeEditBuffers, useEditBufferPersistence } from './edit-buffer.svelte';
   import { editorStore, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, notify, toggleSidebar, setShowSidebar, useSidebarPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
   import { formatFileSaveError } from './utils';
@@ -83,12 +84,16 @@
 
   function handlePurge(id: number) {
     const purgedCurrent = editorStore.currentFile?.id === id;
+    discardEditorState(id);
     removeItem(id);
     if (purgedCurrent) selectFallback();
   }
 
   function handleEmptyTrash() {
     const removedCurrent = Boolean(editorStore.currentFile?.deletedAt);
+    for (const file of editorStore.items) {
+      if (file.deletedAt) discardEditorState(file.id);
+    }
     removeTrashedItems();
     if (removedCurrent) selectFallback();
   }
@@ -123,7 +128,7 @@
   }
 </script>
 
-<div class="flex flex-1 h-full overflow-hidden w-full">
+<div class="flex h-screen overflow-hidden w-full">
     <Notification />
     <!-- Sidebar Container -->
     <div class="{editorStore.showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">

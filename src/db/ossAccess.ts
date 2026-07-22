@@ -1,5 +1,5 @@
 import { format, startOfDay } from 'date-fns'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, lte, sql } from 'drizzle-orm'
 import { connectDB } from '.'
 import { ossAccess } from './schema'
 
@@ -16,24 +16,21 @@ export function readToday(env: Env) {
 export async function incrementToday(env: Env, limit: number, access: 'read' | 'operate') {
   const today = format(startOfDay(new Date()), 'yyyyMMdd')
   const tx = connectDB(env)
-  const todayAccess = await tx.query.ossAccess.findFirst({
-    where: and(
-      eq(ossAccess.date, today),
-    ),
+  const countColumn = access === 'read' ? ossAccess.readTimes : ossAccess.operateTimes
+
+  await tx.insert(ossAccess).values({ date: today }).onConflictDoNothing({
+    target: ossAccess.date,
   })
 
-  if (todayAccess) {
-    if ((todayAccess[`${access}Times`] || 0) > limit) {
-      return [todayAccess]
-    }
-    return tx.update(ossAccess).set({
-      [`${access}Times`]: (todayAccess[`${access}Times`] || 0) + 1,
-    }).where(eq(ossAccess.id, todayAccess.id)).returning()
-  }
-  else {
-    return tx.insert(ossAccess).values({
-      date: today,
-      [`${access}Times`]: 1,
-    }).returning()
-  }
+  const updated = await tx.update(ossAccess).set({
+    [`${access}Times`]: sql`coalesce(${countColumn}, 0) + 1`,
+  }).where(and(
+    eq(ossAccess.date, today),
+    lte(countColumn, limit),
+  )).returning()
+  if (updated.length > 0)
+    return updated
+
+  const todayAccess = await readToday(env)
+  return todayAccess ? [todayAccess] : []
 }

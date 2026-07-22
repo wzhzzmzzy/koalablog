@@ -38,7 +38,7 @@ export const save = defineAction({
       if (!parsed.ok)
         ctx.addIssue({ code: 'custom', message: `Invalid File Path: ${parsed.error.code}` })
     }),
-    content: z.string(),
+    content: z.string().transform(content => content.replace(/\r\n?/g, '\n')),
     private: z.preprocess(value => value === 'true', z.boolean().default(false)),
     baseRevision: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().gte(0)),
     title: z.never().optional(),

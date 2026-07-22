@@ -600,52 +600,62 @@ Do not begin Phase 2 until all five sub-gates pass.
 
 ## Phase outcome
 
-CodeMirror replaces the textarea for Markdown editing without adding Renderer Mode, Svelte language packages, compiler diagnostics, `.svelte` exchange, or transitional Svelte states. The textarea adapter remains available until browser parity is proven.
+CodeMirror replaces the File Source textarea at `/dashboard/edit` without adding Renderer Mode, Svelte language packages, compiler diagnostics, `.svelte` exchange, or transitional Svelte states. The textarea adapter remains available until browser parity is proven. Creation Template Manager, Playground, and unrelated textareas remain unchanged in Phase 2.
 
 ## 2.1 Extract the deep Text Editor Interface
 
-Implement the Interface defined in the CodeMirror design and first satisfy it with the existing textarea. Callers never receive `EditorView` or `EditorState`. The Interface owns text mechanics and exposes only domain commands such as focus, Markdown attachment insertion, and `forgetFile(fileId)`.
+Implement the Interface defined in the CodeMirror design and first satisfy it with the existing textarea. Callers never receive `EditorView` or `EditorState`. The mounted editor exposes only current-instance commands such as focus and Markdown image insertion; its public module exposes the lifecycle command `discardEditorState(fileId)`.
+
+Pass the current `filePath` only so Text Editor can expose the stable accessible label `File Source for <Path>`; Path editing, normalization, and validation remain in FileEditor.
+
+Keep the single page-level `Mod-s` listener in FileEditor because Save persists the whole File, including Path and visibility. Text Editor does not receive `onSave` or register a Save keymap. Ctrl+S and macOS Cmd+S must save exactly once from both Path and Source focus.
 
 `src/lib/files/analysis.ts` remains the single Source analyzer. Do not create an editor-owned `file-analysis.ts`.
+
+Use only two Phase-2 test layers: Vitest for pure state/transaction/registry behavior and Playwright against the real `/dashboard/edit` page for DOM and editor behavior. Do not add `jsdom`, `happy-dom`, or a component Testing Library. Native Chinese IME candidate interaction and physical touch selection remain explicit final manual checks.
 
 ## 2.2 Add curated Markdown CodeMirror dependencies
 
 Add only the CodeMirror packages required for Markdown parity: state, view, commands, language, search, limited autocomplete/bracket closing, and Markdown language. Do not add Svelte language or compiler packages in this phase.
 
-Capabilities include line numbers, active line, undo/redo, search/replace, brackets, indentation, folding, selection matching, multiple selection, Markdown wrapping, accessible labels, theme integration, and narrow-screen gutter policy.
+Capabilities include line numbers, active line, undo/redo, search/replace, brackets, indentation, folding, selection matching, multiple selection, Markdown wrapping, accessible labels, theme integration, and a narrow-screen policy that hides line-number/fold gutters without reducing editing capability. Completion suggestions, formatting, Vim mode, and LSP remain out of scope; autocomplete is used only for bracket closing.
 
 ## 2.3 Implement the private adapter and state registry
 
 Create one `EditorView` per mounted Text Editor behind the Interface. Keep `Map<FileId, EditorState>` private to the Text Editor module. External value transactions are annotated so they cannot echo through `onChange`.
 
-The registry restores selection, scroll, folds, and undo across File switches and rename/move. `forgetFile(fileId)` removes state on purge without exposing CodeMirror mechanics. CodeMirror state is never serialized to localStorage.
+The registry restores selection, scroll, folds, and undo across File switches and rename/move. Module-level `discardEditorState(fileId)` removes state after purge or empty-trash without exposing CodeMirror mechanics. CodeMirror state is never serialized to localStorage.
 
-Reconcile a same-ID server refresh with Phase-1 Edit Buffer rules:
+FileEditor's accepted `value` remains the only Source truth. Restore a cached `EditorState` only when its document equals that `value`; otherwise discard the stale cache and seed a fresh state from `value`. The registry must never become a second Source authority beside File/Edit Buffer.
 
-- clean buffer plus new revision replaces the cached state with a new server-seeded state;
-- dirty buffer plus unchanged base retains the cached state;
-- dirty buffer plus changed server revision retains the local state but marks conflict and prevents automatic external replacement;
-- purge invokes `forgetFile(fileId)`.
+Text Editor does not receive or interpret File revisions. FileEditor owns `baseRevision`, dirty state, conflict detection, and the choice of accepted Source. Reconcile its resulting inputs with three mechanical rules:
 
-## 2.4 Move Markdown attachment editing behind the Interface
+- a different File ID saves the current state and restores or seeds the selected File state;
+- the same File ID with the same `value` is a no-op, including local `onChange` echoes and metadata-only revision changes;
+- the same File ID with a different accepted `value` replaces the cached state and clears stale undo;
+- purge and empty-trash invoke `discardEditorState(fileId)` for every permanently deleted File.
 
-Use one transaction flow for paste, drop, and toolbar upload. Determine true drop coordinates with `posAtCoords`, insert unique placeholders, inject upload I/O, replace/remove the exact placeholder, emit Markdown image syntax, and preserve coherent undo. Svelte `<img>` output is not part of Phase 2.
+## 2.4 Move Markdown image insertion behind the Interface
+
+Keep Phase 2 image-only and reject non-image Files from this flow. Paste, drop, and toolbar multi-select all call the same `insertImages(files)` command. Determine true drop coordinates with `posAtCoords` and insert the image batch as one undoable placeholder transaction. Upload success replacement and failure cleanup do not enter undo history; if the user removed a placeholder before completion, discard that result. One undo removes the original batch and never resurrects an upload placeholder. Emit Markdown image syntax only; Svelte `<img>` output is not part of Phase 2.
 
 ## 2.5 Run production parity before deleting textarea
 
-Switch production through a reversible adapter selection while keeping the textarea implementation available. Verify selection, scroll, undo, Save shortcuts, external refresh, conflict preservation, paste/drop/toolbar upload, concurrent upload placeholders, read-only recycle-bin behavior, keyboard navigation, focus, mobile scrolling, and Chinese IME in real browsers.
+Switch production through a private code-level adapter constant while keeping the textarea implementation available. Do not add an adapter prop, user setting, URL parameter, or localStorage flag; rollback changes the constant and redeploys. Verify selection, scroll, undo, Save shortcuts, external refresh, conflict preservation, paste/drop/toolbar upload, concurrent upload placeholders, read-only recycle-bin behavior, keyboard navigation, focus, mobile scrolling, and Chinese IME in real browsers.
+
+Keep Text Editor mounted while Preview is visible and hide only its editing surface. Returning from Preview to Edit requests a fresh editor measurement and focuses Source without rebuilding editor state. Ordinary File selection does not steal focus; new File creation focuses Path; Save preserves current focus; completing toolbar image insertion focuses Source; paste and drop retain editor focus.
 
 Delete textarea helpers, implementation-specific tests, and global textarea styling only after the browser gate passes. Remove unused `monaco-editor` only after bundle and behavior verification.
 
 ## Phase 2 acceptance gate
 
 - All Phase-1 File, lifecycle, Save, and Markdown Preview behavior remains intact.
-- File switching restores selection, scroll, and undo by File ID.
+- File switching restores selection, scroll, folds, and undo by File ID.
 - Same-ID refresh follows the clean/dirty/conflict reconciliation matrix.
-- Rename preserves state; purge removes it through `forgetFile(fileId)`.
+- Rename preserves state; purge and empty-trash remove it through `discardEditorState(fileId)`.
 - Cmd+S and Ctrl+S Save exactly once.
-- Paste, drop, and toolbar upload share the tested Markdown transaction flow.
-- Mobile scrolling, focus, keyboard editing, undo, selection, and Chinese IME pass in a real browser.
+- Paste, drop, and toolbar multi-select share the tested Markdown image transaction flow.
+- Mobile scrolling, focus, keyboard editing, undo, and selection pass through Playwright in a real browser; native Chinese IME candidate interaction and physical touch selection pass the final manual checklist.
 - The temporary textarea adapter is removed only after parity passes.
 - Public pages do not load CodeMirror chunks.
 - No Renderer toggle, Svelte language, Svelte diagnostics, Build Worker, or Svelte state appears.

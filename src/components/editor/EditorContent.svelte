@@ -1,8 +1,11 @@
 <script lang="ts">
   import type { EditBufferServerValues } from './edit-buffer.svelte';
+  import TextEditor, { type TextEditorHandle } from './TextEditor.svelte';
 
   interface Props {
     title: string;
+    fileId: number;
+    filePath: string;
     value: string;
     showPreview: boolean;
     previewHtml: string;
@@ -11,13 +14,15 @@
     baseRevision: number;
     onUseServer: () => void;
     onRebase: () => void;
-    onPaste: (event: ClipboardEvent) => void;
-    onDrop: (event: DragEvent) => void;
+    onChange: (value: string) => void;
+    uploadImage: (file: File) => Promise<{ url: string }>;
   }
 
   let {
     title,
-    value = $bindable(),
+    fileId,
+    filePath,
+    value,
     showPreview,
     previewHtml,
     trashed,
@@ -25,9 +30,19 @@
     baseRevision,
     onUseServer,
     onRebase,
-    onPaste,
-    onDrop,
+    onChange,
+    uploadImage,
   }: Props = $props();
+
+  let textEditor: TextEditorHandle | undefined = $state();
+
+  export function focus() {
+    textEditor?.focus();
+  }
+
+  export async function insertImages(files: File[]) {
+    await textEditor?.insertImages(files);
+  }
 </script>
 
 <input
@@ -51,15 +66,17 @@
   </div>
 {/if}
 
-<textarea
-  class="text-sm w-full flex-1 box-border bg-transparent border-none outline-none resize-none p-2 {showPreview ? 'hidden' : ''}"
-  name="content"
-  placeholder="Type here..."
-  bind:value
-  onpaste={onPaste}
-  ondrop={onDrop}
-  readonly={trashed}
-></textarea>
+<div class="w-full flex-1 min-h-0 {showPreview ? 'hidden' : ''}">
+  <TextEditor
+    bind:this={textEditor}
+    {fileId}
+    {filePath}
+    {value}
+    readonly={trashed}
+    {onChange}
+    {uploadImage}
+  />
+</div>
 
 <article id="preview-md" class="w-full flex-1 overflow-y-auto {showPreview ? '' : 'hidden'}">
   {@html previewHtml}

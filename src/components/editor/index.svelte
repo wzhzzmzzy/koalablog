@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getSourceFromPath, getMarkdownSourceKey } from '@/db'
   import type { FileRecord } from '@/db/types';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { md } from '@/lib/markdown';
   import { getDisplayTitle } from '@/lib/files/display-title';
   import type MarkdownIt from 'markdown-it';
@@ -9,7 +9,8 @@
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
   import EditorContent from './EditorContent.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
-  import { findPreviousActiveFile, formatFileSaveError, generatePlaceholder, getImagesFromClipboard, getImagesFromDrop, insertTextAtPosition, sourceConflictFromActionError, uploadEditorImage } from './utils';
+  import { findPreviousActiveFile, formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
+  import type { TextEditorHandle } from './TextEditor.svelte';
   import { editBuffers, editBufferServerValues, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
   import { editorStore, upsertItem, popHistory, setCurrentFile, notify } from './store.svelte';
   interface Props {
@@ -20,7 +21,7 @@
 			}
   let { file, onSave, onUpdate, onPurge }: Props = $props()
   const initialBuffer = editBuffers.get(file.id)
-  let textareaValue = $state(initialBuffer?.content ?? file.content ?? '')
+  let sourceValue = $state(initialBuffer?.content ?? file.content ?? '')
   let privateValue = $state(initialBuffer?.private ?? file.private ?? false)
   let previewHtml = $state('')
   let pathValue = $state(initialBuffer?.path ?? file.path ?? '')
@@ -28,13 +29,14 @@
   let conflict = $state<EditBufferServerValues | null>(initialBuffer?.conflict?.server ?? null)
   let titleValue = $derived(pathValue.split('/').filter(Boolean).at(-1) ?? '')
   let source = $derived(getSourceFromPath(pathValue))
-  let displayTitleValue = $derived(getDisplayTitle({ source, title: titleValue, content: textareaValue }))
+  let displayTitleValue = $derived(getDisplayTitle({ source, title: titleValue, content: sourceValue }))
   let trashed = $derived(Boolean(file.deletedAt))
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
+  let editorContent: TextEditorHandle | undefined = $state()
 
   function isDirtyAgainst(server: FileRecord) {
     return pathValue !== server.path
-      || textareaValue !== (server.content ?? '')
+      || sourceValue !== (server.content ?? '')
       || privateValue !== server.private
   }
 
@@ -44,7 +46,7 @@
       setEditBuffer({
         fileId: server.id,
         path: pathValue,
-        content: textareaValue,
+        content: sourceValue,
         private: privateValue,
         baseRevision: baseRevisionValue,
         dirty,
@@ -68,7 +70,7 @@
   $effect.pre(() => {
     const data = file
     const buffer = editBuffers.get(data.id)
-    textareaValue = buffer?.content ?? data.content ?? '';
+    sourceValue = buffer?.content ?? data.content ?? '';
     privateValue = buffer?.private ?? data.private ?? false;
     pathValue = buffer?.path ?? data.path ?? '';
     baseRevisionValue = buffer?.baseRevision ?? data.revision;
@@ -90,7 +92,7 @@
     const handleKeydown = (e: KeyboardEvent) => {
       if (e.repeat) return
 
-      if (!trashed && e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 's') {
+      if (!trashed && (e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault()
         void save(e)
       }
@@ -113,9 +115,9 @@
   });
 
   async function refreshPreview() {
-    let previewMd = textareaValue
+    let previewMd = sourceValue
     if (displayTitleValue) {
-      previewMd = `# ${displayTitleValue}\n\n${textareaValue}`
+      previewMd = `# ${displayTitleValue}\n\n${sourceValue}`
     }
     if (mdInstance) {
       previewHtml = mdInstance.render(previewMd)
@@ -126,71 +128,36 @@
     }
   }
 
-  async function processFileUpload(file: File, placeholder?: string) {
+  async function uploadImage(file: File) {
     try {
-      const markdownLink = await uploadEditorImage(file)
-      textareaValue = placeholder
-        ? textareaValue.replace(placeholder, markdownLink)
-        : `${textareaValue}\n${markdownLink}`
+      const result = await uploadEditorImage(file)
       notify('success', 'Uploaded Successfully', 3000)
-    } catch(e: any) {
-      notify('error', e.message)
-      if (placeholder) {
-        // Remove placeholder on error
-        textareaValue = textareaValue.replace(placeholder, '')
-      }
+      return result
+    }
+    catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Upload failed')
+      throw error
     }
   }
 
   async function upload(e: Event) {
     e.preventDefault()
-    const files = await pickFileWithFileInput()
+    const files = await pickFileWithFileInput('image/*', true)
     if (files.length > 0) {
-      await processFileUpload(files[0])
-    }
-  }
-
-  function handlePaste(e: ClipboardEvent) {
-    if (trashed) return
-    const files = getImagesFromClipboard(e)
-    if (files.length > 0) {
-      e.preventDefault()
-      const textarea = e.target as HTMLTextAreaElement
-      const startPos = textarea.selectionStart
-      
-      files.forEach(file => {
-        const placeholder = generatePlaceholder(file.name)
-        textareaValue = insertTextAtPosition(textareaValue, placeholder, startPos)
-        
-        // Start upload process
-        processFileUpload(file, placeholder)
-      })
-    }
-  }
-
-  function handleDrop(e: DragEvent) {
-    if (trashed) return
-    const files = getImagesFromDrop(e)
-    if (files.length > 0) {
-      e.preventDefault()
-      const textarea = e.target as HTMLTextAreaElement
-      // Note: Drop position calculation is complex, here we simplify to inserting at current cursor or end
-      // For better UX, we could use document.caretPositionFromPoint but it's not standard
-      // So we fallback to selectionStart (where user clicked before drag) or simply append
-      const startPos = textarea.selectionStart || textareaValue.length
-      
-      files.forEach(file => {
-        const placeholder = generatePlaceholder(file.name)
-        textareaValue = insertTextAtPosition(textareaValue, placeholder, startPos)
-        processFileUpload(file, placeholder)
-      })
+      await editorContent?.insertImages(Array.from(files))
+      editorContent?.focus()
     }
   }
 
   let showPreview = $state(false)
-  function preview(e: Event) {
+  async function preview(e: Event) {
     e.preventDefault()
+    const returningToEdit = showPreview
     showPreview = !showPreview
+    if (returningToEdit) {
+      await tick()
+      editorContent?.focus()
+    }
   }
 
   let copyBtnText = $state('Link')
@@ -266,7 +233,7 @@
     setEditBuffer({
       fileId: file.id,
       path: pathValue,
-      content: textareaValue,
+      content: sourceValue,
       private: privateValue,
       baseRevision: baseRevisionValue,
       dirty: true,
@@ -335,7 +302,7 @@
     const formData = new FormData()
     formData.append('id', file.id.toString())
     formData.append('path', pathValue)
-    formData.append('content', textareaValue)
+    formData.append('content', sourceValue)
     formData.append('private', String(privateValue));
     formData.append('baseRevision', baseRevisionValue.toString())
 
@@ -357,7 +324,7 @@
   }
 </script>
 
-<div class="w-full flex-1 flex flex-col pt-5">
+<div class="w-full flex-1 min-h-0 flex flex-col pt-5">
   <form method="POST" class="flex-1 flex flex-col h-full overflow-hidden">
     <EditorToolbar
       {file}
@@ -379,8 +346,11 @@
       {onPurge}
     />
     <EditorContent
+      bind:this={editorContent}
       title={titleValue}
-      bind:value={textareaValue}
+      fileId={file.id}
+      filePath={pathValue}
+      value={sourceValue}
       {showPreview}
       {previewHtml}
       {trashed}
@@ -388,8 +358,8 @@
       baseRevision={baseRevisionValue}
       onUseServer={useServerVersion}
       onRebase={retryLocalAgainstCurrentRevision}
-      onPaste={handlePaste}
-      onDrop={handleDrop}
+      onChange={(value) => { sourceValue = value; }}
+      {uploadImage}
     />
   </form>
 </div>
