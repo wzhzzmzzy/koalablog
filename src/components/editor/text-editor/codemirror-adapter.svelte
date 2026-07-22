@@ -210,7 +210,7 @@
     [&_.cm-scroller]:leading-[1.6] [&_.cm-scroller]:[touch-action:pan-x_pan-y]
     [&_.cm-content]:min-h-full [&_.cm-content]:py-2 [&_.cm-content]:[caret-color:var(--koala-editor-text)]
     [&_.cm-line]:px-2
-    [&_.cm-gutters]:bg-transparent [&_.cm-gutters]:border-r [&_.cm-gutters]:border-[--koala-border-subtle]
+    [&_.cm-gutters]:bg-transparent
     [&_.cm-gutters]:text-[--koala-subtext-0] lt-sm:[&_.cm-gutters]:hidden
     [&_.cm-activeLine]:bg-[--koala-focusing-block] [&_.cm-activeLineGutter]:bg-[--koala-focusing-block]
     [&_.cm-selectionBackground]:!bg-[--koala-editor-selection-bg] [&_::selection]:!bg-[--koala-editor-selection-bg]
