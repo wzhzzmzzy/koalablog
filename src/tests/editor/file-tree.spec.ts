@@ -69,6 +69,25 @@ describe('editor File tree', () => {
     editBuffers.clear()
   })
 
+  it('preserves cached deeper Files when a Prefix refresh only returns its nearest levels', () => {
+    const root = makeFileRecord({ id: 1, path: '/root', title: 'root' })
+    const child = makeFileRecord({ id: 2, path: '/project/inside', title: 'inside' })
+    const deep = makeFileRecord({ id: 3, path: '/project/nested/deep', title: 'deep' })
+    setItems([root, child, deep])
+
+    replaceItemsByPrefix('/', [
+      { ...root, content: 'fresh root' },
+      { ...child, content: 'fresh child' },
+    ])
+
+    expect(editorStore.items.map(item => item.path).sort()).toEqual([
+      '/project/inside',
+      '/project/nested/deep',
+      '/root',
+    ])
+    expect(editorStore.items.find(item => item.id === deep.id)).toEqual(deep)
+  })
+
   it('projects non-root Template Prefixes before any File exists', () => {
     const tree = buildFileTree([], [prefix('/'), prefix('/memo/project/'), prefix('/wiki/')])
 

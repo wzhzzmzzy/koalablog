@@ -97,14 +97,19 @@ export function setItems(newItems: FileRecord[]) {
   editorStore.hasAttemptedLoad = true
 }
 
-function isWithinPrefix(path: string, prefix: string) {
-  return prefix === '/' || path.startsWith(prefix)
+function isWithinPrefixRefreshScope(path: string, prefix: string) {
+  if (!path.startsWith(prefix))
+    return false
+
+  const relativePath = path.slice(prefix.length)
+  const firstSeparator = relativePath.indexOf('/')
+  return firstSeparator === -1 || !relativePath.includes('/', firstSeparator + 1)
 }
 
 export function replaceItemsByPrefix(prefix: string, freshItems: FileRecord[]) {
   const isAuthoritativeRefresh = prefix === '/'
   const nextItems = [
-    ...editorStore.items.filter(item => !isWithinPrefix(item.path, prefix)),
+    ...editorStore.items.filter(item => !isWithinPrefixRefreshScope(item.path, prefix)),
     ...freshItems,
   ]
   applyServerItems(nextItems, freshItems, isAuthoritativeRefresh)

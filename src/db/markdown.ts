@@ -380,8 +380,12 @@ export function readByPrefix(env: Env, prefix: string) {
   const parsed = parseAbsolutePathPrefix(prefix)
   if (!parsed.ok)
     throw new FileInputError('invalid_path', `Invalid Path Prefix: ${parsed.error.code}`)
+  const relativePath = sql<string>`substr(${markdown.path}, length(${parsed.value}) + 1)`
   return connectDB(env).query.markdown.findMany({
-    where: sql`instr(${markdown.path}, ${parsed.value}) = 1`,
+    where: and(
+      sql`instr(${markdown.path}, ${parsed.value}) = 1`,
+      sql`length(${relativePath}) - length(replace(${relativePath}, '/', '')) <= 1`,
+    ),
     orderBy: desc(markdown.createdAt),
   })
 }
