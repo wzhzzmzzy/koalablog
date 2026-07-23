@@ -1,4 +1,5 @@
-import { filePathFromMarkdownDiskPath } from '@/lib/files/disk'
+import type { DiskSourceFile } from '@/lib/files/disk'
+import { FileDiskError, fileFromDiskPath } from '@/lib/files/disk'
 import { actions } from 'astro:actions'
 
 export function supportFSApi(): boolean {
@@ -107,19 +108,23 @@ export async function pickFileWithFilePicker(accept: Record<string, string[]> = 
   return fileHandle![0].getFile()
 }
 
-export async function pickDirectoryWithFilePicker(): Promise<Array<{ path: string, content: string }>> {
+export async function pickDirectoryWithFilePicker(): Promise<DiskSourceFile[]> {
   const directoryHandler = await (window as any).showDirectoryPicker()
-  const mdFiles: Array<{ path: string, content: string }> = []
+  const files: DiskSourceFile[] = []
+  const selectedPaths = new Set<string>()
 
   async function readDirectory(dirHandler: any, basePath = '') {
     for await (const [name, handle] of dirHandler.entries()) {
       if (handle.kind === 'file') {
         const diskPath = basePath ? `${basePath}/${name}` : name
-        const path = filePathFromMarkdownDiskPath(diskPath)
+        const { path, renderer } = fileFromDiskPath(diskPath)
+        if (selectedPaths.has(path))
+          throw new FileDiskError('duplicate_disk_path', `Multiple selected disk Files map to File Path: ${path}`)
+        selectedPaths.add(path)
         try {
           const file = await handle.getFile()
           const content = await file.text()
-          mdFiles.push({ path, content })
+          files.push({ path, renderer, content })
         }
         catch (error) {
           console.warn(`Failed to read file ${name}:`, error)
@@ -134,5 +139,5 @@ export async function pickDirectoryWithFilePicker(): Promise<Array<{ path: strin
   }
 
   await readDirectory(directoryHandler)
-  return mdFiles
+  return files
 }

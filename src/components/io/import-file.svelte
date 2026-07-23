@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { DiskSourceFile } from "@/lib/files/disk";
 import { flattenFileCollections } from "@/lib/files/collection";
 import { supportFSApi } from "@/lib/services/file-reader";
 import { importFromFilePicker } from "@/lib/services/io";
@@ -23,7 +24,7 @@ let showDrawer = $state(false)
 let saveError = $state<string | null>(null)
 
 // File data
-let foundFiles = $state<Array<{ path: string, content: string }>>([])
+let foundFiles = $state<DiskSourceFile[]>([])
 let selectedFiles = $state<Set<number>>(new Set())
 let duplicateFiles = $state<Set<number>>(new Set())
 
@@ -188,6 +189,7 @@ const onSave = async () => {
   
   const selectedFilesToImport = Array.from(selectedFiles).map(index => ({
     path: foundFiles[index].path,
+    renderer: foundFiles[index].renderer,
     content: foundFiles[index].content,
   }))
   

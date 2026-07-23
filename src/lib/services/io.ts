@@ -1,6 +1,6 @@
 import type { AllCollection } from '@/actions/db/markdown'
 import { flattenFileCollections } from '@/lib/files/collection'
-import { markdownExportEntries } from '@/lib/files/disk'
+import { fileExportEntries } from '@/lib/files/disk'
 import { actions } from 'astro:actions'
 import { format } from 'date-fns'
 import { pickDirectoryWithFilePicker, supportFSApi } from './file-reader'
@@ -41,7 +41,7 @@ export async function exportAllFiles() {
 
   const files = flattenFileCollections(data)
   const zipFiles = Object.fromEntries(
-    Object.entries(markdownExportEntries(files)).map(([path, source]) => [path, textEncoder.encode(source)]),
+    Object.entries(fileExportEntries(files)).map(([path, source]) => [path, textEncoder.encode(source)]),
   )
   const fflate = await fflateLoader
   return new Promise<void>((resolve, reject) => {

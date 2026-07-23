@@ -153,12 +153,14 @@ export const batchImport = defineAction({
       if (!parsed.ok)
         ctx.addIssue({ code: 'custom', message: `Invalid File Path: ${parsed.error.code}` })
     }),
+    renderer: z.enum([RENDERER_MODE.Markdown, RENDERER_MODE.Svelte]),
     content: z.string(),
   }).strict()),
   accept: 'json',
   handler: async (input, ctx) => {
     await authGuard(ctx)
-    return batchAdd(ctx.locals.runtime?.env, input.map((file) => {
+    const paths = new Set<string>()
+    const files = input.map((file) => {
       const parsed = parseAbsoluteFilePath(file.path)
       if (!parsed.ok) {
         throw new ActionError({
@@ -166,12 +168,20 @@ export const batchImport = defineAction({
           message: `Invalid File Path: ${parsed.error.code}`,
         })
       }
+      if (paths.has(parsed.value)) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: `Duplicate imported File Path: ${parsed.value}`,
+        })
+      }
+      paths.add(parsed.value)
       return {
         path: parsed.value,
-        renderer: RENDERER_MODE.Markdown,
+        renderer: file.renderer,
         content: file.content,
         private: parsed.value.startsWith('/memo/'),
       }
-    }))
+    })
+    return batchAdd(ctx.locals.runtime?.env, files)
   },
 })
