@@ -158,6 +158,7 @@ describe('gate 3A Source Hash backfill and non-null migration', () => {
 
   it('installs from empty and treats a second Drizzle migrator run as a no-op', async () => {
     const database = connect()
+    const journal = JSON.parse(await readFile('migrations/meta/_journal.json', 'utf8')) as { entries: unknown[] }
 
     await migrate(database, { migrationsFolder: 'migrations' })
     await database.run(sql`
@@ -170,7 +171,7 @@ describe('gate 3A Source Hash backfill and non-null migration', () => {
     const firstMigrationLog = await database.all<{ created_at: number }>(sql.raw('SELECT created_at FROM __drizzle_migrations ORDER BY created_at'))
     expect(freshRow).toMatchObject({ renderer: 'markdown', sourceHash: 'fresh-source-hash', content: '<h1>fresh</h1>' })
     expect(columns.find(column => column.name === 'sourceHash')).toMatchObject({ notnull: 1 })
-    expect(firstMigrationLog).toHaveLength(5)
+    expect(firstMigrationLog).toHaveLength(journal.entries.length)
     await expect(database.run(sql`
       INSERT INTO markdown (source, path, title, content)
       VALUES (30, '/missing', 'missing', 'missing hash')

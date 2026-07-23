@@ -31,6 +31,25 @@ export const markdown = sqliteTable('markdown', {
   index('markdown_deleted_at_idx').on(table.deletedAt),
 ])
 
+export const markdownRender = sqliteTable('markdown_render', {
+  fileId: integer().primaryKey().references(() => markdown.id, { onDelete: 'cascade' }),
+  schemaVersion: integer().notNull(),
+  renderer: text({ enum: [RENDERER_MODE.Svelte] }).notNull(),
+  svelteVersion: text().notNull(),
+  unocssVersion: text().notNull(),
+  unocssConfigHash: text().notNull(),
+  sourceHash: text().notNull(),
+  dependencies: text({ mode: 'json' }).notNull(),
+  artifactHash: text().notNull(),
+  javascriptResourceHash: text().notNull(),
+  cssResourceHash: text().notNull(),
+  javascript: text().notNull(),
+  css: text().notNull(),
+  snapshotHtml: text().notNull(),
+  createdAt: integer({ mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer({ mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+})
+
 export const ossAccess = sqliteTable('oss_access', {
   id: integer().primaryKey({ autoIncrement: true }),
   date: text().notNull().unique(),
