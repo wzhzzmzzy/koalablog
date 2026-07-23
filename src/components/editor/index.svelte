@@ -71,16 +71,6 @@
     syncEditBuffer(server)
   })
 
-  $effect(() => {
-    if (file.renderer !== RENDERER_MODE.Svelte || file.deletedAt)
-      return
-    void import('@/lib/svelte/toolchain')
-      .then(toolchain => toolchain.probeSvelteToolchain())
-      .catch((error) => {
-        notify('error', error instanceof Error ? error.message : 'Svelte toolchain failed')
-      })
-  })
-
   // Hydrate the newly selected File before the persistence effect can observe
   // the old File's local values under the new stable ID.
   $effect.pre(() => {

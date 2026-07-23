@@ -4,6 +4,8 @@ import { staticAssetDiagnostics } from './assets'
 
 interface AstNode {
   end?: unknown
+  importKind?: unknown
+  specifiers?: unknown
   source?: unknown
   start?: unknown
   type?: unknown
@@ -64,6 +66,16 @@ function moduleSpecifier(value: unknown) {
   return specifier?.value ?? null
 }
 
+function isTypeOnlySvelteTypeImport(statement: AstNode, specifier: string) {
+  if (specifier !== 'svelte/action' && specifier !== 'svelte/elements')
+    return false
+  if (statement.importKind === 'type')
+    return true
+  return Array.isArray(statement.specifiers)
+    && statement.specifiers.length > 0
+    && statement.specifiers.every(specifier => isAstNode(specifier) && specifier.importKind === 'type')
+}
+
 export async function svelteResolverPolicyDiagnostics(source: string) {
   const { parse } = await import('svelte/compiler')
   const ast = parse(source)
@@ -83,7 +95,9 @@ export async function svelteResolverPolicyDiagnostics(source: string) {
     if (value.type === 'ImportDeclaration' || value.type === 'ExportAllDeclaration' || value.type === 'ExportNamedDeclaration') {
       const specifier = literalModuleSpecifier(value.source)
       if (specifier) {
-        const error = moduleDiagnostic(specifier.value, specifier.start, specifier.end)
+        const error = isTypeOnlySvelteTypeImport(value, specifier.value)
+          ? null
+          : moduleDiagnostic(specifier.value, specifier.start, specifier.end)
         if (error)
           diagnostics.push(error)
       }

@@ -12,8 +12,8 @@ interface CompilerDiagnostic {
   start?: { character?: unknown }
 }
 
-const possiblePreprocessorTagPattern = /<(?:script|style|template)\b[^>]*>/gi
-const unsupportedLanguagePattern = /\blang\s*=\s*(?:"(sass|scss|less|pug)"|'(sass|scss|less|pug)'|(sass|scss|less|pug)\b)/i
+const possiblePreprocessorTagPattern = /<(script|style|template)\b[^>]*>/gi
+const languageAttributePattern = /\blang\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i
 const svelteHeadPattern = /<svelte:head\b[^>]*>/gi
 
 function diagnostic(
@@ -53,10 +53,13 @@ function compilerDiagnostic(
 function unsupportedSyntaxDiagnostics(source: string) {
   const diagnostics: SvelteDiagnostic[] = []
   for (const match of source.matchAll(possiblePreprocessorTagPattern)) {
-    const languageMatch = unsupportedLanguagePattern.exec(match[0])
+    const languageMatch = languageAttributePattern.exec(match[0])
     if (!languageMatch)
       continue
     const language = languageMatch[1] ?? languageMatch[2] ?? languageMatch[3]
+    const tag = match[1]?.toLowerCase()
+    if (tag === 'script' && language.toLowerCase() === 'ts')
+      continue
     diagnostics.push(diagnostic(
       'error',
       'unsupported_preprocessor',

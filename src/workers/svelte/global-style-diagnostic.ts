@@ -10,6 +10,11 @@ interface AstNode {
   type?: unknown
 }
 
+interface GlobalSelector extends AstNode {
+  name: 'global'
+  type: 'PseudoClassSelector'
+}
+
 const artifactRootAttribute = 'data-koala-artifact-root'
 
 function isAstNode(value: unknown): value is AstNode {
@@ -20,7 +25,7 @@ function position(value: unknown) {
   return typeof value === 'number' ? value : 0
 }
 
-function isGlobalSelector(value: unknown): value is AstNode {
+function isGlobalSelector(value: unknown): value is GlobalSelector {
   return isAstNode(value) && value.type === 'PseudoClassSelector' && value.name === 'global'
 }
 

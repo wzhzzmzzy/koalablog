@@ -27,6 +27,8 @@ describe('svelte Worker compiler', () => {
     ['Sass', '<style lang="sass">p\n  color: red</style><p>ok</p>', 'unsupported_preprocessor'],
     ['Less', '<style lang="less">p { color: red; }</style><p>ok</p>', 'unsupported_preprocessor'],
     ['Pug', '<template lang="pug">p ok</template>', 'unsupported_preprocessor'],
+    ['Stylus', '<style lang="stylus">p { color: red; }</style><p>ok</p>', 'unsupported_preprocessor'],
+    ['CoffeeScript', '<script lang="coffee">name = "Koala"</script><p>ok</p>', 'unsupported_preprocessor'],
     ['svelte head', '<svelte:head><title>Koala</title></svelte:head><p>ok</p>', 'svelte_head_not_supported'],
     ['compiler syntax', '<p>{</p>', 'js_parse_error'],
   ])('returns a structured diagnostic for unsupported %s syntax', async (_label, source, code) => {

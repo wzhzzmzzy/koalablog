@@ -12,6 +12,19 @@ describe('svelte resolver policy', () => {
     expect(diagnostics).toEqual([])
   })
 
+  it('allows type-only imports from Svelte type modules and still rejects runtime imports', async () => {
+    await expect(svelteResolverPolicyDiagnostics(`<script lang="ts">
+  import type { Action } from 'svelte/action'
+  import { type HTMLButtonAttributes } from 'svelte/elements'
+</script><p>ok</p>`)).resolves.toEqual([])
+
+    await expect(svelteResolverPolicyDiagnostics(`<script lang="ts">
+  import { Action } from 'svelte/action'
+</script><p>ok</p>`)).resolves.toMatchObject([
+      { code: 'svelte_internal_import', severity: 'error' },
+    ])
+  })
+
   it.each([
     ['other bare package', 'import value from \'lodash\'', 'unsupported_module_import'],
     ['relative module', 'import value from \'./value.js\'', 'relative_module_import'],

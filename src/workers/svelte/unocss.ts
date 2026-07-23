@@ -67,36 +67,34 @@ export async function extractUnoCssTokens(source: string) {
   return [...tokens].sort()
 }
 
-async function transformComponentDirectives(css: string) {
-  if (!css)
-    return css
-  const [{ createGenerator }, { default: presetUno }, { default: transformerDirectives }, { default: MagicString }] = await Promise.all([
+async function createUnoGenerator() {
+  const [{ createGenerator }, { default: presetUno }] = await Promise.all([
     import('@unocss/core'),
     import('@unocss/preset-uno'),
-    import('@unocss/transformer-directives'),
-    import('magic-string'),
   ])
-  const generator = await createGenerator<object>({
+  return createGenerator<object>({
     presets: [presetUno(UNOCSS_CONFIG_PROFILE.presetUno)],
     shortcuts: UNOCSS_CONFIG_PROFILE.shortcuts,
     theme: UNOCSS_CONFIG_PROFILE.theme,
   })
+}
+
+async function transformComponentDirectives(css: string) {
+  if (!css)
+    return css
+  const [{ default: transformerDirectives }, { default: MagicString }, generator] = await Promise.all([
+    import('@unocss/transformer-directives'),
+    import('magic-string'),
+    createUnoGenerator(),
+  ])
   const source = new MagicString(css)
   await transformerDirectives().transform?.(source, '/App.svelte.css', { uno: generator } as UnocssPluginContext)
   return source.toString()
 }
 
 export async function generateUnoCss(source: string, componentCss: string) {
-  const [{ createGenerator }, { default: presetUno }] = await Promise.all([
-    import('@unocss/core'),
-    import('@unocss/preset-uno'),
-  ])
-  const generator = await createGenerator<object>({
-    presets: [presetUno(UNOCSS_CONFIG_PROFILE.presetUno)],
-    shortcuts: UNOCSS_CONFIG_PROFILE.shortcuts,
-    theme: UNOCSS_CONFIG_PROFILE.theme,
-  })
-  const [tokens, transformedComponentCss] = await Promise.all([
+  const [generator, tokens, transformedComponentCss] = await Promise.all([
+    createUnoGenerator(),
     extractUnoCssTokens(source),
     transformComponentDirectives(componentCss),
   ])
