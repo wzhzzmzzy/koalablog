@@ -1,10 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '../../src/lib/svelte/toolchain'
 import { E2E_BASE_URL } from './test-config'
 import {
   buildSvelteSourceInBrowser,
   diagnoseSvelteSourceInBrowser,
-  probeSvelteToolchainInBrowser,
 } from './toolchain'
 
 const toolchainRequestPattern = /artifact\.worker|\/toolchain(?:[.-]|$)|bindings_wasm|runtime-registry|svelte_compiler|rollup_browser|unocss_core|unocss_preset|unocss_transformer/
@@ -30,23 +28,22 @@ test('same-origin Worker toolchain builds a local Svelte probe with npm and CDNs
 
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
-  const probe = await probeSvelteToolchainInBrowser(page)
+  const result = await buildSvelteSourceInBrowser(page, `<script>
+  import { writable } from 'svelte/store'
+  import { fade } from 'svelte/transition'
 
-  expect(probe).toMatchObject({
-    compilerVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
-    runtimeVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
-    rollupVersion: SVELTE_TOOLCHAIN_VERSIONS.rollup,
-    svelteLanguageVersion: SVELTE_TOOLCHAIN_VERSIONS.svelteLanguage,
-    unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
-    unocssConfigHash: UNOCSS_CONFIG_HASH,
-    compiled: true,
-    bundled: true,
-    generatedCss: true,
-  })
-  expect(probe.runtimeImports).toEqual(expect.arrayContaining([
-    'svelte/internal/client',
-    'svelte/internal/disclose-version',
-  ]))
+  const message = writable('Koala')
+</script>
+
+{#if $message}
+  <h1 class="text-red-500" transition:fade>{$message}</h1>
+{/if}`)
+
+  expect(result).toMatchObject({ type: 'build-success' })
+  if (result.type !== 'build-success')
+    throw new Error(result.error.message)
+  expect(result.javascript).not.toMatch(/^\s*import\s/m)
+  expect(result.css).toContain(':where([data-koala-artifact-root]) .text-red-500')
   expect(toolchainRequests.length).toBeGreaterThan(0)
   expect(toolchainRequests.every(url => new URL(url).origin === new URL(E2E_BASE_URL).origin)).toBe(true)
   expect(blockedRemoteRequests).toHaveLength(0)

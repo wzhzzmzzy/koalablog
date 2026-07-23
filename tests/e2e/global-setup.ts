@@ -1,6 +1,5 @@
 import { chromium, type Page } from '@playwright/test'
 import { E2E_AUTHORIZATION, E2E_BASE_URL } from './test-config'
-import { probeSvelteToolchainInBrowser } from './toolchain'
 
 async function visit(page: Page, path: string) {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -26,7 +25,6 @@ export default async function warmE2EApplication() {
     await visit(page, '/dashboard/settings')
     await visit(page, '/dashboard/template')
     await visit(page, '/dashboard/edit?path=/phase-two')
-    await probeSvelteToolchainInBrowser(page)
   }
   finally {
     await context.close()

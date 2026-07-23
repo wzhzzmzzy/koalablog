@@ -1,13 +1,5 @@
 import type { Page } from '@playwright/test'
 
-export async function probeSvelteToolchainInBrowser(page: Page) {
-  return page.evaluate(async () => {
-    const toolchainModulePath = '/src/lib/svelte/toolchain.ts'
-    const toolchain = await import(/* @vite-ignore */ toolchainModulePath)
-    return toolchain.probeSvelteToolchain()
-  })
-}
-
 export async function diagnoseSvelteSourceInBrowser(page: Page, source: string) {
   return page.evaluate(async (svelteSource) => {
     const workerClientModulePath = '/src/components/editor/svelte/worker-client.ts'

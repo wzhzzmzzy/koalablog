@@ -1,8 +1,4 @@
 import type { SvelteWorkerRequest } from '../../lib/svelte/contracts'
-import type { SvelteToolchainProbe } from '../../lib/svelte/toolchain'
-import { SVELTE_RUNTIME_REGISTRY } from '../../lib/svelte/runtime-registry.generated'
-import { SVELTE_TOOLCHAIN_VERSIONS } from '../../lib/svelte/toolchain-versions'
-import { UNOCSS_CONFIG_HASH } from '../../lib/svelte/unocss-profile'
 import { bundleSvelteArtifact } from './bundler'
 import { compileSvelteSource } from './compiler'
 import { createDependencyFetchLifecycle } from './dependency-lifecycle'
@@ -11,19 +7,6 @@ import { resolveHttpsModuleGraph } from './resolver'
 import { svelteHttpsModuleSpecifiers, svelteResolverPolicyDiagnostics } from './resolver-policy'
 import { generateUnoCss, unoCssGenerationDiagnostic } from './unocss'
 
-const PROBE_REMOTE_MODULE_URL = 'https://modules.koala.invalid/probe.js'
-const PROBE_SOURCE = `<script>
-  import { writable } from 'svelte/store'
-  import { fade } from 'svelte/transition'
-
-  const message = writable('Koala')
-  const later = import('${PROBE_REMOTE_MODULE_URL}')
-</script>
-
-{#if $message}
-  <h1 class="text-red-500" transition:fade>{$message}</h1>
-{/if}
-{#await later then value}<p>{value.probe}</p>{/await}`
 const dependencyFetches = createDependencyFetchLifecycle()
 
 async function compileWorkerRequest(request: SvelteWorkerRequest) {
@@ -134,57 +117,7 @@ function isSvelteWorkerRequest(message: { type?: string } | SvelteWorkerRequest)
     && 'source' in message
 }
 
-async function runToolchainProbe(): Promise<SvelteToolchainProbe> {
-  const [unocssCore, unocssPreset, svelteCompiler] = await Promise.all([
-    import('@unocss/core'),
-    import('@unocss/preset-uno'),
-    import('svelte/compiler'),
-  ])
-  const { createGenerator } = unocssCore
-  const { default: presetUno } = unocssPreset
-  const { compile, VERSION: SVELTE_VERSION } = svelteCompiler
-  const compiled = compile(PROBE_SOURCE, {
-    css: 'external',
-    dev: false,
-    filename: 'App.svelte',
-    generate: 'client',
-  })
-  const bundled = await bundleSvelteArtifact({
-    javascript: compiled.js.code,
-    modules: new Map([[PROBE_REMOTE_MODULE_URL, 'export const probe = \'remote\'']]),
-  })
-
-  const uno = await createGenerator({ presets: [presetUno()] })
-  const generated = await uno.generate(PROBE_SOURCE, { preflights: false })
-
-  return {
-    compilerVersion: SVELTE_VERSION,
-    runtimeVersion: SVELTE_RUNTIME_REGISTRY.version,
-    rollupVersion: SVELTE_TOOLCHAIN_VERSIONS.rollup,
-    svelteLanguageVersion: SVELTE_TOOLCHAIN_VERSIONS.svelteLanguage,
-    unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
-    unocssConfigHash: UNOCSS_CONFIG_HASH,
-    compiled: compiled.js.code.length > 0,
-    bundled: bundled.ok && bundled.value.javascript.includes('Koala'),
-    generatedCss: generated.matched.has('text-red-500'),
-    runtimeImports: bundled.ok ? bundled.value.runtimeImports : [],
-  }
-}
-
 globalThis.addEventListener('message', async (event: MessageEvent<{ type?: string } | SvelteWorkerRequest>) => {
-  if (isSvelteWorkerRequest(event.data)) {
+  if (isSvelteWorkerRequest(event.data))
     void compileWorkerRequest(event.data)
-    return
-  }
-  if (event.data.type !== 'probe')
-    return
-  try {
-    globalThis.postMessage({ type: 'probe-result', probe: await runToolchainProbe() })
-  }
-  catch (error) {
-    globalThis.postMessage({
-      type: 'probe-error',
-      message: error instanceof Error ? error.message : String(error),
-    })
-  }
 })
