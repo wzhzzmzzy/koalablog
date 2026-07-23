@@ -216,7 +216,7 @@
 
   export function insertImages(files: File[]): Promise<void> {
     if (!view || readonly) return Promise.resolve();
-    const batch = prepareImageBatch(files);
+    const batch = prepareImageBatch(files, renderer);
     if (batch.items.length === 0) return Promise.resolve();
 
     const targetFileId = activeFileId;

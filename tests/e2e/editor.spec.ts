@@ -293,6 +293,39 @@ test('toolbar inserts a multi-image batch as one undoable action', async ({ page
   expect(await editorText(source)).not.toContain('Uploading')
 })
 
+test('an image upload keeps its originating Svelte Renderer through a later toggle and redo', async ({ page }) => {
+  const releaseUpload = await gateUpload(page)
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('before')
+  await page.getByRole('radio', { name: 'Svelte' }).check()
+  const responsePromise = page.waitForResponse(response => response.url().includes('/_actions/oss.upload'))
+  const chooserPromise = page.waitForEvent('filechooser')
+  await page.getByRole('button', { name: 'Upload image' }).click()
+  await (await chooserPromise).setFiles({ name: 'svelte.png', mimeType: 'image/png', buffer: onePixelPng })
+
+  await expect.poll(() => editorText(source))
+    .toContain('<img src="koala-upload:')
+  await expect.poll(() => editorText(source))
+    .toContain('alt="Uploading svelte.png…" />')
+  await page.getByRole('radio', { name: 'Markdown' }).check()
+
+  releaseUpload()
+  await responsePromise
+  await expect(page.getByText('Uploaded Successfully')).toBeVisible()
+  await expect.poll(() => editorText(source))
+    .toMatch(/^before<img src="\/api\/oss\/[^"]+" alt="" \/>$/)
+  expect(await editorText(source)).not.toContain('![](')
+  const completed = await editorText(source)
+
+  await source.press('Meta+z')
+  await expectEditorText(source, 'before')
+  await source.press('Meta+Shift+z')
+  await expectEditorText(source, completed)
+})
+
 test('undo during upload discards the late result', async ({ page }) => {
   const releaseUpload = await gateUpload(page)
   await page.goto('/dashboard/edit?path=/phase-two')

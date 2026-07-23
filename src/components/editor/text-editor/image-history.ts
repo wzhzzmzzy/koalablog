@@ -1,7 +1,7 @@
 import type { EditorView, KeyBinding } from '@codemirror/view'
 import { invertedEffects, redo, redoDepth, undo, undoDepth } from '@codemirror/commands'
 import { StateEffect, type StateEffectType, Transaction } from '@codemirror/state'
-import { findImageRemoval, findImageReplacement, type ImageBatch, markdownImage, type PendingImage } from './images'
+import { findImageRemoval, findImageReplacement, type ImageBatch, imageMarkup, type PendingImage } from './images'
 
 interface TrackedImage {
   pending: PendingImage
@@ -119,7 +119,7 @@ function settlePendingImage(
     return
 
   const redoneWithoutPlaceholder = batch.active && item.text === '' && item.result === undefined
-  item.result = url ? markdownImage(url) : ''
+  item.result = url ? imageMarkup(pending.renderer, url) : ''
   if (!batch.active)
     return
   if (redoneWithoutPlaceholder) {
