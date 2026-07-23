@@ -82,6 +82,7 @@
     "drizzle-orm": "^0.38.4",
     "drizzle-zod": "^0.6.1",
     "env-paths": "^4.0.0",
+    "es-module-lexer": "1.7.0",
     "es-toolkit": "^1.29.0",
     "fflate": "^0.8.2",
     "jose": "^6.0.10",

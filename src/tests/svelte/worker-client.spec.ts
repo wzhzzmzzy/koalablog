@@ -107,6 +107,7 @@ describe('svelte Worker client', () => {
       javascript: 'current()',
       css: '',
       warnings: [{ message: 'current warning', severity: 'warning', start: 0, end: 0 }],
+      dependencies: [],
     })
     worker.respond({
       type: 'build-error',
@@ -120,6 +121,7 @@ describe('svelte Worker client', () => {
       javascript: 'old()',
       css: '',
       warnings: [{ message: 'obsolete warning', severity: 'warning', start: 0, end: 0 }],
+      dependencies: [],
     })
 
     expect(client.state.build).toMatchObject({

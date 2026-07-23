@@ -34,6 +34,7 @@ export interface SvelteBuildSuccess {
   javascript: string
   css: string
   warnings: SvelteDiagnostic[]
+  dependencies: SvelteDependencyManifestEntry[]
 }
 
 export interface SvelteBuildError {
@@ -48,6 +49,12 @@ export interface SvelteCompileSuccess {
   javascript: string
   css: string
   warnings: SvelteDiagnostic[]
+}
+
+export interface SvelteDependencyManifestEntry {
+  url: string
+  bytes: number
+  sha256: string
 }
 
 export interface SvelteCompileFailure {

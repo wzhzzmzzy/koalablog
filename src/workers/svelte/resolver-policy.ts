@@ -48,6 +48,22 @@ function moduleDiagnostic(specifier: string, start: number, end: number): Svelte
   }
 }
 
+function isAbsoluteHttpsModule(specifier: string) {
+  if (!specifier.toLowerCase().startsWith('https://'))
+    return false
+  try {
+    return new URL(specifier).protocol === 'https:'
+  }
+  catch {
+    return false
+  }
+}
+
+function moduleSpecifier(value: unknown) {
+  const specifier = literalModuleSpecifier(value)
+  return specifier?.value ?? null
+}
+
 export async function svelteResolverPolicyDiagnostics(source: string) {
   const { parse } = await import('svelte/compiler')
   const ast = parse(source)
@@ -95,4 +111,32 @@ export async function svelteResolverPolicyDiagnostics(source: string) {
 
   visit(ast)
   return diagnostics.sort((left, right) => left.start - right.start || left.end - right.end)
+}
+
+export async function svelteHttpsModuleSpecifiers(source: string) {
+  const { parse } = await import('svelte/compiler')
+  const ast = parse(source)
+  const urls = new Set<string>()
+  const seen = new WeakSet<object>()
+
+  function visit(value: unknown) {
+    if (Array.isArray(value)) {
+      for (const child of value)
+        visit(child)
+      return
+    }
+    if (!isAstNode(value) || seen.has(value))
+      return
+    seen.add(value)
+    if (value.type === 'ImportDeclaration' || value.type === 'ExportAllDeclaration' || value.type === 'ExportNamedDeclaration' || value.type === 'ImportExpression') {
+      const specifier = moduleSpecifier(value.source)
+      if (specifier && isAbsoluteHttpsModule(specifier))
+        urls.add(specifier)
+    }
+    for (const child of Object.values(value))
+      visit(child)
+  }
+
+  visit(ast)
+  return [...urls].sort()
 }

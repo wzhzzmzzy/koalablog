@@ -1,4 +1,4 @@
-import { svelteResolverPolicyDiagnostics } from '@/workers/svelte/resolver-policy'
+import { svelteHttpsModuleSpecifiers, svelteResolverPolicyDiagnostics } from '@/workers/svelte/resolver-policy'
 import { describe, expect, it } from 'vitest'
 
 describe('svelte resolver policy', () => {
@@ -32,5 +32,18 @@ describe('svelte resolver policy', () => {
 </script><p>{response}</p>`)
 
     expect(diagnostics).toEqual([])
+  })
+
+  it('extracts only literal absolute HTTPS entry modules for the dependency graph', async () => {
+    const urls = await svelteHttpsModuleSpecifiers(`<script>
+  import local from 'svelte/store'
+  import remote from 'https://cdn.example.test/remote.js'
+  const later = import('https://cdn.example.test/later.js')
+</script><p>{local}{remote}{later}</p>`)
+
+    expect(urls).toEqual([
+      'https://cdn.example.test/later.js',
+      'https://cdn.example.test/remote.js',
+    ])
   })
 })

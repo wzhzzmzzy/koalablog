@@ -15,6 +15,15 @@ export const SVELTE_USER_MODULE_SPECIFIERS = [
   'svelte/transition',
 ] as const
 
+export const SVELTE_DEPENDENCY_LIMITS = {
+  maxDepth: 8,
+  maxModules: 64,
+  maxModuleBytes: 512_000,
+  maxTotalBytes: 4_000_000,
+  fetchTimeoutMs: 10_000,
+  resolutionTimeoutMs: 20_000,
+} as const
+
 export interface SvelteToolchainProbe {
   compilerVersion: string
   runtimeVersion: string

@@ -5,7 +5,8 @@ import { SVELTE_RUNTIME_REGISTRY } from '../../lib/svelte/runtime-registry.gener
 import { SVELTE_TOOLCHAIN_VERSIONS } from '../../lib/svelte/toolchain-versions'
 import { compileSvelteSource } from './compiler'
 import { createDependencyFetchLifecycle } from './dependency-lifecycle'
-import { svelteResolverPolicyDiagnostics } from './resolver-policy'
+import { resolveHttpsModuleGraph } from './resolver'
+import { svelteHttpsModuleSpecifiers, svelteResolverPolicyDiagnostics } from './resolver-policy'
 
 const PROBE_MODULE_ID = '\0koala-svelte-toolchain-probe'
 const PROBE_SOURCE = '<h1 class="text-red-500">Koala</h1>'
@@ -36,12 +37,28 @@ async function compileWorkerRequest(request: SvelteWorkerRequest) {
     return
   }
   if (finalResult.ok) {
+    const dependencies = await resolveHttpsModuleGraph(
+      await svelteHttpsModuleSpecifiers(request.source),
+      { signal: dependencySignal },
+    )
+    if (dependencySignal.aborted)
+      return
+    if (!dependencies.ok) {
+      globalThis.postMessage({
+        type: 'build-error',
+        requestId: request.requestId,
+        error: dependencies.error,
+        warnings: finalResult.warnings,
+      })
+      return
+    }
     globalThis.postMessage({
       type: 'build-success',
       requestId: request.requestId,
       javascript: finalResult.javascript,
       css: finalResult.css,
       warnings: finalResult.warnings,
+      dependencies: dependencies.value.manifest,
     })
     return
   }
