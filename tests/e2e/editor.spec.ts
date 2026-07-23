@@ -179,9 +179,12 @@ test('Blink IME composition commits once without replacing Source', async ({ pag
 
 test('FileEditor saves the selected Renderer exactly once while preserving focus', async ({ page }) => {
   const savePayloads: Array<string | null> = []
+  const svelteWorkerRequests: string[] = []
   page.on('request', (request) => {
     if (request.method() === 'POST' && request.url().includes('/_actions/form.save'))
       savePayloads.push(request.postData())
+    if (/artifact\.worker/.test(request.url()))
+      svelteWorkerRequests.push(request.url())
   })
 
   try {
@@ -208,6 +211,7 @@ test('FileEditor saves the selected Renderer exactly once while preserving focus
     expect(savePayloads[1]).toMatch(/name="renderer"\r?\n\r?\nsvelte/)
     expect(savePayloads[1]).toMatch(/name="content"\r?\n\r?\nFirst line\r?\nSecond line/)
     expect(flattenedSaveResponse[savedFileReference.sourceHash]).toEqual(expect.stringMatching(/^[0-9a-f]{64}$/))
+    await expect.poll(() => svelteWorkerRequests.length, { timeout: 20_000 }).toBeGreaterThan(0)
   }
   finally {
     await replaceServerRendererAndSourceState(1, 'First line\nSecond line', 'markdown')

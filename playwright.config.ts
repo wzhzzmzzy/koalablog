@@ -1,16 +1,18 @@
 import process from 'node:process'
 import { defineConfig, devices } from '@playwright/test'
+import { E2E_AUTHORIZATION, E2E_BASE_URL } from './tests/e2e/test-config'
 
 export default defineConfig({
   testDir: './tests/e2e',
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'html' : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4322',
+    baseURL: E2E_BASE_URL,
     extraHTTPHeaders: {
-      Authorization: 'Bearer koalablog-playwright',
+      Authorization: E2E_AUTHORIZATION,
     },
     trace: 'retain-on-failure',
   },
@@ -28,7 +30,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm run test:e2e:server',
-    url: 'http://127.0.0.1:4322/api/health',
+    url: `${E2E_BASE_URL}/api/health`,
     reuseExistingServer: false,
     timeout: 120_000,
   },

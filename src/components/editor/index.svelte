@@ -4,7 +4,7 @@
   import { onMount, tick } from 'svelte';
   import { md } from '@/lib/markdown';
   import { getDisplayTitle } from '@/lib/files/display-title';
-  import type { RendererMode } from '@/lib/files/types';
+  import { RENDERER_MODE, type RendererMode } from '@/lib/files/types';
   import type MarkdownIt from 'markdown-it';
   import { actions } from 'astro:actions';
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
@@ -69,6 +69,16 @@
       return
     const server = editorStore.items.find(item => item.id === file.id) ?? file
     syncEditBuffer(server)
+  })
+
+  $effect(() => {
+    if (file.renderer !== RENDERER_MODE.Svelte || file.deletedAt)
+      return
+    void import('@/lib/svelte/toolchain')
+      .then(toolchain => toolchain.probeSvelteToolchain())
+      .catch((error) => {
+        notify('error', error instanceof Error ? error.message : 'Svelte toolchain failed')
+      })
   })
 
   // Hydrate the newly selected File before the persistence effect can observe

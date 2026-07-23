@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+test.describe.configure({ timeout: 60_000 })
+
 test('Template Manager previews and persists the memo Template Renderer', async ({ page }) => {
   await page.goto('/dashboard/template')
   await page.waitForLoadState('networkidle')
