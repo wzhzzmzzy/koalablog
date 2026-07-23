@@ -5,6 +5,7 @@ import { SVELTE_RUNTIME_REGISTRY } from '../../lib/svelte/runtime-registry.gener
 import { SVELTE_TOOLCHAIN_VERSIONS } from '../../lib/svelte/toolchain-versions'
 import { compileSvelteSource } from './compiler'
 import { createDependencyFetchLifecycle } from './dependency-lifecycle'
+import { svelteResolverPolicyDiagnostics } from './resolver-policy'
 
 const PROBE_MODULE_ID = '\0koala-svelte-toolchain-probe'
 const PROBE_SOURCE = '<h1 class="text-red-500">Koala</h1>'
@@ -17,29 +18,38 @@ async function compileWorkerRequest(request: SvelteWorkerRequest) {
   const result = await compileSvelteSource(request.source)
   if (dependencySignal.aborted)
     return
+  const policyDiagnostics = result.ok
+    ? await svelteResolverPolicyDiagnostics(request.source)
+    : []
+  if (dependencySignal.aborted)
+    return
+  const policyFailure = policyDiagnostics.length > 0
+    ? { ok: false as const, error: policyDiagnostics[0], warnings: policyDiagnostics.slice(1) }
+    : null
+  const finalResult = policyFailure ?? result
   if (request.type === 'diagnose') {
     globalThis.postMessage({
       type: 'diagnose-result',
       requestId: request.requestId,
-      diagnostics: result.ok ? result.warnings : [result.error, ...result.warnings],
+      diagnostics: finalResult.ok ? finalResult.warnings : [finalResult.error, ...finalResult.warnings],
     })
     return
   }
-  if (result.ok) {
+  if (finalResult.ok) {
     globalThis.postMessage({
       type: 'build-success',
       requestId: request.requestId,
-      javascript: result.javascript,
-      css: result.css,
-      warnings: result.warnings,
+      javascript: finalResult.javascript,
+      css: finalResult.css,
+      warnings: finalResult.warnings,
     })
     return
   }
   globalThis.postMessage({
     type: 'build-error',
     requestId: request.requestId,
-    error: result.error,
-    warnings: result.warnings,
+    error: finalResult.error,
+    warnings: finalResult.warnings,
   })
 }
 

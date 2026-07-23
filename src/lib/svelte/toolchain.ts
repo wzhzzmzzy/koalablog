@@ -2,6 +2,19 @@ import { SVELTE_TOOLCHAIN_VERSIONS } from './toolchain-versions'
 
 export { SVELTE_TOOLCHAIN_VERSIONS } from './toolchain-versions'
 
+export const SVELTE_USER_MODULE_SPECIFIERS = [
+  'svelte',
+  'svelte/animate',
+  'svelte/easing',
+  'svelte/events',
+  'svelte/legacy',
+  'svelte/motion',
+  'svelte/reactivity',
+  'svelte/reactivity/window',
+  'svelte/store',
+  'svelte/transition',
+] as const
+
 export interface SvelteToolchainProbe {
   compilerVersion: string
   runtimeVersion: string
