@@ -146,6 +146,24 @@ test('Markdown startup lazy-loads the Svelte language only after Renderer switch
   await expect.poll(() => svelteLanguageRequests.length).toBeGreaterThan(0)
 })
 
+test('Svelte diagnostics are debounced, mapped, and cannot leak into a switched File', async ({ page }) => {
+  test.setTimeout(90_000)
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await source.fill('<svelte:head><title>Unsupported</title></svelte:head>')
+  await expect.poll(() => page.locator('.cm-lint-marker-error').count(), { timeout: 60_000 }).toBeGreaterThan(0)
+
+  await source.fill('<svelte:head><title>stale</title></svelte:head>')
+  await page.getByRole('button', { name: 'second', exact: true }).click()
+  const secondSource = page.getByRole('textbox', { name: 'File Source for /second' })
+  await expectEditorText(secondSource, 'Second file')
+  await page.waitForTimeout(700)
+  await expect(page.locator('.cm-lint-marker')).toHaveCount(0)
+})
+
 test('Blink IME composition commits once without replacing Source', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')

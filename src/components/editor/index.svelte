@@ -10,6 +10,7 @@
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
   import EditorContent from './EditorContent.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
+  import { SvelteBuildController } from './svelte/build-controller.svelte';
   import { findPreviousActiveFile, formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
   import type { TextEditorHandle } from './TextEditor.svelte';
   import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
@@ -35,6 +36,7 @@
   let trashed = $derived(Boolean(file.deletedAt))
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
   let editorContent: TextEditorHandle | undefined = $state()
+  const svelteBuildController = new SvelteBuildController()
 
   function isDirtyAgainst(server: FileRecord) {
     return isEditBufferDirty({
@@ -89,6 +91,15 @@
   })
 
   $effect(() => {
+    svelteBuildController.diagnose({
+      fileId: file.id,
+      renderer: rendererValue,
+      source: sourceValue,
+      enabled: !trashed,
+    })
+  })
+
+  $effect(() => {
     document.title = `[Editor] ${displayTitleValue || 'New File'}`
   })
 
@@ -111,6 +122,8 @@
       window.removeEventListener('keydown', handleKeydown)
     }
   })
+
+  onMount(() => () => svelteBuildController.dispose())
 
   $effect(() => {
       if (mdInstance && editorStore.items.length > 0) {
@@ -367,6 +380,7 @@
       fileId={file.id}
       filePath={pathValue}
       renderer={rendererValue}
+      diagnostics={svelteBuildController.diagnostics}
       value={sourceValue}
       {showPreview}
       {previewHtml}

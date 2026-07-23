@@ -1,3 +1,5 @@
+import type { SvelteDiagnostic } from '@/lib/svelte/contracts'
+
 export type TextEditorDiagnosticSeverity = 'error' | 'warning' | 'info' | 'hint'
 
 export interface TextEditorDiagnostic {
@@ -11,6 +13,22 @@ export interface TextEditorDiagnostic {
 export interface TextEditorDiagnosticUpdate {
   requestId: number
   diagnostics: readonly TextEditorDiagnostic[]
+}
+
+export function mapSvelteDiagnostics(
+  requestId: number,
+  diagnostics: readonly SvelteDiagnostic[],
+): TextEditorDiagnosticUpdate {
+  return {
+    requestId,
+    diagnostics: diagnostics.map(diagnostic => ({
+      from: diagnostic.start,
+      to: diagnostic.end,
+      severity: diagnostic.severity,
+      message: diagnostic.message,
+      source: diagnostic.code ?? 'svelte',
+    })),
+  }
 }
 
 export function reconcileTextEditorDiagnostics(

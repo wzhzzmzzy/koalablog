@@ -24,6 +24,8 @@ export interface SvelteWorkerClientState {
   build: SvelteBuildSuccess | SvelteBuildError | null
 }
 
+export type SvelteWorkerClientListener = (state: SvelteWorkerClientState) => void
+
 export interface SvelteWorkerClientOptions {
   createWorker?: () => SvelteWorkerPort
 }
@@ -43,6 +45,7 @@ export class SvelteWorkerClient {
   #latestDiagnoseRequestId = 0
   #latestBuildRequestId = 0
   #state: SvelteWorkerClientState = { diagnostics: null, build: null }
+  #listeners = new Set<SvelteWorkerClientListener>()
 
   constructor(options: SvelteWorkerClientOptions = {}) {
     this.#createWorker = options.createWorker ?? createBrowserWorker
@@ -55,10 +58,17 @@ export class SvelteWorkerClient {
     }
   }
 
+  subscribe(listener: SvelteWorkerClientListener) {
+    this.#listeners.add(listener)
+    listener(this.state)
+    return () => this.#listeners.delete(listener)
+  }
+
   diagnose(source: string) {
     const requestId = this.#nextRequestId()
     this.#latestDiagnoseRequestId = requestId
     this.#state.diagnostics = null
+    this.#notify()
     this.#post({ type: 'diagnose', requestId, source })
     return requestId
   }
@@ -67,6 +77,7 @@ export class SvelteWorkerClient {
     const requestId = this.#nextRequestId()
     this.#latestBuildRequestId = requestId
     this.#state.build = null
+    this.#notify()
     this.#post({ type: 'build', requestId, source })
     return requestId
   }
@@ -81,6 +92,7 @@ export class SvelteWorkerClient {
     this.#worker.removeEventListener('error', this.#onError)
     this.#worker.terminate()
     this.#worker = null
+    this.#listeners.clear()
   }
 
   #nextRequestId() {
@@ -108,12 +120,16 @@ export class SvelteWorkerClient {
   #onMessage = (event: MessageEvent<SvelteWorkerResponse>) => {
     const message = event.data
     if (message.type === 'diagnose-result') {
-      if (message.requestId === this.#latestDiagnoseRequestId)
+      if (message.requestId === this.#latestDiagnoseRequestId) {
         this.#state.diagnostics = message
+        this.#notify()
+      }
       return
     }
-    if (message.requestId === this.#latestBuildRequestId)
+    if (message.requestId === this.#latestBuildRequestId) {
       this.#state.build = message
+      this.#notify()
+    }
   }
 
   #onError = (event: ErrorEvent) => {
@@ -132,6 +148,7 @@ export class SvelteWorkerClient {
         error,
         warnings: [],
       }
+      this.#notify()
       return
     }
     if (this.#latestDiagnoseRequestId > 0) {
@@ -140,6 +157,13 @@ export class SvelteWorkerClient {
         requestId: this.#latestDiagnoseRequestId,
         diagnostics: [error],
       }
+      this.#notify()
     }
+  }
+
+  #notify() {
+    const state = this.state
+    for (const listener of this.#listeners)
+      listener(state)
   }
 }
