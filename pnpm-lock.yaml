@@ -74,6 +74,9 @@ importers:
       '@unocss/preset-uno':
         specifier: 65.4.3
         version: 65.4.3
+      '@unocss/transformer-directives':
+        specifier: 65.4.3
+        version: 65.4.3
       '@webtui/css':
         specifier: ^0.0.3
         version: 0.0.3
@@ -113,6 +116,9 @@ importers:
       jose:
         specifier: ^6.0.10
         version: 6.0.10
+      magic-string:
+        specifier: 0.30.17
+        version: 0.30.17
       markdown-it:
         specifier: ^14.1.0
         version: 14.1.0

@@ -1,6 +1,8 @@
 import { SVELTE_TOOLCHAIN_VERSIONS } from './toolchain-versions'
+import { UNOCSS_CONFIG_HASH } from './unocss-profile'
 
 export { SVELTE_TOOLCHAIN_VERSIONS } from './toolchain-versions'
+export { UNOCSS_CONFIG_HASH } from './unocss-profile'
 
 export const SVELTE_USER_MODULE_SPECIFIERS = [
   'svelte',
@@ -30,6 +32,7 @@ export interface SvelteToolchainProbe {
   rollupVersion: string
   svelteLanguageVersion: string
   unocssVersion: string
+  unocssConfigHash: string
   compiled: boolean
   bundled: boolean
   generatedCss: boolean
@@ -59,6 +62,8 @@ export function assertSvelteToolchainProbe(probe: SvelteToolchainProbe) {
     throw new Error(`Svelte language version mismatch: ${probe.svelteLanguageVersion}`)
   if (probe.unocssVersion !== SVELTE_TOOLCHAIN_VERSIONS.unocss)
     throw new Error(`UnoCSS version mismatch: ${probe.unocssVersion}`)
+  if (probe.unocssConfigHash !== UNOCSS_CONFIG_HASH)
+    throw new Error(`UnoCSS config hash mismatch: ${probe.unocssConfigHash}`)
   if (!probe.compiled)
     throw new Error('Svelte toolchain probe did not compile the component')
   if (!probe.bundled)

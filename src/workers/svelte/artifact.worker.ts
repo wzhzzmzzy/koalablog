@@ -2,11 +2,14 @@ import type { SvelteWorkerRequest } from '../../lib/svelte/contracts'
 import type { SvelteToolchainProbe } from '../../lib/svelte/toolchain'
 import { SVELTE_RUNTIME_REGISTRY } from '../../lib/svelte/runtime-registry.generated'
 import { SVELTE_TOOLCHAIN_VERSIONS } from '../../lib/svelte/toolchain-versions'
+import { UNOCSS_CONFIG_HASH } from '../../lib/svelte/unocss-profile'
 import { bundleSvelteArtifact } from './bundler'
 import { compileSvelteSource } from './compiler'
 import { createDependencyFetchLifecycle } from './dependency-lifecycle'
+import { globalStyleEscapeDiagnostics } from './global-style-diagnostic'
 import { resolveHttpsModuleGraph } from './resolver'
 import { svelteHttpsModuleSpecifiers, svelteResolverPolicyDiagnostics } from './resolver-policy'
+import { generateUnoCss, unoCssGenerationDiagnostic } from './unocss'
 
 const PROBE_REMOTE_MODULE_URL = 'https://modules.koala.invalid/probe.js'
 const PROBE_SOURCE = `<script>
@@ -33,17 +36,27 @@ async function compileWorkerRequest(request: SvelteWorkerRequest) {
   const policyDiagnostics = result.ok
     ? await svelteResolverPolicyDiagnostics(request.source)
     : []
+  const globalStyleDiagnostics = result.ok
+    ? await globalStyleEscapeDiagnostics(request.source)
+    : []
   if (dependencySignal.aborted)
     return
   const policyFailure = policyDiagnostics.length > 0
-    ? { ok: false as const, error: policyDiagnostics[0], warnings: policyDiagnostics.slice(1) }
+    ? {
+        ok: false as const,
+        error: policyDiagnostics[0],
+        warnings: [...result.warnings, ...policyDiagnostics.slice(1), ...globalStyleDiagnostics],
+      }
     : null
   const finalResult = policyFailure ?? result
+  const warnings = finalResult.ok
+    ? [...finalResult.warnings, ...globalStyleDiagnostics]
+    : finalResult.warnings
   if (request.type === 'diagnose') {
     globalThis.postMessage({
       type: 'diagnose-result',
       requestId: request.requestId,
-      diagnostics: finalResult.ok ? finalResult.warnings : [finalResult.error, ...finalResult.warnings],
+      diagnostics: finalResult.ok ? warnings : [finalResult.error, ...warnings],
     })
     return
   }
@@ -59,7 +72,7 @@ async function compileWorkerRequest(request: SvelteWorkerRequest) {
         type: 'build-error',
         requestId: request.requestId,
         error: dependencies.error,
-        warnings: finalResult.warnings,
+        warnings,
       })
       return
     }
@@ -80,7 +93,20 @@ async function compileWorkerRequest(request: SvelteWorkerRequest) {
           severity: 'error',
           start: 0,
         },
-        warnings: finalResult.warnings,
+        warnings,
+      })
+      return
+    }
+    let css: string
+    try {
+      css = await generateUnoCss(request.source, finalResult.css)
+    }
+    catch (error) {
+      globalThis.postMessage({
+        type: 'build-error',
+        requestId: request.requestId,
+        error: unoCssGenerationDiagnostic(error),
+        warnings,
       })
       return
     }
@@ -88,8 +114,8 @@ async function compileWorkerRequest(request: SvelteWorkerRequest) {
       type: 'build-success',
       requestId: request.requestId,
       javascript: bundled.value.javascript,
-      css: finalResult.css,
-      warnings: finalResult.warnings,
+      css,
+      warnings,
       dependencies: dependencies.value.manifest,
     })
     return
@@ -98,7 +124,7 @@ async function compileWorkerRequest(request: SvelteWorkerRequest) {
     type: 'build-error',
     requestId: request.requestId,
     error: finalResult.error,
-    warnings: finalResult.warnings,
+    warnings,
   })
 }
 
@@ -137,6 +163,7 @@ async function runToolchainProbe(): Promise<SvelteToolchainProbe> {
     rollupVersion: SVELTE_TOOLCHAIN_VERSIONS.rollup,
     svelteLanguageVersion: SVELTE_TOOLCHAIN_VERSIONS.svelteLanguage,
     unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
+    unocssConfigHash: UNOCSS_CONFIG_HASH,
     compiled: compiled.js.code.length > 0,
     bundled: bundled.ok && bundled.value.javascript.includes('Koala'),
     generatedCss: generated.matched.has('text-red-500'),

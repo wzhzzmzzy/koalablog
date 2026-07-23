@@ -4,6 +4,7 @@ import {
   SVELTE_TOOLCHAIN_VERSIONS,
   type SvelteToolchainProbe,
 } from '@/lib/svelte/toolchain'
+import { UNOCSS_CONFIG_HASH } from '@/lib/svelte/unocss-profile'
 import { describe, expect, it } from 'vitest'
 
 const validProbe: SvelteToolchainProbe = {
@@ -12,6 +13,7 @@ const validProbe: SvelteToolchainProbe = {
   rollupVersion: SVELTE_TOOLCHAIN_VERSIONS.rollup,
   svelteLanguageVersion: SVELTE_TOOLCHAIN_VERSIONS.svelteLanguage,
   unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
+  unocssConfigHash: UNOCSS_CONFIG_HASH,
   compiled: true,
   bundled: true,
   generatedCss: true,
