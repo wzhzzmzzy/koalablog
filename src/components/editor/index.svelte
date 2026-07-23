@@ -366,6 +366,7 @@
       title={titleValue}
       fileId={file.id}
       filePath={pathValue}
+      renderer={rendererValue}
       value={sourceValue}
       {showPreview}
       {previewHtml}

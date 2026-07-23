@@ -6,7 +6,11 @@ import { highlightSelectionMatches, searchKeymap } from '@codemirror/search'
 import { EditorState } from '@codemirror/state'
 import { crosshairCursor, drawSelection, dropCursor, EditorView, highlightActiveLine, highlightActiveLineGutter, highlightSpecialChars, type KeyBinding, keymap, lineNumbers, rectangularSelection } from '@codemirror/view'
 
-export function markdownEditorExtensions(historyOverrides: readonly KeyBinding[] = []) {
+export function markdownLanguageExtension() {
+  return markdown()
+}
+
+export function textEditorExtensions(historyOverrides: readonly KeyBinding[] = []) {
   return [
     lineNumbers(),
     foldGutter(),
@@ -27,7 +31,6 @@ export function markdownEditorExtensions(historyOverrides: readonly KeyBinding[]
     EditorView.lineWrapping,
     EditorState.tabSize.of(2),
     indentUnit.of('  '),
-    markdown(),
     keymap.of([
       ...historyOverrides,
       ...closeBracketsKeymap,

@@ -1,11 +1,15 @@
 <script lang="ts">
+  import type { RendererMode } from '@/lib/files/types';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
+  import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
   import TextEditor, { type TextEditorHandle } from './TextEditor.svelte';
 
   interface Props {
     title: string;
     fileId: number;
     filePath: string;
+    renderer: RendererMode;
+    diagnostics?: TextEditorDiagnosticUpdate | null;
     value: string;
     showPreview: boolean;
     previewHtml: string;
@@ -22,6 +26,8 @@
     title,
     fileId,
     filePath,
+    renderer,
+    diagnostics = null,
     value,
     showPreview,
     previewHtml,
@@ -71,6 +77,8 @@
     bind:this={textEditor}
     {fileId}
     {filePath}
+    {renderer}
+    {diagnostics}
     {value}
     readonly={trashed}
     {onChange}

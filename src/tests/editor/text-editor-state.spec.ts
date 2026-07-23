@@ -1,3 +1,5 @@
+import { reconcileTextEditorDiagnostics } from '@/components/editor/text-editor/diagnostics'
+import { isCurrentTextEditorLanguageRequest, planTextEditorLanguageRequest } from '@/components/editor/text-editor/language-state'
 import { createEditorStateRegistry, reconcileEditorInput } from '@/components/editor/text-editor/state-registry'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -57,5 +59,39 @@ describe('text Editor input reconciliation', () => {
     expect(reconcileEditorInput(1, 'Source', 2, 'Source')).toBe('switch')
     expect(reconcileEditorInput(1, 'Source', 1, 'Source')).toBe('noop')
     expect(reconcileEditorInput(1, 'Source', 1, 'replacement')).toBe('replace')
+  })
+})
+
+describe('text Editor dynamic configuration', () => {
+  it('requests only missing languages and rejects work invalidated by a restored File state', () => {
+    const sveltePlan = planTextEditorLanguageRequest(0, 'markdown', 'svelte', false)
+    expect(sveltePlan).toEqual({
+      latestRequestId: 1,
+      request: { requestId: 1, renderer: 'svelte' },
+    })
+    expect(isCurrentTextEditorLanguageRequest(sveltePlan.request!, 1, 'svelte')).toBe(true)
+
+    const restoredMarkdownPlan = planTextEditorLanguageRequest(1, 'markdown', 'markdown', true)
+    expect(restoredMarkdownPlan).toEqual({ latestRequestId: 2, request: null })
+    expect(isCurrentTextEditorLanguageRequest(sveltePlan.request!, 2, 'markdown')).toBe(false)
+  })
+
+  it('replaces diagnostics by request ID and rejects stale updates', () => {
+    const current = {
+      requestId: 4,
+      diagnostics: [{ from: 0, to: 6, severity: 'error' as const, message: 'current' }],
+    }
+
+    expect(reconcileTextEditorDiagnostics(current, {
+      requestId: 3,
+      diagnostics: [{ from: 0, to: 1, severity: 'warning', message: 'stale' }],
+    })).toBeNull()
+    expect(reconcileTextEditorDiagnostics(current, {
+      requestId: 5,
+      diagnostics: [{ from: 1, to: 2, severity: 'info', message: 'replacement' }],
+    })).toEqual({
+      requestId: 5,
+      diagnostics: [{ from: 1, to: 2, severity: 'info', message: 'replacement' }],
+    })
   })
 })

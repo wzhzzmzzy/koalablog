@@ -128,6 +128,24 @@ test('Renderer Mode changes only the Edit Buffer and survives File switching and
   await expectEditorText(page.getByRole('textbox', { name: 'File Source for /phase-two' }), originalSource)
 })
 
+test('Markdown startup lazy-loads the Svelte language only after Renderer switches', async ({ page }) => {
+  const svelteLanguageRequests: string[] = []
+  page.on('request', (request) => {
+    if (/svelte-language|codemirror-lang-svelte/.test(request.url()))
+      svelteLanguageRequests.push(request.url())
+  })
+
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('ordinary Markdown edit')
+  await expectEditorText(source, 'ordinary Markdown edit')
+  expect(svelteLanguageRequests).toHaveLength(0)
+
+  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await expect.poll(() => svelteLanguageRequests.length).toBeGreaterThan(0)
+})
+
 test('Blink IME composition commits once without replacing Source', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
@@ -219,14 +237,17 @@ test('switching Files restores Source, selection, and undo by File ID', async ({
   await source.fill('abc')
   await source.press('ArrowLeft')
   await source.press('ArrowLeft')
+  await page.getByRole('radio', { name: 'Svelte' }).check()
 
   const secondButton = page.getByRole('button', { name: 'second', exact: true })
   await secondButton.click()
   await expect(secondButton).toBeFocused()
+  await expect(page.getByRole('radio', { name: 'Markdown' })).toBeChecked()
   await expect(page.getByRole('textbox', { name: 'File Source for /second' })).toBeVisible()
   const phaseTwoButton = page.getByRole('button', { name: 'phase-two', exact: true })
   await phaseTwoButton.click()
   await expect(phaseTwoButton).toBeFocused()
+  await expect(page.getByRole('radio', { name: 'Svelte' })).toBeChecked()
 
   source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await page.getByRole('button', { name: 'Preview File' }).click()
@@ -469,8 +490,10 @@ test('folds, line numbers, and the active line restore by File ID', async ({ pag
   await expect(page.locator('[title="Unfold line"]:visible').first()).toBeVisible()
 
   await page.getByRole('button', { name: 'second', exact: true }).click()
+  await page.getByRole('radio', { name: 'Svelte' }).check()
   await page.getByRole('button', { name: 'phase-two', exact: true }).click()
 
+  await expect(page.getByRole('radio', { name: 'Markdown' })).toBeChecked()
   await expect(page.locator('[title="Unfold line"]:visible').first()).toBeVisible()
   await page.locator('[title="Unfold line"]:visible').first().click()
   await expect.poll(async () => (await editorText(source)).replace(/\n{2,}/g, '\n'))
@@ -507,8 +530,10 @@ test('desktop Source scroll restores independently from selection by File ID', a
   const savedScrollTop = await scroller.evaluate(element => element.scrollTop)
 
   await page.getByRole('button', { name: 'second', exact: true }).click()
+  await page.getByRole('radio', { name: 'Svelte' }).check()
   await page.getByRole('button', { name: 'phase-two', exact: true }).click()
 
+  await expect(page.getByRole('radio', { name: 'Markdown' })).toBeChecked()
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(savedScrollTop / 2)
 })
 
@@ -598,6 +623,7 @@ test('renaming a File preserves Source selection, scroll, folds, and undo', asyn
   await page.waitForLoadState('networkidle')
 
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await page.getByRole('radio', { name: 'Markdown' }).check()
   const originalSource = await editorText(source)
   const lines = ['# Folded', 'hidden', '', '# Long section', ...Array.from({ length: 100 }, (_, index) => `line ${index + 1}`)]
   await source.fill(lines.join('\n'))
