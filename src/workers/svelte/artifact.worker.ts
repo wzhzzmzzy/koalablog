@@ -1,15 +1,26 @@
-import type { Plugin } from '@rollup/browser'
 import type { SvelteWorkerRequest } from '../../lib/svelte/contracts'
 import type { SvelteToolchainProbe } from '../../lib/svelte/toolchain'
 import { SVELTE_RUNTIME_REGISTRY } from '../../lib/svelte/runtime-registry.generated'
 import { SVELTE_TOOLCHAIN_VERSIONS } from '../../lib/svelte/toolchain-versions'
+import { bundleSvelteArtifact } from './bundler'
 import { compileSvelteSource } from './compiler'
 import { createDependencyFetchLifecycle } from './dependency-lifecycle'
 import { resolveHttpsModuleGraph } from './resolver'
 import { svelteHttpsModuleSpecifiers, svelteResolverPolicyDiagnostics } from './resolver-policy'
 
-const PROBE_MODULE_ID = '\0koala-svelte-toolchain-probe'
-const PROBE_SOURCE = '<h1 class="text-red-500">Koala</h1>'
+const PROBE_REMOTE_MODULE_URL = 'https://modules.koala.invalid/probe.js'
+const PROBE_SOURCE = `<script>
+  import { writable } from 'svelte/store'
+  import { fade } from 'svelte/transition'
+
+  const message = writable('Koala')
+  const later = import('${PROBE_REMOTE_MODULE_URL}')
+</script>
+
+{#if $message}
+  <h1 class="text-red-500" transition:fade>{$message}</h1>
+{/if}
+{#await later then value}<p>{value.probe}</p>{/await}`
 const dependencyFetches = createDependencyFetchLifecycle()
 
 async function compileWorkerRequest(request: SvelteWorkerRequest) {
@@ -52,10 +63,31 @@ async function compileWorkerRequest(request: SvelteWorkerRequest) {
       })
       return
     }
+    const bundled = await bundleSvelteArtifact({
+      javascript: finalResult.javascript,
+      modules: dependencies.value.modules,
+    })
+    if (dependencySignal.aborted)
+      return
+    if (!bundled.ok) {
+      globalThis.postMessage({
+        type: 'build-error',
+        requestId: request.requestId,
+        error: {
+          code: 'svelte_bundle_error',
+          end: 0,
+          message: bundled.message,
+          severity: 'error',
+          start: 0,
+        },
+        warnings: finalResult.warnings,
+      })
+      return
+    }
     globalThis.postMessage({
       type: 'build-success',
       requestId: request.requestId,
-      javascript: finalResult.javascript,
+      javascript: bundled.value.javascript,
       css: finalResult.css,
       warnings: finalResult.warnings,
       dependencies: dependencies.value.manifest,
@@ -77,13 +109,11 @@ function isSvelteWorkerRequest(message: { type?: string } | SvelteWorkerRequest)
 }
 
 async function runToolchainProbe(): Promise<SvelteToolchainProbe> {
-  const [rollupBrowser, unocssCore, unocssPreset, svelteCompiler] = await Promise.all([
-    import('@rollup/browser'),
+  const [unocssCore, unocssPreset, svelteCompiler] = await Promise.all([
     import('@unocss/core'),
     import('@unocss/preset-uno'),
     import('svelte/compiler'),
   ])
-  const { VERSION: ROLLUP_VERSION, rollup } = rollupBrowser
   const { createGenerator } = unocssCore
   const { default: presetUno } = unocssPreset
   const { compile, VERSION: SVELTE_VERSION } = svelteCompiler
@@ -93,31 +123,10 @@ async function runToolchainProbe(): Promise<SvelteToolchainProbe> {
     filename: 'App.svelte',
     generate: 'client',
   })
-  const runtimeImports = new Set<string>()
-  const probePlugin: Plugin = {
-    name: 'koala-svelte-toolchain-probe',
-    resolveId(source) {
-      if (source === PROBE_MODULE_ID)
-        return PROBE_MODULE_ID
-      if (source in SVELTE_RUNTIME_REGISTRY.entrypoints) {
-        runtimeImports.add(source)
-        return { id: source, external: true }
-      }
-      return null
-    },
-    load(id) {
-      return id === PROBE_MODULE_ID ? compiled.js.code : null
-    },
-  }
-  const bundle = await rollup({ input: PROBE_MODULE_ID, plugins: [probePlugin] })
-  let bundled = false
-  try {
-    const output = await bundle.generate({ format: 'es' })
-    bundled = output.output.some(item => item.type === 'chunk' && item.code.includes('Koala'))
-  }
-  finally {
-    await bundle.close()
-  }
+  const bundled = await bundleSvelteArtifact({
+    javascript: compiled.js.code,
+    modules: new Map([[PROBE_REMOTE_MODULE_URL, 'export const probe = \'remote\'']]),
+  })
 
   const uno = await createGenerator({ presets: [presetUno()] })
   const generated = await uno.generate(PROBE_SOURCE, { preflights: false })
@@ -125,13 +134,13 @@ async function runToolchainProbe(): Promise<SvelteToolchainProbe> {
   return {
     compilerVersion: SVELTE_VERSION,
     runtimeVersion: SVELTE_RUNTIME_REGISTRY.version,
-    rollupVersion: ROLLUP_VERSION,
+    rollupVersion: SVELTE_TOOLCHAIN_VERSIONS.rollup,
     svelteLanguageVersion: SVELTE_TOOLCHAIN_VERSIONS.svelteLanguage,
     unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
     compiled: compiled.js.code.length > 0,
-    bundled,
+    bundled: bundled.ok && bundled.value.javascript.includes('Koala'),
     generatedCss: generated.matched.has('text-red-500'),
-    runtimeImports: [...runtimeImports].sort(),
+    runtimeImports: bundled.ok ? bundled.value.runtimeImports : [],
   }
 }
 
