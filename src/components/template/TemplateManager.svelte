@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { CreationTemplateV1, TemplateError } from '@/lib/files/types';
-  import { validateTemplateV1 } from '@/lib/files/template';
+  import type { CreationTemplateV2, RendererMode, TemplateError } from '@/lib/files/types';
+  import { validateTemplateV2 } from '@/lib/files/template';
+  import { RENDERER_MODE } from '@/lib/files/types';
   import { Plus, Save } from '@lucide/svelte';
   import { actions } from 'astro:actions';
   import { onMount } from 'svelte';
@@ -14,7 +15,7 @@
   } from './template-manager-model';
   import TemplatePreview from './TemplatePreview.svelte';
 
-  let templates = $state<CreationTemplateV1[]>([]);
+  let templates = $state<CreationTemplateV2[]>([]);
   let selectedIndex = $state(-1);
   let revision = $state(0);
   let savedSnapshot = $state('[]');
@@ -28,7 +29,7 @@
   const duplicatePrefixes = $derived(duplicateTemplatePrefixes(templates));
   const dirty = $derived(JSON.stringify(templates) !== savedSnapshot);
   const preview = $derived(previewTemplateCatalog(templates, sampleTargetPrefix, new Date()));
-  const valid = $derived(templates.every(template => validateTemplateV1(template).ok));
+  const valid = $derived(templates.every(template => validateTemplateV2(template).ok));
   const selectedTemplate = $derived(templates[selectedIndex] ?? null);
   const selectedIssues = $derived(selectedTemplate ? templateIssues(selectedTemplate) : []);
   const invalidTemplateIndexes = $derived(new Set(templates.flatMap((template, index) => (
@@ -43,11 +44,11 @@
     && duplicatePrefixes.size === 0,
   );
 
-  function cloneTemplates(input: CreationTemplateV1[]) {
+  function cloneTemplates(input: CreationTemplateV2[]) {
     return input.map(template => ({ ...template }));
   }
 
-  function setCatalog(nextRevision: number, nextTemplates: CreationTemplateV1[]) {
+  function setCatalog(nextRevision: number, nextTemplates: CreationTemplateV2[]) {
     templates = cloneTemplates(nextTemplates);
     selectedIndex = templates.length === 0
       ? -1
@@ -56,12 +57,12 @@
     savedSnapshot = JSON.stringify(templates);
   }
 
-  function templateIssues(template: CreationTemplateV1): TemplateError[] {
-    const result = validateTemplateV1(template);
+  function templateIssues(template: CreationTemplateV2): TemplateError[] {
+    const result = validateTemplateV2(template);
     return result.ok ? [] : result.error;
   }
 
-  function templateHasIssues(template: CreationTemplateV1) {
+  function templateHasIssues(template: CreationTemplateV2) {
     return templateIssues(template).length > 0
       || duplicateIds.has(template.id)
       || duplicatePrefixes.has(normalizedTemplatePrefix(template.prefix) ?? '');
@@ -80,6 +81,7 @@
       prefix: '/',
       titlePattern: 'untitled{{uniqueSuffix}}',
       pathPattern: '{{targetPrefix}}/{{title}}',
+      renderer: RENDERER_MODE.Markdown,
       content: '',
     });
     selectedIndex = templates.length - 1;
@@ -87,9 +89,14 @@
     error = '';
   }
 
-  function updateSelectedTemplate(field: keyof CreationTemplateV1, value: string) {
+  function updateSelectedTemplate(field: keyof Omit<CreationTemplateV2, 'renderer'>, value: string) {
     if (selectedTemplate)
       selectedTemplate[field] = value;
+  }
+
+  function updateSelectedRenderer(renderer: RendererMode) {
+    if (selectedTemplate)
+      selectedTemplate.renderer = renderer;
   }
 
   function removeSelectedTemplate() {
@@ -186,6 +193,7 @@
             duplicateId={duplicateIds.has(selectedTemplate.id)}
             duplicatePrefix={duplicatePrefixes.has(normalizedTemplatePrefix(selectedTemplate.prefix) ?? '')}
             onchange={updateSelectedTemplate}
+            onrendererchange={updateSelectedRenderer}
             ondelete={removeSelectedTemplate}
           />
         {:else}

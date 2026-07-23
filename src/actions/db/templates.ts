@@ -1,6 +1,6 @@
 import type { TemplateCatalogV1, TemplateCatalogV2 } from '@/lib/files/types'
 import { readTemplateCatalog, replaceTemplateCatalog } from '@/db/template-catalog'
-import { templateV1CompatibilityView } from '@/lib/files/template'
+import { upgradeTemplateCatalogV1 } from '@/lib/files/template'
 import { RENDERER_MODE } from '@/lib/files/types'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
@@ -11,15 +11,12 @@ const templateSchema = z.object({
   prefix: z.string(),
   titlePattern: z.string(),
   pathPattern: z.string(),
+  renderer: z.enum([RENDERER_MODE.Markdown, RENDERER_MODE.Svelte]),
   content: z.string(),
 }).strict()
 
-function asCatalogV1(catalog: TemplateCatalogV1 | TemplateCatalogV2): TemplateCatalogV1 {
-  return {
-    schemaVersion: 1,
-    revision: catalog.revision,
-    templates: catalog.templates.map(templateV1CompatibilityView),
-  }
+function asCatalogV2(catalog: TemplateCatalogV1 | TemplateCatalogV2): TemplateCatalogV2 {
+  return catalog.schemaVersion === 2 ? catalog : upgradeTemplateCatalogV1(catalog)
 }
 
 export const read = defineAction({
@@ -29,7 +26,7 @@ export const read = defineAction({
     const result = await readTemplateCatalog(ctx.locals.runtime?.env)
     if (result.status === 'absent')
       return result
-    return { status: 'ready' as const, catalog: asCatalogV1(result.catalog) }
+    return { status: 'ready' as const, catalog: asCatalogV2(result.catalog) }
   },
 })
 
@@ -41,11 +38,7 @@ export const replace = defineAction({
   }).strict(),
   handler: async (input, ctx) => {
     await authGuard(ctx)
-    const templates = input.templates.map(template => ({
-      ...template,
-      renderer: RENDERER_MODE.Markdown,
-    }))
-    const result = await replaceTemplateCatalog(ctx.locals.runtime?.env, input.baseRevision, templates)
+    const result = await replaceTemplateCatalog(ctx.locals.runtime?.env, input.baseRevision, input.templates)
     if (result.status === 'conflict') {
       throw new ActionError({
         code: 'CONFLICT',
@@ -55,6 +48,6 @@ export const replace = defineAction({
         }),
       })
     }
-    return asCatalogV1(result.catalog)
+    return result.catalog
   },
 })

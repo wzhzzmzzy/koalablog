@@ -31,6 +31,7 @@
     {#if preview.status === 'ready'}
       <dl class="m-0 flex flex-col gap-3">
         <div class="min-w-0"><dt class="mb-0.5 text-xs text-[--koala-subtext-0]">Template</dt><dd class="m-0 break-words"><code>{preview.templateId}</code></dd></div>
+        <div class="min-w-0"><dt class="mb-0.5 text-xs text-[--koala-subtext-0]">Renderer</dt><dd class="m-0 break-words"><code>{preview.renderer === 'svelte' ? 'Svelte' : 'Markdown'}</code></dd></div>
         <div class="min-w-0"><dt class="mb-0.5 text-xs text-[--koala-subtext-0]">Title</dt><dd class="m-0 break-words"><code>{preview.title}</code></dd></div>
         <div class="min-w-0"><dt class="mb-0.5 text-xs text-[--koala-subtext-0]">Path</dt><dd class="m-0 break-words"><code>{preview.path}</code></dd></div>
       </dl>
