@@ -45,6 +45,21 @@ function commandId(target: FakeMessageTarget) {
 }
 
 describe('svelte Preview RPC', () => {
+  it('returns Snapshot HTML only from the current opaque iframe command', async () => {
+    const eventTarget = new FakeMessageEventTarget()
+    const iframe = new FakeMessageTarget()
+    const rpc = new SveltePreviewRpc({ eventTarget })
+    rpc.setTarget(iframe)
+
+    const snapshot = rpc.snapshot(artifact)
+    const currentCommandId = commandId(iframe)
+    eventTarget.emit({ type: 'koala-preview-snapshot-result', commandId: currentCommandId + 1, html: '<p>stale</p>' }, iframe as unknown as MessageEventSource)
+    eventTarget.emit({ type: 'koala-preview-snapshot-result', commandId: currentCommandId, html: '<p>Koala</p>' }, iframe as unknown as MessageEventSource)
+
+    await expect(snapshot).resolves.toBe('<p>Koala</p>')
+    rpc.dispose()
+  })
+
   it('settles only a completion from its opaque iframe for the current command', async () => {
     const eventTarget = new FakeMessageEventTarget()
     const iframe = new FakeMessageTarget()
@@ -112,7 +127,7 @@ describe('svelte Preview RPC', () => {
     rpc.dispose()
   })
 
-  it('times out exactly the current command and returns focus only for the current iframe command', async () => {
+  it('times out exactly the current Snapshot command and returns focus only for the current iframe command', async () => {
     vi.useFakeTimers()
     const eventTarget = new FakeMessageEventTarget()
     const iframe = new FakeMessageTarget()
@@ -120,7 +135,7 @@ describe('svelte Preview RPC', () => {
     const rpc = new SveltePreviewRpc({ eventTarget, onFocusReturn: commandId => focusReturns.push(commandId), timeoutMs: 500 })
     rpc.setTarget(iframe)
 
-    const result = rpc.render(artifact)
+    const result = rpc.snapshot(artifact)
     const currentCommandId = commandId(iframe)
     eventTarget.emit({ type: 'koala-preview-focus-return', commandId: currentCommandId - 1 }, iframe as unknown as MessageEventSource)
     eventTarget.emit({ type: 'koala-preview-focus-return', commandId: currentCommandId }, iframe as unknown as MessageEventSource)

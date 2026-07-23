@@ -46,7 +46,7 @@ function remoteModuleId(source: string, importer: string | undefined, modules: R
 
 function artifactEntrySource() {
   return `import App from '${APP_INPUT_ID}';
-import { mount as mountSvelte, unmount as unmountSvelte } from 'svelte';
+import { flushSync, mount as mountSvelte, tick, unmount as unmountSvelte } from 'svelte';
 
 export function mount(target, props = {}) {
   return mountSvelte(App, { target, props });
@@ -55,6 +55,8 @@ export function mount(target, props = {}) {
 export function unmount(instance, options) {
   return unmountSvelte(instance, options);
 }
+
+export { flushSync, tick };
 `
 }
 

@@ -7,6 +7,7 @@
     type PreviewRuntimeErrorMessage,
   } from './preview-protocol'
   import { createPreviewSrcdoc } from './preview-srcdoc'
+  import { canonicalizeSnapshotHtml } from '@/lib/svelte/snapshot'
 
   interface Props {
     artifact?: PreviewArtifact | null
@@ -56,6 +57,12 @@
     if (!rpc)
       return Promise.reject(new Error('Svelte Preview iframe is not ready'))
     return rpc.render(nextArtifact)
+  }
+
+  export async function snapshot(nextArtifact: PreviewArtifact) {
+    if (!rpc)
+      throw new Error('Svelte Preview iframe is not ready')
+    return canonicalizeSnapshotHtml(await rpc.snapshot(nextArtifact))
   }
 </script>
 

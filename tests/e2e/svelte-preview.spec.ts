@@ -12,6 +12,7 @@ interface BrowserPreviewFixture {
   rpc: {
     dispose: () => void
     render: (artifact: PreviewArtifact) => Promise<void>
+    snapshot: (artifact: PreviewArtifact) => Promise<string>
   }
   runtimeErrors: string[]
 }
@@ -204,4 +205,73 @@ test('opaque Svelte Preview requests carry a null origin and no browser cookie',
   }
   expect(previewRequestHeaders?.origin).toBe('null')
   expect(previewRequestHeaders?.cookie).toBeUndefined()
+})
+
+test('opaque Svelte Preview captures DOM for shared Snapshot canonicalization', async ({ page }) => {
+  await openEditor(page)
+  await installPreviewFixture(page)
+  try {
+    const { rawSnapshot, canonicalSnapshot, canonicalSnapshotFixture } = await page.evaluate(async () => {
+      const fixture = (window as typeof window & { __koalaPreviewRpcFixture: BrowserPreviewFixture }).__koalaPreviewRpcFixture
+      const snapshotModulePath = '/src/lib/svelte/snapshot.ts'
+      const snapshotFixtureModulePath = '/src/tests/svelte/snapshot-fixture.ts'
+      const { canonicalizeSnapshotHtml } = await import(/* @vite-ignore */ snapshotModulePath)
+      const { snapshotFixture, canonicalSnapshotFixture } = await import(/* @vite-ignore */ snapshotFixtureModulePath)
+      const rawSnapshot = await fixture.rpc.snapshot({
+        css: '',
+        javascript: `({
+          mount(target) {
+            target.innerHTML = ${JSON.stringify(snapshotFixture)}
+            return {}
+          },
+          unmount() {},
+          flushSync() {},
+          tick() { return Promise.resolve() }
+        })`,
+      })
+      return { rawSnapshot, canonicalSnapshot: await canonicalizeSnapshotHtml(rawSnapshot), canonicalSnapshotFixture }
+    })
+    expect(rawSnapshot).toContain('onclick="alert(1)"')
+    expect(rawSnapshot).toContain('<script>alert(1)</script>')
+    expect(canonicalSnapshot).toBe(canonicalSnapshotFixture)
+  }
+  finally {
+    await disposePreviewFixture(page)
+  }
+})
+
+test('shared Snapshot canonicalizer preserves safe no-script navigation and forms', async ({ page }) => {
+  await openEditor(page)
+  const canonicalSnapshot = await page.evaluate(async () => {
+    const snapshotModulePath = '/src/lib/svelte/snapshot.ts'
+    const { canonicalizeSnapshotHtml } = await import(/* @vite-ignore */ snapshotModulePath)
+    return canonicalizeSnapshotHtml('<a href="/posts/koala">Read</a><img src="https://images.example/koala.png"><form action="/search"><input name="q" value="koala"><button formaction="https://example.test/find">Find</button></form>')
+  })
+
+  expect(canonicalSnapshot).toBe('<a href="/posts/koala">Read</a><img src="https://images.example/koala.png"><form action="/search"><input name="q" value="koala"><button formaction="https://example.test/find">Find</button></form>')
+  const preservedStructure = await page.evaluate((html) => {
+    const root = document.createElement('div')
+    root.innerHTML = html
+    const link = root.querySelector('a')
+    const image = root.querySelector('img')
+    const form = root.querySelector('form')
+    const input = root.querySelector('input')
+    const button = root.querySelector('button')
+    return {
+      linkHref: link?.getAttribute('href'),
+      imageSrc: image?.getAttribute('src'),
+      formAction: form?.getAttribute('action'),
+      inputIsNative: input instanceof HTMLInputElement,
+      buttonIsNative: button instanceof HTMLButtonElement,
+      buttonFormAction: button?.getAttribute('formaction'),
+    }
+  }, canonicalSnapshot)
+  expect(preservedStructure).toEqual({
+    linkHref: '/posts/koala',
+    imageSrc: 'https://images.example/koala.png',
+    formAction: '/search',
+    inputIsNative: true,
+    buttonIsNative: true,
+    buttonFormAction: 'https://example.test/find',
+  })
 })

@@ -9,9 +9,21 @@ export interface PreviewRenderCommand {
   artifact: PreviewArtifact
 }
 
+export interface PreviewSnapshotCommand {
+  type: 'koala-preview-snapshot'
+  commandId: number
+  artifact: PreviewArtifact
+}
+
 export interface PreviewCompleteMessage {
   type: 'koala-preview-complete'
   commandId: number
+}
+
+export interface PreviewSnapshotMessage {
+  type: 'koala-preview-snapshot-result'
+  commandId: number
+  html: string
 }
 
 export interface PreviewErrorMessage {
@@ -31,7 +43,7 @@ export interface PreviewFocusReturnMessage {
   commandId: number
 }
 
-export type PreviewParentMessage = PreviewCompleteMessage | PreviewErrorMessage | PreviewRuntimeErrorMessage | PreviewFocusReturnMessage
+export type PreviewParentMessage = PreviewCompleteMessage | PreviewSnapshotMessage | PreviewErrorMessage | PreviewRuntimeErrorMessage | PreviewFocusReturnMessage
 
 export interface PreviewMessageTarget {
   postMessage: (message: unknown, targetOrigin: string) => void
@@ -52,7 +64,7 @@ export interface SveltePreviewRpcOptions {
 interface PendingCommand {
   commandId: number
   reject: (error: Error) => void
-  resolve: () => void
+  resolve: (html?: string) => void
   timeout: ReturnType<typeof setTimeout>
 }
 
@@ -75,11 +87,13 @@ function isString(value: unknown): value is string {
 export function isPreviewParentMessage(value: unknown): value is PreviewParentMessage {
   if (!value || typeof value !== 'object')
     return false
-  const message = value as { type?: unknown, commandId?: unknown, message?: unknown }
+  const message = value as { type?: unknown, commandId?: unknown, html?: unknown, message?: unknown }
   if (!isCommandId(message.commandId))
     return false
   if (message.type === 'koala-preview-complete' || message.type === 'koala-preview-focus-return')
     return true
+  if (message.type === 'koala-preview-snapshot-result')
+    return isString(message.html)
   return (message.type === 'koala-preview-error' || message.type === 'koala-preview-runtime-error')
     && isString(message.message)
 }
@@ -129,6 +143,14 @@ export class SveltePreviewRpc {
   }
 
   render(artifact: PreviewArtifact): Promise<void> {
+    return this.#request('koala-preview-render', artifact).then(() => {})
+  }
+
+  snapshot(artifact: PreviewArtifact): Promise<string> {
+    return this.#request('koala-preview-snapshot', artifact).then(html => html ?? '')
+  }
+
+  #request(type: PreviewRenderCommand['type'] | PreviewSnapshotCommand['type'], artifact: PreviewArtifact): Promise<string | undefined> {
     if (this.#disposed)
       return Promise.reject(new Error('Svelte Preview RPC has been disposed'))
     if (!this.#target)
@@ -139,13 +161,13 @@ export class SveltePreviewRpc {
     const commandId = ++this.#nextCommandId
     this.#latestCommandId = commandId
 
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<string | undefined>((resolve, reject) => {
       const timeout = setTimeout(() => {
         if (this.#pending?.commandId === commandId)
           this.#settlePending(new PreviewCommandTimeoutError(commandId, this.#timeoutMs))
       }, this.#timeoutMs)
       this.#pending = { commandId, reject, resolve, timeout }
-      this.#target?.postMessage({ type: 'koala-preview-render', commandId, artifact } satisfies PreviewRenderCommand, '*')
+      this.#target?.postMessage({ type, commandId, artifact } satisfies PreviewRenderCommand | PreviewSnapshotCommand, '*')
     })
   }
 
@@ -177,10 +199,14 @@ export class SveltePreviewRpc {
       this.#settlePending(null)
       return
     }
+    if (message.type === 'koala-preview-snapshot-result') {
+      this.#settlePending(null, message.html)
+      return
+    }
     this.#settlePending(new PreviewCommandError(message.commandId, message.message))
   }
 
-  #settlePending(error: Error | null) {
+  #settlePending(error: Error | null, html?: string) {
     const pending = this.#pending
     if (!pending)
       return
@@ -189,6 +215,6 @@ export class SveltePreviewRpc {
     if (error)
       pending.reject(error)
     else
-      pending.resolve()
+      pending.resolve(html)
   }
 }

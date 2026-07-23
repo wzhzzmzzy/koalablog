@@ -48,7 +48,7 @@ function bootstrapScript(parentOrigin: string) {
 
   function isRenderCommand(value) {
     return value
-      && value.type === 'koala-preview-render'
+      && (value.type === 'koala-preview-render' || value.type === 'koala-preview-snapshot')
       && Number.isSafeInteger(value.commandId)
       && value.commandId > 0
       && value.artifact
@@ -71,6 +71,17 @@ function bootstrapScript(parentOrigin: string) {
         return;
       }
       active = { api, commandId: command.commandId, instance };
+      if (command.type === 'koala-preview-snapshot') {
+        if (typeof api.flushSync === 'function')
+          api.flushSync();
+        if (typeof api.tick === 'function')
+          await api.tick();
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        if (command.commandId !== latestCommandId)
+          return;
+        message('koala-preview-snapshot-result', command.commandId, { html: root.innerHTML });
+        return;
+      }
       message('koala-preview-complete', command.commandId);
     }
     catch (error) {
