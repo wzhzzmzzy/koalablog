@@ -10,7 +10,9 @@ import { generateUnoCss, unoCssGenerationDiagnostic } from './unocss'
 const dependencyFetches = createDependencyFetchLifecycle()
 
 async function compileWorkerRequest(request: SvelteWorkerRequest) {
-  const dependencySignal = dependencyFetches.begin(request.requestId)
+  const dependencySignal = request.type === 'build'
+    ? dependencyFetches.begin(request.requestId)
+    : new AbortController().signal
   if (dependencySignal.aborted)
     return
   const result = await compileSvelteSource(request.source)

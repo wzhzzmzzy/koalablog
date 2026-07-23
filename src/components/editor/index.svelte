@@ -170,6 +170,37 @@
   }
 
   let showPreview = $state(false)
+  let previewBuildKey = ''
+  let svelteArtifact = $derived(svelteBuildController.build?.type === 'build-success'
+    ? { css: svelteBuildController.build.css, javascript: svelteBuildController.build.javascript }
+    : null)
+  let svelteBuildError = $derived(svelteBuildController.build?.type === 'build-error'
+    ? svelteBuildController.build.error.message
+    : null)
+
+  $effect(() => {
+    const previewBuffer = {
+      enabled: !trashed,
+      fileId: file.id,
+      renderer: rendererValue,
+      source: sourceValue,
+    }
+    const nextKey = `${previewBuffer.fileId}\u0000${previewBuffer.renderer}\u0000${previewBuffer.source}`
+    if (!showPreview || previewBuffer.renderer !== RENDERER_MODE.Svelte || !previewBuffer.enabled) {
+      previewBuildKey = ''
+      svelteBuildController.previewClosed()
+      return
+    }
+    if (nextKey === previewBuildKey)
+      return
+    const openingPreview = previewBuildKey === ''
+    previewBuildKey = nextKey
+    if (openingPreview)
+      void svelteBuildController.previewOpened(previewBuffer)
+    else
+      svelteBuildController.previewChanged(previewBuffer)
+  })
+
   async function preview(e: Event) {
     e.preventDefault()
     const returningToEdit = showPreview
@@ -346,6 +377,15 @@
         removeEditBuffer(file.id)
         onSave?.(file)
         upsertItem(file)
+        if (file.renderer === RENDERER_MODE.Svelte) {
+          void svelteBuildController.saved({
+            enabled: true,
+            fileId: file.id,
+            renderer: file.renderer,
+            source: file.content,
+            sourceHash: file.sourceHash,
+          })
+        }
       }
     }
   }
@@ -384,6 +424,8 @@
       value={sourceValue}
       {showPreview}
       {previewHtml}
+      {svelteArtifact}
+      {svelteBuildError}
       {trashed}
       {conflict}
       baseRevision={baseRevisionValue}

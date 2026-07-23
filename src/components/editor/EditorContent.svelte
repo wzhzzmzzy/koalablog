@@ -1,7 +1,9 @@
 <script lang="ts">
   import type { RendererMode } from '@/lib/files/types';
+  import type { PreviewArtifact, PreviewRuntimeErrorMessage } from './svelte/preview-protocol';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
   import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
+  import SveltePreview from './svelte/SveltePreview.svelte';
   import TextEditor, { type TextEditorHandle } from './TextEditor.svelte';
 
   interface Props {
@@ -13,6 +15,8 @@
     value: string;
     showPreview: boolean;
     previewHtml: string;
+    svelteArtifact?: PreviewArtifact | null;
+    svelteBuildError?: string | null;
     trashed: boolean;
     conflict: EditBufferServerValues | null;
     baseRevision: number;
@@ -31,6 +35,8 @@
     value,
     showPreview,
     previewHtml,
+    svelteArtifact = null,
+    svelteBuildError = null,
     trashed,
     conflict,
     baseRevision,
@@ -48,6 +54,14 @@
 
   export async function insertImages(files: File[]) {
     await textEditor?.insertImages(files);
+  }
+
+  function returnPreviewFocus() {
+    textEditor?.focus();
+  }
+
+  function reportPreviewError(error: Error | PreviewRuntimeErrorMessage) {
+    console.error('Svelte Preview failed:', error.message)
   }
 </script>
 
@@ -86,6 +100,16 @@
   />
 </div>
 
-<article id="preview-md" class="w-full flex-1 overflow-y-auto {showPreview ? '' : 'hidden'}">
-  {@html previewHtml}
-</article>
+{#if showPreview && renderer === 'svelte'}
+  <section class="w-full flex-1 min-h-0 overflow-hidden" aria-label="Svelte Preview">
+    {#if svelteBuildError}
+      <p class="m-0 p-4 text-[--koala-error-text]" role="alert">{svelteBuildError}</p>
+    {:else}
+      <SveltePreview artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
+    {/if}
+  </section>
+{:else}
+  <article id="preview-md" class="w-full flex-1 overflow-y-auto {showPreview ? '' : 'hidden'}">
+    {@html previewHtml}
+  </article>
+{/if}
