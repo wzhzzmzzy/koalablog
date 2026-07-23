@@ -43,4 +43,19 @@ export interface SvelteBuildError {
   warnings: SvelteDiagnostic[]
 }
 
+export interface SvelteCompileSuccess {
+  ok: true
+  javascript: string
+  css: string
+  warnings: SvelteDiagnostic[]
+}
+
+export interface SvelteCompileFailure {
+  ok: false
+  error: SvelteDiagnostic
+  warnings: SvelteDiagnostic[]
+}
+
+export type SvelteCompileResult = SvelteCompileSuccess | SvelteCompileFailure
+
 export type SvelteWorkerResponse = SvelteDiagnoseResult | SvelteBuildSuccess | SvelteBuildError

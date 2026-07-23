@@ -1,45 +1,45 @@
 import type { Plugin } from '@rollup/browser'
-import type {
-  SvelteDiagnostic,
-  SvelteWorkerRequest,
-} from '../../lib/svelte/contracts'
+import type { SvelteWorkerRequest } from '../../lib/svelte/contracts'
 import type { SvelteToolchainProbe } from '../../lib/svelte/toolchain'
 import { SVELTE_RUNTIME_REGISTRY } from '../../lib/svelte/runtime-registry.generated'
 import { SVELTE_TOOLCHAIN_VERSIONS } from '../../lib/svelte/toolchain-versions'
+import { compileSvelteSource } from './compiler'
 import { createDependencyFetchLifecycle } from './dependency-lifecycle'
 
 const PROBE_MODULE_ID = '\0koala-svelte-toolchain-probe'
 const PROBE_SOURCE = '<h1 class="text-red-500">Koala</h1>'
 const dependencyFetches = createDependencyFetchLifecycle()
 
-function notImplementedDiagnostic(action: SvelteWorkerRequest['type']): SvelteDiagnostic {
-  return {
-    code: 'svelte_worker_not_ready',
-    end: 0,
-    message: `Svelte ${action} is not available until Gate 3C.3`,
-    severity: 'error',
-    start: 0,
-  }
-}
-
-function reportProtocolPlaceholder(request: SvelteWorkerRequest) {
+async function compileWorkerRequest(request: SvelteWorkerRequest) {
   const dependencySignal = dependencyFetches.begin(request.requestId)
   if (dependencySignal.aborted)
     return
-  const error = notImplementedDiagnostic(request.type)
+  const result = await compileSvelteSource(request.source)
+  if (dependencySignal.aborted)
+    return
   if (request.type === 'diagnose') {
     globalThis.postMessage({
       type: 'diagnose-result',
       requestId: request.requestId,
-      diagnostics: [error],
+      diagnostics: result.ok ? result.warnings : [result.error, ...result.warnings],
+    })
+    return
+  }
+  if (result.ok) {
+    globalThis.postMessage({
+      type: 'build-success',
+      requestId: request.requestId,
+      javascript: result.javascript,
+      css: result.css,
+      warnings: result.warnings,
     })
     return
   }
   globalThis.postMessage({
     type: 'build-error',
     requestId: request.requestId,
-    error,
-    warnings: [],
+    error: result.error,
+    warnings: result.warnings,
   })
 }
 
@@ -110,7 +110,7 @@ async function runToolchainProbe(): Promise<SvelteToolchainProbe> {
 
 globalThis.addEventListener('message', async (event: MessageEvent<{ type?: string } | SvelteWorkerRequest>) => {
   if (isSvelteWorkerRequest(event.data)) {
-    reportProtocolPlaceholder(event.data)
+    void compileWorkerRequest(event.data)
     return
   }
   if (event.data.type !== 'probe')
