@@ -57,6 +57,25 @@ export interface SvelteDependencyManifestEntry {
   sha256: string
 }
 
+export interface SvelteArtifactInputV1 {
+  schemaVersion: 1
+  renderer: 'svelte'
+  svelteVersion: string
+  unocssVersion: string
+  unocssConfigHash: string
+  sourceHash: string
+  dependencies: SvelteDependencyManifestEntry[]
+  javascript: string
+  css: string
+  snapshotHtml: string
+}
+
+export interface SvelteArtifactHashes {
+  artifactHash: string
+  cssResourceHash: string
+  javascriptResourceHash: string
+}
+
 export interface SvelteCompileFailure {
   ok: false
   error: SvelteDiagnostic
