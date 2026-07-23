@@ -4,6 +4,7 @@
   import { onMount, tick } from 'svelte';
   import { md } from '@/lib/markdown';
   import { getDisplayTitle } from '@/lib/files/display-title';
+  import type { RendererMode } from '@/lib/files/types';
   import type MarkdownIt from 'markdown-it';
   import { actions } from 'astro:actions';
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
@@ -214,6 +215,11 @@
     setCurrentFile(server);
   }
 
+  function changeRenderer(renderer: RendererMode) {
+    if (!trashed)
+      rendererValue = renderer;
+  }
+
   function retryLocalAgainstCurrentRevision() {
     if (!conflict || !window.confirm(`Keep the local Edit Buffer and retry against server revision ${conflict.revision}?`)) return;
     baseRevisionValue = conflict.revision;
@@ -309,7 +315,7 @@
     const formData = new FormData()
     formData.append('id', file.id.toString())
     formData.append('path', pathValue)
-    formData.append('renderer', file.renderer)
+    formData.append('renderer', rendererValue)
     formData.append('content', sourceValue)
     formData.append('private', String(privateValue));
     formData.append('baseRevision', baseRevisionValue.toString())
@@ -337,6 +343,7 @@
     <EditorToolbar
       {file}
       bind:pathValue
+      {rendererValue}
       {privateValue}
       {changed}
       {conflict}
@@ -346,6 +353,7 @@
       onBackToDashboard={backToDashboard}
       onBack={back}
       onTogglePrivate={togglePrivate}
+      onRendererChange={changeRenderer}
       onSave={save}
       onUpload={upload}
       onPreview={preview}

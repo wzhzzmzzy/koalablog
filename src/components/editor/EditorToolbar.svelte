@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types';
+  import type { RendererMode } from '@/lib/files/types';
   import { ArrowLeft, Check, Eye, House, Link, Lock, LockOpen, Menu, Save, SquarePen, Upload } from '@lucide/svelte';
   import FileLifecycle from './FileLifecycle.svelte';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
+  import RendererToggle from './svelte/RendererToggle.svelte';
   import { editorStore, toggleSidebar } from './store.svelte';
 
   type ClickHandler = (event: MouseEvent) => void | Promise<void>;
@@ -10,6 +12,7 @@
   interface Props {
     file: FileRecord;
     pathValue: string;
+    rendererValue: RendererMode;
     privateValue: boolean;
     changed: boolean;
     conflict: EditBufferServerValues | null;
@@ -19,6 +22,7 @@
     onBackToDashboard: ClickHandler;
     onBack: ClickHandler;
     onTogglePrivate: ClickHandler;
+    onRendererChange: (renderer: RendererMode) => void;
     onSave: ClickHandler;
     onUpload: ClickHandler;
     onPreview: ClickHandler;
@@ -30,6 +34,7 @@
   let {
     file,
     pathValue = $bindable(),
+    rendererValue,
     privateValue,
     changed,
     conflict,
@@ -39,6 +44,7 @@
     onBackToDashboard,
     onBack,
     onTogglePrivate,
+    onRendererChange,
     onSave,
     onUpload,
     onPreview,
@@ -94,6 +100,7 @@
   </div>
 
   <div class="flex flex-wrap justify-end items-center gap-0 md:gap-1 md:shrink-0">
+    <RendererToggle value={rendererValue} disabled={trashed} onChange={onRendererChange} />
     {#if trashed}
       <FileLifecycle {file} {onUpdate} {onPurge} />
     {:else}

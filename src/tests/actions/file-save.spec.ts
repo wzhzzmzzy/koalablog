@@ -59,15 +59,17 @@ describe('file Save action', () => {
     }))
   })
 
-  it('passes an explicit Svelte Renderer to the database Save', async () => {
+  it('passes explicit Svelte Renderer and Source, then returns the server Source Hash', async () => {
     const form = validForm()
     form.set('renderer', 'svelte')
-    mocks.saveFile.mockResolvedValue({ status: 'saved', file: { id: 7 } })
+    const savedFile = { id: 7, sourceHash: 'ab'.repeat(32) }
+    mocks.saveFile.mockResolvedValue({ status: 'saved', file: savedFile })
 
-    await save.orThrow.call(context, form)
+    await expect(save.orThrow.call(context, form)).resolves.toEqual(savedFile)
 
     expect(mocks.saveFile).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       renderer: 'svelte',
+      content: 'local Source',
     }))
   })
 

@@ -103,6 +103,31 @@ test('File Source exposes the stable editor contract', async ({ page }) => {
   await expectEditorText(source, 'First line\nSecond line updated')
 })
 
+test('Renderer Mode changes only the Edit Buffer and survives File switching and reload', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  const originalSource = await editorText(source)
+  const markdown = page.getByRole('radio', { name: 'Markdown' })
+  const svelte = page.getByRole('radio', { name: 'Svelte' })
+  await expect(markdown).toBeChecked()
+
+  await svelte.check()
+  await expect(svelte).toBeChecked()
+  await expectEditorText(source, originalSource)
+
+  await page.getByRole('button', { name: 'second', exact: true }).click()
+  await page.getByRole('button', { name: 'phase-two', exact: true }).click()
+  await expect(svelte).toBeChecked()
+  await expectEditorText(source, originalSource)
+
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByRole('radio', { name: 'Svelte' })).toBeChecked()
+  await expectEditorText(page.getByRole('textbox', { name: 'File Source for /phase-two' }), originalSource)
+})
+
 test('Blink IME composition commits once without replacing Source', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
@@ -134,28 +159,41 @@ test('Blink IME composition commits once without replacing Source', async ({ pag
   await expectEditorText(source, 'IME: ')
 })
 
-test('FileEditor saves exactly once from Path and Source while preserving focus', async ({ page }) => {
-  const saveRequests: string[] = []
+test('FileEditor saves the selected Renderer exactly once while preserving focus', async ({ page }) => {
+  const savePayloads: Array<string | null> = []
   page.on('request', (request) => {
     if (request.method() === 'POST' && request.url().includes('/_actions/form.save'))
-      saveRequests.push(request.url())
+      savePayloads.push(request.postData())
   })
 
-  await page.goto('/dashboard/edit?path=/phase-two')
-  await page.waitForLoadState('networkidle')
-  const path = page.getByRole('textbox', { name: 'Absolute File Path' })
-  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  try {
+    await page.goto('/dashboard/edit?path=/phase-two')
+    await page.waitForLoadState('networkidle')
+    const path = page.getByRole('textbox', { name: 'Absolute File Path' })
+    const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
 
-  await path.focus()
-  await page.keyboard.press('Control+s')
-  await expect(page.getByText('Saved Success')).toBeVisible()
-  await expect(path).toBeFocused()
-  expect(saveRequests).toHaveLength(1)
+    await path.focus()
+    await page.keyboard.press('Control+s')
+    await expect(page.getByText('Saved Success')).toBeVisible()
+    await expect(path).toBeFocused()
+    expect(savePayloads).toHaveLength(1)
 
-  await source.focus()
-  await page.keyboard.press('Meta+s')
-  await expect.poll(() => saveRequests.length).toBe(2)
-  await expect(source).toBeFocused()
+    await page.getByRole('radio', { name: 'Svelte' }).check()
+    await source.focus()
+    const saveResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/_actions/form.save'))
+    await page.keyboard.press('Meta+s')
+    const saveResponseBody = await (await saveResponse).text()
+    const flattenedSaveResponse = JSON.parse(saveResponseBody) as unknown[]
+    const savedFileReference = flattenedSaveResponse[0] as { sourceHash: number }
+    await expect.poll(() => savePayloads.length).toBe(2)
+    await expect(source).toBeFocused()
+    expect(savePayloads[1]).toMatch(/name="renderer"\r?\n\r?\nsvelte/)
+    expect(savePayloads[1]).toMatch(/name="content"\r?\n\r?\nFirst line\r?\nSecond line/)
+    expect(flattenedSaveResponse[savedFileReference.sourceHash]).toEqual(expect.stringMatching(/^[0-9a-f]{64}$/))
+  }
+  finally {
+    await replaceServerRendererAndSourceState(1, 'First line\nSecond line', 'markdown')
+  }
 })
 
 test('a recycled File exposes a read-only Source editor', async ({ page }) => {
@@ -165,6 +203,10 @@ test('a recycled File exposes a read-only Source editor', async ({ page }) => {
   const source = page.getByRole('textbox', { name: 'File Source for /trashed' })
   await expectEditorText(source, 'Read-only Source')
   await expect(source).not.toBeEditable()
+  const svelteRenderer = page.getByRole('radio', { name: 'Svelte' })
+  await expect(svelteRenderer).toBeVisible()
+  await expect(svelteRenderer).toBeDisabled()
+  await expect(svelteRenderer).toHaveAttribute('title', 'Renderer cannot be changed for a recycled File')
   await source.pressSequentially(' changed')
   await expectEditorText(source, 'Read-only Source')
 })
