@@ -1,3 +1,4 @@
+import type { SvelteDependencyManifestEntry } from '../lib/svelte/contracts'
 import { sql } from 'drizzle-orm'
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { RENDERER_MODE } from '../lib/files/types'
@@ -39,7 +40,7 @@ export const markdownRender = sqliteTable('markdown_render', {
   unocssVersion: text().notNull(),
   unocssConfigHash: text().notNull(),
   sourceHash: text().notNull(),
-  dependencies: text({ mode: 'json' }).notNull(),
+  dependencies: text({ mode: 'json' }).$type<SvelteDependencyManifestEntry[]>().notNull(),
   artifactHash: text().notNull(),
   javascriptResourceHash: text().notNull(),
   cssResourceHash: text().notNull(),

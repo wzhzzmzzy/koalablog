@@ -181,6 +181,19 @@ describe('render Artifact persistence', () => {
     expect(await readRenderArtifact(env, original.id)).toEqual(before)
   })
 
+  it('replaces only the exact Current Artifact that was reviewed for confirmation', async () => {
+    const file = await createSvelteFile()
+    const first = artifact(file.id, file.sourceHash, 'export const version = "A"')
+    await replaceRenderArtifact(env, first)
+    const second = artifact(file.id, file.sourceHash, 'export const version = "B"')
+    expect(await replaceCurrentRenderArtifact(env, second, first.artifactHash)).toEqual(second)
+    const beforeStaleConfirmation = await readRenderArtifact(env, file.id)
+
+    const stale = await replaceCurrentRenderArtifact(env, artifact(file.id, file.sourceHash, 'export const version = "C"'), first.artifactHash)
+    expect(stale).toBeUndefined()
+    expect(await readRenderArtifact(env, file.id)).toEqual(beforeStaleConfirmation)
+  })
+
   it('preserves an Artifact in trash, restores its currentness, and cascades it away on purge', async () => {
     const file = await createSvelteFile()
     const stored = artifact(file.id, file.sourceHash)

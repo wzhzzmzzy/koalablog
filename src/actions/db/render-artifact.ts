@@ -1,7 +1,8 @@
 import { readById } from '@/db/markdown'
-import { replaceCurrentRenderArtifact } from '@/db/render-artifact'
+import { readCurrentRenderArtifact, replaceCurrentRenderArtifact } from '@/db/render-artifact'
 import { calculateArtifactHashes, canonicalDependencies } from '@/lib/svelte/artifact-hash'
 import { artifactLimitViolation } from '@/lib/svelte/artifact-limits'
+import { dependencyDiff, sameDependencies } from '@/lib/svelte/dependency-diff'
 import { isCanonicalSnapshotHtml } from '@/lib/svelte/snapshot'
 import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 import { ActionError, defineAction } from 'astro:actions'
@@ -28,6 +29,10 @@ const artifactInput = z.object({
   javascript: z.string(),
   css: z.string(),
   snapshotHtml: z.string(),
+  confirmation: z.object({
+    currentArtifactHash: sha256,
+    proposedArtifactHash: sha256,
+  }).strict().optional(),
 }).strict()
 
 function reject(code: 'CONFLICT' | 'PAYLOAD_TOO_LARGE' | 'UNPROCESSABLE_CONTENT', detail: Record<string, unknown>): never {
@@ -55,29 +60,48 @@ export const attach = defineAction({
   input: artifactInput,
   handler: async (input, ctx) => {
     await authGuard(ctx)
+    const { confirmation, ...artifact } = input
     const env = ctx.locals.runtime?.env || {}
-    const file = await readById(env, input.fileId)
+    const file = await readById(env, artifact.fileId)
     if (!file)
       throw new ActionError({ code: 'NOT_FOUND', message: 'File not found' })
     if (file.renderer !== 'svelte')
-      return reject('CONFLICT', { code: 'renderer_not_svelte' })
-    if (file.sourceHash !== input.sourceHash)
-      return reject('CONFLICT', { code: 'source_hash_mismatch' })
+      return reject('CONFLICT', { code: confirmation ? 'dependency_confirmation_stale' : 'renderer_not_svelte' })
+    if (file.sourceHash !== artifact.sourceHash)
+      return reject('CONFLICT', { code: confirmation ? 'dependency_confirmation_stale' : 'source_hash_mismatch' })
     if (!hasSupportedToolchain(input))
       return reject('UNPROCESSABLE_CONTENT', { code: 'unsupported_toolchain' })
-    if (!isCanonicalManifest(input.dependencies))
+    if (!isCanonicalManifest(artifact.dependencies))
       return reject('UNPROCESSABLE_CONTENT', { code: 'invalid_dependency_manifest' })
-    if (!await isCanonicalSnapshotHtml(input.snapshotHtml))
+    if (!await isCanonicalSnapshotHtml(artifact.snapshotHtml))
       return reject('UNPROCESSABLE_CONTENT', { code: 'invalid_snapshot' })
 
-    const violation = artifactLimitViolation(input)
+    const violation = artifactLimitViolation(artifact)
     if (violation)
       return reject('PAYLOAD_TOO_LARGE', { code: 'artifact_too_large', field: violation })
 
-    const hashes = await calculateArtifactHashes(input)
-    const attached = await replaceCurrentRenderArtifact(env, { ...input, ...hashes })
+    const hashes = await calculateArtifactHashes(artifact)
+    const current = await readCurrentRenderArtifact(env, artifact.fileId)
+    const dependenciesChanged = current && !sameDependencies(current.dependencies, artifact.dependencies)
+    if (dependenciesChanged && !confirmation) {
+      return reject('CONFLICT', {
+        code: 'dependency_changed',
+        currentArtifactHash: current.artifactHash,
+        proposedArtifactHash: hashes.artifactHash,
+        diff: dependencyDiff(current.dependencies, artifact.dependencies),
+      })
+    }
+    if (confirmation && (
+      !current
+      || current.artifactHash !== confirmation.currentArtifactHash
+      || hashes.artifactHash !== confirmation.proposedArtifactHash
+    )) {
+      return reject('CONFLICT', { code: 'dependency_confirmation_stale' })
+    }
+
+    const attached = await replaceCurrentRenderArtifact(env, { ...artifact, ...hashes }, current?.artifactHash ?? null)
     if (!attached)
-      return reject('CONFLICT', { code: 'source_hash_mismatch' })
+      return reject('CONFLICT', { code: confirmation ? 'dependency_confirmation_stale' : 'artifact_changed' })
     return attached
   },
 })

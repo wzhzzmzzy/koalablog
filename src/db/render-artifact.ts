@@ -20,9 +20,21 @@ export function readRenderArtifact(env: Env, fileId: number) {
   return connectDB(env).query.markdownRender.findFirst({ where: eq(markdownRender.fileId, fileId) })
 }
 
-export async function replaceCurrentRenderArtifact(env: Env, artifact: StoredRenderArtifact) {
+export async function replaceCurrentRenderArtifact(env: Env, artifact: StoredRenderArtifact, expectedCurrentArtifactHash: string | null = null) {
   const now = Math.floor(Date.now() / 1000)
   const dependencies = JSON.stringify(artifact.dependencies)
+  const expectedCurrent = expectedCurrentArtifactHash
+    ? sql`EXISTS (
+      SELECT 1 FROM markdown_render
+      WHERE fileId = ${artifact.fileId}
+        AND sourceHash = ${artifact.sourceHash}
+        AND artifactHash = ${expectedCurrentArtifactHash}
+    )`
+    : sql`NOT EXISTS (
+      SELECT 1 FROM markdown_render
+      WHERE fileId = ${artifact.fileId}
+        AND sourceHash = ${artifact.sourceHash}
+    )`
   const result = await connectDB(env).run(sql`
     INSERT INTO markdown_render (
       fileId, schemaVersion, renderer, svelteVersion, unocssVersion, unocssConfigHash,
@@ -41,6 +53,7 @@ export async function replaceCurrentRenderArtifact(env: Env, artifact: StoredRen
         AND sourceHash = ${artifact.sourceHash}
         AND deletedAt IS NULL
     )
+      AND ${expectedCurrent}
     ON CONFLICT(fileId) DO UPDATE SET
       schemaVersion = excluded.schemaVersion,
       renderer = excluded.renderer,
