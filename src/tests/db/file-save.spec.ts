@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readAnyById, readById, readByPath, saveFile, saveSyncedFile, trash } from '@/db/markdown'
+import { readAnyById, readById, readByPath, restore, saveFile, saveSyncedFile, trash } from '@/db/markdown'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -204,6 +204,81 @@ describe('file Source Save preconditions', () => {
       },
     })
     expect(await readAnyById(env, created.file.id)).toMatchObject(result.status === 'conflict' ? result.current : {})
+  })
+})
+
+describe('file Source creation assignment', () => {
+  useFileSaveDatabase()
+
+  it('assigns Post only under /post/ and Memo everywhere else', async () => {
+    const post = await saveFile(env, { id: 0, path: '/post/hello', content: '', private: false, baseRevision: 0 })
+    const memo = await saveFile(env, { id: 0, path: '/memo/note', content: '', private: true, baseRevision: 0 })
+    const wiki = await saveFile(env, { id: 0, path: '/wiki/note', content: '', private: false, baseRevision: 0 })
+    const about = await saveFile(env, { id: 0, path: '/about', content: '', private: false, baseRevision: 0 })
+    const legacy = await saveFile(env, { id: 0, path: '/memos/legacy', content: '', private: true, baseRevision: 0 })
+
+    expect(post).toMatchObject({ status: 'saved', file: { source: 10 } })
+    expect(memo).toMatchObject({ status: 'saved', file: { source: 30 } })
+    expect(wiki).toMatchObject({ status: 'saved', file: { source: 30 } })
+    expect(about).toMatchObject({ status: 'saved', file: { source: 30 } })
+    expect(legacy).toMatchObject({ status: 'saved', file: { source: 30 } })
+  })
+})
+
+describe('file Source persistence', () => {
+  useFileSaveDatabase()
+
+  it('keeps Source when a Save moves the File across the /post/ boundary', async () => {
+    const created = await saveFile(env, { id: 0, path: '/post/hello', content: 'initial', private: false, baseRevision: 0 })
+    if (created.status !== 'saved')
+      throw new Error('Expected fixture File creation to succeed')
+
+    const moved = await saveFile(env, {
+      id: created.file.id,
+      path: '/memo/hello-world',
+      content: 'moved',
+      private: false,
+      baseRevision: created.file.revision,
+    })
+    if (moved.status !== 'saved')
+      throw new Error('Expected fixture File move to succeed')
+
+    expect(moved).toMatchObject({
+      status: 'saved',
+      file: { source: 10, path: '/memo/hello-world', title: 'hello-world' },
+    })
+    expect(await readById(env, created.file.id)).toMatchObject({ source: 10, path: '/memo/hello-world' })
+
+    const movedBack = await saveFile(env, {
+      id: created.file.id,
+      path: '/post/hello-again',
+      content: 'moved back',
+      private: false,
+      baseRevision: moved.file.revision,
+    })
+
+    expect(movedBack).toMatchObject({ status: 'saved', file: { source: 10, title: 'hello-again' } })
+  })
+
+  it('keeps Source through trash and restore', async () => {
+    const created = await saveFile(env, { id: 0, path: '/post/restore-me', content: 'initial', private: false, baseRevision: 0 })
+    if (created.status !== 'saved')
+      throw new Error('Expected fixture File creation to succeed')
+    const moved = await saveFile(env, {
+      id: created.file.id,
+      path: '/restore-me',
+      content: 'moved off /post/',
+      private: false,
+      baseRevision: created.file.revision,
+    })
+    if (moved.status !== 'saved')
+      throw new Error('Expected fixture File move to succeed')
+
+    await trash(env, created.file.id)
+    const restored = await restore(env, created.file.id)
+
+    expect(restored).toMatchObject({ status: 'restored', file: { source: 10, path: '/restore-me' } })
+    expect(await readAnyById(env, created.file.id)).toMatchObject({ source: 10, deletedAt: null })
   })
 })
 

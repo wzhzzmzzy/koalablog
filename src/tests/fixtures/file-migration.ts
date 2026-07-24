@@ -6,7 +6,7 @@ export function makeLegacyFileRow(
 ): LegacyFileRow {
   return {
     id: overrides.id,
-    source: overrides.source ?? MarkdownSource.Page,
+    source: overrides.source ?? 20, // legacy Page source, pre-dates the memo remap
     link: overrides.link,
     subject: overrides.subject ?? overrides.link.split('/').filter(Boolean).at(-1) ?? '',
     content: overrides.content ?? '',
@@ -85,7 +85,7 @@ export const restoreConflictLegacyFixture = {
     makeLegacyFileRow({ id: 20, source: MarkdownSource.Post, link: 'post/shared', subject: 'Current Post' }),
     makeLegacyFileRow({
       id: 21,
-      source: MarkdownSource.Wiki,
+      source: 31, // legacy Wiki source, pre-dates the memo remap
       link: 'wiki/shared',
       subject: 'Archived Wiki',
       deletedAt: new Date('2026-03-01T00:00:00.000Z'),

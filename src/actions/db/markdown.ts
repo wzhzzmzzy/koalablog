@@ -55,17 +55,13 @@ export const create = defineAction({
 
 export const all = defineAction({
   input: z.optional(z.object({
-    source: z.enum(['all', 'post', 'page', 'memo', 'wiki']).default('all'),
+    source: z.enum(['all', 'post', 'memo']).default('all'),
     includeTrash: z.boolean().default(false),
   })).default({}),
   handler: async (input, ctx) => {
     await authGuard(ctx)
     if (input.source !== 'all' && !input.includeTrash) {
-      const source = input.source === 'post'
-        ? MarkdownSource.Post
-        : input.source === 'page'
-          ? MarkdownSource.Page
-          : input.source === 'wiki' ? MarkdownSource.Wiki : MarkdownSource.Memo
+      const source = input.source === 'post' ? MarkdownSource.Post : MarkdownSource.Memo
       return { [getMarkdownSourceKey(source)!]: await readAll(ctx.locals.runtime?.env, source) }
     }
 
@@ -77,8 +73,8 @@ export const all = defineAction({
         collection.recycleBin = {}
 
       const key = getMarkdownSourceKey(file.source)
-      const sourceType = (key === 'posts' || key === 'pages' || key === 'memos' || key === 'wikis') ? key : null
-      const singularSourceType = sourceType === 'wikis' ? 'wiki' : sourceType?.slice(0, -1)
+      const sourceType = (key === 'posts' || key === 'memos') ? key : null
+      const singularSourceType = sourceType?.slice(0, -1)
       if (!sourceType || (input.source !== 'all' && input.source !== singularSourceType))
         return collection
 

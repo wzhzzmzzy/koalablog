@@ -1,6 +1,6 @@
 import type { AbsoluteFilePath, PathError, PathErrorCode, Result } from './types'
 import { createHash } from 'node:crypto'
-import { classifySource, deriveTitle, parseAbsoluteFilePath } from './path'
+import { deriveTitle, parseAbsoluteFilePath } from './path'
 
 export type LegacyTimestamp = Date | number | string
 
@@ -44,14 +44,6 @@ export interface LegacySubjectDifference {
 export interface DerivedTitleDuplicate {
   derivedTitle: string
   activeIds: number[]
-}
-
-export interface ClassificationMismatch {
-  id: number
-  state: 'active' | 'recycled'
-  normalizedPath: AbsoluteFilePath
-  storedSource: number
-  derivedSource: number
 }
 
 export interface MigrationRowProjection {
@@ -102,7 +94,6 @@ export interface FileMigrationAuditReport {
   invalidPaths: InvalidLegacyPath[]
   subjectDifferences: LegacySubjectDifference[]
   derivedTitleDuplicates: DerivedTitleDuplicate[]
-  classificationMismatches: ClassificationMismatch[]
   projectedRows: MigrationRowProjection[]
   preservation: MigrationPreservationManifest
 }
@@ -202,7 +193,6 @@ export function auditLegacyFileRows(input: LegacyFileRow[]): FileMigrationAuditR
   const rows = [...input].sort((left, right) => left.id - right.id)
   const invalidPaths: InvalidLegacyPath[] = []
   const subjectDifferences: LegacySubjectDifference[] = []
-  const classificationMismatches: ClassificationMismatch[] = []
   const projectedRows: MigrationRowProjection[] = []
   const pathGroups = new Map<AbsoluteFilePath, { activeIds: number[], recycledIds: number[] }>()
   const activeTitleGroups = new Map<string, number[]>()
@@ -233,17 +223,6 @@ export function auditLegacyFileRows(input: LegacyFileRow[]): FileMigrationAuditR
         normalizedPath: normalized.value,
         legacySubject: row.subject,
         derivedTitle,
-      })
-    }
-
-    const derivedSource = classifySource(normalized.value)
-    if (derivedSource !== row.source) {
-      classificationMismatches.push({
-        id: row.id,
-        state,
-        normalizedPath: normalized.value,
-        storedSource: row.source,
-        derivedSource,
       })
     }
   }
@@ -292,7 +271,6 @@ export function auditLegacyFileRows(input: LegacyFileRow[]): FileMigrationAuditR
     invalidPaths,
     subjectDifferences,
     derivedTitleDuplicates,
-    classificationMismatches,
     projectedRows,
     preservation: preservationManifest(rows),
   }
@@ -326,9 +304,6 @@ export function formatFileMigrationAudit(report: FileMigrationAuditReport): stri
   }
   for (const difference of report.subjectDifferences) {
     lines.push(`Subject difference: #${difference.id} ${difference.state} ${JSON.stringify(difference.legacySubject)} -> ${JSON.stringify(difference.derivedTitle)} (${difference.normalizedPath})`)
-  }
-  for (const mismatch of report.classificationMismatches) {
-    lines.push(`Classification difference: #${mismatch.id} ${mismatch.normalizedPath} stored ${mismatch.storedSource}, derived ${mismatch.derivedSource}`)
   }
   for (const duplicate of report.derivedTitleDuplicates) {
     lines.push(`Non-blocking derived Title duplicate: ${JSON.stringify(duplicate.derivedTitle)} (active rows: ${duplicate.activeIds.join(', ')})`)

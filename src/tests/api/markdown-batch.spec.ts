@@ -40,18 +40,23 @@ beforeEach(() => {
 })
 
 describe('markdown batch API reads and deletes', () => {
-  it('lists wiki records when source=wiki', async () => {
+  it('maps post to Post and legacy page/wiki filters to Memo', async () => {
     mocks.readAll.mockResolvedValue([
       { id: 1, path: '/wiki/entities/transformer-architecture', title: 'transformer-architecture', revision: 3 },
     ])
 
-    const response = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=wiki', {
+    const postResponse = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=post', {
       headers: { Authorization: 'Bearer token' },
     })))
+    expect(postResponse.status).toBe(200)
+    expect(mocks.readAll).toHaveBeenCalledWith({ DB: 'db' }, 10)
 
-    expect(response.status).toBe(200)
-    expect(mocks.readAll).toHaveBeenCalledWith({ DB: 'db' }, 31)
-    expect(await response.json()).toEqual([
+    const wikiResponse = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=wiki', {
+      headers: { Authorization: 'Bearer token' },
+    })))
+    expect(wikiResponse.status).toBe(200)
+    expect(mocks.readAll).toHaveBeenCalledWith({ DB: 'db' }, 30)
+    expect(await wikiResponse.json()).toEqual([
       { id: 1, path: '/wiki/entities/transformer-architecture', title: 'transformer-architecture', revision: 3 },
     ])
   })

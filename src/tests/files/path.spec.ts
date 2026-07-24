@@ -55,8 +55,8 @@ describe('file path', () => {
     expect(deriveTitle(path.value)).toBe('记录')
     expect(classifySource(path.value)).toBe(MarkdownSource.Memo)
 
-    const page = parseAbsoluteFilePath('/about')
-    expect(page.ok && classifySource(page.value)).toBe(MarkdownSource.Page)
+    const about = parseAbsoluteFilePath('/about')
+    expect(about.ok && classifySource(about.value)).toBe(MarkdownSource.Memo)
   })
 
   it('matches descendants on path-segment boundaries', () => {

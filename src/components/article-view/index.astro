@@ -32,10 +32,6 @@ const headings = showOutline ? await extractHeadings(contentWithIds) : []
       )}
     </>
     )
-    : source === MarkdownSource.Page || source === MarkdownSource.Wiki
-    ? (
-          <h2>{ article.title }</h2>
-        )
     : <div></div>
     }
   </div>
