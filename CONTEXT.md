@@ -5,7 +5,7 @@ Koalablog Files defines the plain-text files stored and edited in the online wor
 ## Language
 
 **File**:
-A server-persisted plain-text unit with an absolute path, renderer mode, and content. A file exists as soon as it is created, independently of whether its content is complete, valid, or renderable.
+A server-persisted plain-text unit with an absolute path, renderer mode, and content. Its content always exists as text, with an empty string representing a blank File; the File exists independently of whether that text is complete, valid, or renderable.
 _Avoid_: Document, draft, markdown record
 
 **Path Prefix**:
@@ -73,31 +73,35 @@ The initial public or private state assigned from the file's path category, inde
 _Avoid_: Template privacy, content privacy
 
 **Svelte File**:
-A self-contained file whose content is trusted, executable Svelte source owned by the site operator rather than prose to be rendered as Markdown. It owns the blog page's body region while the surrounding page shell remains site-owned, and may depend on the platform Svelte runtime or absolute web modules rather than neighbouring files.
+A self-contained file whose content is trusted, executable Svelte source owned by the site operator rather than prose to be rendered as Markdown. It owns the blog page's body region while the surrounding page shell remains site-owned, and may depend on the platform Svelte runtime, absolute web modules, or browser runtime requests rather than neighbouring files.
 _Avoid_: Svelte snippet, untrusted component
 
 **Renderer Mode**:
 The persisted file metadata that selects whether content is interpreted as Markdown or Svelte. It belongs to the source file, remains meaningful without a render artifact, and changes only when the file is saved.
 _Avoid_: Renderer directive, file extension, content detection, artifact renderer
 
+**Source Hash**:
+A deterministic fingerprint of the Renderer Mode and content saved in a File. A Render Artifact is current only when it names the File's current Source Hash; this is distinct from the optimistic File revision and the Artifact Hash.
+_Avoid_: File revision, Artifact Hash, security signature
+
 **Renderer**:
 The interpretation applied to a file body independently of its path category. It does not determine the file's URL, listing, visibility, or date.
 _Avoid_: Document type, path type, page category
 
 **Page Shell**:
-The site-owned frame around a file body, including file metadata, blog navigation, theme, and footer.
+The site-owned frame around a file body, including document-head metadata, blog navigation, theme, and footer. A Svelte File receives no supported document-head surface and owns only the body mount target.
 _Avoid_: Svelte page, file content
 
 **SEO Snapshot**:
-The saved, non-interactive HTML representation of a Svelte file's initial body. It is emitted in the server response for indexing and no-script reading, then replaced only after the live client-rendered body starts successfully; otherwise it remains as the static file body.
+The saved, script-free HTML representation of a Svelte File's initial body. It contains no executable code or embedded browsing context but may preserve native safe navigation and form submission; it remains through initial load or mount failure, then is permanently replaced once the live body starts successfully rather than serving as later runtime recovery state.
 _Avoid_: Server rendering, cache, screenshot
 
 **Render Artifact**:
-The versioned compiled browser bundle, component styles, and SEO snapshot derived entirely in the client from one saved revision of a Svelte file. It explicitly identifies its artifact schema, Svelte version, and source revision, but its presence or validity never determines whether the source file exists or can be saved.
+The versioned compiled browser bundle, component and generated utility styles, and SEO snapshot derived entirely in the client from one saved Source Hash of a Svelte File. It identifies its artifact schema, Svelte and style-toolchain versions, and Source Hash, but its presence or validity never determines whether the Source File exists or can be saved.
 _Avoid_: Source file, generated file, publication state
 
 **Current Render Artifact**:
-A render artifact whose source revision matches the current Svelte file. A missing or stale artifact makes the file unrenderable without changing or hiding the source file.
+A Render Artifact whose Renderer Mode and Source Hash match the current Svelte File. File revision, Path, and visibility are not currentness inputs, so an exact Source reversion may make a preserved Artifact current again; a missing or stale Artifact makes the File unrenderable without changing or hiding its Source.
 _Avoid_: Published version, current file, draft
 
 **Disk Representation**:

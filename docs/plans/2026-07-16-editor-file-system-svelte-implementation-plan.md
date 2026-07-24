@@ -20,6 +20,10 @@ Do not start a later phase until the previous phase's acceptance gate passes. Ph
 - [ADR 0003: online file-system model](../adr/0003-model-koalablog-as-an-online-file-system.md)
 - [ADR 0004: client-only Svelte compilation](../adr/0004-compile-svelte-files-entirely-in-the-client.md)
 - [ADR 0005: persisted Renderer Mode](../adr/0005-store-renderer-mode-with-source-files.md)
+- [ADR 0006: staged Source Hash backfill](../adr/0006-backfill-source-hashes-through-a-staged-migration.md)
+- [ADR 0007: confirm HTTPS dependency drift](../adr/0007-confirm-https-dependency-drift-before-artifact-replacement.md)
+- [ADR 0008: store script-free SEO Snapshots](../adr/0008-store-execution-free-seo-snapshots.md)
+- [ADR 0009: generate UnoCSS during Artifact builds](../adr/0009-generate-unocss-during-artifact-builds.md)
 - [CodeMirror integration design](../design/2026-07-16-codemirror-editor-integration.md)
 - [Official Svelte Playground research](../research/2026-07-16-svelte-playground-client-rendering.md)
 
@@ -663,6 +667,8 @@ Delete textarea helpers, implementation-specific tests, and global textarea styl
 
 Do not begin Phase 3 until this gate passes.
 
+Gate status as of 2026-07-22: closed. The user confirmed native IME and physical-touch checks in the real environment and confirmed the Phase-2 version is deployed; see [the Phase-2 verification record](./2026-07-21-editor-codemirror-phase-2-verification.md). Phase 3 still starts only after the working tree is cleaned and a dedicated branch is created from the latest `main`.
+
 ---
 
 # Phase 3 — Renderer Mode and client-side Svelte rendering
@@ -682,13 +688,15 @@ sourceHash: string
 
 Existing and Phase-1 rows migrate to `renderer = 'markdown'`. Template Catalog schema v2 adds `renderer`, and every v1 Template migrates to `markdown`. Only after both migrations pass may Settings show a Renderer field and the editor show a Markdown/Svelte toggle.
 
+Roll out `sourceHash` through the staged forward migration in ADR 0006. Migration `0003` adds Renderer Mode with a Markdown default and a temporarily nullable `sourceHash`; it also converts legacy `NULL` content to `''` and makes content `NOT NULL`, matching every current create/save/sync input and the existing blank-File behavior. Compatible application code must compute the canonical hash for every new or changed Source. During a maintenance window, a JavaScript backfill processes old rows in stable ID batches and updates only rows whose revision still matches the value that was hashed. Audit every stored hash against the current Renderer Mode and content, then use migration `0004` to require `sourceHash`. Renderer UI remains disabled until the audit and `0004` both pass. Do not use placeholder hashes, permanent `NULL`/blank dual representations, or read-triggered lazy backfill.
+
 Define the canonical hash as lowercase hexadecimal SHA-256 of the UTF-8 bytes of:
 
 ```ts
 JSON.stringify(['koala-source-v1', renderer, content])
 ```
 
-The array order and schema tag are part of the contract. Path, Title, visibility, timestamps, and compiler version are not hash inputs. All supported server runtimes share fixtures for Unicode, newlines, and both Renderer values.
+The array order and schema tag are part of the contract. `content` is the exact stored string after input validation: `''` is a valid blank Source, while `null` is rejected after migration `0003`; whitespace and line endings are not trimmed or otherwise normalized by the hash function. Path, Title, visibility, timestamps, and compiler version are not hash inputs. All supported server runtimes share fixtures for blank content, Unicode, line endings, and both Renderer values.
 
 Every Source Save updates Renderer Mode, content, and `sourceHash` atomically in the same optimistic transaction. This makes an older Artifact non-current immediately, before any replacement build finishes. A Current Render Artifact requires both:
 
@@ -699,6 +707,8 @@ artifact.sourceHash = file.sourceHash
 
 Changing back to Markdown makes every Svelte Artifact non-current without blocking Source Save.
 
+Currentness deliberately ignores File revision, Path, visibility, and timestamps. If Source changes from A to B without attaching a replacement and later returns exactly to renderer/content A, the preserved A Artifact becomes Current again because its `sourceHash` matches; the same applies when switching from Svelte to Markdown and back without changing Svelte content. If a B Artifact was attached, the one-to-one row already replaced A and reverting to A requires a new build. Reusing a preserved Artifact does not refetch dependencies; an explicit Rebuild remains the operation that can discover and confirm dependency drift.
+
 Phase 3 also extends disk exchange:
 
 ```text
@@ -708,6 +718,8 @@ Svelte   -> <absolute path>.svelte
 
 Import strips only the recognized final renderer extension, derives the extensionless absolute Path, and saves Source before best-effort Artifact building.
 
+Extend `sync-vault` and the headless batch API without adding a Node compiler. The sync client discovers `.md` and `.svelte`, derives Renderer Mode only from the final disk extension, and sends it with Source. An omitted API renderer remains backward-compatible Markdown input. The server response includes the stored `renderer`, canonical `sourceHash`, and `artifactStatus: 'not_applicable' | 'current' | 'rebuild_required'`; a Svelte Source Save reports `rebuild_required` whenever no matching Artifact remains. Pull writes the matching disk extension, and duplicate `.md`/`.svelte` inputs that map to one extensionless Path are rejected. Markdown attachment/reference rewriting never runs against Svelte Source.
+
 ## 3.2 Extend CodeMirror and the editor for Renderer Mode
 
 - Add the Renderer toggle outside CodeMirror; switching changes the Edit Buffer but does not transform Source.
@@ -715,19 +727,28 @@ Import strips only the recognized final renderer extension, derives the extensio
 - Extend the Text Editor Interface with diagnostics without exposing CodeMirror types.
 - Emit Markdown image syntax in Markdown Mode and `<img>` markup in Svelte Mode.
 - Debounce compiler-only Svelte diagnostics and map structured offsets into CodeMirror ranges.
+- Reject `<svelte:head>` with a structured diagnostic because document-head metadata belongs to the Page Shell.
+- Permit explicit Svelte `:global(...)` styles, but emit a non-blocking `global_style_escape` warning when a selector has no component-local or Artifact-root anchor, including direct `body`, `html`, or `:root` targets. The warning does not prevent Preview or Artifact attachment.
 - Keep `src/lib/files/analysis.ts` as the Source analyzer; Svelte v1 returns no Markdown tags/references unless an explicit syntax is added later.
 
 ## 3.3 Build the lazy client Worker with bounded dependencies
 
 Adapt the official Svelte Playground implementation into one lazy module Worker with `diagnose` and `build` messages:
 
-- load one exact supported Svelte package version, never `latest`;
+- pin Phase 3 v1 to the repository's current installed `svelte` version `5.19.2`, changing the package declaration from `^5.19.2` to the exact version;
+- expose that version through one shared constant and assert that the loaded compiler and bundled runtime both report `5.19.2`; never load `latest` or allow the compiler, runtime, and Artifact metadata to drift;
+- publish the compiler, matching runtime module registry, and `@rollup/browser` as same-origin lazy Worker assets; browser builds must not fetch the toolchain from npm or another CDN;
+- publish the browser-safe UnoCSS generator profile as another same-origin lazy Worker asset; public pages must not load an UnoCSS runtime;
 - load the compiler and run `@rollup/browser` only inside the Worker;
 - build `/App.svelte` plus internal entry/runtime virtual modules;
+- accept `<script lang="ts">` only for the TypeScript syntax that Svelte `5.19.2` can erase without a preprocessor, such as type annotations, interfaces, and type-only imports; reject compiler-reported non-erasable features such as TypeScript enums;
+- treat Worker compiler diagnostics as syntax/build diagnostics rather than a complete TypeScript type check; Phase 3 v1 does not run `tsc` or promise semantic type errors;
+- accept ordinary Svelte markup, JavaScript, and plain CSS without Sass, Less, Pug, or other script/markup/style preprocessors; the canonical UnoCSS directives transform is the only additional source transformation in v1;
 - bundle the matching Svelte runtime into a named-export IIFE expression;
 - emit CSS separately;
-- reject user relative imports, aliases, and bare npm packages;
-- permit only absolute HTTPS imports and URL-relative dependencies that pass the policy below.
+- expose only the pinned Svelte `5.19.2` browser runtime registry. User Source may import `svelte`, `svelte/animate`, `svelte/easing`, `svelte/events`, `svelte/legacy`, `svelte/motion`, `svelte/reactivity`, `svelte/reactivity/window`, `svelte/store`, and `svelte/transition`; type-only `svelte/action` or `svelte/elements` imports may be erased before bundling. The compiler's own exact internal-client imports resolve from a separate internal allowlist, while user imports of `svelte/compiler`, `svelte/server`, `svelte/internal/*`, or package metadata are rejected;
+- reject user relative imports, aliases, and every other bare npm package;
+- permit only absolute HTTPS imports and URL-relative dependencies that pass the policy below. Literal dynamic HTTPS imports enter the same bounded graph and are inlined into the single IIFE; non-literal dynamic imports are rejected because the stored Artifact cannot contain unresolved chunks.
 
 Use monotonically increasing request IDs and **stale-result suppression**. Obsolete diagnose/build results are discarded and cannot update diagnostics, preview, or Artifact state. An `AbortController` may stop outstanding dependency fetches, but the plan does not claim Rollup/compiler CPU cancellation unless the implementation proves it.
 
@@ -736,7 +757,7 @@ HTTPS dependency policy for v1:
 | Limit | Contract |
 | --- | --- |
 | Scheme/CORS | Absolute `https:` entry URLs only; opaque or CORS-blocked responses fail. |
-| Redirects | At most 3; every hop and final URL must remain HTTPS. |
+| Redirects | None. Fetch with `redirect: 'error'`; a redirect fails with a structured diagnostic and the author must use the final versioned HTTPS URL directly. |
 | MIME | JavaScript MIME types only (`text/javascript`, `application/javascript`, `text/ecmascript`, `application/ecmascript`). |
 | Graph depth | At most 8 dependency edges from the user entry. |
 | Module count | At most 64 fetched URL modules. |
@@ -746,17 +767,35 @@ HTTPS dependency policy for v1:
 
 Exceeding a limit produces a structured diagnostic, uploads no Artifact, and never rolls back the already successful Source Save.
 
+The build dependency graph accepts JavaScript ESM only. Phase 3 v1 does not implement build-time imports for CSS, JSON, images, fonts, WASM, or other asset modules. Statically declared fetch-bearing asset URLs in Svelte markup and component CSS must use either a slash-leading same-origin URL, including the existing `/api/oss/...` attachment representation, or an absolute `https:` URL. Reject static `./` or `../` asset URLs because a database-backed single Source File has no neighbouring disk directory; also reject protocol-relative, `blob:`, and `data:` asset URLs. Parse `srcset` candidates and CSS `url(...)` values under the same rule. Ordinary navigation links are not asset URLs and retain their existing File/URL behavior.
+
+These non-JavaScript asset bytes are not fetched by the Worker, stored in the Artifact, included in the dependency manifest, or covered by `artifactHash`; their availability and drift remain public runtime behavior. This static validation does not claim to constrain trusted runtime-computed attributes, imperative DOM changes, remote JavaScript module behavior, or ordinary runtime `fetch()`.
+
+Every successful build emits a canonical dependency manifest sorted by final URL. Each fetched URL module records its final URL, UTF-8 byte count, and lowercase hexadecimal SHA-256. The manifest remains Artifact provenance rather than a `sourceHash` input, so the server can continue calculating Source Hashes without network access. Its serialized bytes count toward the Artifact metadata and combined-row limits.
+
+Run UnoCSS only during each full Svelte Artifact build, with exact version `65.4.3`; compiler-only diagnostics do not generate CSS. Use direct browser-safe `@unocss/core`, `@unocss/preset-uno`, and directives-transformer entry points rather than the Node/Vite config loader. Derive one shared, serializable `koala-unocss-v1` profile from `presetUno({ preflight: 'on-demand' })`, the repository's font-family theme, and the `font-ui`, `font-content`, and `font-code` shortcuts. Extract utility tokens from the Svelte AST only: literal tokens in static `class` attribute segments, Svelte class-directive names, and explicit UnoCSS directives inside component styles. Do not scan script string literals, imports, ordinary text content, or infer dynamically constructed class fragments; do not include `presetIcons` or a safelist in v1.
+
+Postprocess every generated utility selector beneath `:where([data-koala-artifact-root])` and rewrite any on-demand UnoCSS variable initialization to the same root and its descendants; emit no unscoped preset preflight. This root marker is present in both Preview and the public Page. Emit the resulting utility CSS before Svelte's compiler-scoped component CSS so local component styles can override utilities, then store their combination as the Artifact `css` payload. Explicit `:global(...)` component styles and trusted runtime DOM changes can still affect the Page Shell under the accepted same-origin trust model; utility scoping is a collision boundary, not a sandbox.
+
+During diagnostics, inspect Svelte style selectors and emit non-blocking `global_style_escape` for explicit global selectors that are not anchored by a component-local selector or the Artifact root. This warning makes intentional Page Shell styling visible without pretending that CSS restrictions can isolate trusted same-origin code.
+
+Pin the package declarations used by the Worker to `65.4.3`. Calculate a constant `unocssConfigHash` from the canonical serializable profile, and record both the exact UnoCSS version and config hash in every Artifact. The server accepts new attachments only from the current supported pair; existing stored Artifacts keep serving their self-contained CSS after a later application upgrade.
+
 ## 3.4 Implement preview RPC and diagnostics
 
-Preview uses a `srcdoc` iframe and a command-ID `postMessage` protocol. It owns CSS injection, previous-component unmount, DOM cleanup, IIFE evaluation, `mount`, Snapshot capture, runtime error forwarding, and focus hand-back.
+Preview uses a `srcdoc` iframe and a command-ID `postMessage` protocol. It owns CSS injection, previous-component unmount, DOM cleanup, IIFE evaluation, `mount`, Snapshot capture, runtime error forwarding, and focus hand-back. Each successful build marks the preview mount target with `data-koala-artifact-root`, injects that build's combined Artifact CSS inside the iframe before mounting, and replaces the previous preview stylesheet rather than accumulating styles.
 
-The iframe is an editor containment surface, not the public trust boundary. Keep `allow-same-origin` disabled; grant only the sandbox capabilities actually required. Its CSP may permit the inline bootstrap and `unsafe-eval` needed for the stored IIFE in this preview-only environment, while network access remains bounded by the Worker resolver. Public Artifact execution must not use `eval`.
+The iframe is an editor containment surface, not the public trust boundary. Keep `allow-same-origin` disabled; grant only the sandbox capabilities actually required. Its CSP may permit the inline bootstrap, the `unsafe-eval` needed for the stored IIFE, and CORS-permitted HTTPS runtime requests in this preview-only environment. Do not forward same-origin credentials or proxy private application APIs into the opaque-origin iframe. Build-time import resolution remains bounded by the Worker resolver, while public mounted code may use ordinary browser runtime `fetch()`. Public Artifact execution must not use `eval`.
 
-Snapshot capture uses `flushSync()`, `tick()`, two animation frames, and a five-second command timeout. It records the saved initial DOM only; it does not promise completion of arbitrary runtime fetches or animations.
+Snapshot capture uses `flushSync()`, `tick()`, two animation frames, and a five-second command timeout. It records the saved initial DOM only; it does not promise completion of arbitrary runtime fetches or animations. Components that depend on authenticated same-origin data must provide an initial or error state suitable for the credential-free Preview and Snapshot.
+
+Before upload, pass `root.innerHTML` through a deterministic script-free Snapshot serializer. It removes `script`, `iframe`, `object`, `embed`, extra `style`, `link`, `meta`, and `base` elements; removes event-handler attributes, `srcdoc`, and executable URL schemes such as `javascript:`; and preserves ordinary body structure, text, images, safe links, native form controls, and form submission whose action/formaction URL passes the same safe-URL validation. Do not unwrap `<form>`, disable controls, remove ordinary submission attributes, or add an inert wrapper. The server independently parses and validates the submitted Snapshot against the same contract and returns `422 invalid_snapshot` without storing the Artifact if executable code remains or the representation is non-canonical. Snapshot filtering does not alter Source, Preview, or live Artifact JavaScript and is not presented as a sandbox or a side-effect-free document.
+
+For Svelte Page metadata, the Page Shell always uses the path-derived File Title as the document title. It derives the optional description only from the first non-empty `<p>` in the server-validated Snapshot: take `textContent`, collapse whitespace, trim it, and retain at most the first 160 Unicode code points. Omit the description when no non-empty paragraph exists. Phase 3 v1 adds no Svelte frontmatter or metadata directive, and `<svelte:head>` remains unsupported; this keeps the initial SEO head deterministic without executing Source.
 
 Full Rollup builds run only when Preview opens, stopped edits occur while Preview remains visible, Save requests an exact-buffer build, explicit Rebuild runs, or import performs best-effort rebuild. Preview-hidden edits may run compiler diagnostics but never Rollup.
 
-Keep `/api/playground/compile` operating throughout this work. It is removed or migrated only after the client Worker and preview iframe pass their gate at the end of Phase 3.
+Keep the legacy `/playground` and `/api/playground/compile` operating throughout this work. Delete the page, endpoint, old `Playground.svelte`, and its example Source only after the client Worker and preview iframe pass their gate at the end of Phase 3; do not migrate the experiment to the new Worker.
 
 ## 3.5 Store bounded Render Artifacts
 
@@ -767,8 +806,17 @@ interface SvelteRenderArtifactV1 {
   schemaVersion: 1
   renderer: 'svelte'
   svelteVersion: string
+  unocssVersion: string
+  unocssConfigHash: string
   sourceHash: string
+  dependencies: Array<{
+    finalUrl: string
+    bytes: number
+    sha256: string
+  }>
   artifactHash: string
+  javascriptResourceHash: string
+  cssResourceHash: string
   javascript: string
   css: string
   snapshotHtml: string
@@ -777,7 +825,9 @@ interface SvelteRenderArtifactV1 {
 }
 ```
 
-Artifact upload re-reads the File and rejects missing/non-Svelte Files, unsupported schema, hash mismatch, and size violations. Hash mismatch returns `409`; no Artifact failure rolls back Source Save. After validation, the server calculates `artifactHash` as lowercase hexadecimal SHA-256 of the UTF-8 bytes of `JSON.stringify(['koala-artifact-v1', svelteVersion, sourceHash, javascript, css, snapshotHtml])` and stores it with the Artifact. The client does not choose this value.
+Artifact upload is an authenticated admin-only same-origin operation. It re-reads the File and rejects missing/non-Svelte Files, unsupported schema, unsupported Svelte or UnoCSS toolchain metadata, hash mismatch, malformed/non-canonical dependency manifests, non-canonical or executable Snapshot HTML, and size violations. Hash mismatch returns `409`; invalid Snapshot returns `422 invalid_snapshot`; no Artifact failure rolls back Source Save. After validation, the server calculates `artifactHash` as lowercase hexadecimal SHA-256 of the UTF-8 bytes of `JSON.stringify(['koala-artifact-v1', svelteVersion, unocssVersion, unocssConfigHash, sourceHash, dependencies, javascript, css, snapshotHtml])` and stores it with the Artifact. It also serializes the final `koala-js-v1` ES module response and calculates `javascriptResourceHash` from those exact UTF-8 bytes, while `cssResourceHash` is the SHA-256 of the exact UTF-8 stylesheet response. All three hashes are lowercase hexadecimal and server-owned; the client does not choose them. The v1 module serializer is immutable for stored v1 Artifacts, and any response-byte serialization change requires a new resource representation version.
+
+When an existing Current Artifact has the same `sourceHash` but its dependency manifest differs, an ordinary attach returns `409 dependency_changed` with a bounded dependency diff, the current `artifactHash`, and the server-calculated proposed `artifactHash`, leaving the existing Artifact untouched. The editor must show the changed final URLs and hashes and require an authenticated site-owner confirmation before resubmitting. Confirmation is not a blind boolean: it carries the exact current and proposed Artifact Hashes returned by that conflict. The server repeats all validation and attaches only when the current row, current File `sourceHash`, and recalculated proposed hash still equal that confirmed pair; otherwise it returns `409 dependency_confirmation_stale` and requires a fresh review. First builds and builds for a changed `sourceHash` do not require this confirmation. This protects explicit Rebuild and automatic workflows from silently replacing output when a mutable HTTPS dependency changes without a Source edit.
 
 Enforce UTF-8 byte counts before D1 insertion:
 
@@ -791,6 +841,8 @@ The combined limit is authoritative even when every individual field is below it
 
 ## 3.6 Define public execution without runtime evaluation
 
+Serve Artifact CSS through a dedicated same-origin stylesheet endpoint keyed by the File and requested `sourceHash`. The Page Shell emits a blocking `<link rel="stylesheet">` before the Snapshot body and marks the body mount target with `data-koala-artifact-root`; it never interpolates Artifact CSS into a raw `<style>` element. CSS is already generated and stored before this request: the public Page does not run UnoCSS or inject styles through JavaScript. The CSS endpoint performs the same currentness, visibility, lifecycle, cache, ETag, and stale-hash checks as the JavaScript Artifact module endpoint.
+
 The stored JavaScript is a self-contained IIFE **expression** that evaluates to the named entry API. The Artifact endpoint responds as an ES module wrapper that embeds that stored expression as ordinary parsed module code and exports:
 
 ```ts
@@ -799,20 +851,30 @@ declare function mountKoalaArtifact(target: HTMLElement): Promise<{ unmount: () 
 
 The Page Shell imports that module, passes the explicit live-body target, and owns the switch from visible Snapshot to live DOM. Successful mount sets `data-koala-render-state="mounted"` and dispatches `koala:artifact-mounted`; failure sets `data-koala-render-state="failed"`, dispatches `koala:artifact-error`, and leaves the Snapshot visible. Neither the wrapper nor Page Shell uses `eval`, `new Function`, or a global target lookup. Do not call `hydrate()` because the Snapshot has no SSR hydration markers.
 
+Keep Snapshot and the initially hidden live target beneath the shared Artifact root. If module import or the initial `mountKoalaArtifact(target)` rejects, best-effort clear partial live DOM, keep Snapshot visible, and report the failure; trusted code may already have produced external side effects, so cleanup is not described as isolation. Once initial mount resolves, remove Snapshot from the DOM and reveal the live target. After that transition, later event-handler exceptions, timer failures, rejected requests, or other asynchronous application errors do not restore Snapshot or reset live state. Do not install Page-Shell-wide `error` or `unhandledrejection` handlers for Artifact recovery; the Svelte application owns its post-mount error UI.
+
 ## 3.7 Enforce Artifact access, lifecycle, and revalidation
 
-Every Page and Artifact request re-reads current File lifecycle, visibility, Renderer Mode, `sourceHash`, and Artifact match before serving bytes or honoring `If-None-Match`.
+Every Page and Artifact request re-reads current File lifecycle, visibility, Renderer Mode, `sourceHash`, and Artifact match before serving bytes. Renderer Mode does not replace the existing private-Page authentication flow. Page HTML and Artifact resources use separate cache contracts:
 
-- Active public File: `Cache-Control: public, no-cache` plus the strong ETag `"koala-artifact-v1-<artifactHash>"`.
-- Active private File for an authorized user: `Cache-Control: private, no-store`.
-- Private File for an unauthenticated visitor: `404` to avoid existence disclosure.
+- Active public Page HTML: `Cache-Control: public, no-cache`; v1 emits no custom Page ETag and never returns `304`, because Page Shell theme, navigation, and metadata are not covered by `artifactHash`.
+- Active public JavaScript module: `Cache-Control: public, no-cache` plus the strong ETag `"koala-js-v1-sha256-<javascriptResourceHash>"`, calculated from the exact final module response bytes.
+- Active public CSS resource: `Cache-Control: public, no-cache` plus the separate strong ETag `"koala-css-v1-sha256-<cssResourceHash>"`, calculated from the exact stylesheet response bytes.
+- Active private Page, JavaScript module, or CSS resource for an authorized user: `Cache-Control: private, no-store`.
+- Private Page for an unauthenticated visitor: preserve the existing redirect to `/guest-login`; after successful authentication, return the private Page without storing it.
+- Private Artifact module or CSS resource for an unauthenticated visitor: `404` to avoid direct resource enumeration.
 - Trashed or purged File: `404`.
 - Requested hash does not equal the current File `sourceHash`: `404`.
-- `304 Not Modified` is allowed only after the same access/currentness checks pass.
+- Current File/hash but no matching stored Artifact representation: direct JavaScript/CSS requests return `404` with `Cache-Control: no-store`; only the Page request uses the explicit `503` state below.
+- `304 Not Modified` is allowed only for public JavaScript/CSS resources, only after the same access/currentness checks pass, and only when `If-None-Match` matches that representation's current strong ETag. A resource `304` repeats its `ETag` and `Cache-Control` headers and has no body.
+
+Successful JavaScript uses `Content-Type: text/javascript; charset=utf-8`; successful CSS uses `Content-Type: text/css; charset=utf-8`; both send `X-Content-Type-Options: nosniff`. Parse `If-None-Match` as an HTTP validator list rather than comparing the raw header string. Every denied, missing, stale, malformed, or otherwise non-success Artifact resource response uses `Cache-Control: no-store` and never includes an Artifact ETag.
+
+An otherwise accessible Svelte File whose Current Artifact is missing or stale returns a `503 Service Unavailable` Page Shell with an explicit unable-to-render body, `Cache-Control: no-store`, and no Artifact ETag. This response does not expose Source or execute an older Artifact. The same File returns `200` once a matching Artifact exists; do not use `404` or `200` for this temporary render-unavailable state.
 
 Do not use `immutable` caching. A public-to-private change must reject the next unauthenticated request even when the visitor possesses an old ETag. Trash blocks the Artifact without deleting it; restore may make the preserved Artifact current again only when Renderer Mode and `sourceHash` still match. Purge deletes the Artifact through the File lifecycle.
 
-Tests cover public fetch and 304, public-to-private, authenticated private access, unauthenticated private denial, trash, restore, purge, renderer change, Source change, stale hash URL, and revalidation after every transition.
+Tests cover regenerated public Page HTML, representation-specific JavaScript/CSS ETags and 304s, public-to-private, private Page guest-login, authenticated private access, unauthenticated private Artifact denial, trash, restore, purge, renderer change, Source change, stale hash URL, and revalidation after every transition.
 
 ## 3.8 Attach, render, and describe Artifacts
 
@@ -825,33 +887,55 @@ Save sequence:
 5. Upload the Artifact.
 6. Recheck current File hash and persist only a matching Artifact.
 
-Public Markdown continues through the existing renderer. Public Svelte renders the Page Shell, Artifact CSS, visible Snapshot, and empty live root, then imports the checked ES-module wrapper. Missing/stale Artifact produces an explicit unable-to-render body without exposing Source or executing old output.
+Public Markdown continues through the existing renderer. Public Svelte renders the Page Shell, Artifact CSS, visible Snapshot, and empty live root, then imports the checked ES-module wrapper. Missing/stale Artifact produces the `503` unable-to-render Page Shell defined above without exposing Source or executing old output.
 
-SEO metadata uses derived File Title and the first meaningful Snapshot text. Snapshot and Artifact CSS appear in the initial response and remain when JavaScript is disabled or live mount fails. Document that runtime-fetched or later animated state is outside the SEO contract.
+SEO metadata uses the derived File Title and the bounded first non-empty Snapshot paragraph defined above. Snapshot and Artifact CSS appear in the initial response and remain when JavaScript is disabled or live mount fails. Document that runtime-fetched or later animated state is outside the SEO contract.
 
-## 3.9 Rebuild, import, and remove the server experiment
+## 3.9 Rebuild, import, and remove the legacy Playground
 
-- Add per-File Rebuild and an admin Utility batch rebuild that runs only while the browser stays open.
+- Add per-File Rebuild and an admin Utility batch rebuild that runs only while the browser stays open. A per-File Rebuild may request dependency-change confirmation; batch Rebuild records `dependency_changed` as a per-Path result and never auto-confirms it.
 - Import Source first and build Svelte Artifacts sequentially on a best-effort basis.
+- Let `sync-vault` save `.svelte` Source without compiling and report every `rebuild_required` Path for the later browser Utility; it must not invoke the Worker toolchain from Node.
 - Report per-Path failures without rolling back imported Source.
 - Export Source only.
-- After client Worker/preview acceptance passes, delete `/api/playground/compile` or migrate Playground to the same Worker.
+- After client Worker/preview acceptance passes, delete `/playground`, `/api/playground/compile`, the old `Playground.svelte`, and its example Source. Do not retain or migrate the separate experiment.
 - Inspect server and public bundles to prove they contain no compiler or Rollup.
 
 ## Phase 3 acceptance gate
 
 - Renderer and Template v2 migrations default every old record to Markdown.
+- Migration `0003` converts legacy `NULL` content to `''`; all later Source writes and hash calculations require string content, including the valid blank string.
 - Source Save atomically updates `sourceHash`; old Artifacts become non-current immediately.
+- Currentness ignores revision and non-Source metadata: an exact Source reversion reactivates only a matching Artifact still preserved in the one-to-one row, while a previously replaced Artifact is not historical state and must be rebuilt.
 - Svelte diagnostics and builds happen in the client and stale results cannot overwrite current state.
-- HTTPS dependency limits, failures, redirects, MIME, graph bounds, sizes, and timeouts are tested.
+- The runtime resolver accepts only the pinned public browser Svelte specifiers and compiler-owned internal entries; server/compiler entries, other bare packages, user relative imports, and non-literal dynamic imports fail with structured diagnostics.
+- HTTPS dependency limits, failures, redirect rejection, MIME, graph bounds, sizes, and timeouts are tested; the Worker never claims to inspect an opaque cross-origin redirect chain.
+- Build-time non-JavaScript imports fail with structured diagnostics; static markup/CSS asset URLs accept only slash-leading same-origin or absolute HTTPS forms, while runtime-computed asset behavior remains part of the trusted application rather than Artifact provenance.
+- Dependency manifests are canonical and covered by `artifactHash`; same-Source dependency drift requires explicit site-owner confirmation and is never auto-confirmed by batch Rebuild.
+- Dependency-change confirmation is bound to the exact current/proposed Artifact Hash pair and becomes stale if either Artifact or current Source changes before resubmission.
+- UnoCSS `65.4.3` runs only during full builds in the lazy Worker with the canonical browser-safe profile; Svelte-AST static classes, class directives, and explicit style directives enter Artifact CSS, while script/text false positives, icons, safelists, and dynamic class fragments remain unsupported in v1.
+- UnoCSS utilities and on-demand variable initialization are limited to the shared Artifact root in Preview and public delivery; no global preset preflight or utility selector reaches the Page Shell accidentally.
+- Explicit unanchored Svelte global styles remain allowed but produce the same non-blocking `global_style_escape` warning in editor diagnostics and full builds.
+- Build-time import limits do not constrain public runtime requests; Preview remains opaque-origin, credential-free, and limited to CORS-permitted HTTPS requests.
 - Source saves despite compiler, Rollup, dependency, runtime, Snapshot, upload, or size failure.
 - Artifact byte limits pass local and D1 near-limit tests.
 - Public module execution uses an explicit target and no runtime `eval`.
-- Public, private, public-to-private, trash, restore, purge, ETag, and 304 behavior pass integration/browser tests.
+- Artifact CSS loads from a checked same-origin stylesheet endpoint and is never interpolated into the Page Shell's `<style>` context.
+- `<svelte:head>` is rejected while public Svelte Source owns only the body mount target.
+- Missing or stale Artifact pages return an uncached `503` Page Shell and recover to `200` after a matching build.
+- Regenerated public HTML, private guest-login, direct private Artifact denial, public-to-private, trash, restore, purge, resource ETag, and resource-only 304 behavior pass integration/browser tests.
+- Public JS/CSS ETags match SHA-256 fixtures of their exact response bytes, remain independent between representations, and revalidation runs only after access and currentness checks.
 - Initial HTML contains styled Snapshot content; live DOM replaces it only after successful mount.
+- Initial import/mount failure preserves Snapshot and best-effort clears partial live DOM; after successful mount the Snapshot is removed permanently and later application errors never trigger global fallback or live-state reset.
+- Stored Snapshot HTML is canonical and script-free; executable code and embedded browsing contexts are rejected, while safe native links and form submissions remain functional without weakening or being confused with the trusted live component.
+- Svelte Page titles use the derived File Title, while descriptions are omitted or deterministically projected from the first non-empty validated Snapshot paragraph with the 160-code-point bound; Source cannot provide separate head metadata in v1.
 - Old exact-version Artifacts remain executable after an application Svelte upgrade.
+- Phase 3 v1 builds and records Svelte `5.19.2`; changing the supported build version is a separate upgrade, not part of Phase 3 implementation.
+- Erasable `<script lang="ts">` syntax compiles without a preprocessor, non-erasable TypeScript and unsupported style/markup languages produce structured diagnostics, and the editor does not claim full TypeScript type checking.
+- Blocking npm/CDN access does not prevent the same-origin Worker toolchain from loading; Markdown editing and public routes contain no compiler, runtime registry, Rollup, or UnoCSS generator dependency.
 - `.md` and `.svelte` import/export follow Renderer Mode while public Paths remain extensionless.
-- `/api/playground/compile` remains until the client gate passes and is removed/migrated only at Phase 3 end.
+- Headless `.svelte` sync persists Source and reports browser Rebuild requirements without compiling in Node or on the server.
+- The legacy Playground and `/api/playground/compile` remain until the client gate passes and are deleted only at Phase 3 end.
 - Worker protocol, resolver, diagnostic mapping, preview, rebuild, version pinning, bundle inspection, `pnpm test`, lint, SQLite build, and Cloudflare build pass.
 
 ---
