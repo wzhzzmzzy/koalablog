@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { purge, restore, saveFile, trash } from '@/db/markdown'
 import { readCurrentRenderArtifact, readRenderArtifact, replaceCurrentRenderArtifact, replaceRenderArtifact } from '@/db/render-artifact'
+import { defineRenderArtifactContract } from '@/tests/shared/render-artifact-contract'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -210,4 +211,62 @@ describe('render Artifact persistence', () => {
     expect(await purge(env, file.id)).toEqual({ status: 'purged' })
     expect(await readRenderArtifact(env, file.id)).toBeUndefined()
   })
+})
+
+let contractDatabasePath = ''
+
+defineRenderArtifactContract({
+  name: 'SQLite',
+  env,
+  prepare: async () => {
+    contractDatabasePath = join(tmpdir(), `koalablog-render-artifact-contract-${randomUUID()}.db`)
+    vi.stubEnv('SQLITE_URL', `file:${contractDatabasePath}`)
+    const client = createClient({ url: `file:${contractDatabasePath}` })
+    await client.executeMultiple(`
+      PRAGMA foreign_keys = ON;
+      CREATE TABLE markdown (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        source integer NOT NULL,
+        path text NOT NULL,
+        title text NOT NULL,
+        renderer text DEFAULT 'markdown' NOT NULL,
+        content text NOT NULL,
+        sourceHash text NOT NULL,
+        tags text,
+        incoming_links text,
+        outgoing_links text,
+        private integer DEFAULT false NOT NULL,
+        remoteTruth integer DEFAULT false NOT NULL,
+        revision integer DEFAULT 1 NOT NULL,
+        createdAt integer DEFAULT (unixepoch()) NOT NULL,
+        updatedAt integer DEFAULT (unixepoch()) NOT NULL,
+        deletedAt integer
+      );
+      CREATE UNIQUE INDEX markdown_active_path_unique ON markdown (path) WHERE deletedAt IS NULL;
+      CREATE INDEX markdown_deleted_at_idx ON markdown (deletedAt);
+      CREATE TABLE markdown_render (
+        fileId integer PRIMARY KEY NOT NULL REFERENCES markdown(id) ON DELETE CASCADE,
+        schemaVersion integer NOT NULL,
+        renderer text NOT NULL,
+        svelteVersion text NOT NULL,
+        unocssVersion text NOT NULL,
+        unocssConfigHash text NOT NULL,
+        sourceHash text NOT NULL,
+        dependencies text NOT NULL,
+        artifactHash text NOT NULL,
+        javascriptResourceHash text NOT NULL,
+        cssResourceHash text NOT NULL,
+        javascript text NOT NULL,
+        css text NOT NULL,
+        snapshotHtml text NOT NULL,
+        createdAt integer DEFAULT (unixepoch()) NOT NULL,
+        updatedAt integer DEFAULT (unixepoch()) NOT NULL
+      );
+    `)
+    client.close()
+  },
+  cleanup: async () => {
+    vi.unstubAllEnvs()
+    await unlink(contractDatabasePath).catch(() => undefined)
+  },
 })
