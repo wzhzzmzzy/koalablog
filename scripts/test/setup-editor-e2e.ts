@@ -88,6 +88,17 @@ await database.insert(schema.markdown).values([
     incoming_links: '[]',
     outgoing_links: '[]',
   },
+  {
+    source: 20,
+    path: '/svelte-drift',
+    title: 'svelte-drift',
+    renderer: 'svelte',
+    content: '<p>Dependency drift must be reviewed</p>',
+    sourceHash: await calculateSourceHash('svelte', '<p>Dependency drift must be reviewed</p>'),
+    tags: '',
+    incoming_links: '[]',
+    outgoing_links: '[]',
+  },
 ])
 
 const [svelteFile] = await database.select().from(schema.markdown).where(eq(schema.markdown.path, '/svelte-public'))
@@ -108,4 +119,20 @@ const publicArtifact = {
 }
 const hashes = await calculateArtifactHashes(publicArtifact)
 await database.insert(schema.markdownRender).values({ fileId: svelteFile.id, ...publicArtifact, ...hashes })
+
+const [driftFile] = await database.select().from(schema.markdown).where(eq(schema.markdown.path, '/svelte-drift'))
+if (!driftFile)
+  throw new Error('Expected dependency-drift Svelte test File')
+
+const driftArtifact = {
+  ...publicArtifact,
+  sourceHash: driftFile.sourceHash,
+  dependencies: [{
+    url: 'https://example.test/dependency.js',
+    bytes: 1,
+    sha256: 'b'.repeat(64),
+  }],
+}
+const driftHashes = await calculateArtifactHashes(driftArtifact)
+await database.insert(schema.markdownRender).values({ fileId: driftFile.id, ...driftArtifact, ...driftHashes })
 database.$client.close()

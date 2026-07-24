@@ -13,9 +13,10 @@
     artifact?: PreviewArtifact | null
     onFocusReturn: () => void
     onPreviewError?: (error: Error | PreviewRuntimeErrorMessage) => void
+    onReady?: () => void
   }
 
-  let { artifact = null, onFocusReturn, onPreviewError = () => {} }: Props = $props()
+  let { artifact = null, onFocusReturn, onPreviewError = () => {}, onReady = () => {} }: Props = $props()
   let iframe: HTMLIFrameElement | undefined = $state()
   let srcdoc = $state('')
   let ready = $state(false)
@@ -45,8 +46,11 @@
   function iframeLoaded() {
     if (!rpc || !iframe || !srcdoc)
       return
+    const becameReady = !ready
     rpc.setTarget(iframe.contentWindow)
     ready = true
+    if (becameReady)
+      onReady()
   }
 
   export function focus() {
