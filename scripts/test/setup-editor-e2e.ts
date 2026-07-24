@@ -1,10 +1,13 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
 import * as schema from '../../src/db/schema'
 import { calculateSourceHash } from '../../src/lib/files/source-hash'
+import { calculateArtifactHashes } from '../../src/lib/svelte/artifact-hash'
+import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '../../src/lib/svelte/toolchain'
 
 const root = process.cwd()
 const dataDirectory = path.join(root, '.playwright')
@@ -74,5 +77,35 @@ await database.insert(schema.markdown).values([
     outgoing_links: '[]',
     deletedAt: new Date(),
   },
+  {
+    source: 20,
+    path: '/svelte-public',
+    title: 'svelte-public',
+    renderer: 'svelte',
+    content: '<p>Source must not render</p>',
+    sourceHash: await calculateSourceHash('svelte', '<p>Source must not render</p>'),
+    tags: '',
+    incoming_links: '[]',
+    outgoing_links: '[]',
+  },
 ])
+
+const [svelteFile] = await database.select().from(schema.markdown).where(eq(schema.markdown.path, '/svelte-public'))
+if (!svelteFile)
+  throw new Error('Expected public Svelte test File')
+
+const publicArtifact = {
+  schemaVersion: 1 as const,
+  renderer: 'svelte' as const,
+  svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
+  unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
+  unocssConfigHash: UNOCSS_CONFIG_HASH,
+  sourceHash: svelteFile.sourceHash,
+  dependencies: [],
+  javascript: '({ mount(target) { target.innerHTML = \'<p id="live-artifact">Live Artifact</p>\'; return {}; }, unmount() {} })',
+  css: ':where([data-koala-artifact-root]) .snapshot { color: rgb(1, 2, 3); }',
+  snapshotHtml: '<p class="snapshot">Snapshot Artifact</p><a href="/phase-two">Safe link</a>',
+}
+const hashes = await calculateArtifactHashes(publicArtifact)
+await database.insert(schema.markdownRender).values({ fileId: svelteFile.id, ...publicArtifact, ...hashes })
 database.$client.close()
