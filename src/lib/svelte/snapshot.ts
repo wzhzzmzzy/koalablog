@@ -34,3 +34,13 @@ export async function canonicalizeSnapshotHtml(html: string) {
 export async function isCanonicalSnapshotHtml(html: string) {
   return html === await canonicalizeSnapshotHtml(html)
 }
+
+export function snapshotDescription(html: string) {
+  const paragraphs = parse(html).querySelectorAll('p')
+  for (const paragraph of paragraphs) {
+    const text = paragraph.text.replace(/\s+/g, ' ').trim()
+    if (text)
+      return Array.from(text).slice(0, 160).join('')
+  }
+  return undefined
+}

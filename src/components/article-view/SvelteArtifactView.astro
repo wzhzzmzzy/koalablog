@@ -1,0 +1,15 @@
+---
+interface Props {
+  cssUrl: string
+  moduleUrl: string
+  snapshotHtml: string
+}
+
+const { cssUrl, moduleUrl, snapshotHtml } = Astro.props
+---
+
+<link rel="stylesheet" href={cssUrl} />
+<section data-koala-artifact-root data-koala-artifact-module={moduleUrl} data-koala-artifact-state="snapshot">
+  <div data-koala-artifact-snapshot set:html={snapshotHtml} />
+  <div data-koala-artifact-live hidden></div>
+</section>
