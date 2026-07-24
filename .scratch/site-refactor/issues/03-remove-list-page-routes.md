@@ -1,6 +1,6 @@
 # 03 — Remove the /posts and /memos list pages
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 
