@@ -33,7 +33,7 @@ class FakeDiagnosticWorker implements SvelteBuildWorker {
     this.disposed = true
   }
 
-  respond(requestId: number, diagnostics: SvelteWorkerClientState['diagnostics']['diagnostics']) {
+  respond(requestId: number, diagnostics: NonNullable<SvelteWorkerClientState['diagnostics']>['diagnostics']) {
     this.#listener?.({
       diagnostics: { type: 'diagnose-result', requestId, diagnostics },
       build: null,

@@ -17,6 +17,10 @@ interface BrowserPreviewFixture {
   runtimeErrors: string[]
 }
 
+function recordedHeaders(headers: Record<string, string> | null): Record<string, string> | null {
+  return headers
+}
+
 async function openEditor(page: Page) {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
@@ -28,13 +32,14 @@ async function installPreviewFixture(page: Page) {
     const srcdocModulePath = '/src/components/editor/svelte/preview-srcdoc.ts'
     const { SveltePreviewRpc } = await import(/* @vite-ignore */ protocolModulePath)
     const { createPreviewSrcdoc } = await import(/* @vite-ignore */ srcdocModulePath)
+    const body = document.body as unknown as HTMLBodyElement
     const focusTarget = document.createElement('button')
     focusTarget.textContent = 'Return focus target'
-    document.body.append(focusTarget)
+    body.appendChild(focusTarget)
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', 'allow-scripts')
     iframe.srcdoc = createPreviewSrcdoc()
-    document.body.append(iframe)
+    body.appendChild(iframe)
     await new Promise<void>((resolve, reject) => {
       iframe.addEventListener('load', () => resolve(), { once: true })
       iframe.addEventListener('error', () => reject(new Error('Preview iframe failed to load')), { once: true })
@@ -42,7 +47,7 @@ async function installPreviewFixture(page: Page) {
     const runtimeErrors: string[] = []
     const rpc = new SveltePreviewRpc({
       onFocusReturn: () => focusTarget.focus(),
-      onRuntimeError: error => runtimeErrors.push(error.message),
+      onRuntimeError: (error: { message: string }) => runtimeErrors.push(error.message),
     })
     rpc.setTarget(iframe.contentWindow!)
     Object.assign(window, { __koalaPreviewRpcFixture: { focusTarget, iframe, rpc, runtimeErrors } })
@@ -203,8 +208,9 @@ test('opaque Svelte Preview requests carry a null origin and no browser cookie',
   finally {
     await disposePreviewFixture(page)
   }
-  expect(previewRequestHeaders?.origin).toBe('null')
-  expect(previewRequestHeaders?.cookie).toBeUndefined()
+  const headers = recordedHeaders(previewRequestHeaders)
+  expect(headers?.origin).toBe('null')
+  expect(headers?.cookie).toBeUndefined()
 })
 
 test('opaque Svelte Preview captures DOM for shared Snapshot canonicalization', async ({ page }) => {

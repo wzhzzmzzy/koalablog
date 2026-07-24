@@ -1,3 +1,4 @@
+import type { SvelteDependencyManifestEntry } from '@/lib/svelte/contracts'
 import { purge, restore, saveFile, trash } from '@/db/markdown'
 import { readCurrentRenderArtifact, readRenderArtifact, replaceCurrentRenderArtifact, replaceRenderArtifact } from '@/db/render-artifact'
 import { artifactByteLengths, artifactLimitViolation, SVELTE_ARTIFACT_LIMITS } from '@/lib/svelte/artifact-limits'
@@ -19,7 +20,7 @@ function artifact(fileId: number, sourceHash: string, overrides: Record<string, 
     unocssVersion: '65.4.3',
     unocssConfigHash: 'a'.repeat(64),
     sourceHash,
-    dependencies: [],
+    dependencies: [] as SvelteDependencyManifestEntry[],
     artifactHash: 'b'.repeat(64),
     javascriptResourceHash: 'c'.repeat(64),
     cssResourceHash: 'd'.repeat(64),

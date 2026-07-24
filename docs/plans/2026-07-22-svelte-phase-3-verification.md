@@ -18,7 +18,7 @@ Status: **open**. This record is intentionally not a release sign-off.
 | Cloudflare build | pass | `pnpm run build:cf` completes with the Cloudflare adapter |
 | Standard build | blocked by repository setup | `pnpm run build` fails with Astro `NoAdapterInstalled`; this repository uses `build:cf` for server output |
 | Lint | blocked by existing baseline | `pnpm run lint` reports 405 errors across legacy docs, generated files, scripts, and user-owned local files |
-| Astro check | blocked by existing baseline | `pnpm exec astro check` reports 44 errors after Phase 3-specific D1 typing fixes |
+| Astro check | pass with existing hints | `pnpm exec astro check`: 0 errors, 9 pre-existing hints |
 | Browser suite | pass | `pnpm exec playwright test --reporter=list`: 47/47 tests. The suite uses one worker and restores the complete SQLite fixture before every test, so it no longer relies on cross-file timing or prior test mutations. |
 
 ## Covered behavior
@@ -39,6 +39,6 @@ Status: **open**. This record is intentionally not a release sign-off.
 
 ## Required remaining evidence
 
-- Resolve or formally baseline the lint and Astro-check diagnostics before claiming the automated gate passes.
+- Resolve or formally baseline the repository-wide lint diagnostics before claiming every quality gate passes.
 - Complete real-device checklist: native Chinese IME, physical touch, narrow mobile layout, JavaScript-disabled public Snapshot, initial mount failure, and dependency-network restrictions.
 - Obtain user sign-off before any production migration or maintenance operation.

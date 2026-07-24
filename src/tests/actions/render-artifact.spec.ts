@@ -27,8 +27,8 @@ const sourceHash = 'a'.repeat(64)
 function input(overrides: Record<string, unknown> = {}) {
   return {
     fileId: 7,
-    schemaVersion: 1,
-    renderer: 'svelte',
+    schemaVersion: 1 as const,
+    renderer: 'svelte' as const,
     svelteVersion: '5.19.2',
     unocssVersion: '65.4.3',
     unocssConfigHash: UNOCSS_CONFIG_HASH,

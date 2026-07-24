@@ -47,7 +47,7 @@ if (article.renderer === 'markdown') {
   activePaths = await readActivePaths(Astro.locals.runtime?.env)
   const rendered = await renderIt(isBigArticle, article, pageConfig.theme, activePaths)
   content = rendered.content
-  renderLangSet = rendered.renderLangSet
+  renderLangSet = rendered.renderLangSet ?? new Set<string>()
   firstParagraph = /<p>(.*?)<\/p>/.exec(content)
 }
 ---

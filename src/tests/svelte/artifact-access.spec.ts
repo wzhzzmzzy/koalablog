@@ -1,4 +1,4 @@
-import { decideArtifactAccess } from '@/lib/svelte/artifact-access'
+import { type ArtifactAccessInput, decideArtifactAccess } from '@/lib/svelte/artifact-access'
 import { describe, expect, it } from 'vitest'
 
 const activeFile = {
@@ -9,7 +9,7 @@ const activeFile = {
   sourceHash: 'a'.repeat(64),
 }
 
-function decide(overrides: Parameters<typeof decideArtifactAccess>[0] = {}) {
+function decide(overrides: Partial<ArtifactAccessInput> = {}) {
   return decideArtifactAccess({
     authenticated: false,
     artifactSourceHash: activeFile.sourceHash,

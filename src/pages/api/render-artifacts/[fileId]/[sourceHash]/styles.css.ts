@@ -4,7 +4,7 @@ import { artifactFileId, artifactResourceResponse, isArtifactResourceRequest, no
 
 export const GET: APIRoute = async (ctx) => {
   const { fileId, sourceHash } = ctx.params
-  if (!isArtifactResourceRequest(fileId, sourceHash))
+  if (!fileId || !sourceHash || !isArtifactResourceRequest(fileId, sourceHash))
     return noStoreResponse()
 
   const result = await readArtifactAccess(ctx.locals.runtime?.env || {}, {
