@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixture'
 
 test('mobile toolbar keeps every File control fully reachable', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')

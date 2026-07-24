@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixture'
 import { E2E_BASE_URL } from './test-config'
 import {
   buildSvelteSourceInBrowser,

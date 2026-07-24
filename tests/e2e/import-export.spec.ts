@@ -1,9 +1,10 @@
+import type { Page } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
-import { expect, type Page, test } from '@playwright/test'
 import { inArray } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { strFromU8, unzipSync } from 'fflate'
 import { markdown } from '../../src/db/schema'
+import { expect, test } from './fixture'
 
 interface MockDirectory {
   [name: string]: string | MockDirectory

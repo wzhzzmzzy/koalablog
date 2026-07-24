@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixture'
 
 test('public Svelte Artifact keeps Snapshot for no-JavaScript and mounts directly into page DOM', async ({ browser, page }) => {
   const noJavascript = await browser.newContext({ javaScriptEnabled: false })

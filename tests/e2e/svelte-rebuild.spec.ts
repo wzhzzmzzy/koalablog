@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixture'
 
 test('browser batch rebuild records success and dependency drift without auto-confirming it', async ({ page }) => {
   test.setTimeout(180_000)

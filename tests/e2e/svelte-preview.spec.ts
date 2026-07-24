@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixture'
 
 interface PreviewArtifact {
   css: string
@@ -281,14 +281,16 @@ test('editor builds a Svelte buffer only after Preview opens', async ({ page }) 
   await page.getByRole('radio', { name: 'Svelte' }).check()
   await expect(page.locator('[data-koala-svelte-preview]')).toHaveCount(0)
 
-  let workerLoadReloadedEditor = false
-  page.once('framenavigated', (frame) => {
-    workerLoadReloadedEditor ||= frame === page.mainFrame()
-  })
+  const workerLoadReloadedEditor = page.waitForEvent('framenavigated', {
+    predicate: frame => frame === page.mainFrame(),
+  }).then(() => true)
   await page.getByRole('button', { name: 'Preview File' }).click()
-  await page.waitForTimeout(1_000)
+  const reloadedEditor = await Promise.race([
+    workerLoadReloadedEditor,
+    page.waitForTimeout(5_000).then(() => false),
+  ])
 
-  if (workerLoadReloadedEditor) {
+  if (reloadedEditor) {
     await page.waitForLoadState('networkidle')
     await page.getByRole('radio', { name: 'Svelte' }).check()
     await page.getByRole('button', { name: 'Preview File' }).click()

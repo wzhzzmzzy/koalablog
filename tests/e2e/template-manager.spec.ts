@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixture'
 
 test.describe.configure({ timeout: 60_000 })
 

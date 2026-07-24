@@ -1,10 +1,11 @@
+import type { Locator, Page } from '@playwright/test'
 import type { RendererMode } from '../../src/lib/files/types'
 import { Buffer } from 'node:buffer'
-import { expect, type Locator, type Page, test } from '@playwright/test'
 import { eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { markdown } from '../../src/db/schema'
 import { calculateSourceHash } from '../../src/lib/files/source-hash'
+import { expect, test } from './fixture'
 
 const onePixelPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nJ8AAAAASUVORK5CYII=',
@@ -732,7 +733,7 @@ test('emptying the recycle bin discards every trashed File and selects a fallbac
   await page.getByRole('button', { name: 'Empty recycle bin' }).click()
 
   await expect(page.getByRole('textbox', { name: 'File Source for /phase-two' })).toBeVisible()
-  await expect(page.getByText('Permanently deleted 1 File(s)', { exact: true })).toBeVisible()
+  await expect(page.getByText('Permanently deleted 2 File(s)', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Empty recycle bin' })).toHaveCount(0)
 })
 

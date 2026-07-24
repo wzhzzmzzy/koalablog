@@ -18,8 +18,8 @@ Status: **open**. This record is intentionally not a release sign-off.
 | Cloudflare build | pass | `pnpm run build:cf` completes with the Cloudflare adapter |
 | Standard build | blocked by repository setup | `pnpm run build` fails with Astro `NoAdapterInstalled`; this repository uses `build:cf` for server output |
 | Lint | blocked by existing baseline | `pnpm run lint` reports 405 errors across legacy docs, generated files, scripts, and user-owned local files |
-| Astro check | blocked by existing baseline | `pnpm exec astro check` reports 47 errors after Phase 3-specific D1 typing fixes |
-| Browser suite | incomplete | focused import/export (3/3), Worker toolchain (4/4), and Markdown startup lazy-load tests pass; two full 47-test runs each stopped at 44/47 because of dev-server concurrency or shared SQLite test-order state, so neither is release evidence |
+| Astro check | blocked by existing baseline | `pnpm exec astro check` reports 44 errors after Phase 3-specific D1 typing fixes |
+| Browser suite | pass | `pnpm exec playwright test --reporter=list`: 47/47 tests. The suite uses one worker and restores the complete SQLite fixture before every test, so it no longer relies on cross-file timing or prior test mutations. |
 
 ## Covered behavior
 
@@ -28,6 +28,7 @@ Status: **open**. This record is intentionally not a release sign-off.
 - Worker compiler, resolver policy, browser Rollup bundle, UnoCSS root scope, Preview RPC, same-origin DOM mounting, and JavaScript-disabled Snapshot: unit and focused browser tests.
 - Browser batch rebuild records `dependency_changed` without confirmation; import saves Source before best-effort Svelte rebuild; sync-vault derives renderer from `.md`/`.svelte` and reports `rebuild_required`.
 - Preview now waits for an opaque `srcdoc` readiness message; import keeps its Snapshot iframe visually hidden but layout-participating so the canonical two-frame Snapshot capture can finish.
+- The E2E seed includes the initialized default memo Template Catalog, two trashed Files, and current/drift Svelte Artifacts. Its reset restores this complete product state without removing the database file held by the Astro process.
 - Legacy `/playground` and `/api/playground/compile` are deleted.
 
 ## Bundle inspection
@@ -38,7 +39,6 @@ Status: **open**. This record is intentionally not a release sign-off.
 
 ## Required remaining evidence
 
-- Run the complete Playwright suite to a final pass/fail summary in an environment that reliably returns the process result.
 - Resolve or formally baseline the lint and Astro-check diagnostics before claiming the automated gate passes.
 - Complete real-device checklist: native Chinese IME, physical touch, narrow mobile layout, JavaScript-disabled public Snapshot, initial mount failure, and dependency-network restrictions.
 - Obtain user sign-off before any production migration or maintenance operation.
