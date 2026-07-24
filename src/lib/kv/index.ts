@@ -47,8 +47,19 @@ export interface GlobalConfig {
 export interface SourceHashBackfillMaintenance {
   active: boolean
   applicationCommit?: string
+  operator?: string
   startedAt?: string
   completedAt?: string
+  progress?: {
+    afterId: number
+    done: boolean
+    batches: number
+    processed: number
+    updated: number
+    skipped: number
+    invalid: number
+    retried: number
+  }
   lastAudit?: {
     status: 'ready' | 'blocked'
     total: number
@@ -148,6 +159,10 @@ function mergeGlobalConfig(currentConfig: GlobalConfig, patch: Partial<GlobalCon
 
 export function sourceHashBackfillMaintenance(config: GlobalConfig): SourceHashBackfillMaintenance {
   return config.maintenance?.sourceHashBackfill ?? { active: false }
+}
+
+export async function sourceHashBackfillMaintenanceActive(env?: Env): Promise<boolean> {
+  return sourceHashBackfillMaintenance(await globalConfig(env)).active
 }
 
 export async function putGlobalConfig(

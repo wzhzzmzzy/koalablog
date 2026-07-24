@@ -1,6 +1,6 @@
 import { incrementToday } from '@/db/ossAccess'
 import { authInterceptor } from '@/lib/auth'
-import { globalConfig, sourceHashBackfillMaintenance } from '@/lib/kv'
+import { sourceHashBackfillMaintenanceActive } from '@/lib/kv'
 import { type ActionAPIContext, ActionError } from 'astro:actions'
 
 export async function authGuard(ctx: ActionAPIContext) {
@@ -14,8 +14,7 @@ export async function authGuard(ctx: ActionAPIContext) {
 }
 
 export async function sourceHashMaintenanceWriteGuard(ctx: ActionAPIContext) {
-  const config = await globalConfig(ctx.locals.runtime?.env)
-  if (sourceHashBackfillMaintenance(config).active) {
+  if (await sourceHashBackfillMaintenanceActive(ctx.locals.runtime?.env)) {
     throw new ActionError({
       code: 'CONFLICT',
       message: 'File writes are unavailable while Source Hash maintenance is active',

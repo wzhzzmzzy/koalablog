@@ -1,25 +1,9 @@
 <script lang="ts">
   import { actions } from 'astro:actions'
+  import type { SourceHashBackfillMaintenance } from '@/lib/kv'
   import { onMount } from 'svelte'
 
-  type Maintenance = {
-    active: boolean
-    applicationCommit?: string
-    startedAt?: string
-    completedAt?: string
-    lastAudit?: AuditSummary
-  }
-
-  type AuditSummary = {
-    status: 'ready' | 'blocked'
-    total: number
-    active: number
-    recycled: number
-    current: number
-    missing: number
-    mismatched: number
-    invalid: number
-  }
+  type Maintenance = SourceHashBackfillMaintenance
 
   type BackfillBatch = {
     done: boolean
@@ -35,6 +19,8 @@
 
   let maintenance = $state<Maintenance>({ active: false })
   let commit = $state('')
+  let operator = $state('')
+  let sourceHashSchemaReady = $state(false)
   let message = $state('')
   let error = $state('')
   let loading = $state(true)
@@ -54,18 +40,19 @@
       error = describeError(result.error)
       return
     }
-    maintenance = result.data
+    maintenance = result.data.maintenance
+    sourceHashSchemaReady = result.data.sourceHashSchemaReady
     commit = maintenance.applicationCommit || commit
   }
 
   async function startMaintenance() {
-    if (!commit || !window.confirm('Enable read-only maintenance mode before backfilling Source Hashes?'))
+    if (!commit || !operator || !window.confirm('Enable read-only maintenance mode before backfilling Source Hashes?'))
       return
 
     running = true
     error = ''
     message = ''
-    const result = await actions.db.sourceHashMaintenance.start({ applicationCommit: commit })
+    const result = await actions.db.sourceHashMaintenance.start({ applicationCommit: commit, operator })
     running = false
     if (result.error) {
       error = describeError(result.error)
@@ -82,7 +69,7 @@
     error = ''
     message = ''
     latestBatch = null
-    let afterId = 0
+    let afterId = maintenance.progress?.afterId || 0
 
     while (true) {
       const result = await actions.db.sourceHashMaintenance.backfill({ afterId, batchSize: 100 })
@@ -90,12 +77,13 @@
         error = describeError(result.error)
         break
       }
-      latestBatch = result.data
-      if (result.data.done) {
-        message = `Backfill finished. Updated ${result.data.counts.updated} Source Hashes in the final batch; run audit next.`
+      latestBatch = result.data.batch
+      maintenance = result.data.maintenance
+      if (result.data.batch.done) {
+        message = `Backfill finished. Updated ${maintenance.progress?.updated || 0} Source Hashes; run audit next.`
         break
       }
-      afterId = result.data.nextAfterId
+      afterId = result.data.batch.nextAfterId
     }
     running = false
   }
@@ -157,23 +145,30 @@
   {:else if !maintenance.active}
     <label class="flex max-w-xl flex-col gap-1">
       <span>Compatible deployed Git commit</span>
-      <input class="input font-mono" bind:value={commit} placeholder="e.g. 07def36d6a19" aria-describedby="source-hash-commit-help" />
-      <span id="source-hash-commit-help" class="text-sm opacity-75">Required for the maintenance record. Deploy the compatible application after migration 0003 first.</span>
+      <input class="input font-mono" bind:value={commit} placeholder="Exact deployed Git SHA" aria-describedby="source-hash-commit-help" />
+      <span id="source-hash-commit-help" class="text-sm opacity-75">Must exactly match the deployed application marker. Deploy the compatible application after migration 0003 first.</span>
+      <span>Operator</span>
+      <input class="input" bind:value={operator} placeholder="Your name" />
+      <span class="text-sm opacity-75">Schema migration 0003: {sourceHashSchemaReady ? 'ready' : 'not detected — do not start maintenance.'}</span>
     </label>
   {:else}
-    <p class="m-0 text-sm">Started {maintenance.startedAt || 'unknown time'} for commit <code>{maintenance.applicationCommit}</code>. File writes are blocked while this card is active.</p>
+    <p class="m-0 text-sm">Started {maintenance.startedAt || 'unknown time'} by {maintenance.operator || 'unknown operator'} for commit <code>{maintenance.applicationCommit}</code>. File writes are blocked while this card is active.</p>
   {/if}
 
   {#if maintenance.lastAudit}
-    <div class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" aria-label="Source Hash audit summary">
-      <span>Total: {maintenance.lastAudit.total}</span>
-      <span>Current: {maintenance.lastAudit.current}</span>
-      <span>Missing: {maintenance.lastAudit.missing}</span>
-      <span>Mismatched: {maintenance.lastAudit.mismatched}</span>
-      <span>Invalid: {maintenance.lastAudit.invalid}</span>
-      <span>Recycled: {maintenance.lastAudit.recycled}</span>
-      <span class:font-bold={maintenance.lastAudit.status === 'ready'}>Audit: {maintenance.lastAudit.status}</span>
-    </div>
+    <dl class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+      <div><dt class="inline">Total: </dt><dd class="inline">{maintenance.lastAudit.total}</dd></div>
+      <div><dt class="inline">Current: </dt><dd class="inline">{maintenance.lastAudit.current}</dd></div>
+      <div><dt class="inline">Missing: </dt><dd class="inline">{maintenance.lastAudit.missing}</dd></div>
+      <div><dt class="inline">Mismatched: </dt><dd class="inline">{maintenance.lastAudit.mismatched}</dd></div>
+      <div><dt class="inline">Invalid: </dt><dd class="inline">{maintenance.lastAudit.invalid}</dd></div>
+      <div><dt class="inline">Recycled: </dt><dd class="inline">{maintenance.lastAudit.recycled}</dd></div>
+      <div class:font-bold={maintenance.lastAudit.status === 'ready'}><dt class="inline">Audit: </dt><dd class="inline">{maintenance.lastAudit.status}</dd></div>
+    </dl>
+  {/if}
+
+  {#if maintenance.progress}
+    <p class="m-0 text-sm">Backfill progress: {maintenance.progress.batches} batches, {maintenance.progress.processed} processed, {maintenance.progress.updated} updated, {maintenance.progress.invalid} invalid. {maintenance.progress.done ? 'All currently missing rows were processed.' : `Resume cursor: ${maintenance.progress.afterId}.`}</p>
   {/if}
 
   {#if latestBatch}
@@ -189,7 +184,8 @@
 
   <div class="flex flex-wrap gap-2">
     {#if !maintenance.active}
-      <button class="btn" type="button" disabled={running || !commit} onclick={startMaintenance}>Start maintenance</button>
+      <button class="btn" type="button" disabled={running || !sourceHashSchemaReady || !commit || !operator} onclick={startMaintenance}>Start maintenance</button>
+      <button class="btn" type="button" disabled={running || !sourceHashSchemaReady} onclick={runAudit}>Check readiness</button>
     {:else}
       <button class="btn" type="button" disabled={running} onclick={runBackfill}>Run backfill</button>
       <button class="btn" type="button" disabled={running} onclick={runAudit}>Audit</button>

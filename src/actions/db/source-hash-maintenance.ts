@@ -1,4 +1,4 @@
-import { auditStoredSourceHashes, backfillSourceHashBatch } from '@/db/source-hash-maintenance'
+import { auditStoredSourceHashes, backfillSourceHashBatch, hasSourceHashSchema } from '@/db/source-hash-maintenance'
 import { readTemplateCatalog, upgradeStoredTemplateCatalog } from '@/db/template-catalog'
 import {
   globalConfig,
@@ -11,6 +11,7 @@ import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
 
 const applicationCommit = z.string().regex(/^[0-9a-f]{7,64}$/i, 'Commit must be a Git SHA')
+const operator = z.string().trim().min(1, 'Operator is required').max(128)
 const batchInput = z.object({
   afterId: z.number().int().nonnegative().default(0),
   batchSize: z.number().int().min(1).max(500).default(100),
@@ -18,6 +19,21 @@ const batchInput = z.object({
 
 function blocked(message: string): never {
   throw new ActionError({ code: 'CONFLICT', message })
+}
+
+function deployedApplicationCommit(env: Env | undefined): string {
+  const deployment = env as (Env & {
+    KOALA_RELEASE_COMMIT?: string
+    CF_PAGES_COMMIT_SHA?: string
+  }) | undefined
+  const commit = deployment?.KOALA_RELEASE_COMMIT ?? deployment?.CF_PAGES_COMMIT_SHA
+  if (!commit || !/^[0-9a-f]{7,64}$/i.test(commit))
+    blocked('Source Hash maintenance requires a configured deployed Git commit')
+  return commit.toLowerCase()
+}
+
+function initialProgress(): NonNullable<SourceHashBackfillMaintenance['progress']> {
+  return { afterId: 0, done: false, batches: 0, processed: 0, updated: 0, skipped: 0, invalid: 0, retried: 0 }
 }
 
 function auditRecord(report: Awaited<ReturnType<typeof auditStoredSourceHashes>>) {
@@ -56,19 +72,28 @@ export const status = defineAction({
   input: z.object({}).strict().default({}),
   handler: async (_, ctx) => {
     await authGuard(ctx)
-    return currentMaintenance(ctx.locals.runtime?.env)
+    const env = ctx.locals.runtime?.env
+    return {
+      maintenance: await currentMaintenance(env),
+      sourceHashSchemaReady: await hasSourceHashSchema(env),
+    }
   },
 })
 
 export const start = defineAction({
   accept: 'json',
-  input: z.object({ applicationCommit }).strict(),
-  handler: async ({ applicationCommit }, ctx) => {
+  input: z.object({ applicationCommit, operator }).strict(),
+  handler: async ({ applicationCommit, operator }, ctx) => {
     await authGuard(ctx)
     const env = ctx.locals.runtime?.env
+    const deployedCommit = deployedApplicationCommit(env)
+    if (applicationCommit.toLowerCase() !== deployedCommit)
+      blocked('The supplied commit does not match the deployed application commit')
+    if (!await hasSourceHashSchema(env))
+      blocked('Source Hash schema is unavailable; apply migration 0003 before maintenance')
     const existing = await currentMaintenance(env)
     if (existing.active) {
-      if (existing.applicationCommit !== applicationCommit)
+      if (existing.applicationCommit !== applicationCommit.toLowerCase())
         blocked('Source Hash maintenance is already active for another application commit')
       return { maintenance: existing, templateCatalog: await prepareTemplateCatalog(env) }
     }
@@ -76,10 +101,12 @@ export const start = defineAction({
     const templateCatalog = await prepareTemplateCatalog(env)
     const maintenance: SourceHashBackfillMaintenance = {
       active: true,
-      applicationCommit,
+      applicationCommit: deployedCommit,
+      operator,
       startedAt: new Date().toISOString(),
       completedAt: undefined,
       lastAudit: undefined,
+      progress: initialProgress(),
     }
     await updateGlobalConfig(env || {}, { maintenance: { sourceHashBackfill: maintenance } })
     return { maintenance, templateCatalog }
@@ -92,8 +119,27 @@ export const backfill = defineAction({
   handler: async ({ afterId, batchSize }, ctx) => {
     await authGuard(ctx)
     const env = ctx.locals.runtime?.env
-    await requireActiveMaintenance(env)
-    return backfillSourceHashBatch(env, { afterId, limit: batchSize })
+    const maintenance = await requireActiveMaintenance(env)
+    const progress = maintenance.progress ?? initialProgress()
+    if (afterId !== progress.afterId)
+      blocked(JSON.stringify({ code: 'source_hash_backfill_cursor_conflict', expectedAfterId: progress.afterId }))
+
+    const batch = await backfillSourceHashBatch(env, { afterId, limit: batchSize })
+    const updatedMaintenance: SourceHashBackfillMaintenance = {
+      ...maintenance,
+      progress: {
+        afterId: batch.nextAfterId,
+        done: batch.done,
+        batches: progress.batches + 1,
+        processed: progress.processed + batch.counts.processed,
+        updated: progress.updated + batch.counts.updated,
+        skipped: progress.skipped + batch.counts.skipped,
+        invalid: progress.invalid + batch.counts.invalid,
+        retried: progress.retried + batch.counts.retried,
+      },
+    }
+    await updateGlobalConfig(env || {}, { maintenance: { sourceHashBackfill: updatedMaintenance } })
+    return { batch, maintenance: updatedMaintenance }
   },
 })
 

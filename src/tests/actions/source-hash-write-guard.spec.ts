@@ -2,21 +2,18 @@ import { sourceHashMaintenanceWriteGuard } from '@/actions/utils/auth'
 import { describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  globalConfig: vi.fn(),
-  sourceHashBackfillMaintenance: vi.fn(),
+  sourceHashBackfillMaintenanceActive: vi.fn(),
 }))
 
 vi.mock('@/lib/kv', () => ({
-  globalConfig: mocks.globalConfig,
-  sourceHashBackfillMaintenance: mocks.sourceHashBackfillMaintenance,
+  sourceHashBackfillMaintenanceActive: mocks.sourceHashBackfillMaintenanceActive,
 }))
 
 const context = { locals: { runtime: { env: { DB: 'db' } } } } as any
 
 describe('Source Hash maintenance write guard', () => {
   it('blocks ordinary File writes while the migration owns the write window', async () => {
-    mocks.globalConfig.mockResolvedValue({})
-    mocks.sourceHashBackfillMaintenance.mockReturnValue({ active: true })
+    mocks.sourceHashBackfillMaintenanceActive.mockResolvedValue(true)
 
     await expect(sourceHashMaintenanceWriteGuard(context)).rejects.toMatchObject({
       code: 'CONFLICT',
@@ -25,8 +22,7 @@ describe('Source Hash maintenance write guard', () => {
   })
 
   it('allows writes after maintenance is complete', async () => {
-    mocks.globalConfig.mockResolvedValue({})
-    mocks.sourceHashBackfillMaintenance.mockReturnValue({ active: false })
+    mocks.sourceHashBackfillMaintenanceActive.mockResolvedValue(false)
 
     await expect(sourceHashMaintenanceWriteGuard(context)).resolves.toBeUndefined()
   })

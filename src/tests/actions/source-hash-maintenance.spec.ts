@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),
   backfillSourceHashBatch: vi.fn(),
   globalConfig: vi.fn(),
+  hasSourceHashSchema: vi.fn(),
   readTemplateCatalog: vi.fn(),
   sourceHashBackfillMaintenance: vi.fn(),
   updateGlobalConfig: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
 vi.mock('@/db/source-hash-maintenance', () => ({
   auditStoredSourceHashes: mocks.auditStoredSourceHashes,
   backfillSourceHashBatch: mocks.backfillSourceHashBatch,
+  hasSourceHashSchema: mocks.hasSourceHashSchema,
 }))
 vi.mock('@/db/template-catalog', () => ({
   readTemplateCatalog: mocks.readTemplateCatalog,
@@ -27,7 +29,7 @@ vi.mock('@/lib/kv', () => ({
   updateGlobalConfig: mocks.updateGlobalConfig,
 }))
 
-const env = { DB: 'db' }
+const env = { DB: 'db', KOALA_RELEASE_COMMIT: 'abcdef1' }
 const context = { locals: { runtime: { env }, session: { role: 'admin' } } } as any
 const inactive = { active: false }
 const active = { active: true, applicationCommit: '1234567', startedAt: '2026-07-24T00:00:00.000Z' }
@@ -36,6 +38,7 @@ describe('Source Hash maintenance Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.globalConfig.mockResolvedValue({})
+    mocks.hasSourceHashSchema.mockResolvedValue(true)
     mocks.sourceHashBackfillMaintenance.mockReturnValue(inactive)
   })
 
@@ -43,13 +46,13 @@ describe('Source Hash maintenance Actions', () => {
     mocks.readTemplateCatalog.mockResolvedValue({ status: 'ready', catalog: { schemaVersion: 1, revision: 4 } })
     mocks.upgradeStoredTemplateCatalog.mockResolvedValue({ status: 'upgraded', catalog: { schemaVersion: 2, revision: 5 } })
 
-    await expect(start.orThrow.call(context, { applicationCommit: 'abcdef1' })).resolves.toMatchObject({
-      maintenance: { active: true, applicationCommit: 'abcdef1' },
+    await expect(start.orThrow.call(context, { applicationCommit: 'abcdef1', operator: 'Amber' })).resolves.toMatchObject({
+      maintenance: { active: true, applicationCommit: 'abcdef1', operator: 'Amber' },
       templateCatalog: { status: 'upgraded' },
     })
     expect(mocks.updateGlobalConfig).toHaveBeenCalledWith(env, {
       maintenance: {
-        sourceHashBackfill: expect.objectContaining({ active: true, applicationCommit: 'abcdef1' }),
+        sourceHashBackfill: expect.objectContaining({ active: true, applicationCommit: 'abcdef1', operator: 'Amber' }),
       },
     })
     expect(mocks.upgradeStoredTemplateCatalog).toHaveBeenCalledWith(env, 4)
@@ -61,6 +64,61 @@ describe('Source Hash maintenance Actions', () => {
       message: 'Source Hash maintenance is not active',
     })
     expect(mocks.backfillSourceHashBatch).not.toHaveBeenCalled()
+  })
+
+  it('continues only from the persisted cursor and records cumulative batch progress', async () => {
+    mocks.sourceHashBackfillMaintenance.mockReturnValue({
+      ...active,
+      progress: { afterId: 12, done: false, batches: 2, processed: 200, updated: 199, skipped: 1, invalid: 0, retried: 0 },
+    })
+    mocks.backfillSourceHashBatch.mockResolvedValue({
+      nextAfterId: 18,
+      done: false,
+      counts: { processed: 100, updated: 100, skipped: 0, invalid: 0, retried: 1 },
+    })
+
+    await expect(backfill.orThrow.call(context, { afterId: 12, batchSize: 100 })).resolves.toMatchObject({
+      batch: { nextAfterId: 18 },
+      maintenance: {
+        progress: { afterId: 18, batches: 3, processed: 300, updated: 299, retried: 1 },
+      },
+    })
+    expect(mocks.updateGlobalConfig).toHaveBeenCalledWith(env, {
+      maintenance: {
+        sourceHashBackfill: expect.objectContaining({
+          progress: expect.objectContaining({ afterId: 18, batches: 3 }),
+        }),
+      },
+    })
+  })
+
+  it('rejects a stale browser cursor instead of restarting a recorded migration', async () => {
+    mocks.sourceHashBackfillMaintenance.mockReturnValue({
+      ...active,
+      progress: { afterId: 12, done: false, batches: 2, processed: 200, updated: 199, skipped: 1, invalid: 0, retried: 0 },
+    })
+
+    await expect(backfill.orThrow.call(context, { afterId: 0, batchSize: 100 })).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: expect.stringContaining('source_hash_backfill_cursor_conflict'),
+    })
+    expect(mocks.backfillSourceHashBatch).not.toHaveBeenCalled()
+  })
+
+  it('rejects a commit that does not match the deployment marker', async () => {
+    await expect(start.orThrow.call(context, { applicationCommit: '1234567', operator: 'Amber' })).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'The supplied commit does not match the deployed application commit',
+    })
+  })
+
+  it('refuses to enter maintenance before migration 0003 creates the Source Hash schema', async () => {
+    mocks.hasSourceHashSchema.mockResolvedValue(false)
+
+    await expect(start.orThrow.call(context, { applicationCommit: 'abcdef1', operator: 'Amber' })).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'Source Hash schema is unavailable; apply migration 0003 before maintenance',
+    })
   })
 
   it('audits Source Hashes and records the compact audit summary', async () => {
@@ -115,6 +173,9 @@ describe('Source Hash maintenance Actions', () => {
   it('reports the persisted maintenance record to an admin', async () => {
     mocks.sourceHashBackfillMaintenance.mockReturnValue(active)
 
-    await expect(status.orThrow.call(context, {})).resolves.toEqual(active)
+    await expect(status.orThrow.call(context, {})).resolves.toEqual({
+      maintenance: active,
+      sourceHashSchemaReady: true,
+    })
   })
 })

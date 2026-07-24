@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   readCurrentRenderArtifact: vi.fn(),
   readAll: vi.fn(),
   saveSyncedFile: vi.fn(),
+  sourceHashBackfillMaintenanceActive: vi.fn(),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -29,6 +30,10 @@ vi.mock('@/db/render-artifact', () => ({
   readCurrentRenderArtifact: mocks.readCurrentRenderArtifact,
 }))
 
+vi.mock('@/lib/kv', () => ({
+  sourceHashBackfillMaintenanceActive: mocks.sourceHashBackfillMaintenanceActive,
+}))
+
 function createContext(request: Request) {
   return {
     request,
@@ -43,6 +48,7 @@ function createContext(request: Request) {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.readCurrentRenderArtifact.mockResolvedValue(undefined)
+  mocks.sourceHashBackfillMaintenanceActive.mockResolvedValue(false)
 })
 
 describe('markdown batch API reads and deletes', () => {
@@ -124,6 +130,33 @@ describe('markdown batch API reads and deletes', () => {
 })
 
 describe('markdown batch API Source validation', () => {
+  it('rejects sync writes while Source Hash maintenance is active', async () => {
+    mocks.sourceHashBackfillMaintenanceActive.mockResolvedValue(true)
+
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([]),
+    })))
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: 'File writes are unavailable while Source Hash maintenance is active' })
+    expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
+  })
+
+  it('rejects sync trash while Source Hash maintenance is active', async () => {
+    mocks.sourceHashBackfillMaintenanceActive.mockResolvedValue(true)
+
+    const response = await DELETE(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify(['/wiki/a']),
+    })))
+
+    expect(response.status).toBe(409)
+    expect(mocks.batchTrashByPaths).not.toHaveBeenCalled()
+  })
+
   it('rejects an independently supplied Title from batch Source writes', async () => {
     const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
       method: 'POST',

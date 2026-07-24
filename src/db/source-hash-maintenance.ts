@@ -76,6 +76,16 @@ export function createSourceHashMaintenanceStore(env?: Env): SourceHashMaintenan
   }
 }
 
+export async function hasSourceHashSchema(env?: Env): Promise<boolean> {
+  try {
+    await connectDB(env).select().from(markdown).limit(1)
+    return true
+  }
+  catch {
+    return false
+  }
+}
+
 function validateBatchLimit(limit: number): void {
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_MAINTENANCE_BATCH_SIZE)
     throw new RangeError(`Source Hash maintenance limit must be between 1 and ${MAX_MAINTENANCE_BATCH_SIZE}`)
