@@ -1,6 +1,6 @@
 # 04 — Consolidate article routes into the catch-all
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 

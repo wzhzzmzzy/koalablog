@@ -4,6 +4,7 @@ import ArticleClient from '@/components/article-view/client.astro'
 import ArticleView from '@/components/article-view/index.astro'
 import { readActivePaths, readByPath } from '@/db/markdown'
 import Layout from '@/layouts/home.astro'
+import { getDisplayTitle } from '@/lib/files/display-title'
 import { renderIt } from '@/lib/markdown/render-it'
 import { retriveRss } from '@/lib/utils/rss'
 
@@ -30,9 +31,10 @@ const isBigArticle = (maybePage?.content || '').length > 1000
 const activePaths = await readActivePaths(Astro.locals.runtime?.env)
 const { content, renderLangSet } = await renderIt(isBigArticle, maybePage, pageConfig.theme, activePaths)
 const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
+const displayTitle = getDisplayTitle(maybePage)
 ---
 
-<Layout title={maybePage!.title} desc={firstParagraph?.[1]}>
+<Layout title={displayTitle} desc={firstParagraph?.[1]}>
   {
     !isBigArticle
     ? <ArticleView article={maybePage} content={content} />
