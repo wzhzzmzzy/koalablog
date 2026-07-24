@@ -46,10 +46,10 @@ afterEach(async () => {
 
 describe('file Prefix refresh', () => {
   it('returns only Files directly under the Prefix', async () => {
-    await add(env, { path: '/root', renderer: 'markdown', content: 'root' })
-    await add(env, { path: '/project/inside', renderer: 'markdown', content: 'inside' })
-    await add(env, { path: '/project/nested/deep', renderer: 'markdown', content: 'deep' })
-    await add(env, { path: '/project/nested/deeper/hidden', renderer: 'markdown', content: 'hidden' })
+    await add(env, { path: '/root', renderer: 'markdown', content: 'root', userId: 1 })
+    await add(env, { path: '/project/inside', renderer: 'markdown', content: 'inside', userId: 1 })
+    await add(env, { path: '/project/nested/deep', renderer: 'markdown', content: 'deep', userId: 1 })
+    await add(env, { path: '/project/nested/deeper/hidden', renderer: 'markdown', content: 'hidden', userId: 1 })
 
     const rootFiles = await readByPrefix(env, '/')
     const projectFiles = await readByPrefix(env, '/project/')
@@ -63,8 +63,8 @@ describe('file Prefix refresh', () => {
   })
 
   it('matches an absolute Prefix at a complete Path-segment boundary', async () => {
-    await add(env, { path: '/project/inside', renderer: 'markdown', content: 'inside' })
-    await add(env, { path: '/projected/outside', renderer: 'markdown', content: 'outside' })
+    await add(env, { path: '/project/inside', renderer: 'markdown', content: 'inside', userId: 1 })
+    await add(env, { path: '/projected/outside', renderer: 'markdown', content: 'outside', userId: 1 })
 
     const files = await readByPrefix(env, '/project/')
 
@@ -72,10 +72,10 @@ describe('file Prefix refresh', () => {
   })
 
   it('treats SQL wildcard characters in a Prefix as literal Path characters', async () => {
-    await add(env, { path: '/project_/inside', renderer: 'markdown', content: 'underscore' })
-    await add(env, { path: '/projectX/other', renderer: 'markdown', content: 'outside' })
-    await add(env, { path: '/100%/inside', renderer: 'markdown', content: 'percent' })
-    await add(env, { path: '/100x/other', renderer: 'markdown', content: 'outside' })
+    await add(env, { path: '/project_/inside', renderer: 'markdown', content: 'underscore', userId: 1 })
+    await add(env, { path: '/projectX/other', renderer: 'markdown', content: 'outside', userId: 1 })
+    await add(env, { path: '/100%/inside', renderer: 'markdown', content: 'percent', userId: 1 })
+    await add(env, { path: '/100x/other', renderer: 'markdown', content: 'outside', userId: 1 })
 
     const underscore = await readByPrefix(env, '/project_/')
     const percent = await readByPrefix(env, '/100%/')
@@ -85,7 +85,7 @@ describe('file Prefix refresh', () => {
   })
 
   it('matches a Unicode Prefix by code point rather than UTF-16 length', async () => {
-    await add(env, { path: '/😀/inside', renderer: 'markdown', content: 'emoji' })
+    await add(env, { path: '/😀/inside', renderer: 'markdown', content: 'emoji', userId: 1 })
 
     const files = await readByPrefix(env, '/😀/')
 

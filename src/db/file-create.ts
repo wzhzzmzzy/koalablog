@@ -9,7 +9,7 @@ const FILE_CREATION_ATTEMPT_LIMIT = 100
 
 export interface CreateFileInput {
   targetPrefix: string
-  userId?: number
+  userId: number
 }
 
 export type CreateFileResult =

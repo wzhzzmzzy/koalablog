@@ -16,8 +16,8 @@ describe('Gate 1D D1 File creation', () => {
     await replaceTemplateCatalog(env, catalog.revision, [])
 
     const results = await Promise.all([
-      createFile(env, { targetPrefix: '/wiki/' }),
-      createFile(env, { targetPrefix: '/wiki/' }),
+      createFile(env, { targetPrefix: '/wiki/', userId: 1 }),
+      createFile(env, { targetPrefix: '/wiki/', userId: 1 }),
     ])
 
     expect(results.map(result => result.status === 'created' ? result.file.path : result.status).sort())
@@ -45,7 +45,7 @@ describe('Gate 1D D1 File creation', () => {
       content,
     }])
 
-    const result = await createFile(env, { targetPrefix: '/app/' })
+    const result = await createFile(env, { targetPrefix: '/app/', userId: 1 })
 
     expect(result).toMatchObject({
       status: 'created',

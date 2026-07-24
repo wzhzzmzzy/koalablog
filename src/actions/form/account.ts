@@ -80,7 +80,6 @@ export const createUser = defineAction({
   input: z.object({
     username: z.string().min(1),
     password: z.string().min(1),
-    role: z.enum(['admin', 'member']).default('member'),
   }),
   handler: async (input, ctx) => {
     await authGuard(ctx)
@@ -92,7 +91,7 @@ export const createUser = defineAction({
       })
     }
     const { salt, hash } = await hashPassword(input.password)
-    return insertUser(env, { username: input.username, passwordHash: hash, passwordSalt: salt, role: input.role })
+    return insertUser(env, { username: input.username, passwordHash: hash, passwordSalt: salt, role: 'member' })
   },
 })
 

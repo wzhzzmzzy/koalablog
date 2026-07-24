@@ -96,7 +96,7 @@ describe('server File creation Template resolution', () => {
       fixedTemplate({ id: 'post', content: 'post {{title}} at {{path}}' }),
     ])
 
-    const result = await createFile(env, { targetPrefix: '/post/project/' })
+    const result = await createFile(env, { targetPrefix: '/post/project/', userId: 1 })
 
     expect(result).toMatchObject({
       status: 'created',
@@ -116,7 +116,7 @@ describe('server File creation Template resolution', () => {
     vi.setSystemTime(new Date(2026, 6, 16, 6, 7))
     await ensureTemplateCatalogInitialized(env)
 
-    const result = await createFile(env, { targetPrefix: '/memo/project/' })
+    const result = await createFile(env, { targetPrefix: '/memo/project/', userId: 1 })
 
     expect(result).toMatchObject({
       status: 'created',
@@ -131,7 +131,7 @@ describe('server File creation Template resolution', () => {
       renderer: 'svelte',
     }])
 
-    const result = await createFile(env, { targetPrefix: '/app/' })
+    const result = await createFile(env, { targetPrefix: '/app/', userId: 1 })
 
     expect(result).toMatchObject({
       status: 'created',
@@ -152,7 +152,7 @@ describe('server File creation Template resolution', () => {
       payload: JSON.stringify([fixedTemplate({ content: '' })]),
     })
 
-    const result = await createFile(env, { targetPrefix: '/post/' })
+    const result = await createFile(env, { targetPrefix: '/post/', userId: 1 })
 
     expect(result).toMatchObject({
       status: 'created',
@@ -173,8 +173,8 @@ describe('server File creation collision behavior', () => {
     await storeTemplates([])
 
     const [first, second] = await Promise.all([
-      createFile(env, { targetPrefix: '/wiki/' }),
-      createFile(env, { targetPrefix: '/wiki/' }),
+      createFile(env, { targetPrefix: '/wiki/', userId: 1 }),
+      createFile(env, { targetPrefix: '/wiki/', userId: 1 }),
     ])
 
     expect([first, second].map(result => result.status === 'created' ? result.file.path : result.status).sort())
@@ -194,9 +194,9 @@ describe('server File creation collision behavior', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 6, 16, 6, 7))
     await ensureTemplateCatalogInitialized(env)
-    await batchAdd(env, [{ path: '/memo/202607160607', renderer: 'markdown', content: 'occupied' }])
+    await batchAdd(env, [{ path: '/memo/202607160607', renderer: 'markdown', content: 'occupied', userId: 1 }])
 
-    const result = await createFile(env, { targetPrefix: '/memo/' })
+    const result = await createFile(env, { targetPrefix: '/memo/', userId: 1 })
 
     expect(result).toMatchObject({
       status: 'created',
@@ -206,9 +206,9 @@ describe('server File creation collision behavior', () => {
 
   it('returns path_conflict without renaming a fixed Template result', async () => {
     await storeTemplates([fixedTemplate()])
-    await batchAdd(env, [{ path: '/post/welcome', renderer: 'markdown', content: 'occupied' }])
+    await batchAdd(env, [{ path: '/post/welcome', renderer: 'markdown', content: 'occupied', userId: 1 }])
 
-    expect(await createFile(env, { targetPrefix: '/post/' })).toEqual({
+    expect(await createFile(env, { targetPrefix: '/post/', userId: 1 })).toEqual({
       status: 'path_conflict',
       path: '/post/welcome',
     })
@@ -220,9 +220,10 @@ describe('server File creation collision behavior', () => {
       path: `/wiki/unnamed${index === 0 ? '' : `-${index}`}`,
       renderer: 'markdown' as const,
       content: 'occupied',
+      userId: 1,
     })))
 
-    expect(await createFile(env, { targetPrefix: '/wiki/' })).toEqual({
+    expect(await createFile(env, { targetPrefix: '/wiki/', userId: 1 })).toEqual({
       status: 'path_conflict',
       path: '/wiki/unnamed-99',
     })
@@ -233,6 +234,6 @@ describe('server File creation Catalog state', () => {
   useFileCreationDatabase()
 
   it('does not synthesize a Template or Blank Creation when the Catalog is absent', async () => {
-    expect(await createFile(env, { targetPrefix: '/' })).toEqual({ status: 'catalog_absent' })
+    expect(await createFile(env, { targetPrefix: '/', userId: 1 })).toEqual({ status: 'catalog_absent' })
   })
 })

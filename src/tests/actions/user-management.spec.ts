@@ -100,15 +100,15 @@ describe('user management', () => {
     const { salt: msalt, hash: mhash } = await hashPassword('member-pw')
     const member = await createUser(env, { username: 'member', passwordHash: mhash, passwordSalt: msalt, role: 'member' })
 
-    await expect(createUserAction.orThrow.call(createContext(member.id), { username: 'blocked', password: 'x', role: 'member' }))
+    await expect(createUserAction.orThrow.call(createContext(member.id), { username: 'blocked', password: 'x' }))
       .rejects
       .toMatchObject({ code: 'UNAUTHORIZED' })
 
-    const created = await createUserAction.orThrow.call(createContext(admin.id), { username: 'friend', password: 'initial-pw', role: 'member' })
+    const created = await createUserAction.orThrow.call(createContext(admin.id), { username: 'friend', password: 'initial-pw' })
     expect(created).toMatchObject({ username: 'friend', role: 'member' })
     expect(await verifyPassword('initial-pw', { salt: created.passwordSalt, hash: created.passwordHash })).toBe(true)
 
-    await expect(createUserAction.orThrow.call(createContext(admin.id), { username: 'friend', password: 'x', role: 'member' }))
+    await expect(createUserAction.orThrow.call(createContext(admin.id), { username: 'friend', password: 'x' }))
       .rejects
       .toMatchObject({ code: 'CONFLICT' })
 

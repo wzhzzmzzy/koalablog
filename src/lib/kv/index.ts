@@ -36,8 +36,6 @@ export interface GlobalConfig {
   }
   _runtime: {
     ready: boolean
-    refresh_token?: string
-    refresh_expired_at?: number
   }
 }
 

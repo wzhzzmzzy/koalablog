@@ -29,7 +29,7 @@ declare global {
       config: import('@/lib/kv').GlobalConfig
       session: {
         userId: number | null
-        role: 'admin' | 'member' | ''
+        role: import('./lib/auth/session').UserRole | ''
       }
       OSS?: SQLiteBlobStorage
     }

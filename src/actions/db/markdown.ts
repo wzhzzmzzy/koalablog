@@ -37,7 +37,7 @@ export const create = defineAction({
   }).strict(),
   handler: async (input, ctx) => {
     await loginGuard(ctx)
-    const result = await createFile(ctx.locals.runtime?.env, { ...input, userId: ctx.locals.session.userId ?? undefined })
+    const result = await createFile(ctx.locals.runtime?.env, { ...input, userId: ctx.locals.session.userId! })
     if (result.status === 'path_conflict') {
       throw new ActionError({
         code: 'CONFLICT',
@@ -177,6 +177,7 @@ export const batchImport = defineAction({
         renderer: file.renderer,
         content: file.content,
         private: parsed.value.startsWith('/memo/'),
+        userId: ctx.locals.session.userId!,
       }
     })
     return batchAdd(ctx.locals.runtime?.env, files)

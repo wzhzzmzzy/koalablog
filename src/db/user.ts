@@ -1,3 +1,5 @@
+import type { UserRole } from '@/lib/auth/session'
+import { verifyPassword } from '@/lib/auth/password'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { connectDB } from '.'
 import { apiToken, markdown, user } from './schema'
@@ -6,7 +8,7 @@ export interface CreateUserInput {
   username: string
   passwordHash: string
   passwordSalt: string
-  role: 'admin' | 'member'
+  role: UserRole
 }
 
 export async function countUsers(env: Env): Promise<number> {
@@ -37,6 +39,20 @@ export async function createApiToken(env: Env, input: { userId: number, tokenHas
 
 export function assignAllFilesToUser(env: Env, userId: number) {
   return connectDB(env).update(markdown).set({ userId }).where(isNull(markdown.userId))
+}
+
+const DUMMY_PASSWORD_HASH = {
+  salt: '0123456789abcdeffedcba9876543210',
+  hash: 'f5975e897ff04dd78637fb6ba396b0fb7242af2a21428a4171140e985c5696fc',
+}
+
+export async function verifyUserCredentials(env: Env, username: string, password: string) {
+  const found = await findUserByUsername(env, username)
+  const stored = found
+    ? { salt: found.passwordSalt, hash: found.passwordHash }
+    : DUMMY_PASSWORD_HASH
+  const valid = await verifyPassword(password, stored)
+  return found && valid ? found : null
 }
 
 export function updateUserPassword(env: Env, userId: number, input: { passwordHash: string, passwordSalt: string }) {

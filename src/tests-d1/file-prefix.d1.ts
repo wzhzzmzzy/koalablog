@@ -11,10 +11,10 @@ describe('D1 File Prefix refresh', () => {
   })
 
   it('returns only Files directly under the Prefix', async () => {
-    await add(env, { path: '/root', renderer: 'markdown', content: 'root' })
-    await add(env, { path: '/project/inside', renderer: 'markdown', content: 'inside' })
-    await add(env, { path: '/project/nested/deep', renderer: 'markdown', content: 'deep' })
-    await add(env, { path: '/project/nested/deeper/hidden', renderer: 'markdown', content: 'hidden' })
+    await add(env, { path: '/root', renderer: 'markdown', content: 'root', userId: 1 })
+    await add(env, { path: '/project/inside', renderer: 'markdown', content: 'inside', userId: 1 })
+    await add(env, { path: '/project/nested/deep', renderer: 'markdown', content: 'deep', userId: 1 })
+    await add(env, { path: '/project/nested/deeper/hidden', renderer: 'markdown', content: 'hidden', userId: 1 })
 
     const rootFiles = await readByPrefix(env, '/')
     const projectFiles = await readByPrefix(env, '/project/')

@@ -1,12 +1,7 @@
-import { findUserByUsername } from '@/db/user'
-import { verifyPassword } from '@/lib/auth/password'
-import { createSession, deleteSession, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from '@/lib/auth/session'
+import { verifyUserCredentials } from '@/db/user'
+import { clearSessionCookie, createSession, deleteSession, SESSION_COOKIE_NAME, setSessionCookie } from '@/lib/auth/session'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-
-const prodCookieParams = import.meta.env.MODE === 'development'
-  ? {}
-  : { secure: true }
 
 export const login = defineAction({
   accept: 'json',
@@ -16,11 +11,8 @@ export const login = defineAction({
   }),
   handler: async (input, ctx) => {
     const env = ctx.locals.runtime?.env ?? {} as Env
-    const user = await findUserByUsername(env, input.username)
-    const passwordValid = user
-      ? await verifyPassword(input.password, { salt: user.passwordSalt, hash: user.passwordHash })
-      : false
-    if (!user || !passwordValid) {
+    const user = await verifyUserCredentials(env, input.username, input.password)
+    if (!user) {
       throw new ActionError({
         message: 'Invalid username or password',
         code: 'UNAUTHORIZED',
@@ -28,13 +20,7 @@ export const login = defineAction({
     }
 
     const sessionId = await createSession(env, { userId: user.id, role: user.role })
-    ctx.cookies.set(SESSION_COOKIE_NAME, sessionId, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      expires: new Date(Date.now() + SESSION_TTL_SECONDS * 1000),
-      ...prodCookieParams,
-    })
+    setSessionCookie(ctx, sessionId)
   },
 })
 
@@ -45,6 +31,6 @@ export const logout = defineAction({
     const sessionId = ctx.cookies.get(SESSION_COOKIE_NAME)?.value
     if (sessionId)
       await deleteSession(ctx.locals.runtime?.env, sessionId)
-    ctx.cookies.delete(SESSION_COOKIE_NAME, { path: '/' })
+    clearSessionCookie(ctx)
   },
 })

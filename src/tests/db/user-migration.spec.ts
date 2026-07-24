@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { batchAdd, justReadAll } from '@/db/markdown'
+import { justReadAll } from '@/db/markdown'
 import { countUsers, findApiTokenByHash, findUserByUsername } from '@/db/user'
 import { ensureUserMigration } from '@/db/user-migration'
 import { hashApiToken } from '@/lib/auth/api-token'
@@ -14,9 +14,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const env = {} as Env
 
-function useUserMigrationDatabase() {
-  let databasePath: string
+let databasePath: string
 
+function useUserMigrationDatabase() {
   beforeEach(async () => {
     databasePath = join(tmpdir(), `koalablog-user-migration-${randomUUID()}.db`)
     vi.stubEnv('SQLITE_URL', `file:${databasePath}`)
@@ -89,10 +89,14 @@ describe('first User migration', () => {
   useUserMigrationDatabase()
 
   it('migrates the admin key into the first User and retires key-based auth config', async () => {
-    await batchAdd(env, [
-      { path: '/post/a', renderer: 'markdown', content: '' },
-      { path: '/memo/b', renderer: 'markdown', content: '' },
-    ])
+    const client = createClient({ url: `file:${databasePath}` })
+    await client.executeMultiple(`
+      INSERT INTO markdown (source, path, title, renderer, content, sourceHash, private, remoteTruth)
+      VALUES
+        (10, '/post/a', 'a', 'markdown', '', 'hash-a', 0, 1),
+        (30, '/memo/b', 'b', 'markdown', '', 'hash-b', 1, 1);
+    `)
+    client.close()
     const storage = memoryConfigStorage({ adminKey: 'old-admin-key', guestKey: 'guest-pass', bearerToken: 'bearer-abc' })
 
     await ensureUserMigration(env, { configStorage: storage })

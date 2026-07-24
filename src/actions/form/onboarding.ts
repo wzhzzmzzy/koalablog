@@ -1,14 +1,10 @@
 import { ensureTemplateCatalogInitialized } from '@/db/template-catalog'
 import { createUser } from '@/db/user'
 import { hashPassword } from '@/lib/auth/password'
-import { createSession, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from '@/lib/auth/session'
+import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { globalConfig, putGlobalConfig } from '@/lib/kv'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-
-const prodCookieParams = import.meta.env.MODE === 'development'
-  ? {}
-  : { secure: true }
 
 export const onboarding = defineAction({
   accept: 'json',
@@ -38,13 +34,7 @@ export const onboarding = defineAction({
     })
 
     const sessionId = await createSession(env, { userId: user.id, role: user.role })
-    ctx.cookies.set(SESSION_COOKIE_NAME, sessionId, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      expires: new Date(Date.now() + SESSION_TTL_SECONDS * 1000),
-      ...prodCookieParams,
-    })
+    setSessionCookie(ctx, sessionId)
 
     await putGlobalConfig(env, {
       oss: {

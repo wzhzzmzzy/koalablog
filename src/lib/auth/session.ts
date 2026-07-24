@@ -5,9 +5,11 @@ import { storage } from '@/lib/kv/local'
 export const SESSION_COOKIE_NAME = 'koala-session'
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7
 
+export type UserRole = 'admin' | 'member'
+
 export interface SessionRecord {
   userId: number
-  role: 'admin' | 'member'
+  role: UserRole
   expiresAt: number
 }
 
@@ -62,7 +64,7 @@ function sessionIndexKey(userId: number) {
 
 export async function createSession(
   env: Env | undefined,
-  input: { userId: number, role: 'admin' | 'member' },
+  input: { userId: number, role: UserRole },
   kv?: SessionKv,
 ): Promise<string> {
   const store = kv ?? resolveSessionKv(env)
@@ -116,4 +118,29 @@ export async function deleteSessionsForUser(
       await store.delete(sessionKey(id))
   }
   await store.set(indexKey, survivors)
+}
+
+const prodCookieParams = import.meta.env.MODE === 'development'
+  ? {}
+  : { secure: true }
+
+interface SessionCookieContext {
+  cookies: {
+    set: (key: string, value: string, options: Record<string, unknown>) => void
+    delete: (key: string, options: Record<string, unknown>) => void
+  }
+}
+
+export function setSessionCookie(ctx: SessionCookieContext, sessionId: string) {
+  ctx.cookies.set(SESSION_COOKIE_NAME, sessionId, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    expires: new Date(Date.now() + SESSION_TTL_SECONDS * 1000),
+    ...prodCookieParams,
+  })
+}
+
+export function clearSessionCookie(ctx: SessionCookieContext) {
+  ctx.cookies.delete(SESSION_COOKIE_NAME, { path: '/' })
 }

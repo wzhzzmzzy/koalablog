@@ -26,7 +26,7 @@ export interface BatchFileInput {
   createdAt?: Date
   updatedAt?: Date
   deletedAt?: Date
-  userId?: number
+  userId: number
 }
 
 export type SaveFileResult =
