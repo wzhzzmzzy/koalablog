@@ -3,7 +3,7 @@ import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { purge, restore, saveFile, trash } from '@/db/markdown'
-import { readCurrentRenderArtifact, readRenderArtifact, replaceRenderArtifact } from '@/db/render-artifact'
+import { readCurrentRenderArtifact, readRenderArtifact, replaceCurrentRenderArtifact, replaceRenderArtifact } from '@/db/render-artifact'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -159,6 +159,26 @@ describe('render Artifact persistence', () => {
       throw new Error('Expected exact Svelte Source reversion to succeed')
     expect(reverted.file.sourceHash).toBe(original.sourceHash)
     expect(await readCurrentRenderArtifact(env, original.id)).toMatchObject(stored)
+  })
+
+  it('does not replace the existing Artifact when Source changes before the conditional attach', async () => {
+    const original = await createSvelteFile()
+    await replaceRenderArtifact(env, artifact(original.id, original.sourceHash, 'export const version = "A"'))
+    const before = await readRenderArtifact(env, original.id)
+    const changed = await saveFile(env, {
+      id: original.id,
+      path: original.path,
+      renderer: 'svelte',
+      content: '<h1>Changed</h1>',
+      private: false,
+      baseRevision: original.revision,
+    })
+    if (changed.status !== 'saved')
+      throw new Error('Expected Source change to succeed')
+
+    const attached = await replaceCurrentRenderArtifact(env, artifact(original.id, original.sourceHash, 'export const version = "B"'))
+    expect(attached).toBeUndefined()
+    expect(await readRenderArtifact(env, original.id)).toEqual(before)
   })
 
   it('preserves an Artifact in trash, restores its currentness, and cascades it away on purge', async () => {

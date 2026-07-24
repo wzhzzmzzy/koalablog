@@ -1,5 +1,5 @@
 import type { SvelteArtifactHashes, SvelteArtifactInputV1 } from '@/lib/svelte/contracts'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { connectDB } from '.'
 import { markdown, markdownRender } from './schema'
 
@@ -18,6 +18,46 @@ export async function replaceRenderArtifact(env: Env, artifact: StoredRenderArti
 
 export function readRenderArtifact(env: Env, fileId: number) {
   return connectDB(env).query.markdownRender.findFirst({ where: eq(markdownRender.fileId, fileId) })
+}
+
+export async function replaceCurrentRenderArtifact(env: Env, artifact: StoredRenderArtifact) {
+  const now = Math.floor(Date.now() / 1000)
+  const dependencies = JSON.stringify(artifact.dependencies)
+  const result = await connectDB(env).run(sql`
+    INSERT INTO markdown_render (
+      fileId, schemaVersion, renderer, svelteVersion, unocssVersion, unocssConfigHash,
+      sourceHash, dependencies, artifactHash, javascriptResourceHash, cssResourceHash,
+      javascript, css, snapshotHtml, createdAt, updatedAt
+    )
+    SELECT
+      ${artifact.fileId}, ${artifact.schemaVersion}, ${artifact.renderer}, ${artifact.svelteVersion},
+      ${artifact.unocssVersion}, ${artifact.unocssConfigHash}, ${artifact.sourceHash}, ${dependencies},
+      ${artifact.artifactHash}, ${artifact.javascriptResourceHash}, ${artifact.cssResourceHash},
+      ${artifact.javascript}, ${artifact.css}, ${artifact.snapshotHtml}, ${now}, ${now}
+    WHERE EXISTS (
+      SELECT 1 FROM markdown
+      WHERE id = ${artifact.fileId}
+        AND renderer = 'svelte'
+        AND sourceHash = ${artifact.sourceHash}
+        AND deletedAt IS NULL
+    )
+    ON CONFLICT(fileId) DO UPDATE SET
+      schemaVersion = excluded.schemaVersion,
+      renderer = excluded.renderer,
+      svelteVersion = excluded.svelteVersion,
+      unocssVersion = excluded.unocssVersion,
+      unocssConfigHash = excluded.unocssConfigHash,
+      sourceHash = excluded.sourceHash,
+      dependencies = excluded.dependencies,
+      artifactHash = excluded.artifactHash,
+      javascriptResourceHash = excluded.javascriptResourceHash,
+      cssResourceHash = excluded.cssResourceHash,
+      javascript = excluded.javascript,
+      css = excluded.css,
+      snapshotHtml = excluded.snapshotHtml,
+      updatedAt = excluded.updatedAt
+  `)
+  return result.rowsAffected === 1 ? artifact : undefined
 }
 
 export async function readCurrentRenderArtifact(env: Env, fileId: number) {
