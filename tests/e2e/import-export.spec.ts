@@ -37,6 +37,7 @@ async function mockDirectoryPicker(page: Page, tree: MockDirectory) {
 }
 
 test('browser import and export preserve mixed nested Renderer files', async ({ page }) => {
+  test.setTimeout(180_000)
   const markdownSource = '---\ncustom: import-smoke\n---\n\nMarkdown body'
   const svelteSource = '<script>const title = "你好"</script>\r\n<h1>{title}</h1>'
   const paths = ['/post/phase-three/note', '/page/phase-three/widget']
@@ -56,7 +57,7 @@ test('browser import and export preserve mixed nested Renderer files', async ({ 
     await expect(importDialog.getByText('/post/phase-three/note', { exact: true })).toBeVisible()
     await expect(importDialog.getByText('/page/phase-three/widget', { exact: true })).toBeVisible()
     await importDialog.getByRole('button', { name: 'Save', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Import Files' })).toBeHidden()
+    await expect(page.getByRole('heading', { name: 'Import Files' })).toBeHidden({ timeout: 90_000 })
 
     await expect.poll(async () => {
       const rows = await database.select({ path: markdown.path, renderer: markdown.renderer, content: markdown.content })

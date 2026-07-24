@@ -117,6 +117,8 @@ function bootstrapScript(parentOrigin: string) {
       message('koala-preview-focus-return', active.commandId);
     }
   });
+
+  message('koala-preview-ready');
 })();`
 }
 

@@ -30,6 +30,7 @@
   onMount(() => {
     rpc = new SveltePreviewRpc({
       onFocusReturn,
+      onReady: previewReady,
       onRuntimeError: reportError,
     })
     srcdoc = createPreviewSrcdoc(window.location.origin)
@@ -44,13 +45,16 @@
   })
 
   function iframeLoaded() {
-    if (!rpc || !iframe || !srcdoc)
+    if (!rpc || !iframe)
       return
-    const becameReady = !ready
     rpc.setTarget(iframe.contentWindow)
+  }
+
+  function previewReady() {
+    if (ready)
+      return
     ready = true
-    if (becameReady)
-      onReady()
+    onReady()
   }
 
   export function focus() {

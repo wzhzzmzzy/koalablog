@@ -5,7 +5,7 @@ import {
   diagnoseSvelteSourceInBrowser,
 } from './toolchain'
 
-const toolchainRequestPattern = /artifact\.worker|\/toolchain(?:[.-]|$)|bindings_wasm|runtime-registry|svelte_compiler|rollup_browser|unocss_core|unocss_preset|unocss_transformer/
+const toolchainRequestPattern = /artifact\.worker|bindings_wasm|runtime-registry|svelte[_-]compiler|rollup[._-]browser|unocss[_-](?:core|preset|transformer)/
 const remoteToolchainHostPattern = /registry\.npmjs\.org|esm\.sh|unpkg\.com|cdn\.jsdelivr\.net/
 
 test.describe.configure({ timeout: 60_000 })

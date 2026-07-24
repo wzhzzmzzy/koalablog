@@ -45,6 +45,21 @@ function commandId(target: FakeMessageTarget) {
 }
 
 describe('svelte Preview RPC', () => {
+  it('accepts readiness only from the current opaque iframe', () => {
+    const eventTarget = new FakeMessageEventTarget()
+    const iframe = new FakeMessageTarget()
+    const ready: string[] = []
+    const rpc = new SveltePreviewRpc({ eventTarget, onReady: () => ready.push('ready') })
+    rpc.setTarget(iframe)
+
+    eventTarget.emit({ type: 'koala-preview-ready' }, new FakeMessageTarget() as unknown as MessageEventSource)
+    eventTarget.emit({ type: 'koala-preview-ready' }, iframe as unknown as MessageEventSource, 'https://koalablog.invalid')
+    eventTarget.emit({ type: 'koala-preview-ready' }, iframe as unknown as MessageEventSource)
+
+    expect(ready).toEqual(['ready'])
+    rpc.dispose()
+  })
+
   it('returns Snapshot HTML only from the current opaque iframe command', async () => {
     const eventTarget = new FakeMessageEventTarget()
     const iframe = new FakeMessageTarget()

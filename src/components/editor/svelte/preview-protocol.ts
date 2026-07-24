@@ -43,7 +43,11 @@ export interface PreviewFocusReturnMessage {
   commandId: number
 }
 
-export type PreviewParentMessage = PreviewCompleteMessage | PreviewSnapshotMessage | PreviewErrorMessage | PreviewRuntimeErrorMessage | PreviewFocusReturnMessage
+export interface PreviewReadyMessage {
+  type: 'koala-preview-ready'
+}
+
+export type PreviewParentMessage = PreviewCompleteMessage | PreviewSnapshotMessage | PreviewErrorMessage | PreviewRuntimeErrorMessage | PreviewFocusReturnMessage | PreviewReadyMessage
 
 export interface PreviewMessageTarget {
   postMessage: (message: unknown, targetOrigin: string) => void
@@ -57,6 +61,7 @@ export interface PreviewMessageEventTarget {
 export interface SveltePreviewRpcOptions {
   eventTarget?: PreviewMessageEventTarget
   onFocusReturn?: (commandId: number) => void
+  onReady?: () => void
   onRuntimeError?: (error: PreviewRuntimeErrorMessage) => void
   timeoutMs?: number
 }
@@ -88,6 +93,8 @@ export function isPreviewParentMessage(value: unknown): value is PreviewParentMe
   if (!value || typeof value !== 'object')
     return false
   const message = value as { type?: unknown, commandId?: unknown, html?: unknown, message?: unknown }
+  if (message.type === 'koala-preview-ready')
+    return true
   if (!isCommandId(message.commandId))
     return false
   if (message.type === 'koala-preview-complete' || message.type === 'koala-preview-focus-return')
@@ -122,6 +129,7 @@ export class PreviewCommandTimeoutError extends PreviewCommandError {
 export class SveltePreviewRpc {
   #eventTarget: PreviewMessageEventTarget
   #onFocusReturn: (commandId: number) => void
+  #onReady: () => void
   #onRuntimeError: (error: PreviewRuntimeErrorMessage) => void
   #target: PreviewMessageTarget | null = null
   #timeoutMs: number
@@ -134,6 +142,7 @@ export class SveltePreviewRpc {
     this.#eventTarget = options.eventTarget ?? currentWindow()
     this.#timeoutMs = options.timeoutMs ?? 5_000
     this.#onFocusReturn = options.onFocusReturn ?? (() => {})
+    this.#onReady = options.onReady ?? (() => {})
     this.#onRuntimeError = options.onRuntimeError ?? (() => {})
     this.#eventTarget.addEventListener('message', this.#onMessage)
   }
@@ -185,6 +194,10 @@ export class SveltePreviewRpc {
     if (event.origin !== opaqueIframeOrigin || event.source !== this.#target || !isPreviewParentMessage(event.data))
       return
     const message = event.data
+    if (message.type === 'koala-preview-ready') {
+      this.#onReady()
+      return
+    }
     if (message.commandId !== this.#latestCommandId)
       return
     if (message.type === 'koala-preview-focus-return') {

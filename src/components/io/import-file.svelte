@@ -432,6 +432,6 @@ const onSave = async () => {
 
 </section>
 
-<div class="hidden" aria-hidden="true">
+<div class="fixed left-0 top-0 h-16 w-16 overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
   <SveltePreview bind:this={preview} onFocusReturn={() => {}} onReady={() => { previewReady = true }} />
 </div>
