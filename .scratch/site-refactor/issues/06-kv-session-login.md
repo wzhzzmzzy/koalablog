@@ -4,7 +4,7 @@ Status: ready-for-agent
 
 ## What to build
 
-Replace JWT authentication with server-side Sessions per ADR-0007. The login action takes a username and password, verifies against the user table, creates a Session record in KV (native TTL in Cloudflare KV, the local file store in standalone mode), and sets an opaque session cookie; logout deletes that one session. Middleware resolves the session cookie to the current User (id and role) on every request, and an API Token presented as a bearer credential resolves to its owning User through the same path. The login page gets username and password fields. The JWT helpers (sign/verify, refresh-token flow, md5 refresh key) are removed.
+Replace JWT authentication with server-side Sessions per ADR-0011. The login action takes a username and password, verifies against the user table, creates a Session record in KV (native TTL in Cloudflare KV, the local file store in standalone mode), and sets an opaque session cookie; logout deletes that one session. Middleware resolves the session cookie to the current User (id and role) on every request, and an API Token presented as a bearer credential resolves to its owning User through the same path. The login page gets username and password fields. The JWT helpers (sign/verify, refresh-token flow, md5 refresh key) are removed.
 
 ## Acceptance criteria
 

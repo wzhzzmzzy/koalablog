@@ -4,14 +4,20 @@
   import { onMount, tick } from 'svelte';
   import { md } from '@/lib/markdown';
   import { getDisplayTitle } from '@/lib/files/display-title';
+  import { RENDERER_MODE, type RendererMode } from '@/lib/files/types';
   import type MarkdownIt from 'markdown-it';
   import { actions } from 'astro:actions';
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
   import EditorContent from './EditorContent.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
+  import { SvelteBuildController } from './svelte/build-controller.svelte';
+  import DependencyDriftDialog from './svelte/DependencyDriftDialog.svelte';
+  import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain';
+  import type { SvelteBuildSuccess } from '@/lib/svelte/contracts';
+  import type { DependencyDiff } from '@/lib/svelte/dependency-diff';
   import { findPreviousActiveFile, formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
   import type { TextEditorHandle } from './TextEditor.svelte';
-  import { editBuffers, editBufferServerValues, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
+  import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
   import { editorStore, upsertItem, popHistory, setCurrentFile, notify } from './store.svelte';
   interface Props {
 			file: FileRecord;
@@ -21,6 +27,7 @@
 			}
   let { file, onSave, onUpdate, onPurge }: Props = $props()
   const initialBuffer = editBuffers.get(file.id)
+  let rendererValue = $state(initialBuffer?.renderer ?? file.renderer)
   let sourceValue = $state(initialBuffer?.content ?? file.content ?? '')
   let privateValue = $state(initialBuffer?.private ?? file.private ?? false)
   let previewHtml = $state('')
@@ -33,11 +40,15 @@
   let trashed = $derived(Boolean(file.deletedAt))
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
   let editorContent: TextEditorHandle | undefined = $state()
+  const svelteBuildController = new SvelteBuildController()
 
   function isDirtyAgainst(server: FileRecord) {
-    return pathValue !== server.path
-      || sourceValue !== (server.content ?? '')
-      || privateValue !== server.private
+    return isEditBufferDirty({
+      path: pathValue,
+      renderer: rendererValue,
+      content: sourceValue,
+      private: privateValue,
+    }, server)
   }
 
   function syncEditBuffer(server: FileRecord) {
@@ -46,6 +57,7 @@
       setEditBuffer({
         fileId: server.id,
         path: pathValue,
+        renderer: rendererValue,
         content: sourceValue,
         private: privateValue,
         baseRevision: baseRevisionValue,
@@ -70,6 +82,7 @@
   $effect.pre(() => {
     const data = file
     const buffer = editBuffers.get(data.id)
+    rendererValue = buffer?.renderer ?? data.renderer;
     sourceValue = buffer?.content ?? data.content ?? '';
     privateValue = buffer?.private ?? data.private ?? false;
     pathValue = buffer?.path ?? data.path ?? '';
@@ -79,6 +92,15 @@
 
   $effect(() => {
      refreshPreview()
+  })
+
+  $effect(() => {
+    svelteBuildController.diagnose({
+      fileId: file.id,
+      renderer: rendererValue,
+      source: sourceValue,
+      enabled: !trashed,
+    })
   })
 
   $effect(() => {
@@ -104,6 +126,8 @@
       window.removeEventListener('keydown', handleKeydown)
     }
   })
+
+  onMount(() => () => svelteBuildController.dispose())
 
   $effect(() => {
       if (mdInstance && editorStore.items.length > 0) {
@@ -150,6 +174,142 @@
   }
 
   let showPreview = $state(false)
+  let previewBuildKey = ''
+  let svelteArtifact = $derived(svelteBuildController.build?.type === 'build-success'
+    ? { css: svelteBuildController.build.css, javascript: svelteBuildController.build.javascript }
+    : null)
+  let svelteBuildError = $derived(svelteBuildController.build?.type === 'build-error'
+    ? svelteBuildController.build.error.message
+    : null)
+  let pendingBuild = $state<SvelteBuildSuccess | null>(null)
+  let pendingDependencyReview = $state<{ currentArtifactHash: string, proposedArtifactHash: string, diff: DependencyDiff } | null>(null)
+
+  async function currentSavedBuild() {
+    const buffer = {
+      enabled: true,
+      fileId: file.id,
+      renderer: file.renderer,
+      source: file.content,
+      sourceHash: file.sourceHash,
+    }
+    await svelteBuildController.saved(buffer)
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const build = svelteBuildController.build
+      if (build?.type === 'build-success')
+        return build
+      if (build?.type === 'build-error')
+        throw new Error(build.error.message)
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    throw new Error('Svelte Artifact build timed out')
+  }
+
+  function dependencyReview(error: { message: string }) {
+    try {
+      const detail = JSON.parse(error.message) as { code?: string, currentArtifactHash?: string, proposedArtifactHash?: string, diff?: DependencyDiff }
+      return detail.code === 'dependency_changed'
+        && detail.currentArtifactHash && detail.proposedArtifactHash
+        ? detail
+        : undefined
+    }
+    catch {
+      return undefined
+    }
+  }
+
+  async function attachSavedBuild(build: SvelteBuildSuccess, confirmation?: { currentArtifactHash: string, proposedArtifactHash: string }) {
+    const artifact = { css: build.css, javascript: build.javascript }
+    const snapshotHtml = await editorContent?.snapshotSvelteArtifact(artifact)
+    if (!snapshotHtml)
+      throw new Error('Svelte Preview did not produce an Artifact Snapshot')
+    return actions.db.renderArtifact.attach({
+      fileId: file.id,
+      schemaVersion: 1,
+      renderer: 'svelte',
+      svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
+      unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
+      unocssConfigHash: UNOCSS_CONFIG_HASH,
+      sourceHash: file.sourceHash,
+      dependencies: build.dependencies,
+      javascript: build.javascript,
+      css: build.css,
+      snapshotHtml,
+      ...(confirmation ? { confirmation } : {}),
+    })
+  }
+
+  async function rebuild(e: Event) {
+    e.preventDefault()
+    if (trashed || rendererValue !== RENDERER_MODE.Svelte)
+      return
+    if (changed) {
+      notify('warning', 'Save Source before rebuilding its Artifact.', 4000)
+      return
+    }
+    try {
+      showPreview = true
+      await tick()
+      const build = await currentSavedBuild()
+      const result = await attachSavedBuild(build)
+      if (!result.error) {
+        notify('success', 'Svelte Artifact rebuilt.', 3000)
+        return
+      }
+      const review = dependencyReview(result.error)
+      if (!review) {
+        notify('error', formatFileSaveError(result.error))
+        return
+      }
+      pendingBuild = build
+      pendingDependencyReview = review as { currentArtifactHash: string, proposedArtifactHash: string, diff: DependencyDiff }
+    }
+    catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Svelte Artifact rebuild failed')
+    }
+  }
+
+  async function approveDependencyReplacement() {
+    const build = pendingBuild
+    const review = pendingDependencyReview
+    pendingBuild = null
+    pendingDependencyReview = null
+    if (!build || !review)
+      return
+    try {
+      const confirmed = await attachSavedBuild(build, review)
+      if (confirmed.error)
+        notify('error', formatFileSaveError(confirmed.error))
+      else
+        notify('success', 'Svelte Artifact rebuilt after dependency review.', 3000)
+    }
+    catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Dependency confirmation failed')
+    }
+  }
+
+  $effect(() => {
+    const previewBuffer = {
+      enabled: !trashed,
+      fileId: file.id,
+      renderer: rendererValue,
+      source: sourceValue,
+    }
+    const nextKey = `${previewBuffer.fileId}\u0000${previewBuffer.renderer}\u0000${previewBuffer.source}`
+    if (!showPreview || previewBuffer.renderer !== RENDERER_MODE.Svelte || !previewBuffer.enabled) {
+      previewBuildKey = ''
+      svelteBuildController.previewClosed()
+      return
+    }
+    if (nextKey === previewBuildKey)
+      return
+    const openingPreview = previewBuildKey === ''
+    previewBuildKey = nextKey
+    if (openingPreview)
+      void svelteBuildController.previewOpened(previewBuffer)
+    else
+      svelteBuildController.previewChanged(previewBuffer)
+  })
+
   async function preview(e: Event) {
     e.preventDefault()
     const returningToEdit = showPreview
@@ -208,6 +368,11 @@
     setCurrentFile(server);
   }
 
+  function changeRenderer(renderer: RendererMode) {
+    if (!trashed)
+      rendererValue = renderer;
+  }
+
   function retryLocalAgainstCurrentRevision() {
     if (!conflict || !window.confirm(`Keep the local Edit Buffer and retry against server revision ${conflict.revision}?`)) return;
     baseRevisionValue = conflict.revision;
@@ -233,6 +398,7 @@
     setEditBuffer({
       fileId: file.id,
       path: pathValue,
+      renderer: rendererValue,
       content: sourceValue,
       private: privateValue,
       baseRevision: baseRevisionValue,
@@ -302,6 +468,7 @@
     const formData = new FormData()
     formData.append('id', file.id.toString())
     formData.append('path', pathValue)
+    formData.append('renderer', rendererValue)
     formData.append('content', sourceValue)
     formData.append('private', String(privateValue));
     formData.append('baseRevision', baseRevisionValue.toString())
@@ -319,6 +486,15 @@
         removeEditBuffer(file.id)
         onSave?.(file)
         upsertItem(file)
+        if (file.renderer === RENDERER_MODE.Svelte) {
+          void svelteBuildController.saved({
+            enabled: true,
+            fileId: file.id,
+            renderer: file.renderer,
+            source: file.content,
+            sourceHash: file.sourceHash,
+          })
+        }
       }
     }
   }
@@ -329,6 +505,7 @@
     <EditorToolbar
       {file}
       bind:pathValue
+      {rendererValue}
       {privateValue}
       {changed}
       {conflict}
@@ -338,9 +515,11 @@
       onBackToDashboard={backToDashboard}
       onBack={back}
       onTogglePrivate={togglePrivate}
+      onRendererChange={changeRenderer}
       onSave={save}
       onUpload={upload}
       onPreview={preview}
+      onRebuild={rebuild}
       onCopyLink={copyLink}
       {onUpdate}
       {onPurge}
@@ -350,9 +529,13 @@
       title={titleValue}
       fileId={file.id}
       filePath={pathValue}
+      renderer={rendererValue}
+      diagnostics={svelteBuildController.diagnostics}
       value={sourceValue}
       {showPreview}
       {previewHtml}
+      {svelteArtifact}
+      {svelteBuildError}
       {trashed}
       {conflict}
       baseRevision={baseRevisionValue}
@@ -363,3 +546,15 @@
     />
   </form>
 </div>
+
+{#if pendingDependencyReview}
+  <DependencyDriftDialog
+    {...pendingDependencyReview}
+    onApprove={approveDependencyReplacement}
+    onCancel={() => {
+      pendingBuild = null
+      pendingDependencyReview = null
+      notify('info', 'Dependency change was not approved.', 3000)
+    }}
+  />
+{/if}

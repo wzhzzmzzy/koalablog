@@ -30,7 +30,9 @@ function useCatchAllDatabase() {
         source integer NOT NULL,
         path text NOT NULL,
         title text NOT NULL,
-        content text,
+        renderer text DEFAULT 'markdown' NOT NULL,
+        content text NOT NULL,
+        sourceHash text,
         tags text,
         incoming_links text,
         outgoing_links text,
@@ -60,6 +62,7 @@ describe('catch-all article route', () => {
     await saveFile(env, {
       id: 0,
       path: '/post/hello',
+      renderer: 'markdown',
       content: '---\ntitle: Custom Headline\n---\n\npost body\n',
       private: false,
       baseRevision: 0,
@@ -80,6 +83,7 @@ describe('catch-all article route', () => {
     await saveFile(env, {
       id: 0,
       path: '/memos/legacy-note',
+      renderer: 'markdown',
       content: 'legacy memo body',
       private: false,
       baseRevision: 0,

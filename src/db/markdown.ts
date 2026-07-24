@@ -1,6 +1,8 @@
-import type { AbsoluteFilePath } from '@/lib/files/types'
+import type { AbsoluteFilePath, RendererMode } from '@/lib/files/types'
 import { analyzeMarkdownSource } from '@/lib/files/analysis'
 import { classifySource, deriveTitle, parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
+import { calculateSourceHash } from '@/lib/files/source-hash'
+import { RENDERER_MODE } from '@/lib/files/types'
 import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
@@ -8,6 +10,7 @@ import { markdown } from './schema'
 export interface SaveFileInput {
   id: number
   path: string
+  renderer: RendererMode
   content: string
   private: boolean
   baseRevision: number
@@ -15,6 +18,7 @@ export interface SaveFileInput {
 
 export interface BatchFileInput {
   path: string
+  renderer: RendererMode
   content: string
   private?: boolean
   remoteTruth?: boolean
@@ -46,21 +50,25 @@ function requiredPath(input: string): AbsoluteFilePath {
   return parsed.value
 }
 
-function baseValues(path: AbsoluteFilePath, content: string) {
-  const analysis = analyzeMarkdownSource(content)
+async function baseValues(path: AbsoluteFilePath, renderer: RendererMode, content: string) {
+  const analysis = renderer === RENDERER_MODE.Markdown
+    ? analyzeMarkdownSource(content)
+    : { tags: [], outgoingPaths: [] }
   return {
     path,
     title: deriveTitle(path),
+    renderer,
     content,
+    sourceHash: await calculateSourceHash(renderer, content),
     tags: analysis.tags.join(','),
     outgoing_links: JSON.stringify(analysis.outgoingPaths),
   }
 }
 
-function insertValues(input: BatchFileInput) {
+async function insertValues(input: BatchFileInput) {
   const path = requiredPath(input.path)
   return {
-    ...baseValues(path, input.content),
+    ...await baseValues(path, input.renderer, input.content),
     source: classifySource(path),
     private: input.private ?? false,
     remoteTruth: input.remoteTruth ?? false,
@@ -71,19 +79,19 @@ function insertValues(input: BatchFileInput) {
 }
 
 export async function add(env: Env, input: BatchFileInput) {
-  return connectDB(env).insert(markdown).values(insertValues(input)).returning()
+  return connectDB(env).insert(markdown).values(await insertValues(input)).returning()
 }
 
 export async function batchAdd(env: Env, files: BatchFileInput[]) {
   if (files.length === 0)
     return []
-  return connectDB(env).insert(markdown).values(files.map(insertValues)).returning()
+  return connectDB(env).insert(markdown).values(await Promise.all(files.map(insertValues))).returning()
 }
 
 async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boolean): Promise<SaveFileResult> {
   const path = requiredPath(input.path)
   const values = {
-    ...baseValues(path, input.content),
+    ...await baseValues(path, input.renderer, input.content),
     private: input.private,
     remoteTruth,
     updatedAt: new Date(),

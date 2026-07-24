@@ -4,7 +4,7 @@ Status: ready-for-agent
 
 ## What to build
 
-Add the `user` table (unique username, PBKDF2 password hash with per-user salt, admin/member role, timestamps), the `api_token` table (per-user API Tokens, multiple allowed per ADR-0007), and a `user_id` column on the file table. Provide PBKDF2 hash/verify helpers using WebCrypto only (no new dependency; do not reuse the existing md5 helper). Write the one-shot migration: create the first User named `admin` with the Admin role whose password is the existing admin key (hashed), assign every existing file to that user, convert the stored bearer token into an API Token for that user, and remove the guest key from config.
+Add the `user` table (unique username, PBKDF2 password hash with per-user salt, admin/member role, timestamps), the `api_token` table (per-user API Tokens, multiple allowed per ADR-0011), and a `user_id` column on the file table. Provide PBKDF2 hash/verify helpers using WebCrypto only (no new dependency; do not reuse the existing md5 helper). Write the one-shot migration: create the first User named `admin` with the Admin role whose password is the existing admin key (hashed), assign every existing file to that user, convert the stored bearer token into an API Token for that user, and remove the guest key from config.
 
 ## Acceptance criteria
 

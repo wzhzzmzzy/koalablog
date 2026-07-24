@@ -1,12 +1,16 @@
+import type { SvelteDependencyManifestEntry } from '../lib/svelte/contracts'
 import { sql } from 'drizzle-orm'
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { RENDERER_MODE } from '../lib/files/types'
 
 export const markdown = sqliteTable('markdown', {
   id: integer().primaryKey({ autoIncrement: true }),
   source: integer().notNull(),
   path: text().notNull(),
   title: text().notNull(),
-  content: text(),
+  renderer: text({ enum: [RENDERER_MODE.Markdown, RENDERER_MODE.Svelte] }).default(RENDERER_MODE.Markdown).notNull(),
+  content: text().notNull(),
+  sourceHash: text().notNull(),
   // format:
   // tag1,tag2,tag3
   tags: text(),
@@ -27,6 +31,25 @@ export const markdown = sqliteTable('markdown', {
   uniqueIndex('markdown_active_path_unique').on(table.path).where(sql`${table.deletedAt} IS NULL`),
   index('markdown_deleted_at_idx').on(table.deletedAt),
 ])
+
+export const markdownRender = sqliteTable('markdown_render', {
+  fileId: integer().primaryKey().references(() => markdown.id, { onDelete: 'cascade' }),
+  schemaVersion: integer().notNull(),
+  renderer: text({ enum: [RENDERER_MODE.Svelte] }).notNull(),
+  svelteVersion: text().notNull(),
+  unocssVersion: text().notNull(),
+  unocssConfigHash: text().notNull(),
+  sourceHash: text().notNull(),
+  dependencies: text({ mode: 'json' }).$type<SvelteDependencyManifestEntry[]>().notNull(),
+  artifactHash: text().notNull(),
+  javascriptResourceHash: text().notNull(),
+  cssResourceHash: text().notNull(),
+  javascript: text().notNull(),
+  css: text().notNull(),
+  snapshotHtml: text().notNull(),
+  createdAt: integer({ mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer({ mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+})
 
 export const ossAccess = sqliteTable('oss_access', {
   id: integer().primaryKey({ autoIncrement: true }),

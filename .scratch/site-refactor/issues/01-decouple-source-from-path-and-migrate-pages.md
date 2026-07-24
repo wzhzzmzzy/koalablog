@@ -4,7 +4,7 @@ Status: done
 
 ## What to build
 
-Per ADR-0006: make Source persisted metadata that is assigned from the Path Prefix at creation only — `/post/` becomes Post, everything else becomes Memo — and is never recomputed from the File Path on save. Simplify path classification to that single two-category rule, dropping the Wiki branch and the legacy `/memos/` special case. Remove the Page, Wiki, and Unknown source categories and all of their usages. Write a data migration that remaps every existing Page or Wiki file to Memo without touching any path, so all existing URLs keep working; files already living under legacy `/memos/` paths are Memos and stay put.
+Per ADR-0010: make Source persisted metadata that is assigned from the Path Prefix at creation only — `/post/` becomes Post, everything else becomes Memo — and is never recomputed from the File Path on save. Simplify path classification to that single two-category rule, dropping the Wiki branch and the legacy `/memos/` special case. Remove the Page, Wiki, and Unknown source categories and all of their usages. Write a data migration that remaps every existing Page or Wiki file to Memo without touching any path, so all existing URLs keep working; files already living under legacy `/memos/` paths are Memos and stay put.
 
 ## Acceptance criteria
 

@@ -1,0 +1,81 @@
+---
+import type { FileRecord } from '@/db/types'
+import { readActivePaths } from '@/db/markdown'
+import { readArtifactAccess } from '@/db/render-artifact'
+import Layout from '@/layouts/home.astro'
+import { renderIt } from '@/lib/markdown/render-it'
+import { snapshotDescription } from '@/lib/svelte/snapshot'
+import ArticleClient from './client.astro'
+import ArticleView from './index.astro'
+import SvelteArtifactView from './SvelteArtifactView.astro'
+
+interface Props {
+  article: FileRecord
+  title?: string
+}
+
+const { article, title = article.title } = Astro.props
+const env = Astro.locals.runtime?.env || {}
+let artifact: Awaited<ReturnType<typeof readArtifactAccess>>['artifact']
+
+if (article.renderer === 'svelte') {
+  const result = await readArtifactAccess(env, {
+    authenticated: Boolean(Astro.locals.session?.role),
+    fileId: article.id,
+    representation: 'page',
+  })
+
+  if (result.decision.type === 'allowed' && result.artifact) {
+    artifact = result.artifact
+    Astro.response.headers.set('Cache-Control', result.decision.cacheControl)
+  }
+  else {
+    Astro.response.status = 503
+    Astro.response.headers.set('Cache-Control', 'no-store')
+  }
+}
+
+let activePaths: string[] = []
+let content = ''
+let firstParagraph: RegExpExecArray | null = null
+let isBigArticle = false
+let renderLangSet = new Set<string>()
+
+if (article.renderer === 'markdown') {
+  const pageConfig = Astro.locals.config.pageConfig
+  isBigArticle = article.content.length > 1000
+  activePaths = await readActivePaths(Astro.locals.runtime?.env)
+  const rendered = await renderIt(isBigArticle, article, pageConfig.theme, activePaths)
+  content = rendered.content
+  renderLangSet = rendered.renderLangSet ?? new Set<string>()
+  firstParagraph = /<p>(.*?)<\/p>/.exec(content)
+}
+---
+
+{
+  article.renderer === 'svelte'
+    ? artifact
+      ? (
+          <Layout title={article.title} desc={snapshotDescription(artifact.snapshotHtml)}>
+            <SvelteArtifactView
+              cssUrl={`/api/render-artifacts/${article.id}/${article.sourceHash}/styles.css`}
+              moduleUrl={`/api/render-artifacts/${article.id}/${article.sourceHash}/module.js`}
+              snapshotHtml={artifact.snapshotHtml}
+            />
+          </Layout>
+        )
+      : (
+          <Layout title={article.title}>
+            <main class="article-main"><p>Unable to render this page right now.</p></main>
+          </Layout>
+        )
+    : (
+        <Layout title={title} desc={firstParagraph?.[1]}>
+          {
+            !isBigArticle
+              ? <ArticleView article={article} content={content} />
+              : <ArticleClient article={article} content={content} renderLangSet={renderLangSet} {activePaths} />
+          }
+        </Layout>
+      )
+}

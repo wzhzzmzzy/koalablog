@@ -9,8 +9,10 @@ const mocks = vi.hoisted(() => ({
     }
   }),
   batchTrashByPaths: vi.fn(),
+  readCurrentRenderArtifact: vi.fn(),
   readAll: vi.fn(),
   saveSyncedFile: vi.fn(),
+  sourceHashBackfillMaintenanceActive: vi.fn(),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -22,6 +24,14 @@ vi.mock('@/db/markdown', () => ({
   FileInputError: class FileInputError extends Error {},
   readAll: mocks.readAll,
   saveSyncedFile: mocks.saveSyncedFile,
+}))
+
+vi.mock('@/db/render-artifact', () => ({
+  readCurrentRenderArtifact: mocks.readCurrentRenderArtifact,
+}))
+
+vi.mock('@/lib/kv', () => ({
+  sourceHashBackfillMaintenanceActive: mocks.sourceHashBackfillMaintenanceActive,
 }))
 
 function createContext(request: Request) {
@@ -37,12 +47,21 @@ function createContext(request: Request) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.readCurrentRenderArtifact.mockResolvedValue(undefined)
+  mocks.sourceHashBackfillMaintenanceActive.mockResolvedValue(false)
 })
 
 describe('markdown batch API reads and deletes', () => {
   it('maps post to Post and legacy page/wiki filters to Memo', async () => {
     mocks.readAll.mockResolvedValue([
-      { id: 1, path: '/wiki/entities/transformer-architecture', title: 'transformer-architecture', revision: 3 },
+      {
+        id: 1,
+        path: '/wiki/entities/transformer-architecture',
+        title: 'transformer-architecture',
+        renderer: 'markdown',
+        sourceHash: 'stored-source-hash',
+        revision: 3,
+      },
     ])
 
     const postResponse = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=post', {
@@ -57,7 +76,36 @@ describe('markdown batch API reads and deletes', () => {
     expect(wikiResponse.status).toBe(200)
     expect(mocks.readAll).toHaveBeenCalledWith({ DB: 'db' }, 30)
     expect(await wikiResponse.json()).toEqual([
-      { id: 1, path: '/wiki/entities/transformer-architecture', title: 'transformer-architecture', revision: 3 },
+      {
+        id: 1,
+        path: '/wiki/entities/transformer-architecture',
+        title: 'transformer-architecture',
+        renderer: 'markdown',
+        sourceHash: 'stored-source-hash',
+        artifactStatus: 'not_applicable',
+        revision: 3,
+      },
+    ])
+  })
+
+  it('reports current only for a Svelte File with a matching stored Artifact', async () => {
+    mocks.readAll.mockResolvedValue([{
+      id: 2,
+      path: '/page/application',
+      title: 'application',
+      renderer: 'svelte',
+      sourceHash: 'svelte-source-hash',
+      revision: 3,
+    }])
+    mocks.readCurrentRenderArtifact.mockResolvedValue({ fileId: 2, sourceHash: 'svelte-source-hash' })
+
+    const response = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=page', {
+      headers: { Authorization: 'Bearer token' },
+    })))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject([
+      { path: '/page/application', renderer: 'svelte', artifactStatus: 'current' },
     ])
   })
 
@@ -87,6 +135,33 @@ describe('markdown batch API reads and deletes', () => {
 })
 
 describe('markdown batch API Source validation', () => {
+  it('rejects sync writes while Source Hash maintenance is active', async () => {
+    mocks.sourceHashBackfillMaintenanceActive.mockResolvedValue(true)
+
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([]),
+    })))
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: 'File writes are unavailable while Source Hash maintenance is active' })
+    expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
+  })
+
+  it('rejects sync trash while Source Hash maintenance is active', async () => {
+    mocks.sourceHashBackfillMaintenanceActive.mockResolvedValue(true)
+
+    const response = await DELETE(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify(['/wiki/a']),
+    })))
+
+    expect(response.status).toBe(409)
+    expect(mocks.batchTrashByPaths).not.toHaveBeenCalled()
+  })
+
   it('rejects an independently supplied Title from batch Source writes', async () => {
     const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
       method: 'POST',
@@ -140,6 +215,25 @@ describe('markdown batch API Source validation', () => {
     expect(await response.json()).toEqual({ error: 'File metadata is derived by the server' })
     expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
   })
+
+  it('rejects an unknown Renderer before saving Source', async () => {
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        id: 1,
+        path: '/wiki/architecture',
+        renderer: 'html',
+        content: '# Architecture',
+        private: false,
+        baseRevision: 3,
+      }]),
+    })))
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'File renderer must be markdown or svelte' })
+    expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
+  })
 })
 
 describe('markdown batch API optimistic Source writes', () => {
@@ -148,7 +242,9 @@ describe('markdown batch API optimistic Source writes', () => {
       id: 1,
       path: '/wiki/architecture',
       title: 'architecture',
+      renderer: 'markdown',
       content: 'server Source',
+      sourceHash: 'server-source-hash',
       revision: 4,
     }
     mocks.saveSyncedFile.mockResolvedValue({ status: 'conflict', current })
@@ -169,6 +265,7 @@ describe('markdown batch API optimistic Source writes', () => {
     expect(mocks.saveSyncedFile).toHaveBeenCalledWith({ DB: 'db' }, {
       id: 1,
       path: '/wiki/architecture',
+      renderer: 'markdown',
       content: 'local Source',
       private: false,
       baseRevision: 3,
@@ -182,7 +279,14 @@ describe('markdown batch API optimistic Source writes', () => {
   it('returns the new revision after a preconditioned batch Source Save', async () => {
     mocks.saveSyncedFile.mockResolvedValue({
       status: 'saved',
-      file: { id: 1, path: '/wiki/architecture', title: 'architecture', revision: 4 },
+      file: {
+        id: 1,
+        path: '/wiki/architecture',
+        title: 'architecture',
+        renderer: 'markdown',
+        sourceHash: 'f22a36807e299b6fba30270ddf4a78edc542b12146be91c0e639a3bbd7a4042d',
+        revision: 4,
+      },
     })
 
     const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
@@ -198,10 +302,111 @@ describe('markdown batch API optimistic Source writes', () => {
     })))
 
     expect(response.status).toBe(200)
+    expect(mocks.saveSyncedFile).toHaveBeenCalledWith({ DB: 'db' }, {
+      id: 1,
+      path: '/wiki/architecture',
+      renderer: 'markdown',
+      content: 'next Source',
+      private: false,
+      baseRevision: 3,
+    })
     expect(await response.json()).toEqual({
       success: true,
       count: 1,
-      results: [{ id: 1, path: '/wiki/architecture', title: 'architecture', revision: 4 }],
+      results: [{
+        id: 1,
+        path: '/wiki/architecture',
+        title: 'architecture',
+        renderer: 'markdown',
+        sourceHash: 'f22a36807e299b6fba30270ddf4a78edc542b12146be91c0e639a3bbd7a4042d',
+        artifactStatus: 'not_applicable',
+        revision: 4,
+      }],
+    })
+  })
+})
+
+describe('markdown batch API Svelte Source writes', () => {
+  it('accepts Svelte Source and reports that a browser Rebuild is required', async () => {
+    mocks.saveSyncedFile.mockResolvedValue({
+      status: 'saved',
+      file: {
+        id: 2,
+        path: '/page/application',
+        title: 'application',
+        renderer: 'svelte',
+        sourceHash: 'svelte-source-hash',
+        revision: 5,
+      },
+    })
+
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        id: 2,
+        path: '/page/application',
+        renderer: 'svelte',
+        content: '<h1>Application</h1>',
+        private: false,
+        baseRevision: 4,
+      }]),
+    })))
+
+    expect(response.status).toBe(200)
+    expect(mocks.saveSyncedFile).toHaveBeenCalledWith({ DB: 'db' }, {
+      id: 2,
+      path: '/page/application',
+      renderer: 'svelte',
+      content: '<h1>Application</h1>',
+      private: false,
+      baseRevision: 4,
+    })
+    expect(await response.json()).toEqual({
+      success: true,
+      count: 1,
+      results: [{
+        id: 2,
+        path: '/page/application',
+        title: 'application',
+        renderer: 'svelte',
+        sourceHash: 'svelte-source-hash',
+        artifactStatus: 'rebuild_required',
+        revision: 5,
+      }],
+    })
+  })
+
+  it('reports a current Artifact when the saved Svelte Source still matches it', async () => {
+    mocks.readCurrentRenderArtifact.mockResolvedValue({ fileId: 2, sourceHash: 'svelte-source-hash' })
+    mocks.saveSyncedFile.mockResolvedValue({
+      status: 'saved',
+      file: {
+        id: 2,
+        path: '/page/application',
+        title: 'application',
+        renderer: 'svelte',
+        sourceHash: 'svelte-source-hash',
+        revision: 5,
+      },
+    })
+
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        id: 2,
+        path: '/page/application',
+        renderer: 'svelte',
+        content: '<h1>Application</h1>',
+        private: false,
+        baseRevision: 4,
+      }]),
+    })))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      results: [{ path: '/page/application', artifactStatus: 'current' }],
     })
   })
 })

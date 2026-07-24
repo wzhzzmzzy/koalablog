@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types';
-  import { ArrowLeft, Check, Eye, House, Link, Lock, LockOpen, Menu, Save, SquarePen, Upload } from '@lucide/svelte';
+  import type { RendererMode } from '@/lib/files/types';
+  import { ArrowLeft, Check, Eye, House, Link, Lock, LockOpen, Menu, RotateCw, Save, SquarePen, Upload } from '@lucide/svelte';
   import FileLifecycle from './FileLifecycle.svelte';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
+  import RendererToggle from './svelte/RendererToggle.svelte';
   import { editorStore, toggleSidebar } from './store.svelte';
 
   type ClickHandler = (event: MouseEvent) => void | Promise<void>;
@@ -10,6 +12,7 @@
   interface Props {
     file: FileRecord;
     pathValue: string;
+    rendererValue: RendererMode;
     privateValue: boolean;
     changed: boolean;
     conflict: EditBufferServerValues | null;
@@ -19,9 +22,11 @@
     onBackToDashboard: ClickHandler;
     onBack: ClickHandler;
     onTogglePrivate: ClickHandler;
+    onRendererChange: (renderer: RendererMode) => void;
     onSave: ClickHandler;
     onUpload: ClickHandler;
     onPreview: ClickHandler;
+    onRebuild: ClickHandler;
     onCopyLink: () => void;
     onUpdate?: (file: FileRecord) => void;
     onPurge?: (id: number) => void;
@@ -30,6 +35,7 @@
   let {
     file,
     pathValue = $bindable(),
+    rendererValue,
     privateValue,
     changed,
     conflict,
@@ -39,9 +45,11 @@
     onBackToDashboard,
     onBack,
     onTogglePrivate,
+    onRendererChange,
     onSave,
     onUpload,
     onPreview,
+    onRebuild,
     onCopyLink,
     onUpdate,
     onPurge,
@@ -94,6 +102,7 @@
   </div>
 
   <div class="flex flex-wrap justify-end items-center gap-0 md:gap-1 md:shrink-0">
+    <RendererToggle value={rendererValue} disabled={trashed} onChange={onRendererChange} />
     {#if trashed}
       <FileLifecycle {file} {onUpdate} {onPurge} />
     {:else}
@@ -124,6 +133,17 @@
       <button id="upload" class="icon btn" onclick={onUpload} aria-label="Upload image" title="Upload Image">
         <Upload size={20} />
       </button>
+      {#if rendererValue === 'svelte' && file.id > 0}
+        <button
+          type="button"
+          class="icon btn"
+          onclick={onRebuild}
+          aria-label="Rebuild Svelte Artifact"
+          title={changed ? 'Save Source before rebuilding' : 'Rebuild Svelte Artifact'}
+        >
+          <RotateCw size={20} />
+        </button>
+      {/if}
       <button
         id="preview"
         class="icon btn"

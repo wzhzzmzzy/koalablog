@@ -13,11 +13,12 @@ const d1DriverConfig = {
 const sqliteDriverConfig = {
   url: process.env.SQLITE_URL,
 }
+const dataSource: string | undefined = process.env.DATA_SOURCE
 
 export default defineConfig({
   out: './migrations',
   schema: './src/db/schema.ts',
   dialect: 'sqlite',
-  ...(process.env.DATA_SOURCE === 'd1' ? d1DriverConfig : {}),
-  ...(process.env.DATA_SOURCE === 'sqlite' ? sqliteDriverConfig : {}),
+  ...(dataSource === 'd1' ? d1DriverConfig : {}),
+  ...(dataSource === 'sqlite' ? sqliteDriverConfig : {}),
 })

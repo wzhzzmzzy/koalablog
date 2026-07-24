@@ -5,9 +5,10 @@ const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),
   readTemplateCatalog: vi.fn(),
   replaceTemplateCatalog: vi.fn(),
+  sourceHashMaintenanceWriteGuard: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
+vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard, sourceHashMaintenanceWriteGuard: mocks.sourceHashMaintenanceWriteGuard }))
 vi.mock('@/db/template-catalog', () => ({
   readTemplateCatalog: mocks.readTemplateCatalog,
   replaceTemplateCatalog: mocks.replaceTemplateCatalog,
@@ -26,20 +27,51 @@ describe('template Catalog actions', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('reads the explicit stored Catalog state for an admin', async () => {
-    const result = { status: 'ready', catalog: { schemaVersion: 1, revision: 3, templates: [template] } }
-    mocks.readTemplateCatalog.mockResolvedValue(result)
+    const stored = {
+      status: 'ready',
+      catalog: { schemaVersion: 2, revision: 3, templates: [{ ...template, renderer: 'markdown' }] },
+    }
+    mocks.readTemplateCatalog.mockResolvedValue(stored)
 
-    await expect(read.orThrow.call(context, {})).resolves.toEqual(result)
+    await expect(read.orThrow.call(context, {})).resolves.toEqual({
+      status: 'ready',
+      catalog: { schemaVersion: 2, revision: 3, templates: [{ ...template, renderer: 'markdown' }] },
+    })
     expect(mocks.authGuard).toHaveBeenCalledOnce()
     expect(mocks.readTemplateCatalog).toHaveBeenCalledWith({ DB: 'db' })
   })
 
-  it('saves large Template Content independently at the supplied Catalog revision', async () => {
-    const largeTemplate = { ...template, content: 'x'.repeat(100_000) }
-    const catalog = { schemaVersion: 1, revision: 4, templates: [largeTemplate] }
-    mocks.replaceTemplateCatalog.mockResolvedValue({ status: 'saved', catalog })
+  it('exposes a legacy v1 Catalog as a Markdown v2 migration input without writing', async () => {
+    mocks.readTemplateCatalog.mockResolvedValue({
+      status: 'ready',
+      catalog: { schemaVersion: 1, revision: 3, templates: [template] },
+    })
 
-    await expect(replace.orThrow.call(context, { baseRevision: 3, templates: [largeTemplate] })).resolves.toEqual(catalog)
+    await expect(read.orThrow.call(context, {})).resolves.toEqual({
+      status: 'ready',
+      catalog: {
+        schemaVersion: 2,
+        revision: 3,
+        templates: [{ ...template, renderer: 'markdown' }],
+      },
+    })
+    expect(mocks.replaceTemplateCatalog).not.toHaveBeenCalled()
+  })
+
+  it('saves large Template Content independently at the supplied Catalog revision', async () => {
+    const largeTemplate = { ...template, renderer: 'svelte' as const, content: 'x'.repeat(100_000) }
+    const storedCatalog = {
+      schemaVersion: 2,
+      revision: 4,
+      templates: [largeTemplate],
+    }
+    mocks.replaceTemplateCatalog.mockResolvedValue({ status: 'saved', catalog: storedCatalog })
+
+    await expect(replace.orThrow.call(context, { baseRevision: 3, templates: [largeTemplate] })).resolves.toEqual({
+      schemaVersion: 2,
+      revision: 4,
+      templates: [largeTemplate],
+    })
     expect(mocks.replaceTemplateCatalog).toHaveBeenCalledWith({ DB: 'db' }, 3, [largeTemplate])
   })
 
@@ -53,10 +85,10 @@ describe('template Catalog actions', () => {
     })
   })
 
-  it('rejects fields outside Template v1 before storage', async () => {
+  it('rejects an unknown Template Renderer before storage', async () => {
     await expect(replace.orThrow.call(context, {
       baseRevision: 3,
-      templates: [{ ...template, renderer: 'svelte' }],
+      templates: [{ ...template, renderer: 'html' as 'markdown' }],
     })).rejects.toMatchObject({ code: 'BAD_REQUEST' })
     expect(mocks.replaceTemplateCatalog).not.toHaveBeenCalled()
   })

@@ -1,17 +1,24 @@
 import type {
   CreationTemplateV1,
+  CreationTemplateV2,
   InstantiatedTemplateV1,
+  InstantiatedTemplateV2,
   Result,
+  TemplateCatalogV1,
+  TemplateCatalogV2,
   TemplateContext,
   TemplateError,
   TemplateField,
 } from './types'
 import { format } from 'date-fns'
 import { containsControlCharacter, deriveTitle, isDescendantOfPrefix, parseAbsoluteFilePath, parseAbsolutePathPrefix } from './path'
+import { isRendererMode, RENDERER_MODE } from './types'
 
 const PLACEHOLDER = /\{\{([^{}]+)\}\}/g
 const TEMPLATE_V1_FIELDS = ['id', 'prefix', 'titlePattern', 'pathPattern', 'content'] as const
 const TEMPLATE_V1_FIELD_SET: ReadonlySet<string> = new Set(TEMPLATE_V1_FIELDS)
+const TEMPLATE_V2_FIELDS = ['id', 'prefix', 'titlePattern', 'pathPattern', 'renderer', 'content'] as const
+const TEMPLATE_V2_FIELD_SET: ReadonlySet<string> = new Set(TEMPLATE_V2_FIELDS)
 
 export const DEFAULT_MEMO_TEMPLATE_V1: CreationTemplateV1 = {
   id: 'memo-default',
@@ -19,6 +26,32 @@ export const DEFAULT_MEMO_TEMPLATE_V1: CreationTemplateV1 = {
   titlePattern: '{{datetime:yyyyMMddHHmm}}{{uniqueSuffix}}',
   pathPattern: '{{targetPrefix}}/{{title}}',
   content: '',
+}
+
+export const DEFAULT_MEMO_TEMPLATE_V2: CreationTemplateV2 = {
+  ...DEFAULT_MEMO_TEMPLATE_V1,
+  renderer: RENDERER_MODE.Markdown,
+}
+
+export function upgradeTemplateCatalogV1(catalog: TemplateCatalogV1): TemplateCatalogV2 {
+  return {
+    schemaVersion: 2,
+    revision: catalog.revision,
+    templates: catalog.templates.map(template => ({
+      ...template,
+      renderer: RENDERER_MODE.Markdown,
+    })),
+  }
+}
+
+export function templateV1CompatibilityView(template: CreationTemplateV1): CreationTemplateV1 {
+  return {
+    id: template.id,
+    prefix: template.prefix,
+    titlePattern: template.titlePattern,
+    pathPattern: template.pathPattern,
+    content: template.content,
+  }
 }
 
 function templateError(code: TemplateError['code'], field: TemplateField, message: string): TemplateError {
@@ -87,6 +120,33 @@ export function validateTemplateV1(input: unknown): Result<CreationTemplateV1, T
   }
 }
 
+export function validateTemplateV2(input: unknown): Result<CreationTemplateV2, TemplateError[]> {
+  if (!input || typeof input !== 'object') {
+    return { ok: false, error: [templateError('invalid_template', 'template', 'Template must be an object')] }
+  }
+
+  const value = input as Record<string, unknown>
+  if (TEMPLATE_V2_FIELDS.some(field => typeof value[field] !== 'string')) {
+    return { ok: false, error: [templateError('invalid_template', 'template', 'Template fields must be strings')] }
+  }
+  if (Object.keys(value).some(field => !TEMPLATE_V2_FIELD_SET.has(field))) {
+    return { ok: false, error: [templateError('invalid_template', 'template', 'Template contains fields outside schema v2')] }
+  }
+  if (!isRendererMode(value.renderer)) {
+    return { ok: false, error: [templateError('invalid_renderer', 'renderer', 'Template Renderer must be markdown or svelte')] }
+  }
+
+  const { renderer, ...legacyInput } = value
+  const validated = validateTemplateV1(legacyInput)
+  if (!validated.ok)
+    return validated
+
+  return {
+    ok: true,
+    value: { ...validated.value, renderer },
+  }
+}
+
 function renderPattern(pattern: string, values: Record<string, string>, now: Date): Result<string, TemplateError[]> {
   try {
     return {
@@ -106,10 +166,10 @@ function renderPattern(pattern: string, values: Record<string, string>, now: Dat
   }
 }
 
-export function selectTemplateV1(
-  templates: CreationTemplateV1[],
+export function selectTemplateByPrefix<T extends CreationTemplateV1>(
+  templates: T[],
   targetPrefix: TemplateContext['targetPrefix'],
-): CreationTemplateV1 | null {
+): T | null {
   return templates
     .flatMap((template) => {
       const prefix = parseAbsolutePathPrefix(template.prefix)
@@ -171,6 +231,30 @@ export function instantiateTemplateV1(
       title,
       path: path.value,
       content: contentResult.value,
+    },
+  }
+}
+
+export function instantiateTemplateV2(
+  input: CreationTemplateV2,
+  context: TemplateContext,
+): Result<InstantiatedTemplateV2, TemplateError[]> {
+  const validated = validateTemplateV2(input)
+  if (!validated.ok)
+    return validated
+
+  const { renderer, ...legacyTemplate } = validated.value
+  const instantiated = instantiateTemplateV1(legacyTemplate, context)
+  if (!instantiated.ok)
+    return instantiated
+
+  const { content, ...identity } = instantiated.value
+  return {
+    ok: true,
+    value: {
+      ...identity,
+      renderer,
+      content,
     },
   }
 }

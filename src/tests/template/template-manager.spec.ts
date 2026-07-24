@@ -1,12 +1,13 @@
-import type { CreationTemplateV1 } from '@/lib/files/types'
+import type { CreationTemplateV2 } from '@/lib/files/types'
 import { duplicateTemplateIds, duplicateTemplatePrefixes, normalizedTemplatePrefix, previewTemplateCatalog } from '@/components/template/template-manager-model'
 import { describe, expect, it } from 'vitest'
 
-const template: CreationTemplateV1 = {
+const template: CreationTemplateV2 = {
   id: 'memo',
   prefix: '/memo/',
   titlePattern: 'note{{uniqueSuffix}}',
   pathPattern: '{{targetPrefix}}/{{title}}',
+  renderer: 'svelte',
   content: '{{title}} at {{path}}',
 }
 
@@ -38,6 +39,7 @@ describe('template manager model', () => {
       targetPrefix: '/memo/project/',
       title: 'note',
       path: '/memo/project/note',
+      renderer: 'svelte',
       content: 'note at /memo/project/note',
     })
   })

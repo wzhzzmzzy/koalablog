@@ -5,10 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),
   saveFile: vi.fn(),
+  sourceHashMaintenanceWriteGuard: vi.fn(),
   updatePrivate: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
+vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard, sourceHashMaintenanceWriteGuard: mocks.sourceHashMaintenanceWriteGuard }))
 vi.mock('@/db/markdown', () => ({
   FileInputError: class FileInputError extends Error {},
   saveFile: mocks.saveFile,
@@ -54,7 +55,22 @@ describe('file Save action', () => {
     await save.orThrow.call(context, form)
 
     expect(mocks.saveFile).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      renderer: 'markdown',
       content: 'first\nsecond\nthird',
+    }))
+  })
+
+  it('passes explicit Svelte Renderer and Source, then returns the server Source Hash', async () => {
+    const form = validForm()
+    form.set('renderer', 'svelte')
+    const savedFile = { id: 7, sourceHash: 'ab'.repeat(32) }
+    mocks.saveFile.mockResolvedValue({ status: 'saved', file: savedFile })
+
+    await expect(save.orThrow.call(context, form)).resolves.toEqual(savedFile)
+
+    expect(mocks.saveFile).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      renderer: 'svelte',
+      content: 'local Source',
     }))
   })
 

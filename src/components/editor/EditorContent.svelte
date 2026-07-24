@@ -1,14 +1,22 @@
 <script lang="ts">
+  import type { RendererMode } from '@/lib/files/types';
+  import type { PreviewArtifact, PreviewRuntimeErrorMessage } from './svelte/preview-protocol';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
+  import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
+  import SveltePreview from './svelte/SveltePreview.svelte';
   import TextEditor, { type TextEditorHandle } from './TextEditor.svelte';
 
   interface Props {
     title: string;
     fileId: number;
     filePath: string;
+    renderer: RendererMode;
+    diagnostics?: TextEditorDiagnosticUpdate | null;
     value: string;
     showPreview: boolean;
     previewHtml: string;
+    svelteArtifact?: PreviewArtifact | null;
+    svelteBuildError?: string | null;
     trashed: boolean;
     conflict: EditBufferServerValues | null;
     baseRevision: number;
@@ -22,9 +30,13 @@
     title,
     fileId,
     filePath,
+    renderer,
+    diagnostics = null,
     value,
     showPreview,
     previewHtml,
+    svelteArtifact = null,
+    svelteBuildError = null,
     trashed,
     conflict,
     baseRevision,
@@ -35,6 +47,7 @@
   }: Props = $props();
 
   let textEditor: TextEditorHandle | undefined = $state();
+  let sveltePreview: SveltePreview | undefined = $state();
 
   export function focus() {
     textEditor?.focus();
@@ -42,6 +55,20 @@
 
   export async function insertImages(files: File[]) {
     await textEditor?.insertImages(files);
+  }
+
+  export async function snapshotSvelteArtifact(artifact: PreviewArtifact) {
+    if (!sveltePreview)
+      throw new Error('Open Svelte Preview before capturing an Artifact Snapshot')
+    return sveltePreview.snapshot(artifact)
+  }
+
+  function returnPreviewFocus() {
+    textEditor?.focus();
+  }
+
+  function reportPreviewError(error: Error | PreviewRuntimeErrorMessage) {
+    console.error('Svelte Preview failed:', error.message)
   }
 </script>
 
@@ -71,6 +98,8 @@
     bind:this={textEditor}
     {fileId}
     {filePath}
+    {renderer}
+    {diagnostics}
     {value}
     readonly={trashed}
     {onChange}
@@ -78,6 +107,16 @@
   />
 </div>
 
-<article id="preview-md" class="w-full flex-1 overflow-y-auto {showPreview ? '' : 'hidden'}">
-  {@html previewHtml}
-</article>
+{#if showPreview && renderer === 'svelte'}
+  <section class="w-full flex-1 min-h-0 overflow-hidden" aria-label="Svelte Preview">
+    {#if svelteBuildError}
+      <p class="m-0 p-4 text-[--koala-error-text]" role="alert">{svelteBuildError}</p>
+    {:else}
+      <SveltePreview bind:this={sveltePreview} artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
+    {/if}
+  </section>
+{:else}
+  <article id="preview-md" class="w-full flex-1 overflow-y-auto {showPreview ? '' : 'hidden'}">
+    {@html previewHtml}
+  </article>
+{/if}

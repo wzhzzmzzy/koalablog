@@ -1,27 +1,39 @@
 <script lang="ts">
-  import { Compartment, EditorState } from '@codemirror/state';
+  import type { RendererMode } from '@/lib/files/types';
+  import { RENDERER_MODE } from '@/lib/files/types';
+  import { Compartment, EditorState, type Extension } from '@codemirror/state';
   import { isolateHistory } from '@codemirror/commands';
+  import { diagnosticCount, setDiagnostics, type Diagnostic } from '@codemirror/lint';
   import { EditorView } from '@codemirror/view';
   import { onMount } from 'svelte';
   import { restoreCodeMirrorState, saveCodeMirrorState } from './codemirror-state';
+  import { reconcileTextEditorDiagnostics, type TextEditorDiagnosticUpdate } from './diagnostics';
   import { createImageHistoryController } from './image-history';
   import { imagesFromClipboard, imagesFromDrop, prepareImageBatch, type PendingImage } from './images';
-  import { markdownEditorExtensions } from './markdown-language';
+  import { isCurrentTextEditorLanguageRequest, planTextEditorLanguageRequest } from './language-state';
+  import { markdownLanguageExtension, textEditorExtensions } from './markdown-language';
   import { reconcileEditorInput } from './state-registry';
 
   interface Props {
     fileId: number;
     filePath: string;
+    renderer: RendererMode;
+    diagnostics: TextEditorDiagnosticUpdate | null;
     value: string;
     readonly: boolean;
     onChange: (value: string) => void;
     uploadImage: (file: File) => Promise<{ url: string }>;
   }
 
-  let { fileId, filePath, value, readonly, onChange, uploadImage }: Props = $props();
+  let { fileId, filePath, renderer, diagnostics, value, readonly, onChange, uploadImage }: Props = $props();
   let container: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined = $state();
   let activeFileId = fileId;
+  let desiredRenderer = renderer;
+  let languageRenderer: RendererMode | null = null;
+  let languageRequestId = 0;
+  let appliedDiagnostics: TextEditorDiagnosticUpdate | null = null;
+  let lastDiagnosticsInput: TextEditorDiagnosticUpdate | null | undefined;
   const settledUploads = new Map<number, Array<{ pending: PendingImage; url?: string }>>();
   const imageHistory = createImageHistoryController({
     getView: () => view,
@@ -30,6 +42,11 @@
 
   const accessCompartment = new Compartment();
   const labelCompartment = new Compartment();
+  const languageCompartment = new Compartment();
+
+  function initialLanguageExtension(initialRenderer: RendererMode): Extension {
+    return initialRenderer === RENDERER_MODE.Markdown ? markdownLanguageExtension() : [];
+  }
 
   function accessExtension(isReadonly: boolean) {
     return [
@@ -45,12 +62,13 @@
     });
   }
 
-  function createState(doc: string) {
+  function createState(doc: string, initialRenderer: RendererMode) {
     return EditorState.create({
       doc,
       extensions: [
         imageHistory.extension,
-        markdownEditorExtensions(imageHistory.keyBindings),
+        textEditorExtensions(imageHistory.keyBindings),
+        languageCompartment.of(initialLanguageExtension(initialRenderer)),
         accessCompartment.of(accessExtension(readonly)),
         labelCompartment.of(labelExtension(filePath, fileId)),
         EditorView.domEventHandlers({
@@ -81,14 +99,66 @@
 
   function cacheCurrentState() {
     if (!view) return;
+    const state = diagnosticCount(view.state) > 0
+      ? view.state.update(setDiagnostics(view.state, [])).state
+      : view.state;
     saveCodeMirrorState(activeFileId, {
-      state: view.state,
+      state,
+      languageRenderer,
       scrollTo: view.scrollSnapshot(),
     });
   }
 
-  function restoreState(nextFileId: number, acceptedValue: string) {
-    return restoreCodeMirrorState(nextFileId, acceptedValue, doc => ({ state: createState(doc) }));
+  function restoreState(nextFileId: number, acceptedValue: string, nextRenderer: RendererMode) {
+    return restoreCodeMirrorState(nextFileId, acceptedValue, doc => ({
+      state: createState(doc, nextRenderer),
+      languageRenderer: nextRenderer === RENDERER_MODE.Markdown ? RENDERER_MODE.Markdown : null,
+    }));
+  }
+
+  async function applyLanguage(nextRenderer: RendererMode, stateWasReplaced = false) {
+    if (!view) return;
+    desiredRenderer = nextRenderer;
+    const plan = planTextEditorLanguageRequest(
+      languageRequestId,
+      languageRenderer,
+      nextRenderer,
+      stateWasReplaced,
+    );
+    languageRequestId = plan.latestRequestId;
+    if (!plan.request) return;
+    if (plan.request.renderer === RENDERER_MODE.Markdown) {
+      view.dispatch({ effects: languageCompartment.reconfigure(markdownLanguageExtension()) });
+      languageRenderer = RENDERER_MODE.Markdown;
+      return;
+    }
+
+    const { svelteLanguageExtension } = await import('./svelte-language');
+    if (!view || !isCurrentTextEditorLanguageRequest(plan.request, languageRequestId, desiredRenderer)) return;
+    view.dispatch({ effects: languageCompartment.reconfigure(svelteLanguageExtension()) });
+    languageRenderer = RENDERER_MODE.Svelte;
+  }
+
+  function applyDiagnostics(nextDiagnostics: TextEditorDiagnosticUpdate | null, force = false) {
+    if (!view) return;
+    if (!force && lastDiagnosticsInput === nextDiagnostics) return;
+    lastDiagnosticsInput = nextDiagnostics;
+    if (!nextDiagnostics) {
+      appliedDiagnostics = null;
+      if (diagnosticCount(view.state) > 0)
+        view.dispatch(setDiagnostics(view.state, []));
+      return;
+    }
+    const accepted = reconcileTextEditorDiagnostics(appliedDiagnostics, nextDiagnostics);
+    if (!accepted) return;
+    appliedDiagnostics = accepted;
+    const documentLength = view.state.doc.length;
+    const mapped: Diagnostic[] = accepted.diagnostics.map((diagnostic) => {
+      const from = Math.max(0, Math.min(diagnostic.from, documentLength));
+      const to = Math.max(from, Math.min(diagnostic.to, documentLength));
+      return { ...diagnostic, from, to };
+    });
+    view.dispatch(setDiagnostics(view.state, mapped));
   }
 
   function applyDynamicConfiguration(nextReadonly: boolean, nextPath: string, nextFileId: number) {
@@ -100,10 +170,13 @@
     });
   }
 
-  function applyRestoredState(nextFileId: number, acceptedValue: string) {
+  function applyRestoredState(nextFileId: number, acceptedValue: string, nextRenderer: RendererMode) {
     if (!view) return;
-    const restored = restoreState(nextFileId, acceptedValue);
+    const restored = restoreState(nextFileId, acceptedValue, nextRenderer);
     activeFileId = nextFileId;
+    languageRenderer = restored.state.languageRenderer;
+    appliedDiagnostics = null;
+    lastDiagnosticsInput = undefined;
     view.setState(restored.state.state);
     if (restored.state.scrollTo) view.dispatch({ effects: restored.state.scrollTo });
     flushSettledUploads(nextFileId);
@@ -143,7 +216,7 @@
 
   export function insertImages(files: File[]): Promise<void> {
     if (!view || readonly) return Promise.resolve();
-    const batch = prepareImageBatch(files);
+    const batch = prepareImageBatch(files, renderer);
     if (batch.items.length === 0) return Promise.resolve();
 
     const targetFileId = activeFileId;
@@ -161,14 +234,17 @@
 
   onMount(() => {
     if (!container) return;
-    const restored = restoreState(fileId, value);
+    const restored = restoreState(fileId, value, renderer);
     activeFileId = fileId;
+    languageRenderer = restored.state.languageRenderer;
     view = new EditorView({
       state: restored.state.state,
       scrollTo: restored.state.scrollTo,
       parent: container,
     });
     applyDynamicConfiguration(readonly, filePath, fileId);
+    void applyLanguage(renderer);
+    applyDiagnostics(diagnostics);
 
     return () => {
       cacheCurrentState();
@@ -182,6 +258,8 @@
     const acceptedValue = value;
     const nextReadonly = readonly;
     const nextPath = filePath;
+    const nextRenderer = renderer;
+    const nextDiagnostics = diagnostics;
     if (!view) return;
 
     const action = reconcileEditorInput(
@@ -192,12 +270,15 @@
     );
     if (action === 'switch') {
       cacheCurrentState();
-      applyRestoredState(nextFileId, acceptedValue);
+      applyRestoredState(nextFileId, acceptedValue, nextRenderer);
     }
     else if (action === 'replace') {
-      applyRestoredState(nextFileId, acceptedValue);
+      applyRestoredState(nextFileId, acceptedValue, nextRenderer);
     }
     applyDynamicConfiguration(nextReadonly, nextPath, nextFileId);
+    const stateWasReplaced = action === 'switch' || action === 'replace';
+    void applyLanguage(nextRenderer, stateWasReplaced);
+    applyDiagnostics(nextDiagnostics, stateWasReplaced);
   });
 </script>
 

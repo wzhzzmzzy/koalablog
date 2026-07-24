@@ -32,4 +32,4 @@ If the concept you need isn't in the glossary yet, that's a signal — either yo
 
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
-> _Contradicts ADR-0007 (replace stateless JWTs with KV sessions) — but worth reopening because…_
+> _Contradicts ADR-0011 (replace stateless JWTs with KV sessions) — but worth reopening because…_

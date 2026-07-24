@@ -1,8 +1,9 @@
 import { saveFile, updatePrivate } from '@/db/markdown'
 import { parseAbsoluteFilePath } from '@/lib/files/path'
+import { RENDERER_MODE } from '@/lib/files/types'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-import { authGuard } from '../utils/auth'
+import { authGuard, sourceHashMaintenanceWriteGuard } from '../utils/auth'
 
 function sourceConflict(current: unknown): never {
   throw new ActionError({
@@ -38,6 +39,7 @@ export const save = defineAction({
       if (!parsed.ok)
         ctx.addIssue({ code: 'custom', message: `Invalid File Path: ${parsed.error.code}` })
     }),
+    renderer: z.enum([RENDERER_MODE.Markdown, RENDERER_MODE.Svelte]).default(RENDERER_MODE.Markdown),
     content: z.string().transform(content => content.replace(/\r\n?/g, '\n')),
     private: z.preprocess(value => value === 'true', z.boolean().default(false)),
     baseRevision: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().gte(0)),
@@ -49,6 +51,7 @@ export const save = defineAction({
   }).strict(),
   handler: async (input, ctx) => {
     await authGuard(ctx)
+    await sourceHashMaintenanceWriteGuard(ctx)
     const result = await saveFile(ctx.locals.runtime?.env || {}, input)
     return handleSaveResult(result)
   },
@@ -63,6 +66,7 @@ export const setPrivate = defineAction({
   }).strict(),
   handler: async (input, ctx) => {
     await authGuard(ctx)
+    await sourceHashMaintenanceWriteGuard(ctx)
     const result = await updatePrivate(
       ctx.locals.runtime?.env || {},
       input.id,

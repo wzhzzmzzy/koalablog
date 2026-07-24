@@ -1,8 +1,8 @@
 {
-  "id": "943eb43e-d102-42fa-9efc-586d4d007587",
-  "prevId": "aad425f8-df55-4b20-a140-b8b87fc7ba3b",
   "version": "6",
   "dialect": "sqlite",
+  "id": "f6f7d692-9a08-46c1-af56-ecf513c81a8a",
+  "prevId": "aad425f8-df55-4b20-a140-b8b87fc7ba3b",
   "tables": {
     "blob_storage": {
       "name": "blob_storage",
@@ -165,8 +165,23 @@
           "notNull": true,
           "autoincrement": false
         },
+        "renderer": {
+          "name": "renderer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'markdown'"
+        },
         "content": {
           "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sourceHash": {
+          "name": "sourceHash",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -247,8 +262,8 @@
           "columns": [
             "path"
           ],
-          "where": "\"markdown\".\"deletedAt\" IS NULL",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"markdown\".\"deletedAt\" IS NULL"
         },
         "markdown_deleted_at_idx": {
           "name": "markdown_deleted_at_idx",
@@ -315,9 +330,9 @@
   "views": {},
   "enums": {},
   "_meta": {
-    "columns": {},
     "schemas": {},
-    "tables": {}
+    "tables": {},
+    "columns": {}
   },
   "internal": {
     "indexes": {}

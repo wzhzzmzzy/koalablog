@@ -1,4 +1,5 @@
-import { findImageRemoval, findImageReplacement, prepareImageBatch } from '@/components/editor/text-editor/images'
+import { findImageRemoval, findImageReplacement, imageMarkup, prepareImageBatch } from '@/components/editor/text-editor/images'
+import { RENDERER_MODE } from '@/lib/files/types'
 import { describe, expect, it } from 'vitest'
 
 function image(name: string, type = 'image/png') {
@@ -12,13 +13,20 @@ function applyChange(source: string, change: { from: number, to: number, insert:
 }
 
 describe('text Editor image batches', () => {
+  it('formats final image markup for the selected Renderer', () => {
+    expect(imageMarkup(RENDERER_MODE.Markdown, '/api/oss/image.png'))
+      .toBe('![](/api/oss/image.png)')
+    expect(imageMarkup(RENDERER_MODE.Svelte, '/api/oss/image"&<{}.png'))
+      .toBe('<img src="/api/oss/image&quot;&amp;&lt;&#123;&#125;.png" alt="" />')
+  })
+
   it('filters non-images and creates one ordered placeholder batch', () => {
     const ids = ['first-id', 'second-id']
     const batch = prepareImageBatch([
       image('first.png'),
       image('notes.txt', 'text/plain'),
       image('second].png'),
-    ], () => ids.shift()!)
+    ], RENDERER_MODE.Markdown, () => ids.shift()!)
 
     expect(batch.items).toHaveLength(2)
     expect(batch.text).toBe([
@@ -27,11 +35,27 @@ describe('text Editor image batches', () => {
     ].join('\n'))
   })
 
+  it('captures Svelte for the placeholder and final replacement', () => {
+    const [pending] = prepareImageBatch(
+      [image('hero"&<{}.png')],
+      RENDERER_MODE.Svelte,
+      () => 'svelte-id',
+    ).items
+
+    expect(pending.renderer).toBe(RENDERER_MODE.Svelte)
+    expect(pending.placeholder)
+      .toBe('<img src="koala-upload:svelte-id" alt="Uploading hero&quot;&amp;&lt;&#123;&#125;.png…" />')
+    expect(applyChange(
+      pending.placeholder,
+      findImageReplacement(pending.placeholder, pending, '/api/oss/hero.png'),
+    )).toBe('<img src="/api/oss/hero.png" alt="" />')
+  })
+
   it('replaces and removes only the exact matching placeholder', () => {
     const [first, second] = prepareImageBatch([
       image('same.png'),
       image('same.png'),
-    ], (() => {
+    ], RENDERER_MODE.Markdown, (() => {
       let id = 0
       return () => `id-${++id}`
     })()).items
@@ -45,7 +69,7 @@ describe('text Editor image batches', () => {
   })
 
   it('discards a late upload result after the user removes its placeholder', () => {
-    const [pending] = prepareImageBatch([image('gone.png')], () => 'gone-id').items
+    const [pending] = prepareImageBatch([image('gone.png')], RENDERER_MODE.Markdown, () => 'gone-id').items
     const source = 'user kept this text'
 
     expect(findImageReplacement(source, pending, '/api/oss/gone')).toBeNull()

@@ -1,7 +1,10 @@
 import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
 import { batchTrashByPaths, FileInputError, readAll, saveSyncedFile } from '@/db/markdown'
+import { readCurrentRenderArtifact } from '@/db/render-artifact'
 import { authInterceptor } from '@/lib/auth'
+import { isRendererMode, RENDERER_MODE, type RendererMode } from '@/lib/files/types'
+import { sourceHashBackfillMaintenanceActive } from '@/lib/kv'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -15,8 +18,41 @@ async function requireAdmin(ctx: Parameters<APIRoute>[0]) {
   return ctx.locals.session.role === 'admin' ? null : json({ error: 'Unauthorized' }, 401)
 }
 
+async function requireWritableFiles(ctx: Parameters<APIRoute>[0]) {
+  return await sourceHashBackfillMaintenanceActive(ctx.locals.runtime?.env)
+    ? json({ error: 'File writes are unavailable while Source Hash maintenance is active' }, 409)
+    : null
+}
+
 function requestedSource(value: string | null) {
   return value === 'post' ? MarkdownSource.Post : MarkdownSource.Memo
+}
+
+async function artifactStatus(env: Env | undefined, file: { id: number, renderer: RendererMode }) {
+  if (file.renderer === RENDERER_MODE.Markdown)
+    return 'not_applicable' as const
+  return await readCurrentRenderArtifact(env ?? {} as Env, file.id)
+    ? 'current' as const
+    : 'rebuild_required' as const
+}
+
+async function serializedFile(env: Env | undefined, file: {
+  id: number
+  path: string
+  title: string
+  renderer: RendererMode
+  sourceHash: string
+  revision: number
+}) {
+  return {
+    id: file.id,
+    path: file.path,
+    title: file.title,
+    renderer: file.renderer,
+    sourceHash: file.sourceHash,
+    artifactStatus: await artifactStatus(env, file),
+    revision: file.revision,
+  }
 }
 
 export const GET: APIRoute = async (ctx) => {
@@ -25,17 +61,13 @@ export const GET: APIRoute = async (ctx) => {
     return unauthorized
 
   const files = await readAll(ctx.locals.runtime?.env, requestedSource(ctx.url.searchParams.get('source')))
-  return json(files.map(file => ({
-    id: file.id,
-    path: file.path,
-    title: file.title,
-    revision: file.revision,
-  })))
+  return json(await Promise.all(files.map(file => serializedFile(ctx.locals.runtime?.env, file))))
 }
 
 interface BatchSourceInput {
   id: number
   path: string
+  renderer: RendererMode
   content: string
   private: boolean
   baseRevision: number
@@ -56,8 +88,10 @@ function parseBatchInput(body: unknown): { files?: BatchSourceInput[], error?: s
       return { error: 'File input must not include title' }
     if (['link', 'source', 'tags', 'outgoingLinks', 'remoteTruth', 'revision', 'createdAt', 'updatedAt', 'deletedAt'].some(field => field in item))
       return { error: 'File metadata is derived by the server' }
-    if (Object.keys(item).some(field => !['id', 'path', 'content', 'private', 'baseRevision'].includes(field)))
+    if (Object.keys(item).some(field => !['id', 'path', 'renderer', 'content', 'private', 'baseRevision'].includes(field)))
       return { error: 'File input contains unsupported fields' }
+    if ('renderer' in item && !isRendererMode(item.renderer))
+      return { error: 'File renderer must be markdown or svelte' }
     if (typeof item.path !== 'string' || typeof item.content !== 'string')
       return { error: 'Every File input requires path and content strings' }
     if (!Number.isInteger(item.id) || (item.id as number) < 0 || !Number.isInteger(item.baseRevision) || (item.baseRevision as number) < 0)
@@ -67,6 +101,7 @@ function parseBatchInput(body: unknown): { files?: BatchSourceInput[], error?: s
     files.push({
       id: item.id as number,
       path: item.path,
+      renderer: isRendererMode(item.renderer) ? item.renderer : RENDERER_MODE.Markdown,
       content: item.content,
       private: item.private,
       baseRevision: item.baseRevision as number,
@@ -79,6 +114,9 @@ export const POST: APIRoute = async (ctx) => {
   const unauthorized = await requireAdmin(ctx)
   if (unauthorized)
     return unauthorized
+  const maintenance = await requireWritableFiles(ctx)
+  if (maintenance)
+    return maintenance
 
   try {
     const parsed = parseBatchInput(await ctx.request.json())
@@ -97,12 +135,7 @@ export const POST: APIRoute = async (ctx) => {
     return json({
       success: true,
       count: files.length,
-      results: files.map(file => ({
-        id: file.id,
-        path: file.path,
-        title: file.title,
-        revision: file.revision,
-      })),
+      results: await Promise.all(files.map(file => serializedFile(ctx.locals.runtime?.env, file))),
     })
   }
   catch (error) {
@@ -116,6 +149,9 @@ export const DELETE: APIRoute = async (ctx) => {
   const unauthorized = await requireAdmin(ctx)
   if (unauthorized)
     return unauthorized
+  const maintenance = await requireWritableFiles(ctx)
+  if (maintenance)
+    return maintenance
 
   try {
     const body = await ctx.request.json()

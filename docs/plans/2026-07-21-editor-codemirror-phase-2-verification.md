@@ -10,10 +10,12 @@
 
 Phase 2 的自动化门禁已通过。`/dashboard/edit` 的 File Source 已由 Markdown-only CodeMirror 6 实现，textarea adapter 与未使用的 Monaco 依赖已经删除。Template、Renderer Mode、Svelte Source、编译器、诊断、Build Worker、Render Artifact 和 Playground 均未纳入本阶段。
 
-Phase 2 尚未正式关闭，也不得开始 Phase 3。还需要用户在真实设备上完成人工 gate：
+用户已于 2026-07-22 确认在真实环境完成最终人工 gate，并确认当前版本已经上线：
 
 - 原生中文 IME 候选交互；
 - 物理触控选择与滚动。
+
+因此 Phase 2 正式关闭。Phase 3 仍须等待工作树清理并从清理后的最新 `main` 建立独立分支，但不再受 Phase 2 gate 阻塞。
 
 ## 已交付的编辑器边界
 
@@ -43,7 +45,7 @@ Playwright 使用两项 Chromium project：
 - Chromium `Input.imeSetComposition` 候选字符串更新、中文提交、焦点保持和单次 undo；
 - 393px Pixel 5 与 320px 窄屏下 Path 和全部 File 操作可达、隐藏 gutter、键盘编辑、编辑器内部滚动，以及 touch-capable Chromium 的原生触控滚动。
 
-自动化 composition 与 touch gesture 不能替代操作系统候选窗、真实设备选择手柄、软键盘和滚动物理体验，因此这两项仍保留为人工 gate。
+自动化 composition 与 touch gesture 不能替代操作系统候选窗、真实设备选择手柄、软键盘和滚动物理体验，因此这两项保留为人工 gate，并已由用户完成最终确认。
 
 ## 独立 Chrome 运行时复核
 
@@ -107,8 +109,8 @@ Spec 首轮 3 项的处理结果：
 | `pnpm exec astro check` | 没有新增错误；仍只有 `drizzle.config.ts:22` 与 `src/pages/api/playground/compile.ts:7` 两个既有错误 |
 | `pnpm run build:cf` | 通过；Wrangler 因沙箱无法写用户日志目录而输出 EPERM，但类型生成、服务端构建和客户端构建均完成，退出码为 0 |
 | Bundle/public route | 通过：editor Page chunk 为 608,184 B / 208,120 B gzip；公共动态页无 editor Page 引用 |
-| 原生中文 IME | 待人工 |
-| 物理触控选择与滚动 | 待人工 |
+| 原生中文 IME | 通过；用户于 2026-07-22 确认完成真实环境人工 gate |
+| 物理触控选择与滚动 | 通过；用户于 2026-07-22 确认完成真实设备人工 gate |
 
 ## 最终人工 gate 清单
 
@@ -127,12 +129,12 @@ Spec 首轮 3 项的处理结果：
 4. 打开软键盘输入、换行、删除并 undo/redo；关闭键盘后 Source 尺寸和滚动位置合理。
 5. 切换 Preview 再返回 Edit；Source 自动聚焦，原选择、undo 与滚动状态仍在。
 
-两项都需要记录设备、OS、浏览器版本和结果。任一步失败即保持 Phase 2 gate 开放。
+两项执行结果均由用户确认为通过；具体设备、OS 和浏览器版本未提供给本文，因此不在此补写推测值。
 
 ## Gate 状态
 
 自动化 gate：通过。
 
-人工 gate：待完成。
+人工 gate：通过（用户于 2026-07-22 确认）。
 
-Phase 2 总 gate：保持开放，禁止开始 Phase 3。
+Phase 2 总 gate：关闭，可以在工作树清理并从最新 `main` 建立独立分支后开始 Phase 3。

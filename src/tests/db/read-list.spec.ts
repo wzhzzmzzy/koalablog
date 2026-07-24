@@ -23,7 +23,9 @@ function useReadListDatabase() {
         source integer NOT NULL,
         path text NOT NULL,
         title text NOT NULL,
-        content text,
+        renderer text DEFAULT 'markdown' NOT NULL,
+        content text NOT NULL,
+        sourceHash text,
         tags text,
         incoming_links text,
         outgoing_links text,
@@ -51,10 +53,10 @@ describe('readList filters', () => {
 
   it('filters by Source, tag, visibility, and creation year', async () => {
     await batchAdd(env, [
-      { path: '/post/a', content: '', createdAt: new Date('2025-03-01T00:00:00.000Z') },
-      { path: '/post/b', content: '#tagx', createdAt: new Date('2026-05-01T00:00:00.000Z') },
-      { path: '/post/c', content: '', private: true, createdAt: new Date('2026-06-01T00:00:00.000Z') },
-      { path: '/memo/d', content: '', createdAt: new Date('2026-07-01T00:00:00.000Z') },
+      { path: '/post/a', renderer: 'markdown', content: '', createdAt: new Date('2025-03-01T00:00:00.000Z') },
+      { path: '/post/b', renderer: 'markdown', content: '#tagx', createdAt: new Date('2026-05-01T00:00:00.000Z') },
+      { path: '/post/c', renderer: 'markdown', content: '', private: true, createdAt: new Date('2026-06-01T00:00:00.000Z') },
+      { path: '/memo/d', renderer: 'markdown', content: '', createdAt: new Date('2026-07-01T00:00:00.000Z') },
     ])
 
     expect((await readList(env, MarkdownSource.Post)).map(file => file.path))

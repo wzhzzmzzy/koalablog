@@ -1,6 +1,7 @@
-import type { AbsoluteFilePath, AbsolutePathPrefix, CreationTemplateV1, TemplateError } from '@/lib/files/types'
+import type { AbsoluteFilePath, AbsolutePathPrefix, CreationTemplateV2, RendererMode, TemplateError } from '@/lib/files/types'
 import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
-import { instantiateTemplateV1, selectTemplateV1 } from '@/lib/files/template'
+import { instantiateTemplateV2, selectTemplateByPrefix, upgradeTemplateCatalogV1 } from '@/lib/files/template'
+import { RENDERER_MODE } from '@/lib/files/types'
 import { add, isActivePathConstraintError } from './markdown'
 import { readTemplateCatalog } from './template-catalog'
 
@@ -27,6 +28,7 @@ export class FileCreationError extends Error {
 
 interface CreationCandidate {
   path: AbsoluteFilePath
+  renderer: RendererMode
   content: string
 }
 
@@ -39,16 +41,16 @@ function blankCandidate(targetPrefix: AbsolutePathPrefix, attempt: number): Crea
   const path = parseAbsoluteFilePath(`${targetPrefix}${title}`)
   if (!path.ok)
     throw new FileCreationError('invalid_target_prefix', `Blank Creation Path is invalid: ${path.error.code}`)
-  return { path: path.value, content: '' }
+  return { path: path.value, renderer: RENDERER_MODE.Markdown, content: '' }
 }
 
 function templateCandidate(
-  template: CreationTemplateV1,
+  template: CreationTemplateV2,
   targetPrefix: AbsolutePathPrefix,
   now: Date,
   attempt: number,
 ): CreationCandidate {
-  const instantiated = instantiateTemplateV1(template, {
+  const instantiated = instantiateTemplateV2(template, {
     targetPrefix,
     now,
     uniqueSuffix: uniqueSuffix(attempt),
@@ -60,7 +62,7 @@ function templateCandidate(
   return instantiated.value
 }
 
-function canRetryTemplate(template: CreationTemplateV1 | null) {
+function canRetryTemplate(template: CreationTemplateV2 | null) {
   return template === null || template.titlePattern.includes('{{uniqueSuffix}}')
 }
 
@@ -73,7 +75,10 @@ export async function createFile(env: Env | undefined, input: CreateFileInput): 
   if (catalog.status === 'absent')
     return { status: 'catalog_absent' }
 
-  const template = selectTemplateV1(catalog.catalog.templates, targetPrefix.value)
+  const catalogV2 = catalog.catalog.schemaVersion === 1
+    ? upgradeTemplateCatalogV1(catalog.catalog)
+    : catalog.catalog
+  const template = selectTemplateByPrefix(catalogV2.templates, targetPrefix.value)
   const attemptLimit = canRetryTemplate(template) ? FILE_CREATION_ATTEMPT_LIMIT : 1
   const now = new Date()
   let lastPath: AbsoluteFilePath | null = null
@@ -86,6 +91,7 @@ export async function createFile(env: Env | undefined, input: CreateFileInput): 
     try {
       const [file] = await add(env ?? {} as Env, {
         path: candidate.path,
+        renderer: candidate.renderer,
         content: candidate.content,
         private: candidate.path.startsWith('/memo/'),
         remoteTruth: true,

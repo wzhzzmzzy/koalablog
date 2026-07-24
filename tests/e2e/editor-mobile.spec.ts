@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixture'
 
 test('mobile toolbar keeps every File control fully reachable', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
@@ -9,6 +9,14 @@ test('mobile toolbar keeps every File control fully reachable', async ({ page })
     const path = page.getByRole('textbox', { name: 'Absolute File Path' })
     await expect(path).toBeInViewport({ ratio: 1 })
     expect((await path.boundingBox())?.width).toBeGreaterThan(viewport.width / 2)
+    const markdown = page.getByRole('radio', { name: 'Markdown' })
+    const svelte = page.getByRole('radio', { name: 'Svelte' })
+    await expect(markdown.locator('..')).toBeInViewport({ ratio: 1 })
+    await expect(svelte.locator('..')).toBeInViewport({ ratio: 1 })
+    await svelte.check()
+    await expect(svelte).toBeChecked()
+    await markdown.check()
+    await expect(markdown).toBeChecked()
     for (const name of ['Make private', 'Save File', 'Upload image', 'Preview File', 'Move to recycle bin', 'Copy File link'])
       await expect(page.getByRole('button', { name })).toBeInViewport({ ratio: 1 })
   }

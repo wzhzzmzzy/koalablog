@@ -4,7 +4,7 @@ Status: ready-for-agent
 
 ## What to build
 
-Implement ADR-0008 visibility semantics. Every file creation stamps the current User as Owner; saving never reassigns ownership. Index and list queries show public files plus the current user's own private files (`public OR owner = current user`), for every visitor including the Admin. Article routes serve private files only to their Owner. Dashboard file lists and trash views are scoped to the current user. File mutations — save, trash, restore, visibility toggle — are restricted server-side to the Owner. Site-level sync/batch APIs (batch import, remote-truth) stay Admin-only.
+Implement ADR-0012 visibility semantics. Every file creation stamps the current User as Owner; saving never reassigns ownership. Index and list queries show public files plus the current user's own private files (`public OR owner = current user`), for every visitor including the Admin. Article routes serve private files only to their Owner. Dashboard file lists and trash views are scoped to the current user. File mutations — save, trash, restore, visibility toggle — are restricted server-side to the Owner. Site-level sync/batch APIs (batch import, remote-truth) stay Admin-only.
 
 ## Acceptance criteria
 
