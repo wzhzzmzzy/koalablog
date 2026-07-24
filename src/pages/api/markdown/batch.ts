@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
 import { batchTrashByPaths, FileInputError, readAll, saveSyncedFile } from '@/db/markdown'
+import { readCurrentRenderArtifact } from '@/db/render-artifact'
 import { authInterceptor } from '@/lib/auth'
 import { isRendererMode, RENDERER_MODE, type RendererMode } from '@/lib/files/types'
 
@@ -26,8 +27,31 @@ function requestedSource(value: string | null) {
   return MarkdownSource.Memo
 }
 
-function artifactStatus(renderer: RendererMode) {
-  return renderer === RENDERER_MODE.Markdown ? 'not_applicable' as const : 'rebuild_required' as const
+async function artifactStatus(env: Env | undefined, file: { id: number, renderer: RendererMode }) {
+  if (file.renderer === RENDERER_MODE.Markdown)
+    return 'not_applicable' as const
+  return await readCurrentRenderArtifact(env || {}, file.id)
+    ? 'current' as const
+    : 'rebuild_required' as const
+}
+
+async function serializedFile(env: Env | undefined, file: {
+  id: number
+  path: string
+  title: string
+  renderer: RendererMode
+  sourceHash: string
+  revision: number
+}) {
+  return {
+    id: file.id,
+    path: file.path,
+    title: file.title,
+    renderer: file.renderer,
+    sourceHash: file.sourceHash,
+    artifactStatus: await artifactStatus(env, file),
+    revision: file.revision,
+  }
 }
 
 export const GET: APIRoute = async (ctx) => {
@@ -36,15 +60,7 @@ export const GET: APIRoute = async (ctx) => {
     return unauthorized
 
   const files = await readAll(ctx.locals.runtime?.env, requestedSource(ctx.url.searchParams.get('source')))
-  return json(files.map(file => ({
-    id: file.id,
-    path: file.path,
-    title: file.title,
-    renderer: file.renderer,
-    sourceHash: file.sourceHash,
-    artifactStatus: artifactStatus(file.renderer),
-    revision: file.revision,
-  })))
+  return json(await Promise.all(files.map(file => serializedFile(ctx.locals.runtime?.env, file))))
 }
 
 interface BatchSourceInput {
@@ -115,15 +131,7 @@ export const POST: APIRoute = async (ctx) => {
     return json({
       success: true,
       count: files.length,
-      results: files.map(file => ({
-        id: file.id,
-        path: file.path,
-        title: file.title,
-        renderer: file.renderer,
-        sourceHash: file.sourceHash,
-        artifactStatus: artifactStatus(file.renderer),
-        revision: file.revision,
-      })),
+      results: await Promise.all(files.map(file => serializedFile(ctx.locals.runtime?.env, file))),
     })
   }
   catch (error) {

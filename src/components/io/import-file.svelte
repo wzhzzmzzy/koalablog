@@ -1,10 +1,16 @@
 <script lang="ts">
 import type { DiskSourceFile } from "@/lib/files/disk";
+import type { FileRecord } from '@/db/types'
 import { flattenFileCollections } from "@/lib/files/collection";
 import { supportFSApi } from "@/lib/services/file-reader";
 import { importFromFilePicker } from "@/lib/services/io";
 import { actions } from "astro:actions";
 import { onMount } from "svelte";
+import SveltePreview from '@/components/editor/svelte/SveltePreview.svelte'
+import { SvelteBuildController } from '@/components/editor/svelte/build-controller.svelte'
+import type { PreviewArtifact } from '@/components/editor/svelte/preview-protocol'
+import type { SvelteBuildSuccess } from '@/lib/svelte/contracts'
+import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 import to from 'await-to-js'
 import './import-file.scss';
 
@@ -12,7 +18,8 @@ import './import-file.scss';
 const ImportStatus = {
   IDLE: 'idle',
   LOADING: 'loading',
-  SAVING: 'saving'
+  SAVING: 'saving',
+  BUILDING: 'building',
 } as const
 
 type ImportStatusType = typeof ImportStatus[keyof typeof ImportStatus]
@@ -22,6 +29,10 @@ let status = $state<ImportStatusType>(ImportStatus.IDLE)
 let supportFilePicker = $state(true)
 let showDrawer = $state(false)
 let saveError = $state<string | null>(null)
+let buildFailures = $state<Map<string, string>>(new Map())
+let previewReady = $state(false)
+let preview: SveltePreview | undefined = $state()
+const buildController = new SvelteBuildController()
 
 // File data
 let foundFiles = $state<DiskSourceFile[]>([])
@@ -56,6 +67,7 @@ const resetState = () => {
   duplicateFiles = new Set()
   status = ImportStatus.IDLE
   saveError = null
+  buildFailures = new Map()
   scrollUtils.unlock()
   triggerButton?.focus()
 }
@@ -93,8 +105,55 @@ onMount(() => {
   })
   
   // Cleanup function to ensure scroll is unlocked if component unmounts
-  return () => scrollUtils.unlock()
+  return () => {
+    buildController.dispose()
+    scrollUtils.unlock()
+  }
 })
+
+async function waitForSavedBuild(file: FileRecord): Promise<SvelteBuildSuccess> {
+  await buildController.saved({
+    enabled: true,
+    fileId: file.id,
+    renderer: 'svelte',
+    source: file.content,
+    sourceHash: file.sourceHash,
+  })
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const build = buildController.build
+    if (build?.type === 'build-success')
+      return build
+    if (build?.type === 'build-error')
+      throw new Error(build.error.message)
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
+  throw new Error('Svelte Artifact build timed out')
+}
+
+async function buildImportedArtifact(file: FileRecord) {
+  if (!preview || !previewReady)
+    throw new Error('Svelte Preview is still initializing')
+  const build = await waitForSavedBuild(file)
+  const artifact: PreviewArtifact = { css: build.css, javascript: build.javascript }
+  const snapshotHtml = await preview.snapshot(artifact)
+  if (!snapshotHtml)
+    throw new Error('Svelte Preview did not produce an Artifact Snapshot')
+  const result = await actions.db.renderArtifact.attach({
+    fileId: file.id,
+    schemaVersion: 1,
+    renderer: 'svelte',
+    svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
+    unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
+    unocssConfigHash: UNOCSS_CONFIG_HASH,
+    sourceHash: file.sourceHash,
+    dependencies: build.dependencies,
+    javascript: build.javascript,
+    css: build.css,
+    snapshotHtml,
+  })
+  if (result.error)
+    throw new Error(result.error.message)
+}
 
 const onImport = async () => {
   status = ImportStatus.LOADING
@@ -203,8 +262,34 @@ const onSave = async () => {
   }
   
   if (result.data) {
-    console.log(`Successfully imported ${result.data.length} posts`)
-    resetState()
+    const savedFiles = result.data as FileRecord[]
+    const svelteFiles = savedFiles.filter(file => file.renderer === 'svelte')
+    if (svelteFiles.length === 0) {
+      console.log(`Successfully imported ${savedFiles.length} posts`)
+      resetState()
+      return
+    }
+
+    status = ImportStatus.BUILDING
+    const failures = new Map<string, string>()
+    for (const file of svelteFiles) {
+      try {
+        await buildImportedArtifact(file)
+      }
+      catch (error) {
+        failures.set(file.path, error instanceof Error ? error.message : 'Svelte Artifact rebuild failed')
+      }
+    }
+    buildFailures = failures
+    status = ImportStatus.IDLE
+    selectedFiles = new Set()
+    if (failures.size === 0) {
+      console.log(`Successfully imported and rebuilt ${savedFiles.length} posts`)
+      resetState()
+    }
+  }
+  else {
+    status = ImportStatus.IDLE
   }
 }
 </script>
@@ -224,6 +309,8 @@ const onSave = async () => {
       Loading...
     {:else if status === ImportStatus.SAVING}
       Saving...
+    {:else if status === ImportStatus.BUILDING}
+      Building Svelte...
     {:else}
       Choose File
     {/if}
@@ -279,9 +366,9 @@ const onSave = async () => {
           <button
             class="save-button !w-20 text-sm px-3 py-1 rounded btn"
             onclick={onSave}
-            disabled={selectedFiles.size === 0 || status === ImportStatus.SAVING}
+            disabled={selectedFiles.size === 0 || status === ImportStatus.SAVING || status === ImportStatus.BUILDING || !previewReady}
           >
-            {status === ImportStatus.SAVING ? 'Saving...' : 'Save'}
+            {status === ImportStatus.SAVING ? 'Saving...' : status === ImportStatus.BUILDING ? 'Building Svelte...' : 'Save'}
           </button>
           <span class="selection-count text-sm ml-auto">
             {selectedFiles.size} of {foundFiles.length - duplicateFiles.size} selected
@@ -329,6 +416,9 @@ const onSave = async () => {
                     {#if isDuplicate}
                       <p class="error">This File already exists at the same Path</p>
                     {/if}
+                    {#if buildFailures.has(file.path)}
+                      <p class="error" data-import-build-failure={file.path}>Source saved, but Svelte Artifact rebuild failed: {buildFailures.get(file.path)}</p>
+                    {/if}
                   </div>
                 </div>
               </li>
@@ -341,3 +431,7 @@ const onSave = async () => {
 {/if}
 
 </section>
+
+<div class="hidden" aria-hidden="true">
+  <SveltePreview bind:this={preview} onFocusReturn={() => {}} onReady={() => { previewReady = true }} />
+</div>

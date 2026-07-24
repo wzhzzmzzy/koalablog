@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     }
   }),
   batchTrashByPaths: vi.fn(),
+  readCurrentRenderArtifact: vi.fn(),
   readAll: vi.fn(),
   saveSyncedFile: vi.fn(),
 }))
@@ -24,6 +25,10 @@ vi.mock('@/db/markdown', () => ({
   saveSyncedFile: mocks.saveSyncedFile,
 }))
 
+vi.mock('@/db/render-artifact', () => ({
+  readCurrentRenderArtifact: mocks.readCurrentRenderArtifact,
+}))
+
 function createContext(request: Request) {
   return {
     request,
@@ -37,6 +42,7 @@ function createContext(request: Request) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.readCurrentRenderArtifact.mockResolvedValue(undefined)
 })
 
 describe('markdown batch API reads and deletes', () => {
@@ -68,6 +74,27 @@ describe('markdown batch API reads and deletes', () => {
         artifactStatus: 'not_applicable',
         revision: 3,
       },
+    ])
+  })
+
+  it('reports current only for a Svelte File with a matching stored Artifact', async () => {
+    mocks.readAll.mockResolvedValue([{
+      id: 2,
+      path: '/page/application',
+      title: 'application',
+      renderer: 'svelte',
+      sourceHash: 'svelte-source-hash',
+      revision: 3,
+    }])
+    mocks.readCurrentRenderArtifact.mockResolvedValue({ fileId: 2, sourceHash: 'svelte-source-hash' })
+
+    const response = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=page', {
+      headers: { Authorization: 'Bearer token' },
+    })))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject([
+      { path: '/page/application', renderer: 'svelte', artifactStatus: 'current' },
     ])
   })
 
@@ -309,6 +336,39 @@ describe('markdown batch API Svelte Source writes', () => {
         artifactStatus: 'rebuild_required',
         revision: 5,
       }],
+    })
+  })
+
+  it('reports a current Artifact when the saved Svelte Source still matches it', async () => {
+    mocks.readCurrentRenderArtifact.mockResolvedValue({ fileId: 2, sourceHash: 'svelte-source-hash' })
+    mocks.saveSyncedFile.mockResolvedValue({
+      status: 'saved',
+      file: {
+        id: 2,
+        path: '/page/application',
+        title: 'application',
+        renderer: 'svelte',
+        sourceHash: 'svelte-source-hash',
+        revision: 5,
+      },
+    })
+
+    const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+      body: JSON.stringify([{
+        id: 2,
+        path: '/page/application',
+        renderer: 'svelte',
+        content: '<h1>Application</h1>',
+        private: false,
+        baseRevision: 4,
+      }]),
+    })))
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      results: [{ path: '/page/application', artifactStatus: 'current' }],
     })
   })
 })

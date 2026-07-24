@@ -105,3 +105,41 @@ test('browser import reports cross-extension Path collisions before saving', asy
   await expect(page.getByRole('dialog', { name: 'Import Files' })).toBeHidden()
   expect(importRequests).toBe(0)
 })
+
+test('browser import keeps saved Source and reports a per-Path Svelte build failure', async ({ page }) => {
+  test.setTimeout(120_000)
+  const paths = ['/post/phase-three/imported-markdown', '/page/phase-three/invalid-widget']
+  const markdownSource = '# Imported before build failure'
+  const invalidSvelteSource = '<script>const = invalid</script>'
+  const database = drizzle({ connection: { url: 'file:.playwright/local.db' } })
+
+  try {
+    await mockDirectoryPicker(page, {
+      post: { 'phase-three': { 'imported-markdown.md': markdownSource } },
+      page: { 'phase-three': { 'invalid-widget.svelte': invalidSvelteSource } },
+    })
+    await page.goto('/dashboard/settings')
+    await page.waitForLoadState('networkidle')
+
+    await page.getByRole('button', { name: 'Choose File' }).click()
+    const importDialog = page.getByRole('dialog', { name: 'Import Files' })
+    const save = importDialog.getByRole('button', { name: 'Save', exact: true })
+    await expect(save).toBeEnabled()
+    await save.click()
+
+    await expect(importDialog.locator('[data-import-build-failure="/page/phase-three/invalid-widget"]')).toBeVisible({ timeout: 90_000 })
+    await expect.poll(async () => {
+      const rows = await database.select({ path: markdown.path, renderer: markdown.renderer, content: markdown.content })
+        .from(markdown)
+        .where(inArray(markdown.path, paths))
+      return rows.sort((left, right) => left.path.localeCompare(right.path))
+    }).toEqual([
+      { path: '/page/phase-three/invalid-widget', renderer: 'svelte', content: invalidSvelteSource },
+      { path: '/post/phase-three/imported-markdown', renderer: 'markdown', content: markdownSource },
+    ])
+  }
+  finally {
+    await database.delete(markdown).where(inArray(markdown.path, paths))
+    database.$client.close()
+  }
+})
