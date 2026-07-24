@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),
   batchAdd: vi.fn(),
+  sourceHashMaintenanceWriteGuard: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
+vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard, sourceHashMaintenanceWriteGuard: mocks.sourceHashMaintenanceWriteGuard }))
 vi.mock('@/db/markdown', () => ({ batchAdd: mocks.batchAdd }))
 
 const context = { locals: { runtime: { env: { DB: 'db' } }, session: { role: 'admin' } } } as any

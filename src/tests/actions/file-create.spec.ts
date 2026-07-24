@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),
   createFile: vi.fn(),
+  sourceHashMaintenanceWriteGuard: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
+vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard, sourceHashMaintenanceWriteGuard: mocks.sourceHashMaintenanceWriteGuard }))
 vi.mock('@/db/file-create', () => ({ createFile: mocks.createFile }))
 
 const context = { locals: { runtime: { env: { DB: 'db' } }, session: { role: 'admin' } } } as any
@@ -36,6 +37,13 @@ describe('server File creation action', () => {
       status: 409,
       message: JSON.stringify({ code: 'path_conflict', path: '/post/welcome' }),
     })
+  })
+
+  it('does not create a File while Source Hash maintenance owns the write window', async () => {
+    mocks.sourceHashMaintenanceWriteGuard.mockRejectedValueOnce(new Error('Maintenance active'))
+
+    await expect(create.orThrow.call(context, { targetPrefix: '/memo/' })).rejects.toThrow('Maintenance active')
+    expect(mocks.createFile).not.toHaveBeenCalled()
   })
 
   it('does not create when authentication fails', async () => {

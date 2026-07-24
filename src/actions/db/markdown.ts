@@ -15,7 +15,7 @@ import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path
 import { RENDERER_MODE } from '@/lib/files/types'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-import { authGuard } from '../utils/auth'
+import { authGuard, sourceHashMaintenanceWriteGuard } from '../utils/auth'
 
 export interface AllCollection {
   posts?: FileRecord[]
@@ -37,6 +37,7 @@ export const create = defineAction({
   }).strict(),
   handler: async (input, ctx) => {
     await authGuard(ctx)
+    await sourceHashMaintenanceWriteGuard(ctx)
     const result = await createFile(ctx.locals.runtime?.env, input)
     if (result.status === 'path_conflict') {
       throw new ActionError({
@@ -116,6 +117,7 @@ export const trash = defineAction({
   input: z.object({ id: z.number().int().positive() }),
   handler: async ({ id }, ctx) => {
     await authGuard(ctx)
+    await sourceHashMaintenanceWriteGuard(ctx)
     return trashFile(ctx.locals.runtime?.env || {}, id)
   },
 })
@@ -127,6 +129,7 @@ export const restore = defineAction({
   }),
   handler: async ({ id, renameOnConflict }, ctx) => {
     await authGuard(ctx)
+    await sourceHashMaintenanceWriteGuard(ctx)
     return restoreFile(ctx.locals.runtime?.env || {}, id, renameOnConflict)
   },
 })
@@ -135,6 +138,7 @@ export const purge = defineAction({
   input: z.object({ id: z.number().int().positive() }),
   handler: async ({ id }, ctx) => {
     await authGuard(ctx)
+    await sourceHashMaintenanceWriteGuard(ctx)
     return purgeFile(ctx.locals.runtime?.env || {}, id)
   },
 })
@@ -142,6 +146,7 @@ export const purge = defineAction({
 export const emptyTrash = defineAction({
   handler: async (_, ctx) => {
     await authGuard(ctx)
+    await sourceHashMaintenanceWriteGuard(ctx)
     return emptyTrashDB(ctx.locals.runtime?.env || {})
   },
 })
@@ -159,6 +164,7 @@ export const batchImport = defineAction({
   accept: 'json',
   handler: async (input, ctx) => {
     await authGuard(ctx)
+    await sourceHashMaintenanceWriteGuard(ctx)
     const paths = new Set<string>()
     const files = input.map((file) => {
       const parsed = parseAbsoluteFilePath(file.path)

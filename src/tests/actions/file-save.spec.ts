@@ -5,10 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),
   saveFile: vi.fn(),
+  sourceHashMaintenanceWriteGuard: vi.fn(),
   updatePrivate: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
+vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard, sourceHashMaintenanceWriteGuard: mocks.sourceHashMaintenanceWriteGuard }))
 vi.mock('@/db/markdown', () => ({
   FileInputError: class FileInputError extends Error {},
   saveFile: mocks.saveFile,
