@@ -31,7 +31,8 @@ beforeEach(async () => {
       revision integer DEFAULT 1 NOT NULL,
       createdAt integer DEFAULT (unixepoch()) NOT NULL,
       updatedAt integer DEFAULT (unixepoch()) NOT NULL,
-      deletedAt integer
+      deletedAt integer,
+      userId integer
     );
     CREATE UNIQUE INDEX markdown_active_path_unique ON markdown (path) WHERE deletedAt IS NULL;
   `)

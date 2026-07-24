@@ -4,10 +4,11 @@ import { ensureTemplateCatalogInitialized, replaceTemplateCatalog } from '@/db/t
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
 import initSql from '../../migrations/0000_init.sql?raw'
+import userSchemaSql from '../../migrations/0002_user.sql?raw'
 
 describe('Gate 1D D1 File creation', () => {
   beforeEach(async () => {
-    await resetD1ForOnboarding(env, [initSql])
+    await resetD1ForOnboarding(env, [initSql, userSchemaSql])
   })
 
   it('uses the D1 active-Path constraint to resolve concurrent Blank Creation', async () => {
