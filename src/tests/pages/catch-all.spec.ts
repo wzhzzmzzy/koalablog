@@ -12,7 +12,7 @@ const env = {} as Env
 
 const locals = {
   runtime: { env: {} },
-  session: { role: '' },
+  session: { userId: null, role: '' },
   config: { pageConfig: {}, auth: {}, oss: {}, _runtime: { ready: true } },
 } as unknown as App.Locals
 
@@ -98,5 +98,26 @@ describe('catch-all article route', () => {
     })
 
     expect(html).toContain('legacy memo body')
+  })
+
+  it('redirects an anonymous visitor of a private File to login and back', async () => {
+    await saveFile(env, {
+      id: 0,
+      path: '/memo/secret',
+      renderer: 'markdown',
+      content: 'secret body',
+      private: true,
+      baseRevision: 0,
+    })
+
+    const container = await AstroContainer.create()
+    const response = await container.renderToResponse(CatchAllPage, {
+      params: { slug: 'memo/secret' },
+      locals,
+      request: new Request('https://koala.test/memo/secret'),
+    })
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('Location')).toBe('/login?from=%2Fmemo%2Fsecret')
   })
 })

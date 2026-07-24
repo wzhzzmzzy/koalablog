@@ -4,14 +4,14 @@ export type ArtifactRepresentation = 'page' | 'resource'
 
 export type ArtifactAccessDecision =
   | { cacheControl: 'no-store', status: 404, type: 'not_found' }
-  | { cacheControl: 'no-store', location: string, status: 302, type: 'guest_login' }
+  | { cacheControl: 'no-store', location: string, status: 302, type: 'login' }
   | { cacheControl: 'no-store', status: 503, type: 'artifact_unavailable' }
   | { cacheControl: 'private, no-store' | 'public, no-cache', status: 200, type: 'allowed' }
 
 export interface ArtifactAccessInput {
   artifactSourceHash?: string
   authenticated: boolean
-  file?: Pick<FileRecord, 'deletedAt' | 'id' | 'private' | 'renderer' | 'sourceHash'>
+  file?: Pick<FileRecord, 'deletedAt' | 'id' | 'path' | 'private' | 'renderer' | 'sourceHash'>
   representation: ArtifactRepresentation
   requestedSourceHash?: string
 }
@@ -26,7 +26,7 @@ export function decideArtifactAccess(input: ArtifactAccessInput): ArtifactAccess
     return notFound()
   if (file.private && !input.authenticated) {
     return representation === 'page'
-      ? { cacheControl: 'no-store', location: `/guest-login?id=${file.id}`, status: 302, type: 'guest_login' }
+      ? { cacheControl: 'no-store', location: `/login?from=${encodeURIComponent(file.path)}`, status: 302, type: 'login' }
       : notFound()
   }
   if (input.requestedSourceHash && input.requestedSourceHash !== file.sourceHash)

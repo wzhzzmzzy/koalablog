@@ -21,7 +21,6 @@ export const settings = defineAction({
     }),
     readLimit: z.preprocess(v => Number(v), z.number().min(0)),
     operateLimit: z.preprocess(v => Number(v), z.number().min(0)),
-    guestPasskey: z.string().optional(),
     rssEnable: z.boolean().optional(),
     rssDesc: z.string().optional(),
     rssLang: z.string().default('en-US'),
@@ -39,7 +38,6 @@ export const settings = defineAction({
     return Promise.all([
       updateGlobalConfig(env, {
         auth: {
-          guestKey: input.guestPasskey,
           bearerToken,
         },
         oss: {

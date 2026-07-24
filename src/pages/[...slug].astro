@@ -18,8 +18,8 @@ if (!maybePage) {
   return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
 }
 if (maybePage.private) {
-  if (!Astro.locals.session.role) {
-    return Astro.redirect(`/guest-login?id=${maybePage.id}`)
+  if (!Astro.locals.session.userId) {
+    return Astro.redirect(`/login?from=${encodeURIComponent(Astro.url.pathname)}`)
   }
 }
 

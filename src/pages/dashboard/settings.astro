@@ -25,7 +25,6 @@ const fontConfig = Astro.locals.config.font
 
 const title = pageConfig.title ?? ''
 const avatar = pageConfig.avatar ?? ''
-const guestKey = authConfig.guestKey ?? ''
 const bearerToken = authConfig.bearerToken ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
@@ -76,11 +75,6 @@ const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ri
               </button>
             </div>
             <p id="avatar-upload-status" class="hidden text-sm text-destructive" role="alert"></p>
-          </div>
-
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="passkey-input">Guest Passkey</label>
-            <input class={inputClass} type="password" id="passkey-input" name="guestPasskey" value={guestKey} autocomplete="new-password" />
           </div>
 
           <div class="grid gap-2">

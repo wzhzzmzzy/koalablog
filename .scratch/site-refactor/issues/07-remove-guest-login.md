@@ -1,6 +1,6 @@
 # 07 — Remove the guest-login system
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 
