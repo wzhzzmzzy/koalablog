@@ -11,8 +11,10 @@
   import EditorContent from './EditorContent.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
   import { SvelteBuildController } from './svelte/build-controller.svelte';
+  import DependencyDriftDialog from './svelte/DependencyDriftDialog.svelte';
   import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain';
   import type { SvelteBuildSuccess } from '@/lib/svelte/contracts';
+  import type { DependencyDiff } from '@/lib/svelte/dependency-diff';
   import { findPreviousActiveFile, formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
   import type { TextEditorHandle } from './TextEditor.svelte';
   import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
@@ -179,6 +181,8 @@
   let svelteBuildError = $derived(svelteBuildController.build?.type === 'build-error'
     ? svelteBuildController.build.error.message
     : null)
+  let pendingBuild = $state<SvelteBuildSuccess | null>(null)
+  let pendingDependencyReview = $state<{ currentArtifactHash: string, proposedArtifactHash: string, diff: DependencyDiff } | null>(null)
 
   async function currentSavedBuild() {
     const buffer = {
@@ -202,7 +206,7 @@
 
   function dependencyReview(error: { message: string }) {
     try {
-      const detail = JSON.parse(error.message) as { code?: string, currentArtifactHash?: string, proposedArtifactHash?: string, diff?: unknown }
+      const detail = JSON.parse(error.message) as { code?: string, currentArtifactHash?: string, proposedArtifactHash?: string, diff?: DependencyDiff }
       return detail.code === 'dependency_changed'
         && detail.currentArtifactHash && detail.proposedArtifactHash
         ? detail
@@ -256,21 +260,30 @@
         notify('error', formatFileSaveError(result.error))
         return
       }
-      if (!window.confirm(`Dependency changes detected. Review and approve replacement?\n${JSON.stringify(review.diff, null, 2)}`)) {
-        notify('info', 'Dependency change was not approved.', 3000)
-        return
-      }
-      const confirmed = await attachSavedBuild(build, {
-        currentArtifactHash: review.currentArtifactHash,
-        proposedArtifactHash: review.proposedArtifactHash,
-      })
+      pendingBuild = build
+      pendingDependencyReview = review as { currentArtifactHash: string, proposedArtifactHash: string, diff: DependencyDiff }
+    }
+    catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Svelte Artifact rebuild failed')
+    }
+  }
+
+  async function approveDependencyReplacement() {
+    const build = pendingBuild
+    const review = pendingDependencyReview
+    pendingBuild = null
+    pendingDependencyReview = null
+    if (!build || !review)
+      return
+    try {
+      const confirmed = await attachSavedBuild(build, review)
       if (confirmed.error)
         notify('error', formatFileSaveError(confirmed.error))
       else
         notify('success', 'Svelte Artifact rebuilt after dependency review.', 3000)
     }
     catch (error) {
-      notify('error', error instanceof Error ? error.message : 'Svelte Artifact rebuild failed')
+      notify('error', error instanceof Error ? error.message : 'Dependency confirmation failed')
     }
   }
 
@@ -533,3 +546,15 @@
     />
   </form>
 </div>
+
+{#if pendingDependencyReview}
+  <DependencyDriftDialog
+    {...pendingDependencyReview}
+    onApprove={approveDependencyReplacement}
+    onCancel={() => {
+      pendingBuild = null
+      pendingDependencyReview = null
+      notify('info', 'Dependency change was not approved.', 3000)
+    }}
+  />
+{/if}
