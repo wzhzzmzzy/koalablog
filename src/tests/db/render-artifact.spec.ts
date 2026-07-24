@@ -195,6 +195,39 @@ describe('render Artifact persistence', () => {
     expect(await readRenderArtifact(env, file.id)).toEqual(beforeStaleConfirmation)
   })
 
+  it('never revives replaced Artifact history after an exact Source reversion', async () => {
+    const original = await createSvelteFile()
+    const first = artifact(original.id, original.sourceHash, 'export const version = "A"')
+    await replaceRenderArtifact(env, first)
+
+    const changed = await saveFile(env, {
+      id: original.id,
+      path: original.path,
+      renderer: 'svelte',
+      content: '<h1>Changed</h1>',
+      private: false,
+      baseRevision: original.revision,
+    })
+    if (changed.status !== 'saved')
+      throw new Error('Expected Source change to succeed')
+    const replacement = artifact(original.id, changed.file.sourceHash, 'export const version = "B"')
+    await replaceRenderArtifact(env, replacement)
+
+    const reverted = await saveFile(env, {
+      id: original.id,
+      path: original.path,
+      renderer: 'svelte',
+      content: original.content,
+      private: false,
+      baseRevision: changed.file.revision,
+    })
+    if (reverted.status !== 'saved')
+      throw new Error('Expected exact Source reversion to succeed')
+
+    expect(await readRenderArtifact(env, original.id)).toMatchObject(replacement)
+    expect(await readCurrentRenderArtifact(env, original.id)).toBeUndefined()
+  })
+
   it('preserves an Artifact in trash, restores its currentness, and cascades it away on purge', async () => {
     const file = await createSvelteFile()
     const stored = artifact(file.id, file.sourceHash)

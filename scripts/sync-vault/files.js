@@ -1,4 +1,4 @@
-import { relative } from 'path'
+import { relative } from 'node:path'
 
 export const SyncRenderer = Object.freeze({
   Markdown: 'markdown',
@@ -26,6 +26,11 @@ export function sourceFromVaultPath(vaultPath, diskPath) {
   return { path: `/${withoutExtension}`, renderer }
 }
 
+/**
+ * @param {string} vaultPath
+ * @param {string} sourcePath
+ * @param {'markdown' | 'svelte'} [renderer]
+ */
 export function vaultPathForSource(vaultPath, sourcePath, renderer = SyncRenderer.Markdown) {
   const extension = renderer === SyncRenderer.Svelte ? '.svelte' : '.md'
   return `${vaultPath.replace(/\/$/, '')}/${sourcePath.replace(/^\/+/, '')}${extension}`

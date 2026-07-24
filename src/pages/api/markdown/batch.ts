@@ -30,7 +30,7 @@ function requestedSource(value: string | null) {
 async function artifactStatus(env: Env | undefined, file: { id: number, renderer: RendererMode }) {
   if (file.renderer === RENDERER_MODE.Markdown)
     return 'not_applicable' as const
-  return await readCurrentRenderArtifact(env || {}, file.id)
+  return await readCurrentRenderArtifact(env ?? {} as Env, file.id)
     ? 'current' as const
     : 'rebuild_required' as const
 }
