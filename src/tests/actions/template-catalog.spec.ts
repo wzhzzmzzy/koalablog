@@ -5,10 +5,9 @@ const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),
   readTemplateCatalog: vi.fn(),
   replaceTemplateCatalog: vi.fn(),
-  sourceHashMaintenanceWriteGuard: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard, sourceHashMaintenanceWriteGuard: mocks.sourceHashMaintenanceWriteGuard }))
+vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
 vi.mock('@/db/template-catalog', () => ({
   readTemplateCatalog: mocks.readTemplateCatalog,
   replaceTemplateCatalog: mocks.replaceTemplateCatalog,

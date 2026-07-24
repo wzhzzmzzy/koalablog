@@ -25,9 +25,9 @@ Status: **open**. This record is intentionally not a release sign-off.
 
 - Source hash, migrations, source-save currentness, exact reversion, replaced Artifact history, trash/restore/purge: SQLite and D1 contracts.
 - Artifact budgets, hashes, dependency drift confirmation, canonical Snapshot rules, resource ETags and revalidation: unit/API tests.
-- Worker compiler, resolver policy, browser Rollup bundle, UnoCSS root scope, Preview RPC, same-origin DOM mounting, and JavaScript-disabled Snapshot: unit and focused browser tests.
+- Worker compiler, resolver policy, browser Rollup bundle, UnoCSS root scope, in-document Preview runtime, same-origin DOM mounting, and JavaScript-disabled Snapshot: unit and focused browser tests.
 - Browser batch rebuild records `dependency_changed` without confirmation; import saves Source before best-effort Svelte rebuild; sync-vault derives renderer from `.md`/`.svelte` and reports `rebuild_required`.
-- Preview now waits for an opaque `srcdoc` readiness message; import keeps its Snapshot iframe visually hidden but layout-participating so the canonical two-frame Snapshot capture can finish.
+- Preview mounts into the current document under the Artifact root; import keeps its Snapshot host visually hidden but layout-participating so canonical Snapshot capture can finish.
 - The E2E seed includes the initialized default memo Template Catalog, two trashed Files, and current/drift Svelte Artifacts. Its reset restores this complete product state without removing the database file held by the Astro process.
 - Legacy `/playground` and `/api/playground/compile` are deleted.
 

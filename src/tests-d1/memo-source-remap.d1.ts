@@ -2,11 +2,7 @@ import { MarkdownSource } from '@/db'
 import { readAll, readByPath } from '@/db/markdown'
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
-import legacySchema from '../../migrations/0000_init.sql?raw'
-import sourceSchema from '../../migrations/0002_file_source_schema.sql?raw'
-import rendererSourceHash from '../../migrations/0003_file_renderer_source_hash.sql?raw'
-import requireSourceHash from '../../migrations/0004_require_source_hash.sql?raw'
-import renderArtifact from '../../migrations/0005_render_artifact.sql?raw'
+import currentSchema from '../../migrations/0000_init.sql?raw'
 import memoRemap from '../../migrations/0006_memo_source_remap.sql?raw'
 
 function statements(sql: string) {
@@ -22,12 +18,8 @@ describe('memo Source remap migration', () => {
   beforeEach(async () => {
     await env.DB.prepare('DROP TABLE IF EXISTS markdown').run()
     await env.DB.prepare('DROP TABLE IF EXISTS markdown_render').run()
-    for (const statement of statements(legacySchema).filter(statement => statement.includes('markdown')))
+    for (const statement of statements(currentSchema).filter(statement => statement.includes('markdown')))
       await env.DB.prepare(statement).run()
-    await runStatements(sourceSchema)
-    await runStatements(rendererSourceHash)
-    await runStatements(requireSourceHash)
-    await runStatements(renderArtifact)
   })
 
   it('remaps Page, Wiki, and Unknown sources to Memo without touching File identity', async () => {

@@ -4,7 +4,7 @@ import { upgradeTemplateCatalogV1 } from '@/lib/files/template'
 import { RENDERER_MODE } from '@/lib/files/types'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-import { authGuard, sourceHashMaintenanceWriteGuard } from '../utils/auth'
+import { authGuard } from '../utils/auth'
 
 const templateSchema = z.object({
   id: z.string().min(1),
@@ -38,7 +38,6 @@ export const replace = defineAction({
   }).strict(),
   handler: async (input, ctx) => {
     await authGuard(ctx)
-    await sourceHashMaintenanceWriteGuard(ctx)
     const result = await replaceTemplateCatalog(ctx.locals.runtime?.env, input.baseRevision, input.templates)
     if (result.status === 'conflict') {
       throw new ActionError({

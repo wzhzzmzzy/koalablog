@@ -8,10 +8,9 @@ const mocks = vi.hoisted(() => ({
   readById: vi.fn(),
   readCurrentRenderArtifact: vi.fn(),
   replaceCurrentRenderArtifact: vi.fn(),
-  sourceHashMaintenanceWriteGuard: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard, sourceHashMaintenanceWriteGuard: mocks.sourceHashMaintenanceWriteGuard }))
+vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
 vi.mock('@/db/markdown', () => ({ readById: mocks.readById }))
 vi.mock('@/db/render-artifact', () => ({
   readCurrentRenderArtifact: mocks.readCurrentRenderArtifact,

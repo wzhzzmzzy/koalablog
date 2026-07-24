@@ -2,6 +2,7 @@ import { connectD1 } from '@/db'
 import { sql } from 'drizzle-orm'
 
 const RESET_STATEMENTS = [
+  'DROP TABLE IF EXISTS markdown_render',
   'DROP INDEX IF EXISTS markdown_link_unique',
   'DROP INDEX IF EXISTS markdown_subject_unique',
   'DROP INDEX IF EXISTS markdown_active_link_unique',

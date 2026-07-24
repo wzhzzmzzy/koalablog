@@ -34,41 +34,10 @@ export interface GlobalConfig {
     operateLimit?: number
     readLimit?: number
   }
-  maintenance?: {
-    sourceHashBackfill?: SourceHashBackfillMaintenance
-  }
   _runtime: {
     ready: boolean
     refresh_token?: string
     refresh_expired_at?: number
-  }
-}
-
-export interface SourceHashBackfillMaintenance {
-  active: boolean
-  applicationCommit?: string
-  operator?: string
-  startedAt?: string
-  completedAt?: string
-  progress?: {
-    afterId: number
-    done: boolean
-    batches: number
-    processed: number
-    updated: number
-    skipped: number
-    invalid: number
-    retried: number
-  }
-  lastAudit?: {
-    status: 'ready' | 'blocked'
-    total: number
-    active: number
-    recycled: number
-    current: number
-    missing: number
-    mismatched: number
-    invalid: number
   }
 }
 
@@ -133,36 +102,14 @@ function mergeGlobalConfig(currentConfig: GlobalConfig, patch: Partial<GlobalCon
     }
   }
 
-  const maintenance = patch.maintenance === undefined
-    ? currentConfig.maintenance
-    : {
-        ...currentConfig.maintenance,
-        ...patch.maintenance,
-        sourceHashBackfill: patch.maintenance.sourceHashBackfill === undefined
-          ? currentConfig.maintenance?.sourceHashBackfill
-          : {
-              ...currentConfig.maintenance?.sourceHashBackfill,
-              ...patch.maintenance.sourceHashBackfill,
-            },
-      }
-
   return {
     pageConfig,
     rss: patch.rss === undefined ? currentConfig.rss : { ...currentConfig.rss, ...patch.rss },
     font: patch.font === undefined ? currentConfig.font : { ...currentConfig.font, ...patch.font },
     auth: { ...currentConfig.auth, ...patch.auth },
     oss: { ...currentConfig.oss, ...patch.oss },
-    maintenance,
     _runtime: { ...currentConfig._runtime, ...patch._runtime },
   }
-}
-
-export function sourceHashBackfillMaintenance(config: GlobalConfig): SourceHashBackfillMaintenance {
-  return config.maintenance?.sourceHashBackfill ?? { active: false }
-}
-
-export async function sourceHashBackfillMaintenanceActive(env?: Env): Promise<boolean> {
-  return sourceHashBackfillMaintenance(await globalConfig(env)).active
 }
 
 export async function putGlobalConfig(
