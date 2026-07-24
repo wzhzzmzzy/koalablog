@@ -17,7 +17,7 @@ Status: **open**. This record is intentionally not a release sign-off.
 | D1 suite | pass | `pnpm run test:d1 -- --maxWorkers=1`: 8 files, 35 tests; includes `render-artifact.d1.ts` near-limit contract coverage |
 | Cloudflare build | pass | `pnpm run build:cf` completes with the Cloudflare adapter |
 | Standard build | blocked by repository setup | `pnpm run build` fails with Astro `NoAdapterInstalled`; this repository uses `build:cf` for server output |
-| Lint | blocked by existing baseline | `pnpm run lint` reports 405 errors across legacy docs, generated files, scripts, and user-owned local files |
+| Lint | blocked by existing baseline | `pnpm run lint` reports 404 errors across legacy docs, generated files, scripts, and user-owned local files |
 | Astro check | pass with existing hints | `pnpm exec astro check`: 0 errors, 9 pre-existing hints |
 | Browser suite | pass | `pnpm exec playwright test --reporter=list`: 47/47 tests. The suite uses one worker and restores the complete SQLite fixture before every test, so it no longer relies on cross-file timing or prior test mutations. |
 
