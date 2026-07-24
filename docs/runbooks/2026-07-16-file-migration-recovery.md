@@ -1,5 +1,7 @@
 # File 迁移恢复操作手册
 
+> **归档（2026-07-24）**：生产迁移已完成，仓库现在保留面向新建数据库的 `0000_init.sql` 基线，以及后续独立的 `0006_memo_source_remap.sql`。本文件中提到的 `migration:audit`、`migration:backup:sqlite`、`migration:files:sqlite` 与 `0002_file_source_schema.sql` 均已删除；不得将本文件作为当前环境的操作步骤执行。
+
 日期：2026-07-16
 适用范围：Gate 1B 为 `markdown` 替换式迁移所做的准备工作
 

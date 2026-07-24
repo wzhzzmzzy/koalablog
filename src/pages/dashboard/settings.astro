@@ -1,7 +1,6 @@
 ---
 import ExportZip from '@/components/io/export-zip.svelte'
 import ImportFile from '@/components/io/import-file.svelte'
-import SourceHashMaintenance from '@/components/settings/SourceHashMaintenance.svelte'
 import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import { readToday } from '@/db/ossAccess'
 import DashboardLayout from '@/layouts/dashboard.astro'
@@ -147,8 +146,6 @@ const ossAccess = await readToday(Astro.locals.runtime?.env)
       <ExportZip client:load />
     </section>
 
-    <h2>Phase 3 migration</h2>
-    <SourceHashMaintenance client:load />
   </setting-form>
 </DashboardLayout>
 

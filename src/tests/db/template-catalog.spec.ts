@@ -9,7 +9,7 @@ import { defineTemplateCatalogContract } from '@/tests/shared/template-catalog-c
 import { sql } from 'drizzle-orm'
 import { vi } from 'vitest'
 
-import catalogMigration from '../../../migrations/0001_creation_template_catalog.sql?raw'
+import initSql from '../../../migrations/0000_init.sql?raw'
 
 const testEnv = {} as Env
 let databasePath = ''
@@ -22,7 +22,8 @@ defineTemplateCatalogContract({
     databasePath = join(tmpdir(), `koalablog-template-catalog-${randomUUID()}.db`)
     configPath = join(tmpdir(), `koalablog-template-catalog-${randomUUID()}.json`)
     vi.stubEnv('SQLITE_URL', `file:${databasePath}`)
-    await connectDB(testEnv).run(sql.raw(catalogMigration))
+    for (const statement of initSql.split('--> statement-breakpoint').map(value => value.trim()).filter(Boolean))
+      await connectDB(testEnv).run(sql.raw(statement))
   },
   cleanup: async () => {
     vi.unstubAllEnvs()

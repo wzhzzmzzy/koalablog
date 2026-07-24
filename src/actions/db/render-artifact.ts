@@ -7,7 +7,7 @@ import { isCanonicalSnapshotHtml } from '@/lib/svelte/snapshot'
 import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-import { authGuard, sourceHashMaintenanceWriteGuard } from '../utils/auth'
+import { authGuard } from '../utils/auth'
 
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/)
 
@@ -60,7 +60,6 @@ export const attach = defineAction({
   input: artifactInput,
   handler: async (input, ctx) => {
     await authGuard(ctx)
-    await sourceHashMaintenanceWriteGuard(ctx)
     const { confirmation, ...artifact } = input
     const env = ctx.locals.runtime?.env || {}
     const file = await readById(env, artifact.fileId)

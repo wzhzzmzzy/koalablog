@@ -4,7 +4,6 @@ import { batchTrashByPaths, FileInputError, readAll, saveSyncedFile } from '@/db
 import { readCurrentRenderArtifact } from '@/db/render-artifact'
 import { authInterceptor } from '@/lib/auth'
 import { isRendererMode, RENDERER_MODE, type RendererMode } from '@/lib/files/types'
-import { sourceHashBackfillMaintenanceActive } from '@/lib/kv'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -16,12 +15,6 @@ function json(body: unknown, status = 200) {
 async function requireAdmin(ctx: Parameters<APIRoute>[0]) {
   await authInterceptor(ctx)
   return ctx.locals.session.role === 'admin' ? null : json({ error: 'Unauthorized' }, 401)
-}
-
-async function requireWritableFiles(ctx: Parameters<APIRoute>[0]) {
-  return await sourceHashBackfillMaintenanceActive(ctx.locals.runtime?.env)
-    ? json({ error: 'File writes are unavailable while Source Hash maintenance is active' }, 409)
-    : null
 }
 
 function requestedSource(value: string | null) {
@@ -114,10 +107,6 @@ export const POST: APIRoute = async (ctx) => {
   const unauthorized = await requireAdmin(ctx)
   if (unauthorized)
     return unauthorized
-  const maintenance = await requireWritableFiles(ctx)
-  if (maintenance)
-    return maintenance
-
   try {
     const parsed = parseBatchInput(await ctx.request.json())
     if (parsed.error)
@@ -149,10 +138,6 @@ export const DELETE: APIRoute = async (ctx) => {
   const unauthorized = await requireAdmin(ctx)
   if (unauthorized)
     return unauthorized
-  const maintenance = await requireWritableFiles(ctx)
-  if (maintenance)
-    return maintenance
-
   try {
     const body = await ctx.request.json()
     if (!Array.isArray(body))
