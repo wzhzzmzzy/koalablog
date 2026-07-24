@@ -1,4 +1,5 @@
 import type { SvelteArtifactHashes, SvelteArtifactInputV1 } from '@/lib/svelte/contracts'
+import { type ArtifactAccessInput, decideArtifactAccess } from '@/lib/svelte/artifact-access'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { connectDB } from '.'
 import { markdown, markdownRender } from './schema'
@@ -18,6 +19,15 @@ export async function replaceRenderArtifact(env: Env, artifact: StoredRenderArti
 
 export function readRenderArtifact(env: Env, fileId: number) {
   return connectDB(env).query.markdownRender.findFirst({ where: eq(markdownRender.fileId, fileId) })
+}
+
+export async function readArtifactAccess(env: Env, input: Omit<ArtifactAccessInput, 'artifactSourceHash' | 'file'> & { fileId: number }) {
+  const [file, artifact] = await Promise.all([
+    connectDB(env).query.markdown.findFirst({ where: eq(markdown.id, input.fileId) }),
+    readRenderArtifact(env, input.fileId),
+  ])
+  const decision = decideArtifactAccess({ ...input, artifactSourceHash: artifact?.sourceHash, file })
+  return decision.type === 'allowed' && artifact ? { artifact, decision } : { decision }
 }
 
 export async function replaceCurrentRenderArtifact(env: Env, artifact: StoredRenderArtifact, expectedCurrentArtifactHash: string | null = null) {
