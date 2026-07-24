@@ -8,7 +8,7 @@ import { actions } from "astro:actions";
 import { onMount } from "svelte";
 import SveltePreview from '@/components/editor/svelte/SveltePreview.svelte'
 import { SvelteBuildController } from '@/components/editor/svelte/build-controller.svelte'
-import type { PreviewArtifact } from '@/components/editor/svelte/preview-protocol'
+import type { PreviewArtifact } from '@/components/editor/svelte/preview-runtime'
 import type { SvelteBuildSuccess } from '@/lib/svelte/contracts'
 import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 import to from 'await-to-js'

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { RendererMode } from '@/lib/files/types';
-  import type { PreviewArtifact, PreviewRuntimeErrorMessage } from './svelte/preview-protocol';
+  import type { PreviewArtifact, PreviewRuntimeErrorMessage } from './svelte/preview-runtime';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
   import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
   import SveltePreview from './svelte/SveltePreview.svelte';

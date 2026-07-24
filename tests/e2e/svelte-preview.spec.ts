@@ -8,17 +8,13 @@ interface PreviewArtifact {
 
 interface BrowserPreviewFixture {
   focusTarget: HTMLElement
-  iframe: HTMLIFrameElement
-  rpc: {
-    dispose: () => void
+  host: HTMLElement
+  runtime: {
+    dispose: () => Promise<void>
     render: (artifact: PreviewArtifact) => Promise<void>
     snapshot: (artifact: PreviewArtifact) => Promise<string>
   }
   runtimeErrors: string[]
-}
-
-function recordedHeaders(headers: Record<string, string> | null): Record<string, string> | null {
-  return headers
 }
 
 async function openEditor(page: Page) {
@@ -28,36 +24,36 @@ async function openEditor(page: Page) {
 
 async function installPreviewFixture(page: Page) {
   await page.evaluate(async () => {
-    const protocolModulePath = '/src/components/editor/svelte/preview-protocol.ts'
-    const srcdocModulePath = '/src/components/editor/svelte/preview-srcdoc.ts'
-    const { SveltePreviewRpc } = await import(/* @vite-ignore */ protocolModulePath)
-    const { createPreviewSrcdoc } = await import(/* @vite-ignore */ srcdocModulePath)
+    const runtimeModulePath = '/src/components/editor/svelte/preview-runtime.ts'
+    const { InDocumentPreviewRuntime } = await import(/* @vite-ignore */ runtimeModulePath)
     const body = document.body as unknown as HTMLBodyElement
     const focusTarget = document.createElement('button')
     focusTarget.textContent = 'Return focus target'
     body.appendChild(focusTarget)
-    const iframe = document.createElement('iframe')
-    iframe.setAttribute('sandbox', 'allow-scripts')
-    iframe.srcdoc = createPreviewSrcdoc()
-    body.appendChild(iframe)
-    await new Promise<void>((resolve, reject) => {
-      iframe.addEventListener('load', () => resolve(), { once: true })
-      iframe.addEventListener('error', () => reject(new Error('Preview iframe failed to load')), { once: true })
-    })
+    const host = document.createElement('div')
+    const style = document.createElement('style')
+    style.dataset.koalaArtifact = ''
+    const root = document.createElement('div')
+    root.dataset.koalaArtifactRoot = ''
+    root.tabIndex = -1
+    host.appendChild(style)
+    host.appendChild(root)
+    body.appendChild(host)
     const runtimeErrors: string[] = []
-    const rpc = new SveltePreviewRpc({
+    const runtime = new InDocumentPreviewRuntime({
+      root,
+      style,
       onFocusReturn: () => focusTarget.focus(),
       onRuntimeError: (error: { message: string }) => runtimeErrors.push(error.message),
     })
-    rpc.setTarget(iframe.contentWindow!)
-    Object.assign(window, { __koalaPreviewRpcFixture: { focusTarget, iframe, rpc, runtimeErrors } })
+    Object.assign(window, { __koalaPreviewRpcFixture: { focusTarget, host, runtime, runtimeErrors } })
   })
 }
 
 async function renderPreview(page: Page, artifact: PreviewArtifact) {
   await page.evaluate(async (nextArtifact) => {
     const fixture = (window as typeof window & { __koalaPreviewRpcFixture: BrowserPreviewFixture }).__koalaPreviewRpcFixture
-    await fixture.rpc.render(nextArtifact)
+    await fixture.runtime.render(nextArtifact)
   }, artifact)
 }
 
@@ -65,7 +61,7 @@ async function renderPreviewError(page: Page, artifact: PreviewArtifact) {
   return page.evaluate(async (nextArtifact) => {
     const fixture = (window as typeof window & { __koalaPreviewRpcFixture: BrowserPreviewFixture }).__koalaPreviewRpcFixture
     try {
-      await fixture.rpc.render(nextArtifact)
+      await fixture.runtime.render(nextArtifact)
       return ''
     }
     catch (error) {
@@ -77,22 +73,21 @@ async function renderPreviewError(page: Page, artifact: PreviewArtifact) {
 async function replacePreviewDuringPendingUnmount(page: Page, obsolete: PreviewArtifact, current: PreviewArtifact) {
   return page.evaluate(async ({ obsolete, current }) => {
     const fixture = (window as typeof window & { __koalaPreviewRpcFixture: BrowserPreviewFixture }).__koalaPreviewRpcFixture
-    const replaced = fixture.rpc.render(obsolete).catch(error => error instanceof Error ? error.message : String(error))
-    await fixture.rpc.render(current)
+    const replaced = fixture.runtime.render(obsolete).catch(error => error instanceof Error ? error.message : String(error))
+    await fixture.runtime.render(current)
     return replaced
   }, { obsolete, current })
 }
 
 async function disposePreviewFixture(page: Page) {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
     const fixture = (window as typeof window & { __koalaPreviewRpcFixture: BrowserPreviewFixture }).__koalaPreviewRpcFixture
     const result = {
       focusReturned: document.activeElement === fixture.focusTarget,
       runtimeErrors: fixture.runtimeErrors,
-      sandbox: fixture.iframe.getAttribute('sandbox'),
     }
-    fixture.rpc.dispose()
-    fixture.iframe.remove()
+    await fixture.runtime.dispose()
+    fixture.host.remove()
     fixture.focusTarget.remove()
     return result
   })
@@ -140,7 +135,7 @@ const currentPreview: PreviewArtifact = {
   })`,
 }
 
-test('opaque Svelte Preview remounts cleanly, returns focus, and forwards runtime failures', async ({ page }) => {
+test('in-document Svelte Preview remounts cleanly, returns focus, and forwards runtime failures', async ({ page }) => {
   await openEditor(page)
   await installPreviewFixture(page)
   try {
@@ -157,8 +152,8 @@ test('opaque Svelte Preview remounts cleanly, returns focus, and forwards runtim
         mount(target) {
           target.innerHTML = '<button type="button">Preview action</button>'
           setTimeout(() => {
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-            throw new Error('late preview failure')
+            target.querySelector('button').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
+            window.dispatchEvent(new ErrorEvent('error', { error: new Error('late preview failure') }))
           }, 0)
           return {}
         },
@@ -179,41 +174,11 @@ test('opaque Svelte Preview remounts cleanly, returns focus, and forwards runtim
     expect(result).toEqual({
       focusReturned: true,
       runtimeErrors: ['late preview failure'],
-      sandbox: 'allow-scripts',
     })
   }
 })
 
-test('opaque Svelte Preview requests carry a null origin and no browser cookie', async ({ page }) => {
-  let previewRequestHeaders: Record<string, string> | null = null
-  await page.route('**/api/health?preview-rpc-probe=1', async (route) => {
-    previewRequestHeaders = route.request().headers()
-    await route.abort()
-  })
-  await openEditor(page)
-  await installPreviewFixture(page)
-  try {
-    await renderPreview(page, {
-      css: '',
-      javascript: `({
-        mount() {
-          void fetch('/api/health?preview-rpc-probe=1').catch(() => {})
-          return {}
-        },
-        unmount() {}
-      })`,
-    })
-    await expect.poll(() => previewRequestHeaders).not.toBeNull()
-  }
-  finally {
-    await disposePreviewFixture(page)
-  }
-  const headers = recordedHeaders(previewRequestHeaders)
-  expect(headers?.origin).toBe('null')
-  expect(headers?.cookie).toBeUndefined()
-})
-
-test('opaque Svelte Preview captures DOM for shared Snapshot canonicalization', async ({ page }) => {
+test('in-document Svelte Preview captures DOM for shared Snapshot canonicalization', async ({ page }) => {
   await openEditor(page)
   await installPreviewFixture(page)
   try {
@@ -223,7 +188,7 @@ test('opaque Svelte Preview captures DOM for shared Snapshot canonicalization', 
       const snapshotFixtureModulePath = '/src/tests/svelte/snapshot-fixture.ts'
       const { canonicalizeSnapshotHtml } = await import(/* @vite-ignore */ snapshotModulePath)
       const { snapshotFixture, canonicalSnapshotFixture } = await import(/* @vite-ignore */ snapshotFixtureModulePath)
-      const rawSnapshot = await fixture.rpc.snapshot({
+      const rawSnapshot = await fixture.runtime.snapshot({
         css: '',
         javascript: `({
           mount(target) {
@@ -301,6 +266,39 @@ test('editor builds a Svelte buffer only after Preview opens', async ({ page }) 
     await page.getByRole('radio', { name: 'Svelte' }).check()
     await page.getByRole('button', { name: 'Preview File' }).click()
   }
-  const preview = page.frameLocator('[data-koala-svelte-preview]')
+  const preview = page.locator('[data-koala-svelte-preview]')
+  await expect(preview).toHaveCount(1)
   await expect(preview.locator('[data-koala-artifact-root]')).toContainText('First line', { timeout: 30_000 })
+  await expect(page.locator('iframe[data-koala-svelte-preview]')).toHaveCount(0)
+})
+
+test('editor Preview gives Svelte output the active dark-theme text color', async ({ page }) => {
+  await openEditor(page)
+  await page.locator('html').evaluate((element) => {
+    element.setAttribute('data-theme', 'dark')
+  })
+  await page.getByRole('radio', { name: 'Svelte' }).check()
+
+  const workerLoadReloadedEditor = page.waitForEvent('framenavigated', {
+    predicate: frame => frame === page.mainFrame(),
+  }).then(() => true)
+  await page.getByRole('button', { name: 'Preview File' }).click()
+  const reloadedEditor = await Promise.race([
+    workerLoadReloadedEditor,
+    page.waitForTimeout(5_000).then(() => false),
+  ])
+  if (reloadedEditor) {
+    await page.waitForLoadState('networkidle')
+    await page.locator('html').evaluate((element) => {
+      element.setAttribute('data-theme', 'dark')
+    })
+    await page.getByRole('radio', { name: 'Svelte' }).check()
+    await page.getByRole('button', { name: 'Preview File' }).click()
+  }
+
+  const expectedTextColor = await page.locator('body').evaluate(element => getComputedStyle(element).color)
+
+  const artifactRoot = page.locator('[data-koala-svelte-preview] [data-koala-artifact-root]')
+  await expect(artifactRoot).toContainText('First line', { timeout: 30_000 })
+  await expect(artifactRoot).toHaveCSS('color', expectedTextColor)
 })

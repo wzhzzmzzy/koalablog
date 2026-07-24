@@ -556,6 +556,44 @@ test('folds, line numbers, and the active line restore by File ID', async ({ pag
     .toBe('# Heading\nbody\n# Next\nend')
 })
 
+test('selection remains visible inside the active CodeMirror line', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.focus()
+  await source.press('Control+Home')
+  await source.press('End')
+  for (let index = 0; index < 4; index++) await source.press('Shift+ArrowLeft')
+
+  const feedback = await page.locator('.cm-editor').evaluate((editor) => {
+    const activeLine = editor.querySelector<HTMLElement>('.cm-activeLine')
+    const selection = editor.querySelector<HTMLElement>('.cm-selectionBackground')
+    if (!activeLine || !selection)
+      throw new Error('Expected an active line and selection layer')
+
+    const activeRect = activeLine.getBoundingClientRect()
+    const selectionRect = selection.getBoundingClientRect()
+    const background = getComputedStyle(activeLine).backgroundColor
+    const alphaMatch = background.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)|\/\s*([\d.]+)/)
+    const alpha = Number(
+      alphaMatch?.[1]
+      ?? alphaMatch?.[2]
+      ?? 1,
+    )
+
+    return {
+      activeLine: activeLine.textContent,
+      alpha,
+      selectionOverlapsActiveLine: selectionRect.top < activeRect.bottom && selectionRect.bottom > activeRect.top,
+    }
+  })
+
+  expect(feedback.activeLine).toBe('First line')
+  expect(feedback.selectionOverlapsActiveLine).toBe(true)
+  expect(feedback.alpha).toBeLessThan(1)
+})
+
 test('narrow screens hide gutters while keeping Source scrolling and editing', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 640 })
   await page.goto('/dashboard/edit?path=/phase-two')

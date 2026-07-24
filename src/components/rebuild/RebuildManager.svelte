@@ -5,7 +5,7 @@
   import { SvelteBuildController } from '@/components/editor/svelte/build-controller.svelte'
   import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
   import type { SvelteBuildSuccess } from '@/lib/svelte/contracts'
-  import type { PreviewArtifact } from '@/components/editor/svelte/preview-protocol'
+  import type { PreviewArtifact } from '@/components/editor/svelte/preview-runtime'
   import {
     completeRebuild,
     createRebuildState,
@@ -214,7 +214,7 @@
     </p>
 
     {#if !previewReady}
-      <p class="mt-2 text-sm opacity-80">Preparing isolated Preview for Snapshot capture…</p>
+      <p class="mt-2 text-sm opacity-80">Preparing Preview for Snapshot capture…</p>
     {/if}
 
     {#if progress.total === 0}
