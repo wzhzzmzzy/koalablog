@@ -11,6 +11,8 @@
   import EditorContent from './EditorContent.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
   import { SvelteBuildController } from './svelte/build-controller.svelte';
+  import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain';
+  import type { SvelteBuildSuccess } from '@/lib/svelte/contracts';
   import { findPreviousActiveFile, formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
   import type { TextEditorHandle } from './TextEditor.svelte';
   import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
@@ -177,6 +179,100 @@
   let svelteBuildError = $derived(svelteBuildController.build?.type === 'build-error'
     ? svelteBuildController.build.error.message
     : null)
+
+  async function currentSavedBuild() {
+    const buffer = {
+      enabled: true,
+      fileId: file.id,
+      renderer: file.renderer,
+      source: file.content,
+      sourceHash: file.sourceHash,
+    }
+    await svelteBuildController.saved(buffer)
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const build = svelteBuildController.build
+      if (build?.type === 'build-success')
+        return build
+      if (build?.type === 'build-error')
+        throw new Error(build.error.message)
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    throw new Error('Svelte Artifact build timed out')
+  }
+
+  function dependencyReview(error: { message: string }) {
+    try {
+      const detail = JSON.parse(error.message) as { code?: string, currentArtifactHash?: string, proposedArtifactHash?: string, diff?: unknown }
+      return detail.code === 'dependency_changed'
+        && detail.currentArtifactHash && detail.proposedArtifactHash
+        ? detail
+        : undefined
+    }
+    catch {
+      return undefined
+    }
+  }
+
+  async function attachSavedBuild(build: SvelteBuildSuccess, confirmation?: { currentArtifactHash: string, proposedArtifactHash: string }) {
+    const artifact = { css: build.css, javascript: build.javascript }
+    const snapshotHtml = await editorContent?.snapshotSvelteArtifact(artifact)
+    if (!snapshotHtml)
+      throw new Error('Svelte Preview did not produce an Artifact Snapshot')
+    return actions.db.renderArtifact.attach({
+      fileId: file.id,
+      schemaVersion: 1,
+      renderer: 'svelte',
+      svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
+      unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
+      unocssConfigHash: UNOCSS_CONFIG_HASH,
+      sourceHash: file.sourceHash,
+      dependencies: build.dependencies,
+      javascript: build.javascript,
+      css: build.css,
+      snapshotHtml,
+      ...(confirmation ? { confirmation } : {}),
+    })
+  }
+
+  async function rebuild(e: Event) {
+    e.preventDefault()
+    if (trashed || rendererValue !== RENDERER_MODE.Svelte)
+      return
+    if (changed) {
+      notify('warning', 'Save Source before rebuilding its Artifact.', 4000)
+      return
+    }
+    try {
+      showPreview = true
+      await tick()
+      const build = await currentSavedBuild()
+      const result = await attachSavedBuild(build)
+      if (!result.error) {
+        notify('success', 'Svelte Artifact rebuilt.', 3000)
+        return
+      }
+      const review = dependencyReview(result.error)
+      if (!review) {
+        notify('error', formatFileSaveError(result.error))
+        return
+      }
+      if (!window.confirm(`Dependency changes detected. Review and approve replacement?\n${JSON.stringify(review.diff, null, 2)}`)) {
+        notify('info', 'Dependency change was not approved.', 3000)
+        return
+      }
+      const confirmed = await attachSavedBuild(build, {
+        currentArtifactHash: review.currentArtifactHash,
+        proposedArtifactHash: review.proposedArtifactHash,
+      })
+      if (confirmed.error)
+        notify('error', formatFileSaveError(confirmed.error))
+      else
+        notify('success', 'Svelte Artifact rebuilt after dependency review.', 3000)
+    }
+    catch (error) {
+      notify('error', error instanceof Error ? error.message : 'Svelte Artifact rebuild failed')
+    }
+  }
 
   $effect(() => {
     const previewBuffer = {
@@ -410,6 +506,7 @@
       onSave={save}
       onUpload={upload}
       onPreview={preview}
+      onRebuild={rebuild}
       onCopyLink={copyLink}
       {onUpdate}
       {onPurge}

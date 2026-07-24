@@ -47,6 +47,7 @@
   }: Props = $props();
 
   let textEditor: TextEditorHandle | undefined = $state();
+  let sveltePreview: SveltePreview | undefined = $state();
 
   export function focus() {
     textEditor?.focus();
@@ -54,6 +55,12 @@
 
   export async function insertImages(files: File[]) {
     await textEditor?.insertImages(files);
+  }
+
+  export async function snapshotSvelteArtifact(artifact: PreviewArtifact) {
+    if (!sveltePreview)
+      throw new Error('Open Svelte Preview before capturing an Artifact Snapshot')
+    return sveltePreview.snapshot(artifact)
   }
 
   function returnPreviewFocus() {
@@ -105,7 +112,7 @@
     {#if svelteBuildError}
       <p class="m-0 p-4 text-[--koala-error-text]" role="alert">{svelteBuildError}</p>
     {:else}
-      <SveltePreview artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
+      <SveltePreview bind:this={sveltePreview} artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
     {/if}
   </section>
 {:else}
