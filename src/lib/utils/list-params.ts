@@ -1,5 +1,10 @@
 import { MarkdownSource } from '@/db'
 
+export const listSourceLabel: Record<MarkdownSource, string> = {
+  [MarkdownSource.Post]: 'Posts',
+  [MarkdownSource.Memo]: 'Memos',
+}
+
 export interface IndexListParams {
   source: MarkdownSource
   year?: number

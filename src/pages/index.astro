@@ -1,11 +1,10 @@
 ---
 import List from '@/components/dashboard/list.astro'
-import { MarkdownSource } from '@/db'
 import Layout from '@/layouts/home.astro'
-import { parseIndexListParams } from '@/lib/utils/list-params'
+import { listSourceLabel, parseIndexListParams } from '@/lib/utils/list-params'
 
 const { source, year, tag } = parseIndexListParams(Astro.url.searchParams)
-const listLabel = source === MarkdownSource.Memo ? 'Memos' : 'Posts'
+const listLabel = listSourceLabel[source]
 const pageTitle = tag ? `${listLabel} - #${tag}` : undefined
 ---
 
