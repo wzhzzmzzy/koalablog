@@ -1,10 +1,22 @@
 import type { SvelteArtifactHashes, SvelteArtifactInputV1 } from '@/lib/svelte/contracts'
 import { type ArtifactAccessInput, decideArtifactAccess } from '@/lib/svelte/artifact-access'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { connectDB } from '.'
 import { markdown, markdownRender } from './schema'
 
 export type StoredRenderArtifact = SvelteArtifactInputV1 & SvelteArtifactHashes & { fileId: number }
+
+function affectedRows(result: unknown) {
+  if (!result || typeof result !== 'object')
+    return 0
+  if ('rowsAffected' in result && typeof result.rowsAffected === 'number')
+    return result.rowsAffected
+  if ('meta' in result && result.meta && typeof result.meta === 'object'
+    && 'changes' in result.meta && typeof result.meta.changes === 'number') {
+    return result.meta.changes
+  }
+  return 0
+}
 
 export async function replaceRenderArtifact(env: Env, artifact: StoredRenderArtifact) {
   const db = connectDB(env)
@@ -80,19 +92,18 @@ export async function replaceCurrentRenderArtifact(env: Env, artifact: StoredRen
       snapshotHtml = excluded.snapshotHtml,
       updatedAt = excluded.updatedAt
   `)
-  return result.rowsAffected === 1 ? artifact : undefined
+  return affectedRows(result) === 1 ? artifact : undefined
 }
 
 export async function readCurrentRenderArtifact(env: Env, fileId: number) {
-  const [current] = await connectDB(env).select({ artifact: markdownRender }).from(markdownRender).innerJoin(
-    markdown,
-    eq(markdown.id, markdownRender.fileId),
-  ).where(and(
-    eq(markdownRender.fileId, fileId),
-    eq(markdownRender.renderer, 'svelte'),
-    eq(markdown.renderer, 'svelte'),
-    eq(markdown.sourceHash, markdownRender.sourceHash),
-    isNull(markdown.deletedAt),
-  )).limit(1)
-  return current?.artifact
+  const [file, artifact] = await Promise.all([
+    connectDB(env).query.markdown.findFirst({ where: eq(markdown.id, fileId) }),
+    readRenderArtifact(env, fileId),
+  ])
+  return file?.renderer === 'svelte'
+    && !file.deletedAt
+    && artifact?.renderer === 'svelte'
+    && artifact.sourceHash === file.sourceHash
+    ? artifact
+    : undefined
 }
