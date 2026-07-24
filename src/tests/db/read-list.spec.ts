@@ -52,25 +52,28 @@ function useReadListDatabase() {
 describe('readList filters', () => {
   useReadListDatabase()
 
-  it('filters by Source, tag, visibility, and creation year', async () => {
+  it('shows public Files to everyone and private Files only to their Owner', async () => {
     await batchAdd(env, [
-      { path: '/post/a', renderer: 'markdown', content: '', createdAt: new Date('2025-03-01T00:00:00.000Z') },
-      { path: '/post/b', renderer: 'markdown', content: '#tagx', createdAt: new Date('2026-05-01T00:00:00.000Z') },
-      { path: '/post/c', renderer: 'markdown', content: '', private: true, createdAt: new Date('2026-06-01T00:00:00.000Z') },
-      { path: '/memo/d', renderer: 'markdown', content: '', createdAt: new Date('2026-07-01T00:00:00.000Z') },
+      { path: '/post/a', renderer: 'markdown', content: '', userId: 1, createdAt: new Date('2025-03-01T00:00:00.000Z') },
+      { path: '/post/b', renderer: 'markdown', content: '#tagx', userId: 1, createdAt: new Date('2026-05-01T00:00:00.000Z') },
+      { path: '/post/c', renderer: 'markdown', content: '', private: true, userId: 2, createdAt: new Date('2026-06-01T00:00:00.000Z') },
+      { path: '/post/d', renderer: 'markdown', content: '', private: true, userId: 1, createdAt: new Date('2026-07-01T00:00:00.000Z') },
+      { path: '/memo/e', renderer: 'markdown', content: '', userId: 2, createdAt: new Date('2026-08-01T00:00:00.000Z') },
     ])
 
     expect((await readList(env, MarkdownSource.Post)).map(file => file.path))
       .toEqual(['/post/b', '/post/a'])
-    expect((await readList(env, MarkdownSource.Post, 'tagx')).map(file => file.path))
-      .toEqual(['/post/b'])
-    expect((await readList(env, MarkdownSource.Post, undefined, { includePrivate: true })).map(file => file.path))
+    expect((await readList(env, MarkdownSource.Post, undefined, { ownerId: 1 })).map(file => file.path))
+      .toEqual(['/post/d', '/post/b', '/post/a'])
+    expect((await readList(env, MarkdownSource.Post, undefined, { ownerId: 2 })).map(file => file.path))
       .toEqual(['/post/c', '/post/b', '/post/a'])
-    expect((await readList(env, MarkdownSource.Post, undefined, { year: 2025 })).map(file => file.path))
+    expect((await readList(env, MarkdownSource.Post, 'tagx', { ownerId: 1 })).map(file => file.path))
+      .toEqual(['/post/b'])
+    expect((await readList(env, MarkdownSource.Post, undefined, { ownerId: 1, year: 2025 })).map(file => file.path))
       .toEqual(['/post/a'])
-    expect((await readList(env, MarkdownSource.Post, undefined, { year: 2026, includePrivate: true })).map(file => file.path))
+    expect((await readList(env, MarkdownSource.Post, undefined, { ownerId: 2, year: 2026 })).map(file => file.path))
       .toEqual(['/post/c', '/post/b'])
-    expect((await readList(env, MarkdownSource.Memo, undefined, { year: 2026 })).map(file => file.path))
-      .toEqual(['/memo/d'])
+    expect((await readList(env, MarkdownSource.Memo, undefined, { ownerId: 1, year: 2026 })).map(file => file.path))
+      .toEqual(['/memo/e'])
   })
 })

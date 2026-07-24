@@ -20,7 +20,7 @@ let artifact: Awaited<ReturnType<typeof readArtifactAccess>>['artifact']
 
 if (article.renderer === 'svelte') {
   const result = await readArtifactAccess(env, {
-    authenticated: Boolean(Astro.locals.session?.role),
+    sessionUserId: Astro.locals.session?.userId,
     fileId: article.id,
     representation: 'page',
   })

@@ -19,7 +19,7 @@ const path = url.searchParams.get('path')
 let file: FileRecord | null = null
 
 let initialItems: Awaited<ReturnType<typeof justReadAll>> = []
-initialItems = await justReadAll(Astro.locals.runtime?.env)
+initialItems = await justReadAll(Astro.locals.runtime?.env, Astro.locals.session.userId ?? undefined)
 
 if (id) {
   const found = initialItems.find(i => i.id === id)

@@ -18,4 +18,5 @@ export interface FileRecord {
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
+  userId?: number | null
 }

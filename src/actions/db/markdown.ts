@@ -15,7 +15,7 @@ import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path
 import { RENDERER_MODE } from '@/lib/files/types'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-import { authGuard } from '../utils/auth'
+import { authGuard, loginGuard, ownerGuard } from '../utils/auth'
 
 export interface AllCollection {
   posts?: FileRecord[]
@@ -36,8 +36,8 @@ export const create = defineAction({
     }),
   }).strict(),
   handler: async (input, ctx) => {
-    await authGuard(ctx)
-    const result = await createFile(ctx.locals.runtime?.env, input)
+    await loginGuard(ctx)
+    const result = await createFile(ctx.locals.runtime?.env, { ...input, userId: ctx.locals.session.userId ?? undefined })
     if (result.status === 'path_conflict') {
       throw new ActionError({
         code: 'CONFLICT',
@@ -60,13 +60,14 @@ export const all = defineAction({
     includeTrash: z.boolean().default(false),
   })).default({}),
   handler: async (input, ctx) => {
-    await authGuard(ctx)
+    await loginGuard(ctx)
+    const userId = ctx.locals.session.userId ?? undefined
     if (input.source !== 'all' && !input.includeTrash) {
       const source = input.source === 'post' ? MarkdownSource.Post : MarkdownSource.Memo
-      return { [getMarkdownSourceKey(source)!]: await readAll(ctx.locals.runtime?.env, source) }
+      return { [getMarkdownSourceKey(source)!]: await readAll(ctx.locals.runtime?.env, source, userId) }
     }
 
-    const files = await justReadAll(ctx.locals.runtime?.env)
+    const files = await justReadAll(ctx.locals.runtime?.env, userId)
     return files.reduce((collection, file) => {
       if (file.deletedAt && !input.includeTrash)
         return collection
@@ -103,15 +104,15 @@ export const byPrefix = defineAction({
     }).default('/'),
   }).default({ prefix: '/' }),
   handler: async ({ prefix }, ctx) => {
-    await authGuard(ctx)
-    return readByPrefix(ctx.locals.runtime?.env, prefix)
+    await loginGuard(ctx)
+    return readByPrefix(ctx.locals.runtime?.env, prefix, ctx.locals.session.userId ?? undefined)
   },
 })
 
 export const trash = defineAction({
   input: z.object({ id: z.number().int().positive() }),
   handler: async ({ id }, ctx) => {
-    await authGuard(ctx)
+    await ownerGuard(ctx, id)
     return trashFile(ctx.locals.runtime?.env || {}, id)
   },
 })
@@ -122,7 +123,7 @@ export const restore = defineAction({
     renameOnConflict: z.boolean().default(false),
   }),
   handler: async ({ id, renameOnConflict }, ctx) => {
-    await authGuard(ctx)
+    await ownerGuard(ctx, id)
     return restoreFile(ctx.locals.runtime?.env || {}, id, renameOnConflict)
   },
 })
@@ -130,15 +131,15 @@ export const restore = defineAction({
 export const purge = defineAction({
   input: z.object({ id: z.number().int().positive() }),
   handler: async ({ id }, ctx) => {
-    await authGuard(ctx)
+    await ownerGuard(ctx, id)
     return purgeFile(ctx.locals.runtime?.env || {}, id)
   },
 })
 
 export const emptyTrash = defineAction({
   handler: async (_, ctx) => {
-    await authGuard(ctx)
-    return emptyTrashDB(ctx.locals.runtime?.env || {})
+    await loginGuard(ctx)
+    return emptyTrashDB(ctx.locals.runtime?.env || {}, ctx.locals.session.userId ?? undefined)
   },
 })
 

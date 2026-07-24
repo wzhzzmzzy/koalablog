@@ -14,6 +14,7 @@ export interface SaveFileInput {
   content: string
   private: boolean
   baseRevision: number
+  userId?: number
 }
 
 export interface BatchFileInput {
@@ -25,6 +26,7 @@ export interface BatchFileInput {
   createdAt?: Date
   updatedAt?: Date
   deletedAt?: Date
+  userId?: number
 }
 
 export type SaveFileResult =
@@ -75,6 +77,7 @@ async function insertValues(input: BatchFileInput) {
     createdAt: input.createdAt,
     updatedAt: input.updatedAt,
     deletedAt: input.deletedAt,
+    userId: input.userId,
   }
 }
 
@@ -102,7 +105,7 @@ async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boole
     if (input.baseRevision !== 0)
       return { status: 'not_found' }
     try {
-      const [file] = await db.insert(markdown).values({ ...values, source: classifySource(path) }).returning()
+      const [file] = await db.insert(markdown).values({ ...values, source: classifySource(path), userId: input.userId }).returning()
       return { status: 'saved', file }
     }
     catch (error) {
@@ -275,8 +278,11 @@ export async function purge(env: Env, id: number) {
   return file ? { status: 'purged' as const } : { status: 'not_found' as const }
 }
 
-export async function emptyTrash(env: Env) {
-  const files = await connectDB(env).delete(markdown).where(isNotNull(markdown.deletedAt)).returning()
+export async function emptyTrash(env: Env, userId?: number) {
+  const files = await connectDB(env).delete(markdown).where(and(
+    isNotNull(markdown.deletedAt),
+    userId ? eq(markdown.userId, userId) : undefined,
+  )).returning()
   return { status: 'purged' as const, count: files.length }
 }
 
@@ -317,14 +323,16 @@ export function readList(
   env: Env,
   source: MarkdownSource,
   tag?: string,
-  options: { includePrivate?: boolean, year?: number } = {},
+  options: { ownerId?: number, year?: number } = {},
 ) {
-  const { includePrivate = false, year } = options
+  const { ownerId, year } = options
   const filters = [
     eq(markdown.source, source),
     isNull(markdown.deletedAt),
     tag ? like(markdown.tags, `%${tag}%`) : null,
-    !includePrivate ? eq(markdown.private, false) : null,
+    ownerId
+      ? or(eq(markdown.private, false), eq(markdown.userId, ownerId))
+      : eq(markdown.private, false),
     year ? sql`strftime('%Y', ${markdown.createdAt}, 'unixepoch') = ${String(year)}` : null,
   ].filter(filter => !!filter)
   return connectDB(env).query.markdown.findMany({
@@ -362,16 +370,16 @@ export function readAnyById(env: Env, id: number) {
   return connectDB(env).query.markdown.findFirst({ where: eq(markdown.id, id) })
 }
 
-export function readTrash(env: Env) {
+export function readTrash(env: Env, userId?: number) {
   return connectDB(env).query.markdown.findMany({
-    where: isNotNull(markdown.deletedAt),
+    where: and(isNotNull(markdown.deletedAt), userId ? eq(markdown.userId, userId) : undefined),
     orderBy: [desc(markdown.deletedAt), desc(markdown.id)],
   })
 }
 
-export function readAll(env: Env, source: MarkdownSource) {
+export function readAll(env: Env, source: MarkdownSource, userId?: number) {
   return connectDB(env).query.markdown.findMany({
-    where: and(eq(markdown.source, source), isNull(markdown.deletedAt)),
+    where: and(eq(markdown.source, source), isNull(markdown.deletedAt), userId ? eq(markdown.userId, userId) : undefined),
     orderBy: desc(markdown.createdAt),
   })
 }
@@ -387,7 +395,7 @@ export function clearRemoteTruth(env: Env, id: number) {
   return connectDB(env).update(markdown).set({ remoteTruth: false }).where(eq(markdown.id, id))
 }
 
-export function readByPrefix(env: Env, prefix: string) {
+export function readByPrefix(env: Env, prefix: string, userId?: number) {
   const parsed = parseAbsolutePathPrefix(prefix)
   if (!parsed.ok)
     throw new FileInputError('invalid_path', `Invalid Path Prefix: ${parsed.error.code}`)
@@ -396,6 +404,7 @@ export function readByPrefix(env: Env, prefix: string) {
     where: and(
       sql`instr(${markdown.path}, ${parsed.value}) = 1`,
       sql`length(${relativePath}) - length(replace(${relativePath}, '/', '')) = 0`,
+      userId ? eq(markdown.userId, userId) : undefined,
     ),
     orderBy: desc(markdown.createdAt),
   })
@@ -420,6 +429,8 @@ export async function readActivePaths(env: Env) {
   return files.map(file => file.path)
 }
 
-export function justReadAll(env: Env) {
-  return connectDB(env).query.markdown.findMany()
+export function justReadAll(env: Env, userId?: number) {
+  return connectDB(env).query.markdown.findMany({
+    where: userId ? eq(markdown.userId, userId) : undefined,
+  })
 }

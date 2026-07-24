@@ -9,6 +9,7 @@ const FILE_CREATION_ATTEMPT_LIMIT = 100
 
 export interface CreateFileInput {
   targetPrefix: string
+  userId?: number
 }
 
 export type CreateFileResult =
@@ -95,6 +96,7 @@ export async function createFile(env: Env | undefined, input: CreateFileInput): 
         content: candidate.content,
         private: candidate.path.startsWith('/memo/'),
         remoteTruth: true,
+        userId: input.userId,
       })
       return { status: 'created', file }
     }

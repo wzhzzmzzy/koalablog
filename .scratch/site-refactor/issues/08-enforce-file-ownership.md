@@ -1,6 +1,6 @@
 # 08 — Enforce file ownership
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 
