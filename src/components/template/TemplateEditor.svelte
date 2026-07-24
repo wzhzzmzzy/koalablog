@@ -1,22 +1,25 @@
 <script lang="ts">
-  import type { CreationTemplateV1, TemplateError, TemplateField } from '@/lib/files/types';
+  import type { CreationTemplateV2, RendererMode, TemplateError, TemplateField } from '@/lib/files/types';
+  import { RENDERER_MODE } from '@/lib/files/types';
   import { Trash2 } from '@lucide/svelte';
 
   interface Props {
-    template: CreationTemplateV1;
+    template: CreationTemplateV2;
     issues: TemplateError[];
     duplicateId: boolean;
     duplicatePrefix: boolean;
-    onchange: (field: keyof CreationTemplateV1, value: string) => void;
+    onchange: (field: keyof Omit<CreationTemplateV2, 'renderer'>, value: string) => void;
+    onrendererchange: (renderer: RendererMode) => void;
     ondelete: () => void;
   }
 
-  let { template, issues, duplicateId, duplicatePrefix, onchange, ondelete }: Props = $props();
+  let { template, issues, duplicateId, duplicatePrefix, onchange, onrendererchange, ondelete }: Props = $props();
 
   const idIssues = $derived(fieldIssues('id'));
   const prefixIssues = $derived(fieldIssues('prefix'));
   const titleIssues = $derived(fieldIssues('titlePattern'));
   const pathIssues = $derived(fieldIssues('pathPattern'));
+  const rendererIssues = $derived(fieldIssues('renderer'));
   const contentIssues = $derived(fieldIssues('content'));
 
   function fieldIssues(field: TemplateField) {
@@ -77,6 +80,26 @@
     <div id="template-prefix-errors">
       {#if duplicatePrefix}<p class="m-0 text-[0.8125rem] leading-5 text-[--koala-error-text]">Duplicate normalized Path Prefix.</p>{/if}
       {#each prefixIssues as issue}<p class="m-0 text-[0.8125rem] leading-5 text-[--koala-error-text]">{issue.message}</p>{/each}
+    </div>
+  {/if}
+
+  <label class="flex min-w-0 flex-col gap-1.5" for="template-renderer">
+    <span>Renderer</span>
+    <select
+      id="template-renderer"
+      class="input box-border w-full rounded border border-[--koala-border] bg-[--koala-input-bg] text-sm text-[--koala-text] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[--koala-link] focus-visible:outline-offset-1"
+      value={template.renderer}
+      onchange={(event) => onrendererchange(event.currentTarget.value as RendererMode)}
+      aria-invalid={rendererIssues.length > 0}
+      aria-describedby={rendererIssues.length > 0 ? 'template-renderer-errors' : undefined}
+    >
+      <option value={RENDERER_MODE.Markdown}>Markdown</option>
+      <option value={RENDERER_MODE.Svelte}>Svelte</option>
+    </select>
+  </label>
+  {#if rendererIssues.length > 0}
+    <div id="template-renderer-errors">
+      {#each rendererIssues as issue}<p class="m-0 text-[0.8125rem] leading-5 text-[--koala-error-text]">{issue.message}</p>{/each}
     </div>
   {/if}
 

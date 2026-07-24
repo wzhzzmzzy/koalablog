@@ -22,6 +22,27 @@
       "when": 1784201001945,
       "tag": "0002_file_source_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784712165353,
+      "tag": "0003_file_renderer_source_hash",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784719386470,
+      "tag": "0004_require_source_hash",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784810312910,
+      "tag": "0005_render_artifact",
+      "breakpoints": true
     }
   ]
 }

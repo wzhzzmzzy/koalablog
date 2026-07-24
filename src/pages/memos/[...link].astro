@@ -1,10 +1,6 @@
 ---
-import ArticleClient from '@/components/article-view/client.astro'
-import ArticleView from '@/components/article-view/index.astro'
+import FilePage from '@/components/article-view/FilePage.astro'
 import { MarkdownSource } from '@/db'
-import { readActivePaths } from '@/db/markdown'
-import Layout from '@/layouts/home.astro'
-import { renderIt } from '@/lib/markdown/render-it'
 import { readArticle } from '@/lib/services/article'
 
 const { link } = Astro.params
@@ -20,15 +16,5 @@ if (article instanceof Response) {
   return article
 }
 
-const pageConfig = Astro.locals.config.pageConfig
-const isBigArticle = (article?.content || '').length > 1000
-const activePaths = await readActivePaths(Astro.locals.runtime?.env)
-
-const { content, renderLangSet } = await renderIt(isBigArticle, article, pageConfig.theme, activePaths)
-const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
 ---
-<Layout title={article.title} desc={firstParagraph?.[1] || ''}>
-  { !isBigArticle
-    ? <ArticleView article={article} content={content} />
-    : <ArticleClient article={article} content={content} renderLangSet={renderLangSet} {activePaths} />}
-</Layout>
+<FilePage article={article} />

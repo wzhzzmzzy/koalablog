@@ -24,6 +24,13 @@ export default defineConfig({
   },
   vite: {
     plugins: [PreprocessorDirectives()],
+    worker: {
+      format: 'es',
+    },
+    optimizeDeps: {
+      exclude: ['@rollup/browser'],
+      include: ['@unocss/core', '@unocss/preset-uno', 'svelte/compiler'],
+    },
     build: {
       assetsInlineLimit: 10240,
       sourcemap: true,

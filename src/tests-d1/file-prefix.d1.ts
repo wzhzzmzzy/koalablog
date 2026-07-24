@@ -3,6 +3,7 @@ import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
 import legacySchema from '../../migrations/0000_init.sql?raw'
 import sourceMigration from '../../migrations/0002_file_source_schema.sql?raw'
+import sourceHashMigration from '../../migrations/0003_file_renderer_source_hash.sql?raw'
 
 function statements(sql: string) {
   return sql.split('--> statement-breakpoint').map(statement => statement.trim()).filter(Boolean)
@@ -15,13 +16,15 @@ describe('D1 File Prefix refresh', () => {
       await env.DB.prepare(statement).run()
     for (const statement of statements(sourceMigration))
       await env.DB.prepare(statement).run()
+    for (const statement of statements(sourceHashMigration))
+      await env.DB.prepare(statement).run()
   })
 
   it('returns only Files directly under the Prefix', async () => {
-    await add(env, { path: '/root', content: 'root' })
-    await add(env, { path: '/project/inside', content: 'inside' })
-    await add(env, { path: '/project/nested/deep', content: 'deep' })
-    await add(env, { path: '/project/nested/deeper/hidden', content: 'hidden' })
+    await add(env, { path: '/root', renderer: 'markdown', content: 'root' })
+    await add(env, { path: '/project/inside', renderer: 'markdown', content: 'inside' })
+    await add(env, { path: '/project/nested/deep', renderer: 'markdown', content: 'deep' })
+    await add(env, { path: '/project/nested/deeper/hidden', renderer: 'markdown', content: 'hidden' })
 
     const rootFiles = await readByPrefix(env, '/')
     const projectFiles = await readByPrefix(env, '/project/')

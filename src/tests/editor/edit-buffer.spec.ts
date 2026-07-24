@@ -2,7 +2,9 @@ import {
   EDIT_BUFFERS_STORAGE_KEY,
   editBuffers,
   initializeEditBuffers,
+  isEditBufferDirty,
   LEGACY_DRAFTS_STORAGE_KEY,
+  persistEditBuffers,
   setEditBuffer,
 } from '@/components/editor/edit-buffer.svelte'
 import {
@@ -40,9 +42,9 @@ class FailingEditBufferStorage extends MemoryStorage {
 
 afterEach(() => editBuffers.clear())
 
-describe('editor Edit Buffer persistence', () => {
+describe('editor legacy Draft migration', () => {
   it('migrates only legacy entries that map unambiguously to one active File', () => {
-    const active = makeFileRecord({ id: 7, path: '/memo/active', content: 'server', revision: 4 })
+    const active = makeFileRecord({ id: 7, path: '/memo/active', renderer: 'svelte', content: 'server', revision: 4 })
     const deleted = makeFileRecord({ id: 8, path: '/memo/deleted', deletedAt: new Date('2026-07-16T00:00:00Z') })
     const malformed = makeFileRecord({ id: 9, path: '/memo/malformed' })
     const storage = new MemoryStorage()
@@ -60,6 +62,7 @@ describe('editor Edit Buffer persistence', () => {
       {
         fileId: active.id,
         path: '/memo/renamed',
+        renderer: active.renderer,
         content: 'local',
         private: active.private,
         baseRevision: active.revision,
@@ -68,36 +71,92 @@ describe('editor Edit Buffer persistence', () => {
       },
     ]])
     expect(storage.getItem(LEGACY_DRAFTS_STORAGE_KEY)).toBeNull()
-    expect(JSON.parse(storage.getItem(EDIT_BUFFERS_STORAGE_KEY)!)).toMatchObject({ schemaVersion: 1 })
+    expect(JSON.parse(storage.getItem(EDIT_BUFFERS_STORAGE_KEY)!)).toMatchObject({ schemaVersion: 2 })
   })
+})
 
-  it('restores v1 buffers by File ID and drops deleted or missing Files', () => {
-    const active = makeFileRecord({ id: 7, path: '/memo/active', content: 'server', revision: 4 })
+describe('editor Edit Buffer schema migration and persistence', () => {
+  it('migrates v1 buffers with the current File Renderer and drops deleted, missing, or ambiguous Files', () => {
+    const active = makeFileRecord({ id: 7, path: '/memo/active', renderer: 'svelte', content: 'server', revision: 4 })
     const deleted = makeFileRecord({ id: 8, path: '/memo/deleted', deletedAt: new Date('2026-07-16T00:00:00Z') })
+    const ambiguous = makeFileRecord({ id: 9, path: '/memo/ambiguous' })
     const storage = new MemoryStorage()
-    const buffer = {
+    const bufferV1 = {
       fileId: active.id,
       path: '/memo/renamed',
+      renderer: 'markdown',
       content: 'local',
       private: true,
       baseRevision: active.revision,
       dirty: true,
-      conflict: null,
+      conflict: {
+        server: {
+          path: active.path,
+          renderer: 'markdown',
+          content: active.content,
+          private: active.private,
+          revision: active.revision + 1,
+        },
+      },
     }
     storage.setItem(EDIT_BUFFERS_STORAGE_KEY, JSON.stringify({
       schemaVersion: 1,
       buffers: [
-        buffer,
-        { ...buffer, fileId: deleted.id },
-        { ...buffer, fileId: 999 },
+        bufferV1,
+        { ...bufferV1, fileId: deleted.id },
+        { ...bufferV1, fileId: ambiguous.id },
+        { ...bufferV1, fileId: 999 },
       ],
     }))
 
-    initializeEditBuffers([active, deleted], storage)
+    initializeEditBuffers([
+      active,
+      deleted,
+      ambiguous,
+      { ...ambiguous, path: '/memo/ambiguous-duplicate' },
+    ], storage)
 
-    expect(Array.from(editBuffers.entries())).toEqual([[active.id, buffer]])
+    expect(Array.from(editBuffers.entries())).toEqual([[active.id, {
+      ...bufferV1,
+      renderer: active.renderer,
+      conflict: { server: { ...bufferV1.conflict.server, renderer: active.renderer } },
+    }]])
+    expect(JSON.parse(storage.getItem(EDIT_BUFFERS_STORAGE_KEY)!)).toMatchObject({
+      schemaVersion: 2,
+      buffers: [{ fileId: active.id, renderer: active.renderer }],
+    })
   })
 
+  it('keeps a dirty Renderer and local Source across File switching and reload', () => {
+    const server = makeFileRecord({ id: 7, path: '/page/application', renderer: 'markdown', content: 'local Source', revision: 4 })
+    const other = makeFileRecord({ id: 8, path: '/post/other' })
+    const local = {
+      fileId: server.id,
+      path: server.path,
+      renderer: 'svelte' as const,
+      content: 'local Source',
+      private: server.private,
+      baseRevision: server.revision,
+      dirty: true,
+      conflict: null,
+    }
+    const storage = new MemoryStorage()
+
+    expect(isEditBufferDirty(local, server)).toBe(true)
+    setEditBuffer(local)
+    setCurrentFile(server)
+    setCurrentFile(other)
+    expect(editBuffers.get(server.id)).toEqual(local)
+    persistEditBuffers(storage)
+    editBuffers.clear()
+    initializeEditBuffers([server, other], storage)
+
+    expect(editBuffers.get(server.id)).toEqual(local)
+    expect(JSON.parse(storage.getItem(EDIT_BUFFERS_STORAGE_KEY)!)).toMatchObject({ schemaVersion: 2 })
+  })
+})
+
+describe('editor legacy Draft migration failure', () => {
   it('keeps legacy state when persisting the migrated Edit Buffer fails', () => {
     const active = makeFileRecord({ id: 7, path: '/memo/active', content: 'server', revision: 4 })
     const storage = new FailingEditBufferStorage()
@@ -118,6 +177,7 @@ describe('editor Edit Buffer refresh reconciliation', () => {
     const buffer = {
       fileId: server.id,
       path: '/memo/renamed',
+      renderer: server.renderer,
       content: 'local',
       private: server.private,
       baseRevision: server.revision,
@@ -136,12 +196,13 @@ describe('editor Edit Buffer refresh reconciliation', () => {
 
   it('marks a dirty Edit Buffer conflicted when a newer server revision arrives', () => {
     const server = makeFileRecord({ id: 7, path: '/memo/active', content: 'server', revision: 4 })
-    const newer = { ...server, content: 'remote', revision: 5, updatedAt: new Date('2026-07-17T00:00:00Z') }
+    const newer = { ...server, renderer: 'svelte' as const, content: 'remote', revision: 5, updatedAt: new Date('2026-07-17T00:00:00Z') }
     setItems([server])
     setCurrentFile(server)
     setEditBuffer({
       fileId: server.id,
       path: '/memo/renamed',
+      renderer: server.renderer,
       content: 'local',
       private: server.private,
       baseRevision: server.revision,
@@ -154,6 +215,7 @@ describe('editor Edit Buffer refresh reconciliation', () => {
     expect(editBuffers.get(server.id)?.conflict).toEqual({
       server: {
         path: newer.path,
+        renderer: newer.renderer,
         content: newer.content,
         private: newer.private,
         revision: newer.revision,
@@ -172,6 +234,7 @@ describe('editor Edit Buffer lifecycle', () => {
     setEditBuffer({
       fileId: purged.id,
       path: purged.path,
+      renderer: purged.renderer,
       content: 'local',
       private: purged.private,
       baseRevision: purged.revision,
@@ -192,6 +255,7 @@ describe('editor Edit Buffer lifecycle', () => {
     const buffer = {
       fileId: moved.id,
       path: '/project/moved',
+      renderer: moved.renderer,
       content: 'local',
       private: moved.private,
       baseRevision: moved.revision,
@@ -221,6 +285,7 @@ describe('editor Edit Buffer lifecycle', () => {
     setEditBuffer({
       fileId: active.id,
       path: active.path,
+      renderer: active.renderer,
       content: 'local',
       private: active.private,
       baseRevision: active.revision,

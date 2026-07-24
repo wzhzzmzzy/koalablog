@@ -1,0 +1,45 @@
+---
+interface Props {
+  cssUrl: string
+  moduleUrl: string
+  snapshotHtml: string
+}
+
+const { cssUrl, moduleUrl, snapshotHtml } = Astro.props
+---
+
+<link rel="stylesheet" href={cssUrl} />
+<koala-artifact-mount>
+  <section data-koala-artifact-root data-koala-artifact-module={moduleUrl} data-koala-render-state="snapshot">
+    <div data-koala-artifact-snapshot set:html={snapshotHtml} />
+    <div data-koala-artifact-live hidden></div>
+  </section>
+</koala-artifact-mount>
+
+<script>
+import { mountPublicArtifact } from '@/lib/svelte/public-mount'
+
+class KoalaArtifactMount extends HTMLElement {
+  connectedCallback() {
+    const root = this.querySelector('[data-koala-artifact-root]')
+    if (!(root instanceof HTMLElement))
+      return
+
+    const snapshot = root.querySelector<HTMLElement>('[data-koala-artifact-snapshot]')
+    const live = root.querySelector<HTMLElement>('[data-koala-artifact-live]')
+    const moduleUrl = root.dataset.koalaArtifactModule
+    if (!snapshot || !live || !moduleUrl)
+      return
+
+    void mountPublicArtifact({
+      importModule: url => import(/* @vite-ignore */ url),
+      live,
+      moduleUrl,
+      root,
+      snapshot,
+    })
+  }
+}
+
+customElements.define('koala-artifact-mount', KoalaArtifactMount)
+</script>

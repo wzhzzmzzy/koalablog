@@ -1,10 +1,7 @@
 ---
 import type { FileRecord } from '@/db/types'
-import ArticleClient from '@/components/article-view/client.astro'
-import ArticleView from '@/components/article-view/index.astro'
-import { readActivePaths, readByPath } from '@/db/markdown'
-import Layout from '@/layouts/home.astro'
-import { renderIt } from '@/lib/markdown/render-it'
+import FilePage from '@/components/article-view/FilePage.astro'
+import { readByPath } from '@/db/markdown'
 import { retriveRss } from '@/lib/utils/rss'
 
 const { slug } = Astro.params
@@ -25,17 +22,6 @@ if (maybePage.private) {
   }
 }
 
-const pageConfig = Astro.locals.config.pageConfig
-const isBigArticle = (maybePage?.content || '').length > 1000
-const activePaths = await readActivePaths(Astro.locals.runtime?.env)
-const { content, renderLangSet } = await renderIt(isBigArticle, maybePage, pageConfig.theme, activePaths)
-const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
 ---
 
-<Layout title={maybePage!.title} desc={firstParagraph?.[1]}>
-  {
-    !isBigArticle
-    ? <ArticleView article={maybePage} content={content} />
-    : <ArticleClient article={maybePage} content={content} renderLangSet={renderLangSet} {activePaths} />
-  }
-</Layout>
+<FilePage article={maybePage} />

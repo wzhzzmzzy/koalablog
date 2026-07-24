@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readAnyById, readById, readByPath, saveFile, saveSyncedFile, trash } from '@/db/markdown'
+import { readAnyById, readById, readByPath, saveFile, saveSyncedFile, trash, updatePrivate } from '@/db/markdown'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -22,7 +22,9 @@ function useFileSaveDatabase() {
         source integer NOT NULL,
         path text NOT NULL,
         title text NOT NULL,
-        content text,
+        renderer text DEFAULT 'markdown' NOT NULL,
+        content text NOT NULL,
+        sourceHash text,
         tags text,
         incoming_links text,
         outgoing_links text,
@@ -48,10 +50,34 @@ function useFileSaveDatabase() {
 describe('file Source Save derivation', () => {
   useFileSaveDatabase()
 
+  it('saves Svelte Renderer, Source Hash, and no Markdown-derived metadata atomically', async () => {
+    const result = await saveFile(env, {
+      id: 0,
+      path: '/page/application',
+      renderer: 'svelte',
+      content: '#not-a-tag\n\n[[/wiki/nope]]',
+      private: false,
+      baseRevision: 0,
+    })
+
+    expect(result).toMatchObject({
+      status: 'saved',
+      file: {
+        renderer: 'svelte',
+        content: '#not-a-tag\n\n[[/wiki/nope]]',
+        sourceHash: 'a74c58bcc1e0946a2759529d36237a4095b9610904506f29742ecde8655dfd23',
+        tags: '',
+        outgoing_links: '[]',
+        revision: 1,
+      },
+    })
+  })
+
   it('derives File metadata from absolute Path and Markdown Source', async () => {
     const result = await saveFile(env, {
       id: 0,
       path: '/memo/项目笔记',
+      renderer: 'markdown',
       content: '#项目\n\n参见 [[/wiki/术语]]、[[relative]] 和 `#忽略`。',
       private: true,
       baseRevision: 0,
@@ -63,6 +89,8 @@ describe('file Source Save derivation', () => {
         source: 30,
         path: '/memo/项目笔记',
         title: '项目笔记',
+        renderer: 'markdown',
+        sourceHash: '6f23a9df475cd1ba928a1ccf24d91eb7a750f318540e7c7f59f5542ca8175d3f',
         tags: '项目',
         outgoing_links: '["/wiki/术语"]',
         private: true,
@@ -77,6 +105,7 @@ describe('file Source Save derivation', () => {
     const result = await saveSyncedFile(env, {
       id: 0,
       path: '/wiki/synced',
+      renderer: 'markdown',
       content: 'synced Source',
       private: false,
       baseRevision: 0,
@@ -87,11 +116,16 @@ describe('file Source Save derivation', () => {
       file: { remoteTruth: false },
     })
   })
+})
+
+describe('file Source Save Path conflicts', () => {
+  useFileSaveDatabase()
 
   it('reports an occupied active Path without mutating either File', async () => {
     const first = await saveFile(env, {
       id: 0,
       path: '/wiki/first',
+      renderer: 'markdown',
       content: 'first',
       private: false,
       baseRevision: 0,
@@ -99,6 +133,7 @@ describe('file Source Save derivation', () => {
     const second = await saveFile(env, {
       id: 0,
       path: '/wiki/second',
+      renderer: 'markdown',
       content: 'second',
       private: false,
       baseRevision: 0,
@@ -109,6 +144,7 @@ describe('file Source Save derivation', () => {
     const result = await saveFile(env, {
       id: first.file.id,
       path: second.file.path,
+      renderer: 'svelte',
       content: 'must not overwrite',
       private: true,
       baseRevision: first.file.revision,
@@ -123,10 +159,42 @@ describe('file Source Save derivation', () => {
 describe('file Source Save preconditions', () => {
   useFileSaveDatabase()
 
+  it('leaves Renderer, content, and Source Hash unchanged when the revision is stale', async () => {
+    const created = await saveFile(env, {
+      id: 0,
+      path: '/page/stale-source',
+      renderer: 'svelte',
+      content: '#not-a-tag\n\n[[/wiki/nope]]',
+      private: false,
+      baseRevision: 0,
+    })
+    if (created.status !== 'saved')
+      throw new Error('Expected fixture File creation to succeed')
+
+    const result = await saveFile(env, {
+      id: created.file.id,
+      path: created.file.path,
+      renderer: 'markdown',
+      content: 'stale Markdown Source',
+      private: true,
+      baseRevision: 0,
+    })
+
+    expect(result).toMatchObject({ status: 'conflict' })
+    expect(await readById(env, created.file.id)).toMatchObject({
+      renderer: 'svelte',
+      content: '#not-a-tag\n\n[[/wiki/nope]]',
+      sourceHash: 'a74c58bcc1e0946a2759529d36237a4095b9610904506f29742ecde8655dfd23',
+      private: false,
+      revision: 1,
+    })
+  })
+
   it('does not create a File when a missing ID carries a nonzero base revision', async () => {
     const result = await saveFile(env, {
       id: 0,
       path: '/post/missing-stale-file',
+      renderer: 'markdown',
       content: 'stale Source',
       private: false,
       baseRevision: 4,
@@ -140,6 +208,7 @@ describe('file Source Save preconditions', () => {
     const created = await saveFile(env, {
       id: 0,
       path: '/post/concurrency',
+      renderer: 'markdown',
       content: 'initial',
       private: false,
       baseRevision: 0,
@@ -151,6 +220,7 @@ describe('file Source Save preconditions', () => {
       saveFile(env, {
         id: created.file.id,
         path: '/post/concurrency',
+        renderer: 'markdown',
         content: 'first writer',
         private: false,
         baseRevision: created.file.revision,
@@ -158,6 +228,7 @@ describe('file Source Save preconditions', () => {
       saveFile(env, {
         id: created.file.id,
         path: '/post/concurrency',
+        renderer: 'markdown',
         content: 'second writer',
         private: true,
         baseRevision: created.file.revision,
@@ -174,11 +245,16 @@ describe('file Source Save preconditions', () => {
     })
     expect(await readById(env, created.file.id)).toMatchObject(saved?.status === 'saved' ? saved.file : {})
   })
+})
+
+describe('file Source Save lifecycle conflicts', () => {
+  useFileSaveDatabase()
 
   it('returns the recycled server File when a Save loses a race with trash', async () => {
     const created = await saveFile(env, {
       id: 0,
       path: '/post/recycled-during-save',
+      renderer: 'markdown',
       content: 'initial',
       private: false,
       baseRevision: 0,
@@ -190,6 +266,7 @@ describe('file Source Save preconditions', () => {
     const result = await saveFile(env, {
       id: created.file.id,
       path: created.file.path,
+      renderer: 'markdown',
       content: 'stale local Source',
       private: false,
       baseRevision: created.file.revision,
@@ -205,6 +282,32 @@ describe('file Source Save preconditions', () => {
     })
     expect(await readAnyById(env, created.file.id)).toMatchObject(result.status === 'conflict' ? result.current : {})
   })
+
+  it('does not change the Source Hash for a privacy-only update', async () => {
+    const created = await saveFile(env, {
+      id: 0,
+      path: '/post/privacy',
+      renderer: 'markdown',
+      content: 'initial',
+      private: false,
+      baseRevision: 0,
+    })
+    if (created.status !== 'saved')
+      throw new Error('Expected fixture File creation to succeed')
+
+    const result = await updatePrivate(env, created.file.id, true, created.file.revision)
+
+    expect(result).toMatchObject({
+      status: 'saved',
+      file: {
+        private: true,
+        renderer: 'markdown',
+        content: 'initial',
+        sourceHash: '76c4a3761ea1d510d46dfb4c5629496e50e27f9a68e448303bd137a522a6e899',
+        revision: 2,
+      },
+    })
+  })
 })
 
 describe('legacy memo URL compatibility', () => {
@@ -214,6 +317,7 @@ describe('legacy memo URL compatibility', () => {
     const created = await saveFile(env, {
       id: 0,
       path: '/memos/legacy-note',
+      renderer: 'markdown',
       content: 'initial',
       private: true,
       baseRevision: 0,
@@ -224,6 +328,7 @@ describe('legacy memo URL compatibility', () => {
     const saved = await saveFile(env, {
       id: created.file.id,
       path: created.file.path,
+      renderer: 'markdown',
       content: 'updated',
       private: true,
       baseRevision: created.file.revision,

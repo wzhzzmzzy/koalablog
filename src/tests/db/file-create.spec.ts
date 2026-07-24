@@ -1,10 +1,12 @@
-import type { CreationTemplateV1 } from '@/lib/files/types'
+import type { CreationTemplateV1, CreationTemplateV2 } from '@/lib/files/types'
 import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { connectDB } from '@/db'
 import { createFile } from '@/db/file-create'
 import { batchAdd } from '@/db/markdown'
+import { creationTemplateCatalog } from '@/db/schema'
 import { ensureTemplateCatalogInitialized, replaceTemplateCatalog } from '@/db/template-catalog'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -24,7 +26,9 @@ function useFileCreationDatabase() {
         source integer NOT NULL,
         path text NOT NULL,
         title text NOT NULL,
-        content text,
+        renderer text DEFAULT 'markdown' NOT NULL,
+        content text NOT NULL,
+        sourceHash text,
         tags text,
         incoming_links text,
         outgoing_links text,
@@ -55,11 +59,18 @@ function useFileCreationDatabase() {
   })
 }
 
-async function storeTemplates(templates: CreationTemplateV1[]) {
+async function storeTemplatesV2(templates: CreationTemplateV2[]) {
   const catalog = await ensureTemplateCatalogInitialized(env)
   const saved = await replaceTemplateCatalog(env, catalog.revision, templates)
   if (saved.status !== 'saved')
     throw new Error('Expected Template fixture replacement to succeed')
+}
+
+async function storeTemplates(templates: CreationTemplateV1[]) {
+  await storeTemplatesV2(templates.map(template => ({
+    ...template,
+    renderer: 'markdown',
+  })))
 }
 
 function fixedTemplate(overrides: Partial<CreationTemplateV1> = {}): CreationTemplateV1 {
@@ -111,6 +122,47 @@ describe('server File creation Template resolution', () => {
       file: { path: '/memo/project/202607160607', title: '202607160607', content: '', private: true },
     })
   })
+
+  it('persists a v2 Svelte Template Renderer and canonical Source Hash', async () => {
+    const content = '<script>let count = 0</script>\n<button>{count}</button>'
+    await storeTemplatesV2([{
+      ...fixedTemplate({ id: 'svelte', prefix: '/app/', content }),
+      renderer: 'svelte',
+    }])
+
+    const result = await createFile(env, { targetPrefix: '/app/' })
+
+    expect(result).toMatchObject({
+      status: 'created',
+      file: {
+        path: '/app/welcome',
+        renderer: 'svelte',
+        content,
+        sourceHash: 'f013faecf0cd5ceeeb7b8f913aafb6243e639f21a9b07d0e8c5d8f76da9dbf6d',
+      },
+    })
+  })
+
+  it('treats a stored v1 Template as Markdown during the compatibility stage', async () => {
+    await connectDB(env).insert(creationTemplateCatalog).values({
+      key: 'koala:creation-templates',
+      schemaVersion: 1,
+      revision: 3,
+      payload: JSON.stringify([fixedTemplate({ content: '' })]),
+    })
+
+    const result = await createFile(env, { targetPrefix: '/post/' })
+
+    expect(result).toMatchObject({
+      status: 'created',
+      file: {
+        path: '/post/welcome',
+        renderer: 'markdown',
+        content: '',
+        sourceHash: 'c4a3e04fa78d47ace9853e81fcedcf84172449d37a72852120d3a41b14a6c1f5',
+      },
+    })
+  })
 })
 
 describe('server File creation collision behavior', () => {
@@ -126,13 +178,22 @@ describe('server File creation collision behavior', () => {
 
     expect([first, second].map(result => result.status === 'created' ? result.file.path : result.status).sort())
       .toEqual(['/wiki/unnamed', '/wiki/unnamed-1'])
+    expect([first, second]).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        status: 'created',
+        file: expect.objectContaining({
+          renderer: 'markdown',
+          sourceHash: 'c4a3e04fa78d47ace9853e81fcedcf84172449d37a72852120d3a41b14a6c1f5',
+        }),
+      }),
+    ]))
   })
 
   it('retries a Template only when Title contains uniqueSuffix', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 6, 16, 6, 7))
     await ensureTemplateCatalogInitialized(env)
-    await batchAdd(env, [{ path: '/memo/202607160607', content: 'occupied' }])
+    await batchAdd(env, [{ path: '/memo/202607160607', renderer: 'markdown', content: 'occupied' }])
 
     const result = await createFile(env, { targetPrefix: '/memo/' })
 
@@ -144,7 +205,7 @@ describe('server File creation collision behavior', () => {
 
   it('returns path_conflict without renaming a fixed Template result', async () => {
     await storeTemplates([fixedTemplate()])
-    await batchAdd(env, [{ path: '/post/welcome', content: 'occupied' }])
+    await batchAdd(env, [{ path: '/post/welcome', renderer: 'markdown', content: 'occupied' }])
 
     expect(await createFile(env, { targetPrefix: '/post/' })).toEqual({
       status: 'path_conflict',
@@ -156,6 +217,7 @@ describe('server File creation collision behavior', () => {
     await storeTemplates([])
     await batchAdd(env, Array.from({ length: 100 }, (_, index) => ({
       path: `/wiki/unnamed${index === 0 ? '' : `-${index}`}`,
+      renderer: 'markdown' as const,
       content: 'occupied',
     })))
 

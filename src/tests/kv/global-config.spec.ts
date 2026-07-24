@@ -63,4 +63,42 @@ describe('global config persistence', () => {
       auth: { adminKey: 'admin', guestKey: 'guest' },
     })
   })
+
+  it('preserves Source Hash maintenance state when ordinary Settings are saved', async () => {
+    let stored = JSON.stringify({
+      pageConfig: { title: 'Before' },
+      auth: {},
+      oss: {},
+      font: {},
+      maintenance: {
+        sourceHashBackfill: {
+          active: true,
+          applicationCommit: 'abcdef1',
+          startedAt: '2026-07-24T00:00:00.000Z',
+        },
+      },
+      _runtime: { ready: true },
+    })
+    const env = {
+      CF_PAGES: 1,
+      KOALA: {
+        get: async () => stored,
+        put: async (_key: string, value: string) => {
+          stored = value
+        },
+      },
+    } as unknown as Env
+
+    await updateGlobalConfig(env, { pageConfig: { title: 'After' } })
+
+    expect(JSON.parse(stored)).toMatchObject({
+      pageConfig: { title: 'After' },
+      maintenance: {
+        sourceHashBackfill: {
+          active: true,
+          applicationCommit: 'abcdef1',
+        },
+      },
+    })
+  })
 })

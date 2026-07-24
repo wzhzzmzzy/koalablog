@@ -9,6 +9,13 @@ import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import envPaths from 'env-paths'
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import {
+  assertUniqueSourcePaths,
+  rendererFromDiskPath,
+  sourceContentForUpload,
+  sourceFromVaultPath,
+  vaultPathForSource,
+} from './files.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -80,8 +87,10 @@ const WIKI_SYNC_DIRS = [
 const ALL_SYNC_DIRS = [...SYNC_DIRS, ...WIKI_SYNC_DIRS]
 
 function getFilePath(filePath) {
-  const relPath = relative(config.vaultPath, filePath)
-  return `/${relPath.replace(/\\/g, '/').replace(/\.md$/, '')}`
+  const source = sourceFromVaultPath(config.vaultPath, filePath)
+  if (!source)
+    throw new Error(`Unsupported sync file: ${filePath}`)
+  return source.path
 }
 
 // Utils
@@ -95,7 +104,8 @@ function log(msg) {
 async function parseMemo(filePath) {
   try {
     const content = await readFile(filePath, 'utf-8')
-    return { localPath: filePath, content, path: getFilePath(filePath) }
+    const source = sourceFromVaultPath(config.vaultPath, filePath)
+    return source ? { localPath: filePath, content, ...source } : null
   } catch {
     return null
   }
@@ -262,16 +272,8 @@ async function batchUploadToKoalablog(memos, remoteFileMap) {
   const payload = memos.map(memo => ({
     id: remoteFiles.get(memo.path)?.id || 0,
     path: memo.path,
-    content: memo.content
-      // ![[attachments/...]] → ![](/attachments/...)
-      .replace(/!\[\[((?:\.?\/)?attachments\/[^\]]+)\]\]/g, '![](/$1)')
-      // ![[../../attachments/...]] → ![](/attachments/...)
-      .replace(/!\[\[((?:\.\.\/)+attachments\/[^\]]+)\]\]/g, (_, p) => `![](/${p.replace(/^(?:\.\.\/)+/, '')})`)
-      // ![](../../attachments/...) → ![](/attachments/...)
-      .replace(/!\[.*?\]\(((?:\.\.\/)+attachments\/[^)]+)\)/g, (_, p) => `![](/${p.replace(/^(?:\.\.\/)+/, '')})`)
-      // [[../../attachments/file.pdf][text]] → [text](/attachments/file.pdf)
-      .replace(/\[\[((?:\.\.\/)+attachments\/[^\]|]+)\|([^\]]+)\]\]/g, '[$2]($1)')
-      .replace(/\[\[((?:\.\.\/)+attachments\/[^\]|]+)\]\]/g, '[$1]($1)'),
+    renderer: memo.renderer,
+    content: sourceContentForUpload(memo),
     private: true,
     baseRevision: remoteFiles.get(memo.path)?.revision || 0,
   }))
@@ -366,10 +368,8 @@ let remoteTruthTimer = null
 let pullingRemoteTruth = false
 const suppressUpload = new Map()
 
-function resolveVaultPath(path) {
-  const relativePath = path.replace(/^\/+/, '')
-  const diskPath = relativePath.endsWith('.md') ? relativePath : `${relativePath}.md`
-  return join(config.vaultPath, diskPath)
+function resolveVaultPath(path, renderer) {
+  return vaultPathForSource(config.vaultPath, path, renderer)
 }
 
 function shouldSuppressUpload(filePath) {
@@ -427,7 +427,7 @@ async function pullRemoteTruth() {
     log(`⬇️ Pulling ${items.length} remote edits`)
 
     for (const item of items) {
-      const filePath = resolveVaultPath(item.path)
+      const filePath = resolveVaultPath(item.path, item.renderer)
 
       suppressUpload.set(filePath, Date.now() + 5000)
       await mkdir(dirname(filePath), { recursive: true })
@@ -479,7 +479,7 @@ async function runDaemon() {
   })
 
   watcher.on('add', async (path) => {
-    if (!path.endsWith('.md')) return
+    if (!rendererFromDiskPath(path)) return
     if (shouldSuppressUpload(path)) return
     
     log(`📝 New: ${basename(path)}`)
@@ -496,7 +496,7 @@ async function runDaemon() {
   })
 
   watcher.on('change', async (path) => {
-    if (!path.endsWith('.md')) return
+    if (!rendererFromDiskPath(path)) return
     if (shouldSuppressUpload(path)) return
 
     log(`📝 Changed: ${basename(path)}`)
@@ -513,7 +513,7 @@ async function runDaemon() {
   })
 
   watcher.on('unlink', async (path) => {
-    if (!path.endsWith('.md')) return
+    if (!rendererFromDiskPath(path)) return
     
     log(`🗑️ Removed: ${basename(path)}`)
     const filePath = getFilePath(path)
@@ -610,7 +610,7 @@ async function discoverLocalFiles() {
         if (!entry.name.startsWith('.')) {
           await readDir(fullPath)
         }
-      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      } else if (entry.isFile() && rendererFromDiskPath(entry.name)) {
         diskPaths.push(fullPath)
       }
     }
@@ -625,13 +625,14 @@ async function discoverLocalFiles() {
     }
   }
   
-  log(`📁 Found ${diskPaths.length} markdown files`)
+  log(`📁 Found ${diskPaths.length} source files`)
 
   const files = []
   for (const path of diskPaths) {
     const file = await parseMemo(path)
     if (file) files.push(file)
   }
+  assertUniqueSourcePaths(files)
   return files
 }
 
@@ -642,6 +643,8 @@ async function syncLocalAttachments(files) {
   let totalAttachmentsFailed = 0
   
   for (const file of files) {
+    if (file.renderer === 'svelte')
+      continue
     const result = await syncAttachments(file.content, file.localPath)
     totalAttachmentsUploaded += result.uploaded
     totalAttachmentsSkipped += result.skipped
@@ -661,6 +664,7 @@ async function uploadLocalFiles(files, remoteFileMap) {
   let totalUploaded = 0
   let totalSkipped = 0
   let failed = 0
+  const rebuildRequired = []
   
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]
@@ -670,12 +674,18 @@ async function uploadLocalFiles(files, remoteFileMap) {
       const result = await batchUploadToKoalablog(batch, remoteFileMap)
       totalUploaded += result.count || 0
       totalSkipped += result.skipped || 0
+      for (const file of result.results || []) {
+        if (file.artifactStatus === 'rebuild_required')
+          rebuildRequired.push(file.path)
+      }
       log(`   ✅ Batch ${i + 1}: ${result.count || 0} uploaded, ${result.skipped || 0} skipped`)
     } catch (e) {
       log(`   ❌ Batch ${i + 1} failed: ${e.message}`, true)
       failed += batch.length
     }
   }
+  for (const path of rebuildRequired)
+    log(`⚠️ Rebuild required in browser: ${path}`)
   log(`📊 Summary: ${totalUploaded} uploaded, ${totalSkipped} skipped, ${failed} failed`)
   return failed
 }

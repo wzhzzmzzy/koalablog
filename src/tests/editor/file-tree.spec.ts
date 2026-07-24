@@ -52,6 +52,7 @@ describe('editor File tree', () => {
     setEditBuffer({
       fileId: active.id,
       path: active.path,
+      renderer: active.renderer,
       content: 'local',
       private: active.private,
       baseRevision: active.revision,

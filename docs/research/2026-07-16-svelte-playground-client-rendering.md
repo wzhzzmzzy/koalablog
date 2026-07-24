@@ -207,8 +207,8 @@ export { App, flushSync, mount, tick, unmount }
 - 允许完整 `https://` import，并由 worker fetch 后打进 bundle。
 - 拒绝用户相对 import、alias 和其他裸 npm package。
 
-HTTPS import 不是无限制网络入口。首版必须同时限制：最多 3 次且全程保持 HTTPS 的 redirect、允许的
-JavaScript MIME、最多 8 层/64 个 URL module、单资源 512,000 UTF-8 bytes、总 fetched Source
+HTTPS import 不是无限制网络入口。浏览器无法检查跨域 `manual` redirect 的 `opaqueredirect` 每一跳，
+因此首版用 `redirect: 'error'` 拒绝全部 redirect，并同时限制允许的 JavaScript MIME、最多 8 层/64 个 URL module、单资源 512,000 UTF-8 bytes、总 fetched Source
 4,000,000 UTF-8 bytes、单 fetch 10 秒和整次依赖解析/build 20 秒。opaque/CORS-blocked response、MIME
 不匹配或任何限额超出都生成结构化诊断，不上传 Artifact，也不回滚已经成功的 Source Save。
 

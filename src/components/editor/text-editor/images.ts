@@ -1,5 +1,8 @@
+import { RENDERER_MODE, type RendererMode } from '@/lib/files/types'
+
 export interface PendingImage {
   file: File
+  renderer: RendererMode
   placeholder: string
 }
 
@@ -14,7 +17,7 @@ export interface ImageTextChange {
   insert: string
 }
 
-function safeFileName(name: string) {
+function safeMarkdownFileName(name: string) {
   return name.replace(/[\r\n[\]]/g, ' ')
 }
 
@@ -22,12 +25,24 @@ function defaultImageId() {
   return globalThis.crypto.randomUUID()
 }
 
-export function prepareImageBatch(files: File[], createId: () => string = defaultImageId): ImageBatch {
+function imagePlaceholder(renderer: RendererMode, fileName: string, id: string) {
+  const safeFileName = renderer === RENDERER_MODE.Svelte
+    ? fileName.replace(/[\r\n]/g, ' ')
+    : safeMarkdownFileName(fileName)
+  return formatImageMarkup(renderer, `koala-upload:${id}`, `Uploading ${safeFileName}…`)
+}
+
+export function prepareImageBatch(
+  files: File[],
+  renderer: RendererMode,
+  createId: () => string = defaultImageId,
+): ImageBatch {
   const items = files
     .filter(file => file.type.startsWith('image/'))
     .map(file => ({
       file,
-      placeholder: `![Uploading ${safeFileName(file.name)}…](koala-upload:${createId()})`,
+      renderer,
+      placeholder: imagePlaceholder(renderer, file.name, createId()),
     }))
 
   return {
@@ -47,12 +62,27 @@ function findPlaceholderChange(source: string, pending: PendingImage, insert: st
   }
 }
 
-export function markdownImage(url: string) {
-  return `![](${url})`
+function escapeSvelteAttribute(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('{', '&#123;')
+    .replaceAll('}', '&#125;')
+}
+
+function formatImageMarkup(renderer: RendererMode, src: string, alt: string) {
+  if (renderer === RENDERER_MODE.Svelte)
+    return `<img src="${escapeSvelteAttribute(src)}" alt="${escapeSvelteAttribute(alt)}" />`
+  return `![${alt}](${src})`
+}
+
+export function imageMarkup(renderer: RendererMode, url: string) {
+  return formatImageMarkup(renderer, url, '')
 }
 
 export function findImageReplacement(source: string, pending: PendingImage, url: string) {
-  return findPlaceholderChange(source, pending, markdownImage(url))
+  return findPlaceholderChange(source, pending, imageMarkup(pending.renderer, url))
 }
 
 export function findImageRemoval(source: string, pending: PendingImage) {
