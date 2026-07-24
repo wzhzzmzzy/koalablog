@@ -3,7 +3,7 @@
 import chokidar from 'chokidar'
 import { readFile, writeFile, mkdir, access } from 'fs/promises'
 import { accessSync, constants } from 'fs'
-import { join, basename, dirname, resolve } from 'path'
+import { join, basename, dirname, relative, resolve } from 'path'
 import { homedir } from 'os'
 import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
