@@ -9,39 +9,17 @@ export function getDataSource(env?: Env) {
 
 export enum MarkdownSource {
   Post = 10,
-  Page = 20,
   Memo = 30,
-  Wiki = 31,
-  Unknown = 99,
 }
 
 export const MarkdownSourceMap = {
   posts: MarkdownSource.Post,
-  pages: MarkdownSource.Page,
   memos: MarkdownSource.Memo,
-  wikis: MarkdownSource.Wiki,
-}
-
-export const MarkdownSubjectMap: Record<MarkdownSource, string> = {
-  [MarkdownSource.Post]: 'Posts',
-  [MarkdownSource.Page]: 'Pages',
-  [MarkdownSource.Memo]: 'Memos',
-  [MarkdownSource.Wiki]: 'Wikis',
-  [MarkdownSource.Unknown]: '404',
 }
 
 export function getSourceFromPath(path: string): MarkdownSource {
   const relativePath = path.startsWith('/') ? path.slice(1) : path
-  if (relativePath.startsWith('wiki/')) {
-    return MarkdownSource.Wiki
-  }
-  if (relativePath.startsWith('memo/') || relativePath.startsWith('memos/')) {
-    return MarkdownSource.Memo
-  }
-  if (relativePath.startsWith('post/')) {
-    return MarkdownSource.Post
-  }
-  return MarkdownSource.Page
+  return relativePath.startsWith('post/') ? MarkdownSource.Post : MarkdownSource.Memo
 }
 
 export function getMarkdownSourceKey(source: MarkdownSource) {

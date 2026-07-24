@@ -5,7 +5,7 @@ export function makeFileRecord(overrides: Partial<FileRecord> = {}): FileRecord 
   const now = new Date()
   return {
     id: 1,
-    source: MarkdownSource.Unknown,
+    source: MarkdownSource.Memo,
     path: '/fixture',
     title: 'fixture',
     renderer: 'markdown',

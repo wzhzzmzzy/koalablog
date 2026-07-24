@@ -84,7 +84,7 @@ window.refreshTagListener = () => {
 window.handleTagClick = (item: HTMLSpanElement) => {
   const tagName = item.getAttribute('data-tag')
   if (tagName) {
-    window.location.href = `/posts?tag=${encodeURIComponent(tagName)}`
+    window.location.href = `/?tag=${encodeURIComponent(tagName)}`
   }
 }
 

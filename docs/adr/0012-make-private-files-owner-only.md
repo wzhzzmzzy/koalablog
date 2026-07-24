@@ -1,0 +1,3 @@
+# Make Private Files Visible Only to Their Owner
+
+Legacy visibility treated private files as readable by any logged-in principal, including the shared guest passkey. In the multi-user model, private means owner-only: the index shows a site-wide mixed public stream, and a logged-in user sees every public file plus their own private ones; file operations are restricted to the Owner and site-wide settings to the Admin. We rejected the shared-workspace reading (private = any logged-in user) because it would make file ownership meaningless, and a single-author-face model (public stream limited to the Admin) because it contradicts the mixed index list. This deliberately retires the guest-passkey sharing workflow together with guest login.

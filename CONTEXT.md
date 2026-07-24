@@ -72,6 +72,30 @@ _Avoid_: Title link, ambiguous link, implicit file
 The initial public or private state assigned from the file's path category, independently of its creation template. Files under `/memo/` start private; files under other paths start public.
 _Avoid_: Template privacy, content privacy
 
+**Source**:
+The persisted listing category of a File — Post or Memo — that determines which list it appears in. It is assigned from the Path Prefix at creation and is never re-derived from the File Path on save, so list membership can differ from the path namespace.
+_Avoid_: Preset source, path category, document type
+
+**User**:
+A registered account identified by a username, with a password stored only as a salted hash. The first User holds the Admin role and manages site-wide settings; every User owns Files and logs in through Sessions.
+_Avoid_: Account, guest
+
+**Owner**:
+The User a File belongs to. Every File has exactly one Owner, assigned at creation or migration, and ownership never changes implicitly.
+_Avoid_: Author, creator
+
+**Visibility**:
+A File's persisted public or private state. Public Files are readable by anyone; Private Files are readable only by their Owner. The initial state comes from the Visibility Default.
+_Avoid_: Hidden, published, draft
+
+**Session**:
+A server-side login state for one User on one device, identified by an opaque cookie token. A User may hold many Sessions at once, each expiring or being revoked independently of the others.
+_Avoid_: JWT, login cookie, token
+
+**API Token**:
+A credential owned by exactly one User for API access; many API Tokens can exist at once, and a request bearing one acts with that User's identity.
+_Avoid_: Bearer token, global token
+
 **Svelte File**:
 A self-contained file whose content is trusted, executable Svelte source owned by the site operator rather than prose to be rendered as Markdown. It owns the blog page's body region while the surrounding page shell remains site-owned, and may depend on the platform Svelte runtime, absolute web modules, or browser runtime requests rather than neighbouring files.
 _Avoid_: Svelte snippet, untrusted component

@@ -50,15 +50,13 @@ function requiredPath(input: string): AbsoluteFilePath {
   return parsed.value
 }
 
-async function sourceValues(pathInput: string, renderer: RendererMode, content: string) {
-  const path = requiredPath(pathInput)
+async function baseValues(path: AbsoluteFilePath, renderer: RendererMode, content: string) {
   const analysis = renderer === RENDERER_MODE.Markdown
     ? analyzeMarkdownSource(content)
     : { tags: [], outgoingPaths: [] }
   return {
     path,
     title: deriveTitle(path),
-    source: classifySource(path),
     renderer,
     content,
     sourceHash: await calculateSourceHash(renderer, content),
@@ -68,8 +66,10 @@ async function sourceValues(pathInput: string, renderer: RendererMode, content: 
 }
 
 async function insertValues(input: BatchFileInput) {
+  const path = requiredPath(input.path)
   return {
-    ...await sourceValues(input.path, input.renderer, input.content),
+    ...await baseValues(path, input.renderer, input.content),
+    source: classifySource(path),
     private: input.private ?? false,
     remoteTruth: input.remoteTruth ?? false,
     createdAt: input.createdAt,
@@ -89,8 +89,9 @@ export async function batchAdd(env: Env, files: BatchFileInput[]) {
 }
 
 async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boolean): Promise<SaveFileResult> {
+  const path = requiredPath(input.path)
   const values = {
-    ...await sourceValues(input.path, input.renderer, input.content),
+    ...await baseValues(path, input.renderer, input.content),
     private: input.private,
     remoteTruth,
     updatedAt: new Date(),
@@ -101,7 +102,7 @@ async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boole
     if (input.baseRevision !== 0)
       return { status: 'not_found' }
     try {
-      const [file] = await db.insert(markdown).values(values).returning()
+      const [file] = await db.insert(markdown).values({ ...values, source: classifySource(path) }).returning()
       return { status: 'saved', file }
     }
     catch (error) {
@@ -181,7 +182,7 @@ export async function trash(env: Env, id: number) {
 function restoredIdentity(path: string, suffix: number) {
   const restoredPath = `${path}-restored${suffix === 1 ? '' : `-${suffix}`}`
   const parsed = requiredPath(restoredPath)
-  return { path: parsed, title: deriveTitle(parsed), source: classifySource(parsed) }
+  return { path: parsed, title: deriveTitle(parsed) }
 }
 
 async function nextRestoredIdentity(env: Env, path: string) {
@@ -214,7 +215,7 @@ export async function restore(env: Env, id: number, renameOnConflict = false) {
   const canonicalIdentity = {
     path: parsedPath.value,
     title: deriveTitle(parsedPath.value),
-    source: classifySource(parsedPath.value),
+    source: file.source,
   }
 
   const db = connectDB(env)
@@ -253,6 +254,7 @@ export async function restore(env: Env, id: number, renameOnConflict = false) {
     try {
       const [restored] = await db.update(markdown).set({
         ...candidate,
+        source: file.source,
         deletedAt: null,
         updatedAt: new Date(),
         revision: sql`${markdown.revision} + 1`,
@@ -315,14 +317,15 @@ export function readList(
   env: Env,
   source: MarkdownSource,
   tag?: string,
-  options: { includePrivate?: boolean } = {},
+  options: { includePrivate?: boolean, year?: number } = {},
 ) {
-  const { includePrivate = false } = options
+  const { includePrivate = false, year } = options
   const filters = [
     eq(markdown.source, source),
     isNull(markdown.deletedAt),
     tag ? like(markdown.tags, `%${tag}%`) : null,
     !includePrivate ? eq(markdown.private, false) : null,
+    year ? sql`strftime('%Y', ${markdown.createdAt}, 'unixepoch') = ${String(year)}` : null,
   ].filter(filter => !!filter)
   return connectDB(env).query.markdown.findMany({
     where: and(...filters),

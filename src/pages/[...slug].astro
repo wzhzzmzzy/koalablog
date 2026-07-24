@@ -2,6 +2,7 @@
 import type { FileRecord } from '@/db/types'
 import FilePage from '@/components/article-view/FilePage.astro'
 import { readByPath } from '@/db/markdown'
+import { getDisplayTitle } from '@/lib/files/display-title'
 import { retriveRss } from '@/lib/utils/rss'
 
 const { slug } = Astro.params
@@ -22,6 +23,6 @@ if (maybePage.private) {
   }
 }
 
+const displayTitle = getDisplayTitle(maybePage)
 ---
-
-<FilePage article={maybePage} />
+<FilePage article={maybePage} title={displayTitle} />

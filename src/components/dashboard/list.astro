@@ -8,15 +8,16 @@ import { format, isSameYear } from 'date-fns'
 interface Props {
   source: MarkdownSource
   tag?: string | null
+  year?: number
 }
 
-const { source, tag } = Astro.props
+const { source, tag, year } = Astro.props
 
 const env = Astro.locals.runtime?.env || {}
 const session = Astro.locals.session
 
 const includePrivate = !!session?.role || false
-const list = await readList(env, source, tag || undefined, { includePrivate })
+const list = await readList(env, source, tag || undefined, { includePrivate, year })
 const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? 'MM-dd' : 'yyyy-MM-dd')
 const isMemoList = source === MarkdownSource.Memo
 
@@ -50,15 +51,15 @@ const memoPreviews = isMemoList
     !list.length ? <div class="mt-3">Nothing here.</div> : null
   }
   {
-    sortedYears.map(year => (
+    sortedYears.map(groupYear => (
       <div>
         <h3 class="text-lg font-light mb-3 mt-0" style="color: var(--koala-editor-text);">
-          <i>{year}</i>
-          <a class="ml-2" href={`/?s=memo&y=${year}`} title="My Gossips">...</a>
+          <i>{groupYear}</i>
+          <a class="ml-2" href={isMemoList ? `/?y=${groupYear}` : `/?s=memo&y=${groupYear}`} title={isMemoList ? 'My Posts' : 'My Gossips'}>...</a>
         </h3>
         <ul class="ml-4">
           {
-            groupedByYear[year].map(item => (
+            groupedByYear[groupYear].map(item => (
               <li class={`flex gap-3 ${isMemoList ? 'mb-3 items-start' : 'mb-2'}`}>
                 { item.createdAt ? <span class="flex-shrink-0"><i>{ formatDate(item.createdAt) }</i></span> : null }
                 <div class="min-w-0">

@@ -25,13 +25,7 @@ async function requireWritableFiles(ctx: Parameters<APIRoute>[0]) {
 }
 
 function requestedSource(value: string | null) {
-  if (value === 'post')
-    return MarkdownSource.Post
-  if (value === 'page')
-    return MarkdownSource.Page
-  if (value === 'wiki')
-    return MarkdownSource.Wiki
-  return MarkdownSource.Memo
+  return value === 'post' ? MarkdownSource.Post : MarkdownSource.Memo
 }
 
 async function artifactStatus(env: Env | undefined, file: { id: number, renderer: RendererMode }) {

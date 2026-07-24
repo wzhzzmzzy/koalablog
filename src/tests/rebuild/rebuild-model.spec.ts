@@ -25,7 +25,7 @@ function file(overrides: Partial<FileRecord> = {}): FileRecord {
     remoteTruth: false,
     renderer: 'svelte',
     revision: 1,
-    source: MarkdownSource.Page,
+    source: MarkdownSource.Memo,
     sourceHash: 'a'.repeat(64),
     tags: null,
     title: 'koala',

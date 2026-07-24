@@ -34,7 +34,7 @@ function article(overrides: Record<string, unknown> = {}) {
     remoteTruth: false,
     renderer: 'markdown' as const,
     revision: 1,
-    source: MarkdownSource.Page,
+    source: MarkdownSource.Memo,
     sourceHash: 'a'.repeat(64),
     tags: null,
     title: 'koala',
@@ -69,10 +69,10 @@ beforeEach(() => {
 })
 
 describe('shared File page shell', () => {
-  it('keeps Page, Post, Memo, and legacy Memo Markdown output on one deterministic shell', async () => {
+  it('keeps Post, Memo, and legacy Memo Markdown output on one deterministic shell', async () => {
     const container = await AstroContainer.create()
     const matrix = [
-      { expectedTitle: 'koala', source: MarkdownSource.Page },
+      { expectedTitle: 'koala', source: MarkdownSource.Memo },
       { expectedTitle: 'Post title', source: MarkdownSource.Post, title: 'post-path-title' },
       { expectedTitle: 'koala', source: MarkdownSource.Memo },
       { expectedTitle: 'koala', path: '/memos/koala', source: MarkdownSource.Memo },

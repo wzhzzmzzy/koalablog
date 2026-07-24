@@ -43,6 +43,13 @@
       "when": 1784810312910,
       "tag": "0005_render_artifact",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784862146000,
+      "tag": "0006_memo_source_remap",
+      "breakpoints": true
     }
   ]
 }
