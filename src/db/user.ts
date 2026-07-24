@@ -1,4 +1,4 @@
-import { eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import { connectDB } from '.'
 import { apiToken, markdown, user } from './schema'
 
@@ -37,4 +37,27 @@ export async function createApiToken(env: Env, input: { userId: number, tokenHas
 
 export function assignAllFilesToUser(env: Env, userId: number) {
   return connectDB(env).update(markdown).set({ userId }).where(isNull(markdown.userId))
+}
+
+export function updateUserPassword(env: Env, userId: number, input: { passwordHash: string, passwordSalt: string }) {
+  return connectDB(env).update(user).set({ ...input, updatedAt: new Date() }).where(eq(user.id, userId)).returning()
+}
+
+export function listApiTokens(env: Env, userId: number) {
+  return connectDB(env).query.apiToken.findMany({
+    columns: { id: true, label: true, createdAt: true },
+    where: eq(apiToken.userId, userId),
+  })
+}
+
+export async function deleteApiToken(env: Env, id: number, userId: number) {
+  const [deleted] = await connectDB(env).delete(apiToken).where(and(eq(apiToken.id, id), eq(apiToken.userId, userId))).returning()
+  return deleted
+}
+
+export function listUsers(env: Env) {
+  return connectDB(env).query.user.findMany({
+    columns: { id: true, username: true, role: true, createdAt: true },
+    orderBy: asc(user.username),
+  })
 }

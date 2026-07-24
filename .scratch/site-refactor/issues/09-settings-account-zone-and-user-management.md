@@ -1,6 +1,6 @@
 # 09 — Settings account zone and user management
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 
