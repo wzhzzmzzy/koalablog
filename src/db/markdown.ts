@@ -309,14 +309,15 @@ export function readList(
   env: Env,
   source: MarkdownSource,
   tag?: string,
-  options: { includePrivate?: boolean } = {},
+  options: { includePrivate?: boolean, year?: number } = {},
 ) {
-  const { includePrivate = false } = options
+  const { includePrivate = false, year } = options
   const filters = [
     eq(markdown.source, source),
     isNull(markdown.deletedAt),
     tag ? like(markdown.tags, `%${tag}%`) : null,
     !includePrivate ? eq(markdown.private, false) : null,
+    year ? sql`strftime('%Y', ${markdown.createdAt}, 'unixepoch') = ${String(year)}` : null,
   ].filter(filter => !!filter)
   return connectDB(env).query.markdown.findMany({
     where: and(...filters),

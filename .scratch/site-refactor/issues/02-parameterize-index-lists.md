@@ -1,6 +1,6 @@
 # 02 — Parameterize the index lists
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 
