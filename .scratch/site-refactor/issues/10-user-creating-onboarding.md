@@ -1,6 +1,6 @@
 # 10 — User-creating onboarding
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 
