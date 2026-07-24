@@ -7,13 +7,24 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
   <login-form data-redirect-to={redirectTo}>
     <form id="login-form" method="POST" class="max-w-md mx-auto mt-10">
       <div class="mb-6">
-        <label for="adminKey" class="block mb-2 text-sm font-medium">Admin Key</label>
+        <label for="username" class="block mb-2 text-sm font-medium">Username</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          class="input !w-full box-border h-12"
+          placeholder="Input username"
+          required
+        />
+      </div>
+      <div class="mb-6">
+        <label for="password" class="block mb-2 text-sm font-medium">Password</label>
         <input
           type="password"
-          id="admin-key"
-          name="adminKey"
+          id="password"
+          name="password"
           class="input !w-full box-border h-12"
-          placeholder="Input admin key"
+          placeholder="Input password"
           required
         />
       </div>
@@ -35,13 +46,15 @@ import { actions } from 'astro:actions'
 
 class LoginForm extends HTMLElement {
   loginBtn: HTMLElement | null = null
-  adminKeyInput: HTMLInputElement | null = null
+  usernameInput: HTMLInputElement | null = null
+  passwordInput: HTMLInputElement | null = null
   formEl: HTMLFormElement | null = null
   errorEl: HTMLParagraphElement | null = null
 
   connectedCallback() {
     this.loginBtn = this.querySelector('#login-btn')
-    this.adminKeyInput = this.querySelector('#admin-key')
+    this.usernameInput = this.querySelector('#username')
+    this.passwordInput = this.querySelector('#password')
     this.formEl = this.querySelector('#login-form')
     this.loginBtn?.addEventListener('click', (e) => {
       this.login(e)
@@ -72,12 +85,13 @@ class LoginForm extends HTMLElement {
     e.preventDefault()
 
     const { error } = await actions.form.login({
-      key: this.adminKeyInput?.value || '',
+      username: this.usernameInput?.value || '',
+      password: this.passwordInput?.value || '',
     })
 
     if (error) {
       if (error.code === 'UNAUTHORIZED') {
-        this.showErrorMessage('Wrong Password')
+        this.showErrorMessage('Wrong username or password')
       }
       else {
         this.showErrorMessage(error.message)

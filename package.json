@@ -81,7 +81,6 @@
     "es-module-lexer": "1.7.0",
     "es-toolkit": "^1.29.0",
     "fflate": "^0.8.2",
-    "jose": "^6.0.10",
     "magic-string": "0.30.17",
     "markdown-it": "^14.1.0",
     "markdown-it-container": "^4.0.0",

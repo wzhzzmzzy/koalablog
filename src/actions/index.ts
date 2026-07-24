@@ -1,7 +1,7 @@
 import { all, batchImport, byPrefix, create, emptyTrash, purge, restore, trash } from './db/markdown'
 import { attach as attachRenderArtifact } from './db/render-artifact'
 import { read as readTemplates, replace as replaceTemplates } from './db/templates'
-import { login } from './form/login'
+import { login, logout } from './form/login'
 import { save, setPrivate } from './form/markdown'
 import { onboarding } from './form/onboarding'
 import { settings } from './form/settings'
@@ -17,6 +17,7 @@ export const server = {
     setPrivate,
     onboarding,
     login,
+    logout,
     save,
     settings,
   },

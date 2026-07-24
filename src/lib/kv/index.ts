@@ -42,8 +42,6 @@ export interface GlobalConfig {
 }
 
 const GLOBAL_CONFIG_KEY = '_KoalaConfig_'
-export const ACCESS_TOKEN_KEY = 'koala-access-token'
-export const REFRESH_TOKEN_KEY = 'koala-refresh-token'
 
 export interface LocalConfigStorage {
   get: (key: string) => Promise<unknown>

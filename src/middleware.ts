@@ -73,7 +73,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   await authInterceptor(ctx)
 
   // Custom CSRF check: only enforce for unauthenticated FormData requests
-  const isAuthenticated = ctx.locals.session?.role === 'admin'
+  const isAuthenticated = Boolean(ctx.locals.session?.userId)
   const contentType = ctx.request.headers.get('Content-Type') || ''
   const needsCsrfCheck = CSRF_CONTENT_TYPES.some(t => contentType.startsWith(t))
 
@@ -100,11 +100,11 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   }
 
   if (AUTH_REQUIRED_SITE.some(path => pathname.startsWith(path)) || pathname === '/login') {
-    if (pathname === '/login' && ctx.locals.session.role === 'admin') {
+    if (pathname === '/login' && ctx.locals.session.userId) {
       return ctx.redirect('/dashboard')
     }
 
-    if (ctx.locals.session.role !== 'admin' && AUTH_REQUIRED_SITE.some(path => pathname.startsWith(path))) {
+    if (!ctx.locals.session.userId && AUTH_REQUIRED_SITE.some(path => pathname.startsWith(path))) {
       return ctx.redirect(
         `/login?from=${encodeURIComponent(ctx.url.pathname + ctx.url.search)}`,
       )
