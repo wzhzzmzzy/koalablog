@@ -44,7 +44,7 @@ let renderLangSet = new Set<string>()
 if (article.renderer === 'markdown') {
   const pageConfig = Astro.locals.config.pageConfig
   isBigArticle = article.content.length > 1000
-  activePaths = await readActivePaths(Astro.locals.runtime?.env)
+  activePaths = await readActivePaths(Astro.locals.runtime?.env, Astro.locals.session?.userId)
   const rendered = await renderIt(isBigArticle, article, pageConfig.theme, activePaths)
   content = rendered.content
   renderLangSet = rendered.renderLangSet ?? new Set<string>()

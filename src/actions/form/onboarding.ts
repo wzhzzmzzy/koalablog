@@ -1,10 +1,10 @@
+import { ActionError, defineAction } from 'astro:actions'
+import { z } from 'astro:schema'
 import { ensureTemplateCatalogInitialized } from '@/db/template-catalog'
-import { createUser } from '@/db/user'
+import { createFirstAdmin } from '@/db/user'
 import { hashPassword } from '@/lib/auth/password'
 import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { globalConfig, putGlobalConfig } from '@/lib/kv'
-import { ActionError, defineAction } from 'astro:actions'
-import { z } from 'astro:schema'
 
 export const onboarding = defineAction({
   accept: 'json',
@@ -26,12 +26,17 @@ export const onboarding = defineAction({
     await ensureTemplateCatalogInitialized(env)
 
     const { salt, hash } = await hashPassword(input.password)
-    const user = await createUser(env, {
+    const user = await createFirstAdmin(env, {
       username: input.username,
       passwordHash: hash,
       passwordSalt: salt,
-      role: 'admin',
     })
+    if (!user) {
+      throw new ActionError({
+        code: 'CONFLICT',
+        message: 'Site is already initialized',
+      })
+    }
 
     const sessionId = await createSession(env, { userId: user.id, role: user.role })
     setSessionCookie(ctx, sessionId)

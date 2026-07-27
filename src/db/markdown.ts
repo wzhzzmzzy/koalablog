@@ -1,9 +1,9 @@
 import type { AbsoluteFilePath, RendererMode } from '@/lib/files/types'
+import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
 import { analyzeMarkdownSource } from '@/lib/files/analysis'
 import { classifySource, deriveTitle, parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { calculateSourceHash } from '@/lib/files/source-hash'
 import { RENDERER_MODE } from '@/lib/files/types'
-import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
 
@@ -421,10 +421,13 @@ export function readAllPublic(env: Env) {
   })
 }
 
-export async function readActivePaths(env: Env) {
+export async function readActivePaths(env: Env, userId?: number) {
   const files = await connectDB(env).query.markdown.findMany({
     columns: { path: true },
-    where: isNull(markdown.deletedAt),
+    where: and(
+      isNull(markdown.deletedAt),
+      or(eq(markdown.private, false), userId ? eq(markdown.userId, userId) : undefined),
+    ),
   })
   return files.map(file => file.path)
 }

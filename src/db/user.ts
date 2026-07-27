@@ -1,6 +1,6 @@
 import type { UserRole } from '@/lib/auth/session'
+import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import { verifyPassword } from '@/lib/auth/password'
-import { and, asc, eq, isNull } from 'drizzle-orm'
 import { connectDB } from '.'
 import { apiToken, markdown, user } from './schema'
 
@@ -18,6 +18,27 @@ export async function countUsers(env: Env): Promise<number> {
 export async function createUser(env: Env, input: CreateUserInput) {
   const [created] = await connectDB(env).insert(user).values(input).returning()
   return created
+}
+
+export interface FirstAdminRecord {
+  id: number
+  username: string
+  role: UserRole
+}
+
+/**
+ * Inserts the very first user as an Admin in a single atomic statement.
+ * Returns null when any user already exists, so concurrent onboarding
+ * attempts cannot both create an Admin.
+ */
+export async function createFirstAdmin(env: Env, input: Omit<CreateUserInput, 'role'>): Promise<FirstAdminRecord | null> {
+  const rows = await connectDB(env).all<FirstAdminRecord>(sql`
+    INSERT INTO "user" ("username", "passwordHash", "passwordSalt", "role")
+    SELECT ${input.username}, ${input.passwordHash}, ${input.passwordSalt}, 'admin'
+    WHERE NOT EXISTS (SELECT 1 FROM "user")
+    RETURNING "id", "username", "role"
+  `)
+  return rows[0] ?? null
 }
 
 export function findUserByUsername(env: Env, username: string) {

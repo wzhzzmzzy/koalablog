@@ -3,13 +3,13 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createClient } from '@libsql/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { onboarding } from '@/actions/form/onboarding'
-import { findUserByUsername } from '@/db/user'
+import { countUsers, findUserByUsername } from '@/db/user'
 import { verifyPassword } from '@/lib/auth/password'
 import { SESSION_COOKIE_NAME } from '@/lib/auth/session'
 import { globalConfig } from '@/lib/kv'
-import { createClient } from '@libsql/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hoisted = vi.hoisted(() => {
   const data: Record<string, unknown> = {}
@@ -118,5 +118,23 @@ describe('user-creating onboarding', () => {
     await expect(onboarding.orThrow.call(createContext(), { blogTitle: 'Again', username: 'second', password: 'secret-pw' }))
       .rejects
       .toMatchObject({ code: 'CONFLICT' })
+  })
+
+  it('rejects a concurrent first-Admin attempt even when the ready flag was not yet written', async () => {
+    await expect(onboarding.orThrow.call(createContext(), { blogTitle: 'Koala Blog', username: 'admin', password: 'secret-pw' }))
+      .resolves
+      .toBeUndefined()
+
+    // Simulate a second request that observed ready=false before the first
+    // request wrote it, as happens when two onboards race.
+    for (const key of Object.keys(hoisted.data))
+      delete hoisted.data[key]
+
+    await expect(onboarding.orThrow.call(createContext(), { blogTitle: 'Race', username: 'intruder', password: 'secret-pw' }))
+      .rejects
+      .toMatchObject({ code: 'CONFLICT' })
+
+    expect(await countUsers(env)).toBe(1)
+    expect(await findUserByUsername(env, 'intruder')).toBeUndefined()
   })
 })

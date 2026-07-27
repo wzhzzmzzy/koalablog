@@ -1,4 +1,6 @@
 ---
+import { Save, Upload } from '@lucide/astro'
+import { actions } from 'astro:actions'
 import ExportZip from '@/components/io/export-zip.svelte'
 import ImportFile from '@/components/io/import-file.svelte'
 import RssEnableSwitch from '@/components/settings/RssEnableSwitch.svelte'
@@ -7,8 +9,6 @@ import { readToday } from '@/db/ossAccess'
 import { listApiTokens, listUsers } from '@/db/user'
 import DashboardShell from '@/layouts/dashboard-shell.astro'
 import { globalConfig } from '@/lib/kv'
-import { Save, Upload } from '@lucide/astro'
-import { actions } from 'astro:actions'
 
 const saveResult = Astro.getActionResult(actions.form.settings)
 
@@ -48,7 +48,7 @@ const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ri
           <p class="mt-1 text-sm text-muted-foreground">Your password and personal API Tokens.</p>
         </div>
         <div class="grid gap-6">
-          <form data-account-action="changePassword" class="grid max-w-md gap-3">
+          <form data-account-action="changePassword" method="post" class="grid max-w-md gap-3">
             <div class="grid gap-2">
               <label class="text-sm font-medium" for="current-password">Current Password</label>
               <input class={inputClass} id="current-password" type="password" name="currentPassword" autocomplete="current-password" required />
@@ -71,7 +71,7 @@ const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ri
                 </li>
               ))}
             </ul>
-            <form data-account-action="createApiToken" class="flex items-center gap-2">
+            <form data-account-action="createApiToken" method="post" class="flex items-center gap-2">
               <input class={inputClass} type="text" name="label" placeholder="Token label (optional)" />
               <button class="inline-flex h-9 w-20 shrink-0 items-center justify-center rounded-lg border border-input px-3 text-sm font-medium transition-colors hover:bg-muted">Create</button>
             </form>
@@ -97,14 +97,14 @@ const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ri
               <li class="flex flex-wrap items-center gap-3 text-sm">
                 <span class="font-medium text-foreground">{user.username}</span>
                 <i class="text-muted-foreground">({user.role})</i>
-                <form data-account-action="resetPassword" data-user-id={user.id} class="flex items-center gap-2">
+                <form data-account-action="resetPassword" data-user-id={user.id} method="post" class="flex items-center gap-2">
                   <input class={inputClass} type="password" name="password" placeholder="New password" autocomplete="off" required />
                   <button class="inline-flex h-8 items-center rounded-lg border border-input px-2.5 text-xs font-medium transition-colors hover:bg-muted">Reset</button>
                 </form>
               </li>
             ))}
           </ul>
-          <form data-account-action="createUser" class="flex flex-wrap items-center gap-2">
+          <form data-account-action="createUser" method="post" class="flex flex-wrap items-center gap-2">
             <input class={inputClass} type="text" name="username" placeholder="Username" required />
             <input class={inputClass} type="password" name="password" placeholder="Initial password" autocomplete="off" required />
             <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80">Create User</button>

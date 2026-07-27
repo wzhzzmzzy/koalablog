@@ -1,7 +1,9 @@
-import { connectD1 } from '@/db'
 import { sql } from 'drizzle-orm'
+import { connectD1 } from '@/db'
 
 const RESET_STATEMENTS = [
+  'DROP TABLE IF EXISTS api_token',
+  'DROP TABLE IF EXISTS user',
   'DROP TABLE IF EXISTS markdown_render',
   'DROP INDEX IF EXISTS markdown_link_unique',
   'DROP INDEX IF EXISTS markdown_subject_unique',
