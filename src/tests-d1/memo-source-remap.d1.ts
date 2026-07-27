@@ -3,7 +3,7 @@ import { readAll, readByPath } from '@/db/markdown'
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
 import currentSchema from '../../migrations/0000_init.sql?raw'
-import memoRemap from '../../migrations/0006_memo_source_remap.sql?raw'
+import memoRemap from '../../migrations/0001_memo_source_remap.sql?raw'
 
 function statements(sql: string) {
   return sql.split('--> statement-breakpoint').map(statement => statement.trim()).filter(Boolean)
