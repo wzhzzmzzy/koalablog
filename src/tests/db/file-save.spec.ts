@@ -33,7 +33,8 @@ function useFileSaveDatabase() {
         revision integer DEFAULT 1 NOT NULL,
         createdAt integer DEFAULT (unixepoch()) NOT NULL,
         updatedAt integer DEFAULT (unixepoch()) NOT NULL,
-        deletedAt integer
+        deletedAt integer,
+        userId integer
       );
       CREATE UNIQUE INDEX markdown_active_path_unique ON markdown (path) WHERE deletedAt IS NULL;
       CREATE INDEX markdown_deleted_at_idx ON markdown (deletedAt);
@@ -330,6 +331,26 @@ describe('file Source creation assignment', () => {
 
 describe('file Source persistence', () => {
   useFileSaveDatabase()
+
+  it('stamps the creating User as Owner and never reassigns ownership on Save', async () => {
+    const created = await saveFile(env, { id: 0, path: '/memo/owned', renderer: 'markdown', content: 'initial', private: true, baseRevision: 0, userId: 7 })
+    if (created.status !== 'saved')
+      throw new Error('Expected fixture File creation to succeed')
+
+    const saved = await saveFile(env, {
+      id: created.file.id,
+      path: created.file.path,
+      renderer: 'markdown',
+      content: 'updated',
+      private: true,
+      baseRevision: created.file.revision,
+      userId: 9,
+    })
+
+    expect(created).toMatchObject({ status: 'saved', file: { userId: 7 } })
+    expect(saved).toMatchObject({ status: 'saved', file: { userId: 7 } })
+    expect(await readById(env, created.file.id)).toMatchObject({ userId: 7 })
+  })
 
   it('keeps Source when a Save moves the File across the /post/ boundary', async () => {
     const created = await saveFile(env, { id: 0, path: '/post/hello', renderer: 'markdown', content: 'initial', private: false, baseRevision: 0 })

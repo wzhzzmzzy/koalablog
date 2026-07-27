@@ -9,7 +9,7 @@ export const GET: APIRoute = async (ctx) => {
     return noStoreResponse()
 
   const result = await readArtifactAccess(ctx.locals.runtime?.env || {}, {
-    authenticated: Boolean(ctx.locals.session?.role),
+    sessionUserId: ctx.locals.session?.userId,
     fileId: artifactFileId(fileId),
     representation: 'resource',
     requestedSourceHash: sourceHash,

@@ -1,101 +1,109 @@
-import { authInterceptor, refreshTokenSign } from '@/lib/auth'
-import { md5 } from '@/lib/auth/md5'
-import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/lib/kv'
-import { SignJWT } from 'jose'
-import { describe, expect, it, vi } from 'vitest'
+import { randomUUID } from 'node:crypto'
+import { unlink } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createApiToken, createUser } from '@/db/user'
+import { authInterceptor } from '@/lib/auth'
+import { hashApiToken } from '@/lib/auth/api-token'
+import { createSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
+import { createClient } from '@libsql/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const adminKey = 'admin-secret'
+const env = {} as Env
 
-function createContext(refreshToken?: string, runtimeRefreshToken?: string, runtimeRefreshExpiredAt = Date.now() + 60_000) {
-  const cookies = {
-    get: vi.fn((key: string) => {
-      if (key === ACCESS_TOKEN_KEY)
-        return undefined
+function useAuthDatabase() {
+  let databasePath: string
 
-      if (key === REFRESH_TOKEN_KEY && refreshToken)
-        return { value: refreshToken }
+  beforeEach(async () => {
+    databasePath = join(tmpdir(), `koalablog-auth-${randomUUID()}.db`)
+    vi.stubEnv('SQLITE_URL', `file:${databasePath}`)
 
-      return undefined
-    }),
-    set: vi.fn(),
-  }
+    const client = createClient({ url: `file:${databasePath}` })
+    await client.executeMultiple(`
+      CREATE TABLE user (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        username text NOT NULL,
+        passwordHash text NOT NULL,
+        passwordSalt text NOT NULL,
+        role text DEFAULT 'member' NOT NULL,
+        createdAt integer DEFAULT (unixepoch()) NOT NULL,
+        updatedAt integer DEFAULT (unixepoch()) NOT NULL
+      );
+      CREATE UNIQUE INDEX user_username_unique ON user (username);
+      CREATE TABLE api_token (
+        id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+        userId integer NOT NULL REFERENCES user(id) ON DELETE cascade,
+        tokenHash text NOT NULL,
+        label text,
+        createdAt integer DEFAULT (unixepoch()) NOT NULL
+      );
+      CREATE UNIQUE INDEX api_token_hash_unique ON api_token (tokenHash);
+    `)
+    client.close()
+  })
 
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    await unlink(databasePath).catch(() => undefined)
+  })
+}
+
+function memorySessionKv() {
+  const entries = new Map<string, unknown>()
   return {
-    cookies,
-    request: new Request('https://koala.test/dashboard'),
+    get: async (key: string) => entries.get(key),
+    set: async (key: string, value: unknown) => {
+      entries.set(key, value)
+    },
+    delete: async (key: string) => {
+      entries.delete(key)
+    },
+  }
+}
+
+function createContext({ authorization, sessionId, sessionKv }: { authorization?: string, sessionId?: string, sessionKv: unknown }) {
+  return {
+    cookies: {
+      get: (key: string) => (key === SESSION_COOKIE_NAME && sessionId ? { value: sessionId } : undefined),
+      set: vi.fn(),
+      delete: vi.fn(),
+    },
+    request: new Request('https://koala.test/dashboard', {
+      headers: authorization ? { Authorization: authorization } : {},
+    }),
     locals: {
-      config: {
-        pageConfig: {},
-        rss: {},
-        font: {},
-        auth: { adminKey },
-        oss: {},
-        _runtime: {
-          ready: true,
-          refresh_token: runtimeRefreshToken,
-          refresh_expired_at: runtimeRefreshExpiredAt,
-        },
-      },
-      runtime: {},
+      runtime: { env: { sessionKv } },
     },
   } as any
 }
 
-async function signRefreshToken(expiresAt: number) {
-  const secret = new TextEncoder().encode(md5(adminKey))
+describe('authInterceptor', () => {
+  useAuthDatabase()
 
-  return new SignJWT({})
-    .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime(Math.floor(expiresAt / 1000))
-    .sign(secret)
-}
+  it('resolves a bearer API Token to its owning User', async () => {
+    const admin = await createUser(env, { username: 'admin', passwordHash: 'x', passwordSalt: 'y', role: 'admin' })
+    await createApiToken(env, { userId: admin.id, tokenHash: await hashApiToken('secret-token') })
 
-describe('authInterceptor refresh token', () => {
-  it('accepts a refresh token with a valid signature even when it is not the runtime refresh token', async () => {
-    const refreshToken = await refreshTokenSign(adminKey)
-    const ctx = createContext(refreshToken, 'another-login-refresh-token')
-
+    const ctx = createContext({ authorization: 'Bearer secret-token', sessionKv: memorySessionKv() })
     await authInterceptor(ctx)
 
-    expect(ctx.locals.session.role).toBe('admin')
-    expect(ctx.cookies.set).toHaveBeenCalledWith(
-      ACCESS_TOKEN_KEY,
-      expect.any(String),
-      expect.objectContaining({ httpOnly: true, path: '/' }),
-    )
+    expect(ctx.locals.session).toEqual({ userId: admin.id, role: 'admin' })
   })
 
-  it('rejects an expired refresh token even when it matches the runtime refresh token', async () => {
-    const expiredRefreshToken = await signRefreshToken(Date.now() - 60_000)
-    const ctx = createContext(expiredRefreshToken, expiredRefreshToken)
+  it('resolves a Session cookie to the Session owner', async () => {
+    const sessionKv = memorySessionKv()
+    const sessionId = await createSession(env, { userId: 42, role: 'member' }, sessionKv)
 
+    const ctx = createContext({ sessionId, sessionKv })
     await authInterceptor(ctx)
 
-    expect(ctx.locals.session.role).toBe('')
-    expect(ctx.cookies.set).not.toHaveBeenCalled()
+    expect(ctx.locals.session).toEqual({ userId: 42, role: 'member' })
   })
 
-  it('allows refresh tokens from separate logins to refresh independently', async () => {
-    const firstLoginRefreshToken = await signRefreshToken(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    const secondLoginRefreshToken = await signRefreshToken(Date.now() + 6 * 24 * 60 * 60 * 1000)
+  it('rejects unknown bearer tokens and expired Sessions to anonymous', async () => {
+    const ctx = createContext({ authorization: 'Bearer wrong', sessionId: 'missing', sessionKv: memorySessionKv() })
+    await authInterceptor(ctx)
 
-    const firstLoginCtx = createContext(firstLoginRefreshToken, secondLoginRefreshToken)
-    const secondLoginCtx = createContext(secondLoginRefreshToken, secondLoginRefreshToken)
-
-    await authInterceptor(firstLoginCtx)
-    await authInterceptor(secondLoginCtx)
-
-    expect(firstLoginCtx.locals.session.role).toBe('admin')
-    expect(secondLoginCtx.locals.session.role).toBe('admin')
-    expect(firstLoginCtx.cookies.set).toHaveBeenCalledWith(
-      ACCESS_TOKEN_KEY,
-      expect.any(String),
-      expect.objectContaining({ httpOnly: true, path: '/' }),
-    )
-    expect(secondLoginCtx.cookies.set).toHaveBeenCalledWith(
-      ACCESS_TOKEN_KEY,
-      expect.any(String),
-      expect.objectContaining({ httpOnly: true, path: '/' }),
-    )
+    expect(ctx.locals.session).toEqual({ userId: null, role: '' })
   })
 })

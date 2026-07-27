@@ -16,8 +16,7 @@ const { source, tag, year } = Astro.props
 const env = Astro.locals.runtime?.env || {}
 const session = Astro.locals.session
 
-const includePrivate = !!session?.role || false
-const list = await readList(env, source, tag || undefined, { includePrivate, year })
+const list = await readList(env, source, tag || undefined, { ownerId: session?.userId ?? undefined, year })
 const formatDate = (date: Date) => format(date, isSameYear(date, new Date()) ? 'MM-dd' : 'yyyy-MM-dd')
 const isMemoList = source === MarkdownSource.Memo
 

@@ -33,12 +33,13 @@ export function readRenderArtifact(env: Env, fileId: number) {
   return connectDB(env).query.markdownRender.findFirst({ where: eq(markdownRender.fileId, fileId) })
 }
 
-export async function readArtifactAccess(env: Env, input: Omit<ArtifactAccessInput, 'artifactSourceHash' | 'file'> & { fileId: number }) {
+export async function readArtifactAccess(env: Env, input: Omit<ArtifactAccessInput, 'artifactSourceHash' | 'file' | 'authenticated'> & { fileId: number, sessionUserId?: number | null }) {
   const [file, artifact] = await Promise.all([
     connectDB(env).query.markdown.findFirst({ where: eq(markdown.id, input.fileId) }),
     readRenderArtifact(env, input.fileId),
   ])
-  const decision = decideArtifactAccess({ ...input, artifactSourceHash: artifact?.sourceHash, file })
+  const authenticated = file?.userId != null && input.sessionUserId === file.userId
+  const decision = decideArtifactAccess({ ...input, authenticated, artifactSourceHash: artifact?.sourceHash, file })
   return decision.type === 'allowed' && artifact ? { artifact, decision } : { decision }
 }
 

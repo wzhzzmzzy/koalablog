@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   replaceCurrentRenderArtifact: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
+vi.mock('@/actions/utils/auth', () => ({ loginGuard: mocks.authGuard }))
 vi.mock('@/db/markdown', () => ({ readById: mocks.readById }))
 vi.mock('@/db/render-artifact', () => ({
   readCurrentRenderArtifact: mocks.readCurrentRenderArtifact,
@@ -21,7 +21,7 @@ vi.mock('@/lib/svelte/artifact-hash', async (importOriginal) => {
   return { ...actual, calculateArtifactHashes: mocks.calculateArtifactHashes }
 })
 
-const context = { locals: { runtime: { env: { DB: 'db' } }, session: { role: 'admin' } } } as any
+const context = { locals: { runtime: { env: { DB: 'db' } }, session: { userId: 1, role: 'admin' } } } as any
 const sourceHash = 'a'.repeat(64)
 
 function input(overrides: Record<string, unknown> = {}) {
@@ -42,7 +42,7 @@ function input(overrides: Record<string, unknown> = {}) {
 }
 
 function currentFile(overrides: Record<string, unknown> = {}) {
-  return { id: 7, renderer: 'svelte', sourceHash, ...overrides }
+  return { id: 7, renderer: 'svelte', sourceHash, userId: 1, ...overrides }
 }
 
 function currentArtifact(overrides: Record<string, unknown> = {}) {

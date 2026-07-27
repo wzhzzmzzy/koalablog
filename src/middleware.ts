@@ -1,6 +1,7 @@
 import { getActionContext } from 'astro:actions'
 import { defineMiddleware } from 'astro:middleware'
 import { ensureTemplateCatalogInitialized } from './db/template-catalog'
+import { ensureUserMigration } from './db/user-migration'
 import { authInterceptor } from './lib/auth'
 // #if !CF_PAGES
 import { SQLiteBlobStorage } from './lib/blob-storage'
@@ -14,6 +15,7 @@ const AUTH_REQUIRED_SITE = [
 const CSRF_CONTENT_TYPES = ['multipart/form-data', 'application/x-www-form-urlencoded']
 
 let templateCatalogInitialization: Promise<void> | undefined
+let userMigrationInitialization: Promise<void> | undefined
 
 function ensureUpgradeTemplateCatalog(env: Env): Promise<void> {
   templateCatalogInitialization ??= ensureTemplateCatalogInitialized(env)
@@ -23,6 +25,17 @@ function ensureUpgradeTemplateCatalog(env: Env): Promise<void> {
       throw error
     })
   return templateCatalogInitialization
+}
+
+function ensureUpgradeUsers(env: Env): Promise<void> {
+  userMigrationInitialization ??= ensureUserMigration(env)
+    .catch((error) => {
+      userMigrationInitialization = undefined
+      if (error instanceof Error && error.message.includes('no such table'))
+        return
+      console.warn('user migration failed', error)
+    })
+  return userMigrationInitialization
 }
 
 function checkOrigin(ctx: Parameters<Parameters<typeof defineMiddleware>[0]>[0]): boolean {
@@ -44,8 +57,10 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   const pathname = ctx.url.pathname
   const config = await globalConfig(env)
 
-  if (config._runtime?.ready)
+  if (config._runtime?.ready) {
     await ensureUpgradeTemplateCatalog(env)
+    await ensureUpgradeUsers(env)
+  }
 
   ctx.locals.config = config
 
@@ -58,7 +73,7 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   await authInterceptor(ctx)
 
   // Custom CSRF check: only enforce for unauthenticated FormData requests
-  const isAuthenticated = ctx.locals.session?.role === 'admin'
+  const isAuthenticated = Boolean(ctx.locals.session?.userId)
   const contentType = ctx.request.headers.get('Content-Type') || ''
   const needsCsrfCheck = CSRF_CONTENT_TYPES.some(t => contentType.startsWith(t))
 
@@ -85,11 +100,11 @@ export const onRequest = defineMiddleware(async (ctx, next) => {
   }
 
   if (AUTH_REQUIRED_SITE.some(path => pathname.startsWith(path)) || pathname === '/login') {
-    if (pathname === '/login' && ctx.locals.session.role === 'admin') {
+    if (pathname === '/login' && ctx.locals.session.userId) {
       return ctx.redirect('/dashboard')
     }
 
-    if (ctx.locals.session.role !== 'admin' && AUTH_REQUIRED_SITE.some(path => pathname.startsWith(path))) {
+    if (!ctx.locals.session.userId && AUTH_REQUIRED_SITE.some(path => pathname.startsWith(path))) {
       return ctx.redirect(
         `/login?from=${encodeURIComponent(ctx.url.pathname + ctx.url.search)}`,
       )

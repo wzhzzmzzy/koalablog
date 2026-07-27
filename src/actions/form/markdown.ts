@@ -3,7 +3,7 @@ import { parseAbsoluteFilePath } from '@/lib/files/path'
 import { RENDERER_MODE } from '@/lib/files/types'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-import { authGuard } from '../utils/auth'
+import { ownerGuard } from '../utils/auth'
 
 function sourceConflict(current: unknown): never {
   throw new ActionError({
@@ -50,7 +50,7 @@ export const save = defineAction({
     outgoingLinks: z.never().optional(),
   }).strict(),
   handler: async (input, ctx) => {
-    await authGuard(ctx)
+    await ownerGuard(ctx, input.id)
     const result = await saveFile(ctx.locals.runtime?.env || {}, input)
     return handleSaveResult(result)
   },
@@ -64,7 +64,7 @@ export const setPrivate = defineAction({
     baseRevision: z.preprocess(value => Number.parseInt(value as string, 10), z.number().int().positive()),
   }).strict(),
   handler: async (input, ctx) => {
-    await authGuard(ctx)
+    await ownerGuard(ctx, input.id)
     const result = await updatePrivate(
       ctx.locals.runtime?.env || {},
       input.id,

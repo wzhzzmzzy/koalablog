@@ -27,9 +27,38 @@ export const markdown = sqliteTable('markdown', {
     .notNull()
     .default(sql`(unixepoch())`),
   deletedAt: integer({ mode: 'timestamp' }),
+  userId: integer(),
 }, table => [
   uniqueIndex('markdown_active_path_unique').on(table.path).where(sql`${table.deletedAt} IS NULL`),
   index('markdown_deleted_at_idx').on(table.deletedAt),
+])
+
+export const user = sqliteTable('user', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  username: text().notNull(),
+  passwordHash: text().notNull(),
+  passwordSalt: text().notNull(),
+  role: text({ enum: ['admin', 'member'] }).default('member').notNull(),
+  createdAt: integer({ mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer({ mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, table => [
+  uniqueIndex('user_username_unique').on(table.username),
+])
+
+export const apiToken = sqliteTable('api_token', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  userId: integer().notNull().references(() => user.id, { onDelete: 'cascade' }),
+  tokenHash: text().notNull(),
+  label: text(),
+  createdAt: integer({ mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+}, table => [
+  uniqueIndex('api_token_hash_unique').on(table.tokenHash),
 ])
 
 export const markdownRender = sqliteTable('markdown_render', {

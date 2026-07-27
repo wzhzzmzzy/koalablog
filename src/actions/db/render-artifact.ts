@@ -7,7 +7,7 @@ import { isCanonicalSnapshotHtml } from '@/lib/svelte/snapshot'
 import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
-import { authGuard } from '../utils/auth'
+import { loginGuard } from '../utils/auth'
 
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/)
 
@@ -59,11 +59,11 @@ export const attach = defineAction({
   accept: 'json',
   input: artifactInput,
   handler: async (input, ctx) => {
-    await authGuard(ctx)
+    await loginGuard(ctx)
     const { confirmation, ...artifact } = input
     const env = ctx.locals.runtime?.env || {}
     const file = await readById(env, artifact.fileId)
-    if (!file)
+    if (!file || file.userId !== ctx.locals.session.userId)
       throw new ActionError({ code: 'NOT_FOUND', message: 'File not found' })
     if (file.renderer !== 'svelte')
       return reject('CONFLICT', { code: confirmation ? 'dependency_confirmation_stale' : 'renderer_not_svelte' })

@@ -1,6 +1,6 @@
 # 05 — User and API Token schema with first-user migration
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 

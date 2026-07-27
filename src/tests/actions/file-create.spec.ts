@@ -6,10 +6,10 @@ const mocks = vi.hoisted(() => ({
   createFile: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
+vi.mock('@/actions/utils/auth', () => ({ loginGuard: mocks.authGuard }))
 vi.mock('@/db/file-create', () => ({ createFile: mocks.createFile }))
 
-const context = { locals: { runtime: { env: { DB: 'db' } }, session: { role: 'admin' } } } as any
+const context = { locals: { runtime: { env: { DB: 'db' } }, session: { userId: 1, role: 'admin' } } } as any
 
 describe('server File creation action', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -20,7 +20,7 @@ describe('server File creation action', () => {
 
     await expect(create.orThrow.call(context, { targetPrefix: '/memo/' })).resolves.toEqual(file)
     expect(mocks.authGuard).toHaveBeenCalledOnce()
-    expect(mocks.createFile).toHaveBeenCalledWith({ DB: 'db' }, { targetPrefix: '/memo/' })
+    expect(mocks.createFile).toHaveBeenCalledWith({ DB: 'db' }, { targetPrefix: '/memo/', userId: 1 })
   })
 
   it('rejects an invalid Prefix before touching the database', async () => {

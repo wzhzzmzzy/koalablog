@@ -770,8 +770,8 @@ test('emptying the recycle bin discards every trashed File and selects a fallbac
 
   await page.getByRole('button', { name: 'Empty recycle bin' }).click()
 
-  await expect(page.getByRole('textbox', { name: 'File Source for /phase-two' })).toBeVisible()
   await expect(page.getByText('Permanently deleted 2 File(s)', { exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'File Source for /phase-two' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Empty recycle bin' })).toHaveCount(0)
 })
 

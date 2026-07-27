@@ -112,7 +112,7 @@ export const POST: APIRoute = async (ctx) => {
     if (parsed.error)
       return json({ error: parsed.error }, 400)
 
-    const results = await Promise.all(parsed.files!.map(file => saveSyncedFile(ctx.locals.runtime?.env, file)))
+    const results = await Promise.all(parsed.files!.map(file => saveSyncedFile(ctx.locals.runtime?.env, { ...file, userId: ctx.locals.session.userId ?? undefined })))
     if (results.some(result => result.status === 'conflict'))
       return json({ error: 'source_conflict', results }, 409)
     if (results.some(result => result.status === 'path_conflict'))

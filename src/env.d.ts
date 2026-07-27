@@ -28,7 +28,8 @@ declare global {
     interface Locals extends Runtime {
       config: import('@/lib/kv').GlobalConfig
       session: {
-        role: 'admin' | 'guest' | ''
+        userId: number | null
+        role: import('./lib/auth/session').UserRole | ''
       }
       OSS?: SQLiteBlobStorage
     }

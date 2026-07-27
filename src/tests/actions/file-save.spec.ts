@@ -8,14 +8,14 @@ const mocks = vi.hoisted(() => ({
   updatePrivate: vi.fn(),
 }))
 
-vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
+vi.mock('@/actions/utils/auth', () => ({ loginGuard: mocks.authGuard, ownerGuard: mocks.authGuard }))
 vi.mock('@/db/markdown', () => ({
   FileInputError: class FileInputError extends Error {},
   saveFile: mocks.saveFile,
   updatePrivate: mocks.updatePrivate,
 }))
 
-const context = { locals: { runtime: { env: {} }, session: { role: 'admin' } } } as any
+const context = { locals: { runtime: { env: {} }, session: { userId: 1, role: 'admin' } } } as any
 
 function validForm() {
   const form = new FormData()

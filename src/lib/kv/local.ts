@@ -54,6 +54,15 @@ export class KvStore {
     this._dirty = true
   }
 
+  async delete(key: string) {
+    if (!this._init) {
+      await this.init()
+    }
+
+    delete this.storage[key]
+    this._dirty = true
+  }
+
   sync() {
     return this._flush()
   }

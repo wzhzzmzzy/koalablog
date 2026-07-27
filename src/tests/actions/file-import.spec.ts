@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/actions/utils/auth', () => ({ authGuard: mocks.authGuard }))
 vi.mock('@/db/markdown', () => ({ batchAdd: mocks.batchAdd }))
 
-const context = { locals: { runtime: { env: { DB: 'db' } }, session: { role: 'admin' } } } as any
+const context = { locals: { runtime: { env: { DB: 'db' } }, session: { userId: 1, role: 'admin' } } } as any
 
 describe('file disk import action', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -24,8 +24,8 @@ describe('file disk import action', () => {
     ])
 
     expect(mocks.batchAdd).toHaveBeenCalledWith({ DB: 'db' }, [
-      { path: '/memo/note', renderer: 'markdown', content: source, private: true },
-      { path: '/post/note', renderer: 'svelte', content: source, private: false },
+      { path: '/memo/note', renderer: 'markdown', content: source, private: true, userId: 1 },
+      { path: '/post/note', renderer: 'svelte', content: source, private: false, userId: 1 },
     ])
   })
 
@@ -37,7 +37,7 @@ describe('file disk import action', () => {
     ])
 
     expect(mocks.batchAdd).toHaveBeenCalledWith({ DB: 'db' }, [
-      { path: '/memo/note', renderer: 'markdown', content: 'source', private: true },
+      { path: '/memo/note', renderer: 'markdown', content: 'source', private: true, userId: 1 },
     ])
   })
 

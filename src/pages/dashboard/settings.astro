@@ -1,10 +1,10 @@
 ---
 import ExportZip from '@/components/io/export-zip.svelte'
 import ImportFile from '@/components/io/import-file.svelte'
-import BearerTokenControls from '@/components/settings/BearerTokenControls.svelte'
 import RssEnableSwitch from '@/components/settings/RssEnableSwitch.svelte'
 import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import { readToday } from '@/db/ossAccess'
+import { listApiTokens, listUsers } from '@/db/user'
 import DashboardShell from '@/layouts/dashboard-shell.astro'
 import { globalConfig } from '@/lib/kv'
 import { Save, Upload } from '@lucide/astro'
@@ -18,165 +18,315 @@ if (saved) {
   Astro.locals.config = config
 }
 
+const session = Astro.locals.session
+const isAdmin = session.role === 'admin'
+const env = Astro.locals.runtime?.env || {}
+
+const apiTokens = session.userId ? await listApiTokens(env, session.userId) : []
+const users = isAdmin ? await listUsers(env) : []
+
 const pageConfig = Astro.locals.config.pageConfig
-const authConfig = Astro.locals.config.auth
 const rssConfig = Astro.locals.config.rss
 const fontConfig = Astro.locals.config.font
 
 const title = pageConfig.title ?? ''
 const avatar = pageConfig.avatar ?? ''
-const guestKey = authConfig.guestKey ?? ''
-const bearerToken = authConfig.bearerToken ?? ''
 const lightTheme = pageConfig.theme?.light ?? 'latte'
 const darkTheme = pageConfig.theme?.dark ?? 'mocha'
 const ossConfig = Astro.locals.config.oss
-const ossAccess = await readToday(Astro.locals.runtime?.env)
+const ossAccess = isAdmin ? await readToday(Astro.locals.runtime?.env) : null
 
 const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-lg border bg-transparent px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-3'
 ---
 
 <DashboardShell title="Settings" description="Manage site configuration, access, and utilities.">
-  <setting-form class="mx-auto block w-full max-w-5xl px-5 py-8 sm:px-8 lg:px-12 xl:px-16">
-    <form id="settings-form" method="POST" action={actions.form.settings} class="grid gap-8">
-      <input type="hidden" id="regenerate-bearer-token" name="regenerateBearerToken" value="false" />
-
-      <header class="flex flex-col justify-between gap-5 border-b border-border pb-6 sm:flex-row sm:items-end">
-        <div>
-          <p class="mb-2 text-sm font-medium text-muted-foreground">Workspace configuration</p>
-          <h1 class="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
-          <p class="mt-2 text-sm text-muted-foreground">Changes are saved as one site-wide configuration.</p>
-        </div>
-        <button type="submit" class="inline-flex h-8 items-center justify-center gap-1.5 self-start rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:self-auto">
-          <Save size={16} />
-          Save changes
-        </button>
-      </header>
-
-      { saved && <p class="rounded-lg border border-[color:var(--koala-dashboard-success)]/35 bg-[color:var(--koala-dashboard-success)]/10 px-4 py-3 text-sm text-[color:var(--koala-dashboard-success)]" role="status">Saved Successfully</p> }
-      { saveResult?.error && <p class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{saveResult.error.message}</p> }
-
-      <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="general-settings-title">
+  <account-settings class="mx-auto block w-full max-w-5xl px-5 py-8 sm:px-8 lg:px-12 xl:px-16">
+    <div class="grid gap-8">
+      <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="account-settings-title">
         <div class="mb-6">
-          <h2 id="general-settings-title" class="text-base font-medium text-foreground">General</h2>
-          <p class="mt-1 text-sm text-muted-foreground">Identity and access defaults for this site.</p>
+          <h2 id="account-settings-title" class="text-base font-medium text-foreground">Account</h2>
+          <p class="mt-1 text-sm text-muted-foreground">Your password and personal API Tokens.</p>
         </div>
-        <div class="grid gap-5">
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="title-input">Blog Title</label>
-            <input class={inputClass} id="title-input" name="title" value={title} />
-          </div>
+        <div class="grid gap-6">
+          <form data-account-action="changePassword" class="grid max-w-md gap-3">
+            <div class="grid gap-2">
+              <label class="text-sm font-medium" for="current-password">Current Password</label>
+              <input class={inputClass} id="current-password" type="password" name="currentPassword" autocomplete="current-password" required />
+            </div>
+            <div class="grid gap-2">
+              <label class="text-sm font-medium" for="new-password">New Password</label>
+              <input class={inputClass} id="new-password" type="password" name="newPassword" autocomplete="new-password" required />
+            </div>
+            <button class="inline-flex h-8 w-24 items-center justify-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">Update</button>
+          </form>
+          <p class="hidden rounded-lg border border-[color:var(--koala-dashboard-success)]/35 bg-[color:var(--koala-dashboard-success)]/10 px-4 py-3 text-sm text-[color:var(--koala-dashboard-success)]" role="status" data-feedback="changePassword">Password updated — your other sessions were signed out.</p>
 
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="avatar-input">Avatar</label>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <input class={inputClass} id="avatar-input" name="avatar" value={avatar} />
-              <button type="button" id="upload-avatar-btn" class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-input bg-transparent px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50" aria-label="Upload avatar">
-                <Upload size={16} />
-                Upload
+          <div class="grid gap-3 border-t border-border pt-6">
+            <h3 class="text-sm font-medium text-foreground">API Tokens</h3>
+            <ul class="grid gap-2">
+              {apiTokens.map(token => (
+                <li class="flex items-center gap-3 text-sm" data-token-row={token.id}>
+                  <span class="text-foreground">{token.label || '(unlabeled)'}</span>
+                  <button type="button" class="inline-flex h-7 items-center rounded-lg border border-input px-2.5 text-xs font-medium transition-colors hover:bg-muted" data-revoke-token={token.id}>Revoke</button>
+                </li>
+              ))}
+            </ul>
+            <form data-account-action="createApiToken" class="flex items-center gap-2">
+              <input class={inputClass} type="text" name="label" placeholder="Token label (optional)" />
+              <button class="inline-flex h-9 w-20 shrink-0 items-center justify-center rounded-lg border border-input px-3 text-sm font-medium transition-colors hover:bg-muted">Create</button>
+            </form>
+            <div class="hidden rounded-lg border border-border bg-muted/40 p-3" data-new-token>
+              <p class="mb-2 text-sm text-muted-foreground">Copy this token now — it will not be shown again:</p>
+              <div class="flex items-center gap-2">
+                <code class="font-mono text-sm text-foreground" data-new-token-value></code>
+                <button type="button" class="inline-flex h-7 items-center rounded-lg border border-input px-2.5 text-xs font-medium transition-colors hover:bg-muted" data-copy-token>Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {isAdmin && (
+        <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="users-settings-title">
+          <div class="mb-6">
+            <h2 id="users-settings-title" class="text-base font-medium text-foreground">Users</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Create accounts and reset passwords.</p>
+          </div>
+          <ul class="mb-5 grid gap-2">
+            {users.map(user => (
+              <li class="flex flex-wrap items-center gap-3 text-sm">
+                <span class="font-medium text-foreground">{user.username}</span>
+                <i class="text-muted-foreground">({user.role})</i>
+                <form data-account-action="resetPassword" data-user-id={user.id} class="flex items-center gap-2">
+                  <input class={inputClass} type="password" name="password" placeholder="New password" autocomplete="off" required />
+                  <button class="inline-flex h-8 items-center rounded-lg border border-input px-2.5 text-xs font-medium transition-colors hover:bg-muted">Reset</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+          <form data-account-action="createUser" class="flex flex-wrap items-center gap-2">
+            <input class={inputClass} type="text" name="username" placeholder="Username" required />
+            <input class={inputClass} type="password" name="password" placeholder="Initial password" autocomplete="off" required />
+            <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80">Create User</button>
+          </form>
+        </section>
+      )}
+
+      {isAdmin && (
+        <setting-form>
+          <form id="settings-form" method="POST" action={actions.form.settings} class="grid gap-8">
+            <header class="flex flex-col justify-between gap-5 border-b border-border pb-6 sm:flex-row sm:items-end">
+              <div>
+                <p class="mb-2 text-sm font-medium text-muted-foreground">Site configuration</p>
+                <h2 class="text-xl font-semibold tracking-tight text-foreground">Site</h2>
+                <p class="mt-2 text-sm text-muted-foreground">Changes are saved as one site-wide configuration.</p>
+              </div>
+              <button type="submit" class="inline-flex h-8 items-center justify-center gap-1.5 self-start rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:self-auto">
+                <Save size={16} />
+                Save changes
               </button>
+            </header>
+
+            { saved && <p class="rounded-lg border border-[color:var(--koala-dashboard-success)]/35 bg-[color:var(--koala-dashboard-success)]/10 px-4 py-3 text-sm text-[color:var(--koala-dashboard-success)]" role="status">Saved Successfully</p> }
+            { saveResult?.error && <p class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{saveResult.error.message}</p> }
+
+            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="general-settings-title">
+              <div class="mb-6">
+                <h2 id="general-settings-title" class="text-base font-medium text-foreground">General</h2>
+                <p class="mt-1 text-sm text-muted-foreground">Identity and access defaults for this site.</p>
+              </div>
+              <div class="grid gap-5">
+                <div class="grid gap-2">
+                  <label class="text-sm font-medium" for="title-input">Blog Title</label>
+                  <input class={inputClass} id="title-input" name="title" value={title} />
+                </div>
+
+                <div class="grid gap-2">
+                  <label class="text-sm font-medium" for="avatar-input">Avatar</label>
+                  <div class="flex flex-col gap-2 sm:flex-row">
+                    <input class={inputClass} id="avatar-input" name="avatar" value={avatar} />
+                    <button type="button" id="upload-avatar-btn" class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-input bg-transparent px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50" aria-label="Upload avatar">
+                      <Upload size={16} />
+                      Upload
+                    </button>
+                  </div>
+                  <p id="avatar-upload-status" class="hidden text-sm text-destructive" role="alert"></p>
+                </div>
+              </div>
+            </section>
+
+            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="appearance-settings-title">
+              <div class="mb-6">
+                <h2 id="appearance-settings-title" class="text-base font-medium text-foreground">Appearance</h2>
+                <p class="mt-1 text-sm text-muted-foreground">Choose the Catppuccin flavor used in light and dark system modes.</p>
+              </div>
+              <div id="theme-bus" class="hidden">
+                <input id="light" type="hidden" name="lightTheme" value={lightTheme} />
+                <input id="dark" type="hidden" name="darkTheme" value={darkTheme} />
+              </div>
+              <ThemeSwitch client:load light={lightTheme} dark={darkTheme} />
+            </section>
+
+            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="storage-settings-title">
+              <div class="mb-6">
+                <h2 id="storage-settings-title" class="text-base font-medium text-foreground">Object Storage</h2>
+                <p class="mt-1 text-sm text-muted-foreground">Current usage: {ossAccess?.readTimes ?? 0} reads and {ossAccess?.operateTimes ?? 0} write operations today.</p>
+              </div>
+              <div class="grid gap-5 sm:grid-cols-2">
+                <div class="grid gap-2">
+                  <label class="text-sm font-medium" for="read-limit-input">Monthly Read Limit</label>
+                  <input class={inputClass} id="read-limit-input" name="readLimit" value={ossConfig.readLimit} inputmode="numeric" />
+                </div>
+                <div class="grid gap-2">
+                  <label class="text-sm font-medium" for="operate-limit-input">Monthly Operate Limit</label>
+                  <input class={inputClass} id="operate-limit-input" name="operateLimit" value={ossConfig.operateLimit} inputmode="numeric" />
+                </div>
+              </div>
+            </section>
+
+            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="rss-settings-title">
+              <div class="mb-6">
+                <h2 id="rss-settings-title" class="text-base font-medium text-foreground">RSS</h2>
+                <p class="mt-1 text-sm text-muted-foreground">Configure the feed available to readers.</p>
+              </div>
+              <div class="grid gap-5">
+                <RssEnableSwitch client:load checked={rssConfig?.enable || false} />
+                <div class="grid gap-2">
+                  <label class="text-sm font-medium" for="rss-desc-input">Description</label>
+                  <input class={inputClass} id="rss-desc-input" type="text" name="rssDesc" value={rssConfig?.description} />
+                </div>
+                <div class="grid gap-2">
+                  <label class="text-sm font-medium" for="rss-lang-input">Language</label>
+                  <input class={inputClass} id="rss-lang-input" type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
+                </div>
+              </div>
+            </section>
+
+            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="font-settings-title">
+              <div class="mb-6">
+                <h2 id="font-settings-title" class="text-base font-medium text-foreground">Typography</h2>
+                <p class="mt-1 text-sm text-muted-foreground">Optional font overrides for readers and the editor.</p>
+              </div>
+              <div class="grid gap-5">
+                <div class="grid gap-2">
+                  <label class="text-sm font-medium" for="font-cdn-input">CDN URL</label>
+                  <input class={inputClass} id="font-cdn-input" type="text" name="fontCDN" value={fontConfig?.cdn} placeholder="https://fonts.googleapis.com/css2?..." />
+                </div>
+                <div class="grid gap-5 sm:grid-cols-3">
+                  <div class="grid gap-2">
+                    <label class="text-sm font-medium" for="font-sans-input">Sans</label>
+                    <input class={inputClass} id="font-sans-input" type="text" name="fontSans" value={fontConfig?.sans} placeholder="'Noto Sans SC', sans-serif" />
+                  </div>
+                  <div class="grid gap-2">
+                    <label class="text-sm font-medium" for="font-serif-input">Serif</label>
+                    <input class={inputClass} id="font-serif-input" type="text" name="fontSerif" value={fontConfig?.serif} placeholder="'Noto Serif SC', serif" />
+                  </div>
+                  <div class="grid gap-2">
+                    <label class="text-sm font-medium" for="font-mono-input">Mono</label>
+                    <input class={inputClass} id="font-mono-input" type="text" name="fontMono" value={fontConfig?.mono} placeholder="'JetBrains Mono', monospace" />
+                  </div>
+                </div>
+              </div>
+            </section>
+          </form>
+
+          <section class="mt-8 rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="settings-utility-title">
+            <div class="mb-6">
+              <h2 id="settings-utility-title" class="text-base font-medium text-foreground">Utilities</h2>
+              <p class="mt-1 text-sm text-muted-foreground">Import a local workspace or export a portable archive.</p>
             </div>
-            <p id="avatar-upload-status" class="hidden text-sm text-destructive" role="alert"></p>
-          </div>
-
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="passkey-input">Guest Passkey</label>
-            <input class={inputClass} type="password" id="passkey-input" name="guestPasskey" value={guestKey} autocomplete="new-password" />
-          </div>
-
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="bearer-token-input">Bearer Token</label>
-            <BearerTokenControls client:load {bearerToken} />
-          </div>
-        </div>
-      </section>
-
-      <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="appearance-settings-title">
-        <div class="mb-6">
-          <h2 id="appearance-settings-title" class="text-base font-medium text-foreground">Appearance</h2>
-          <p class="mt-1 text-sm text-muted-foreground">Choose the Catppuccin flavor used in light and dark system modes.</p>
-        </div>
-        <div id="theme-bus" class="hidden">
-          <input id="light" type="hidden" name="lightTheme" value={lightTheme} />
-          <input id="dark" type="hidden" name="darkTheme" value={darkTheme} />
-        </div>
-        <ThemeSwitch client:load light={lightTheme} dark={darkTheme} />
-      </section>
-
-      <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="storage-settings-title">
-        <div class="mb-6">
-          <h2 id="storage-settings-title" class="text-base font-medium text-foreground">Object Storage</h2>
-          <p class="mt-1 text-sm text-muted-foreground">Current usage: {ossAccess?.readTimes ?? 0} reads and {ossAccess?.operateTimes ?? 0} write operations today.</p>
-        </div>
-        <div class="grid gap-5 sm:grid-cols-2">
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="read-limit-input">Monthly Read Limit</label>
-            <input class={inputClass} id="read-limit-input" name="readLimit" value={ossConfig.readLimit} inputmode="numeric" />
-          </div>
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="operate-limit-input">Monthly Operate Limit</label>
-            <input class={inputClass} id="operate-limit-input" name="operateLimit" value={ossConfig.operateLimit} inputmode="numeric" />
-          </div>
-        </div>
-      </section>
-
-      <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="rss-settings-title">
-        <div class="mb-6">
-          <h2 id="rss-settings-title" class="text-base font-medium text-foreground">RSS</h2>
-          <p class="mt-1 text-sm text-muted-foreground">Configure the feed available to readers.</p>
-        </div>
-        <div class="grid gap-5">
-          <RssEnableSwitch client:load checked={rssConfig?.enable || false} />
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="rss-desc-input">Description</label>
-            <input class={inputClass} id="rss-desc-input" type="text" name="rssDesc" value={rssConfig?.description} />
-          </div>
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="rss-lang-input">Language</label>
-            <input class={inputClass} id="rss-lang-input" type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
-          </div>
-        </div>
-      </section>
-
-      <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="font-settings-title">
-        <div class="mb-6">
-          <h2 id="font-settings-title" class="text-base font-medium text-foreground">Typography</h2>
-          <p class="mt-1 text-sm text-muted-foreground">Optional font overrides for readers and the editor.</p>
-        </div>
-        <div class="grid gap-5">
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="font-cdn-input">CDN URL</label>
-            <input class={inputClass} id="font-cdn-input" type="text" name="fontCDN" value={fontConfig?.cdn} placeholder="https://fonts.googleapis.com/css2?..." />
-          </div>
-          <div class="grid gap-5 sm:grid-cols-3">
-            <div class="grid gap-2">
-              <label class="text-sm font-medium" for="font-sans-input">Sans</label>
-              <input class={inputClass} id="font-sans-input" type="text" name="fontSans" value={fontConfig?.sans} placeholder="'Noto Sans SC', sans-serif" />
+            <div class="flex flex-col gap-3">
+              <ImportFile client:load />
+              <ExportZip client:load />
             </div>
-            <div class="grid gap-2">
-              <label class="text-sm font-medium" for="font-serif-input">Serif</label>
-              <input class={inputClass} id="font-serif-input" type="text" name="fontSerif" value={fontConfig?.serif} placeholder="'Noto Serif SC', serif" />
-            </div>
-            <div class="grid gap-2">
-              <label class="text-sm font-medium" for="font-mono-input">Mono</label>
-              <input class={inputClass} id="font-mono-input" type="text" name="fontMono" value={fontConfig?.mono} placeholder="'JetBrains Mono', monospace" />
-            </div>
-          </div>
-        </div>
-      </section>
-    </form>
-
-    <section class="mt-8 rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="settings-utility-title">
-      <div class="mb-6">
-        <h2 id="settings-utility-title" class="text-base font-medium text-foreground">Utilities</h2>
-        <p class="mt-1 text-sm text-muted-foreground">Import a local workspace or export a portable archive.</p>
-      </div>
-      <div class="flex flex-col gap-3">
-        <ImportFile client:load />
-        <ExportZip client:load />
-      </div>
-    </section>
-  </setting-form>
+          </section>
+        </setting-form>
+      )}
+    </div>
+  </account-settings>
 </DashboardShell>
+
+<script>
+import { actions } from 'astro:actions'
+
+class AccountSettings extends HTMLElement {
+  connectedCallback() {
+    this.querySelectorAll<HTMLFormElement>('form[data-account-action]').forEach((form) => {
+      form.addEventListener('submit', event => this.submit(event, form))
+    })
+    this.querySelectorAll<HTMLElement>('[data-revoke-token]').forEach((button) => {
+      button.addEventListener('click', () => this.revoke(button))
+    })
+    this.querySelector('[data-copy-token]')?.addEventListener('click', () => this.copyToken())
+  }
+
+  showError(form: HTMLFormElement, message: string) {
+    let errorEl = form.querySelector<HTMLParagraphElement>('p.error')
+    if (!errorEl) {
+      errorEl = document.createElement('p')
+      errorEl.classList.add('error')
+      form.insertAdjacentElement('beforeend', errorEl)
+    }
+    errorEl.textContent = message
+  }
+
+  async submit(event: Event, form: HTMLFormElement) {
+    event.preventDefault()
+    const actionName = form.dataset.accountAction
+    const data = Object.fromEntries(new FormData(form))
+
+    if (actionName === 'createApiToken') {
+      const { data: created, error } = await actions.form.createApiToken(data as { label?: string })
+      if (error) {
+        this.showError(form, error.message)
+        return
+      }
+      form.querySelector('p.error')?.remove()
+      const block = this.querySelector<HTMLElement>('[data-new-token]')!
+      this.querySelector<HTMLElement>('[data-new-token-value]')!.textContent = created?.token ?? ''
+      block.classList.remove('hidden')
+      form.reset()
+      return
+    }
+
+    const result = actionName === 'changePassword'
+      ? await actions.form.changePassword(data as { currentPassword: string, newPassword: string })
+      : actionName === 'createUser'
+        ? await actions.form.createUser(data as { username: string, password: string })
+        : await actions.form.resetPassword({ userId: Number(form.dataset.userId), password: String(data.password || '') })
+
+    if (result?.error) {
+      this.showError(form, result.error.code === 'UNAUTHORIZED' ? 'Wrong current password' : result.error.message)
+      return
+    }
+
+    form.querySelector('p.error')?.remove()
+
+    if (actionName === 'changePassword') {
+      this.querySelector('[data-feedback="changePassword"]')?.classList.remove('hidden')
+      form.reset()
+      return
+    }
+
+    window.location.reload()
+  }
+
+  async revoke(button: HTMLElement) {
+    const id = Number(button.dataset.revokeToken)
+    const { error } = await actions.form.revokeApiToken({ id })
+    if (!error)
+      button.closest('li')?.remove()
+  }
+
+  async copyToken() {
+    const value = this.querySelector<HTMLElement>('[data-new-token-value]')?.textContent
+    if (value)
+      await navigator.clipboard.writeText(value)
+  }
+}
+
+customElements.define('account-settings', AccountSettings)
+</script>
 
 <script>
 import type { CatppuccinTheme } from '@/lib/const/config'

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 const activeFile = {
   id: 7,
   deletedAt: null,
+  path: '/svelte-secret',
   private: false,
   renderer: 'svelte' as const,
   sourceHash: 'a'.repeat(64),
@@ -30,7 +31,7 @@ describe('svelte Artifact access decisions', () => {
 
   it('keeps private Page redirect behavior separate from private Artifact resource concealment', () => {
     const file = { ...activeFile, private: true }
-    expect(decide({ file, representation: 'page' })).toEqual({ cacheControl: 'no-store', location: '/guest-login?id=7', status: 302, type: 'guest_login' })
+    expect(decide({ file, representation: 'page' })).toEqual({ cacheControl: 'no-store', location: '/login?from=%2Fsvelte-secret', status: 302, type: 'login' })
     expect(decide({ file, representation: 'resource' })).toEqual({ cacheControl: 'no-store', status: 404, type: 'not_found' })
   })
 

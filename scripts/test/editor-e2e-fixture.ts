@@ -6,6 +6,8 @@ import { drizzle } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
 import { MarkdownSource } from '../../src/db'
 import * as schema from '../../src/db/schema'
+import { hashApiToken } from '../../src/lib/auth/api-token'
+import { hashPassword } from '../../src/lib/auth/password'
 import { calculateSourceHash } from '../../src/lib/files/source-hash'
 import { DEFAULT_MEMO_TEMPLATE_V2 } from '../../src/lib/files/template'
 import { calculateArtifactHashes } from '../../src/lib/svelte/artifact-hash'
@@ -21,10 +23,7 @@ const config = {
     pageConfig: { title: 'Koalablog Playwright' },
     rss: {},
     font: {},
-    auth: {
-      adminKey: 'koalablog-playwright-admin',
-      bearerToken: 'koalablog-playwright',
-    },
+    auth: {},
     oss: { operateLimit: 1000, readLimit: 1000 },
     _runtime: { ready: true },
   },
@@ -35,6 +34,16 @@ function openDatabase() {
 }
 
 async function seedDatabase(database: ReturnType<typeof openDatabase>) {
+  const { salt, hash } = await hashPassword('koalablog-playwright-pw')
+  const [admin] = await database.insert(schema.user).values([
+    { username: 'admin', passwordHash: hash, passwordSalt: salt, role: 'admin' },
+    { username: 'friend', passwordHash: hash, passwordSalt: salt, role: 'member' },
+  ]).returning()
+  await database.insert(schema.apiToken).values({
+    userId: admin.id,
+    tokenHash: await hashApiToken('koalablog-playwright'),
+    label: 'e2e',
+  })
   await database.insert(schema.creationTemplateCatalog).values({
     key: 'koala:creation-templates',
     schemaVersion: 2,
@@ -44,6 +53,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
   await database.insert(schema.markdown).values([
     {
       source: MarkdownSource.Memo,
+      userId: admin.id,
       path: '/phase-two',
       title: 'phase-two',
       content: 'First line\nSecond line',
@@ -54,6 +64,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
     },
     {
       source: MarkdownSource.Memo,
+      userId: admin.id,
       path: '/trashed',
       title: 'trashed',
       content: 'Read-only Source',
@@ -65,6 +76,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
     },
     {
       source: MarkdownSource.Memo,
+      userId: admin.id,
       path: '/second',
       title: 'second',
       content: 'Second file',
@@ -75,6 +87,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
     },
     {
       source: MarkdownSource.Memo,
+      userId: admin.id,
       path: '/trashed-second',
       title: 'trashed-second',
       content: 'Second read-only Source',
@@ -86,6 +99,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
     },
     {
       source: MarkdownSource.Memo,
+      userId: admin.id,
       path: '/svelte-public',
       title: 'svelte-public',
       renderer: 'svelte',
@@ -97,6 +111,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
     },
     {
       source: MarkdownSource.Memo,
+      userId: admin.id,
       path: '/svelte-drift',
       title: 'svelte-drift',
       renderer: 'svelte',
@@ -105,6 +120,40 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
       tags: '',
       incoming_links: '[]',
       outgoing_links: '[]',
+    },
+    {
+      source: 10,
+      userId: admin.id,
+      path: '/post/hello',
+      title: 'hello',
+      content: 'hello post body',
+      sourceHash: await calculateSourceHash('markdown', 'hello post body'),
+      tags: '',
+      incoming_links: '[]',
+      outgoing_links: '[]',
+    },
+    {
+      source: 30,
+      userId: admin.id,
+      path: '/memo/public-note',
+      title: 'public-note',
+      content: 'public memo body',
+      sourceHash: await calculateSourceHash('markdown', 'public memo body'),
+      tags: '',
+      incoming_links: '[]',
+      outgoing_links: '[]',
+    },
+    {
+      source: 30,
+      userId: admin.id,
+      path: '/memo/secret',
+      title: 'secret',
+      content: 'secret memo body',
+      sourceHash: await calculateSourceHash('markdown', 'secret memo body'),
+      tags: '',
+      incoming_links: '[]',
+      outgoing_links: '[]',
+      private: true,
     },
   ])
 
@@ -172,6 +221,8 @@ export async function resetEditorE2EFixture() {
     await database.delete(schema.ossAccess)
     await database.delete(schema.creationTemplateCatalog)
     await database.delete(schema.blobStorage)
+    await database.delete(schema.apiToken)
+    await database.delete(schema.user)
     await database.run(sql`DELETE FROM sqlite_sequence WHERE name IN ('markdown', 'blob_storage')`)
     await seedDatabase(database)
   }

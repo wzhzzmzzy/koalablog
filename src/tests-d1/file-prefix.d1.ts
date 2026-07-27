@@ -3,17 +3,18 @@ import { resetD1ForOnboarding } from '@/db/onboarding'
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
 import initSql from '../../migrations/0000_init.sql?raw'
+import userSchemaSql from '../../migrations/0002_user.sql?raw'
 
 describe('D1 File Prefix refresh', () => {
   beforeEach(async () => {
-    await resetD1ForOnboarding(env, [initSql])
+    await resetD1ForOnboarding(env, [initSql, userSchemaSql])
   })
 
   it('returns only Files directly under the Prefix', async () => {
-    await add(env, { path: '/root', renderer: 'markdown', content: 'root' })
-    await add(env, { path: '/project/inside', renderer: 'markdown', content: 'inside' })
-    await add(env, { path: '/project/nested/deep', renderer: 'markdown', content: 'deep' })
-    await add(env, { path: '/project/nested/deeper/hidden', renderer: 'markdown', content: 'hidden' })
+    await add(env, { path: '/root', renderer: 'markdown', content: 'root', userId: 1 })
+    await add(env, { path: '/project/inside', renderer: 'markdown', content: 'inside', userId: 1 })
+    await add(env, { path: '/project/nested/deep', renderer: 'markdown', content: 'deep', userId: 1 })
+    await add(env, { path: '/project/nested/deeper/hidden', renderer: 'markdown', content: 'hidden', userId: 1 })
 
     const rootFiles = await readByPrefix(env, '/')
     const projectFiles = await readByPrefix(env, '/project/')

@@ -12,7 +12,7 @@ const env = {} as Env
 
 const locals = {
   runtime: { env: {} },
-  session: { role: '' },
+  session: { userId: null, role: '' },
   config: { pageConfig: {}, auth: {}, oss: {}, _runtime: { ready: true } },
 } as unknown as App.Locals
 
@@ -41,7 +41,8 @@ function useCatchAllDatabase() {
         revision integer DEFAULT 1 NOT NULL,
         createdAt integer DEFAULT (unixepoch()) NOT NULL,
         updatedAt integer DEFAULT (unixepoch()) NOT NULL,
-        deletedAt integer
+        deletedAt integer,
+        userId integer
       );
       CREATE UNIQUE INDEX markdown_active_path_unique ON markdown (path) WHERE deletedAt IS NULL;
       CREATE INDEX markdown_deleted_at_idx ON markdown (deletedAt);
@@ -97,5 +98,55 @@ describe('catch-all article route', () => {
     })
 
     expect(html).toContain('legacy memo body')
+  })
+
+  it('redirects an anonymous visitor of a private File to login and back', async () => {
+    await saveFile(env, {
+      id: 0,
+      path: '/memo/secret',
+      renderer: 'markdown',
+      content: 'secret body',
+      private: true,
+      baseRevision: 0,
+      userId: 7,
+    })
+
+    const container = await AstroContainer.create()
+    const response = await container.renderToResponse(CatchAllPage, {
+      params: { slug: 'memo/secret' },
+      locals,
+      request: new Request('https://koala.test/memo/secret'),
+    })
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('Location')).toBe('/login?from=%2Fmemo%2Fsecret')
+  })
+
+  it('serves a private File only to its Owner', async () => {
+    await saveFile(env, {
+      id: 0,
+      path: '/memo/secret',
+      renderer: 'markdown',
+      content: 'secret body',
+      private: true,
+      baseRevision: 0,
+      userId: 7,
+    })
+
+    const container = await AstroContainer.create()
+    const rendered = await container.renderToString(CatchAllPage, {
+      params: { slug: 'memo/secret' },
+      locals: { ...locals, session: { userId: 7, role: 'member' } },
+      request: new Request('https://koala.test/memo/secret'),
+    })
+    expect(rendered).toContain('secret body')
+
+    const response = await container.renderToResponse(CatchAllPage, {
+      params: { slug: 'memo/secret' },
+      locals: { ...locals, session: { userId: 8, role: 'member' } },
+      request: new Request('https://koala.test/memo/secret'),
+    })
+    expect(response.status).toBe(302)
+    expect(response.headers.get('Location')).toBe('/404?source=%2Fmemo%2Fsecret')
   })
 })

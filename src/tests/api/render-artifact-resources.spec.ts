@@ -34,7 +34,7 @@ function denied() {
   }
 }
 
-function createContext(path: string, headers?: HeadersInit, role = '') {
+function createContext(path: string, headers?: HeadersInit, userId: number | null = null) {
   const request = new Request(`https://koala.test${path}`, { headers })
   const [, fileId, sourceHashParam] = path.match(/^\/api\/render-artifacts\/([^/]+)\/([^/]+)\//) || []
   return {
@@ -42,7 +42,7 @@ function createContext(path: string, headers?: HeadersInit, role = '') {
     request,
     locals: {
       runtime: { env: { DB: 'db' } },
-      session: { role },
+      session: { userId, role: userId ? 'member' : '' },
     },
   } as any
 }
@@ -65,7 +65,7 @@ describe('render Artifact resource API', () => {
     })
     expect(await response.text()).toBe(serializeJavascriptResource(javascript))
     expect(mocks.readArtifactAccess).toHaveBeenCalledWith({ DB: 'db' }, {
-      authenticated: false,
+      sessionUserId: null,
       fileId: 17,
       representation: 'resource',
       requestedSourceHash: sourceHash,
@@ -103,13 +103,13 @@ describe('render Artifact resource API', () => {
 
     const response = await getStyles(createContext(`/api/render-artifacts/17/${sourceHash}/styles.css`, {
       'If-None-Match': '*',
-    }, 'guest'))
+    }, 1))
 
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toBe('private, no-store')
     expect(response.headers.get('ETag')).toBeNull()
     expect(await response.text()).toBe(css)
-    expect(mocks.readArtifactAccess).toHaveBeenCalledWith({ DB: 'db' }, expect.objectContaining({ authenticated: true }))
+    expect(mocks.readArtifactAccess).toHaveBeenCalledWith({ DB: 'db' }, expect.objectContaining({ sessionUserId: 1 }))
   })
 
   it('rechecks public-to-private, trash, restore, and purge state before returning any resource bytes', async () => {

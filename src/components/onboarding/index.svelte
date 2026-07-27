@@ -4,12 +4,14 @@ import { navigate } from 'astro:transitions/client';
 
 let validationErrors: {
   blogTitle?: string[]
-  adminKey?: string[]
+  username?: string[]
+  password?: string[]
 } = $state({})
 
 const formData = $state({
   blogTitle: '',
-  adminKey: '',
+  username: '',
+  password: '',
   serverFail: ''
 })
 
@@ -58,19 +60,36 @@ const handleSubmit = async (e: Event) => {
   </div>
 
   <div class="mb-6">
-    <label for="adminKey" class="block mb-2 text-sm font-medium">Admin Key:</label>
+    <label for="username" class="block mb-2 text-sm font-medium">Username:</label>
+    <input
+      type="text"
+      id="username"
+      name="username"
+      bind:value={formData.username}
+      class={`outline-none border-none ${
+        validationErrors.username ? 'border-red-500' : 'border-gray-300'
+      } text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2`}
+      placeholder="Your admin username"
+    />
+    {#if validationErrors.username}
+      <p class="mt-2 text-sm text-red-600">{validationErrors.username?.join(';')}</p>
+    {/if}
+  </div>
+
+  <div class="mb-6">
+    <label for="password" class="block mb-2 text-sm font-medium">Password:</label>
     <input
       type="password"
-      id="adminKey"
-      name="adminKey"
-      bind:value={formData.adminKey}
+      id="password"
+      name="password"
+      bind:value={formData.password}
       class={`outline-none border-none ${
-        validationErrors.adminKey ? 'border-red-500' : 'border-gray-300'
+        validationErrors.password ? 'border-red-500' : 'border-gray-300'
       } text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2`}
       placeholder="Do not forget it"
     />
-    {#if validationErrors.adminKey}
-      <p class="mt-2 text-sm text-red-600">{validationErrors.adminKey?.join(';')}</p>
+    {#if validationErrors.password}
+      <p class="mt-2 text-sm text-red-600">{validationErrors.password?.join(';')}</p>
     {/if}
   </div>
 

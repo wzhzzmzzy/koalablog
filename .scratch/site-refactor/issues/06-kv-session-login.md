@@ -1,6 +1,6 @@
 # 06 — KV Session login
 
-Status: ready-for-agent
+Status: done
 
 ## What to build
 

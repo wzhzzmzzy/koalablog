@@ -17,10 +17,11 @@ const maybePage: FileRecord | undefined = await readByPath(Astro.locals.runtime?
 if (!maybePage) {
   return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
 }
-if (maybePage.private) {
-  if (!Astro.locals.session.role) {
-    return Astro.redirect(`/guest-login?id=${maybePage.id}`)
+if (maybePage.private && maybePage.userId !== Astro.locals.session.userId) {
+  if (!Astro.locals.session.userId) {
+    return Astro.redirect(`/login?from=${encodeURIComponent(Astro.url.pathname)}`)
   }
+  return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
 }
 
 const displayTitle = getDisplayTitle(maybePage)

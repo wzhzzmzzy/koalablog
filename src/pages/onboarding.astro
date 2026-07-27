@@ -5,6 +5,8 @@ import Layout from '@/layouts/layout.astro'
 
 // #if CF_PAGES
 import initSql from '../../migrations/0000_init.sql?raw'
+import memoRemapSql from '../../migrations/0001_memo_source_remap.sql?raw'
+import userSchemaSql from '../../migrations/0002_user.sql?raw'
 // #endif
 
 const env = Astro.locals.runtime?.env || {}
@@ -16,7 +18,7 @@ if (config._runtime?.ready) {
 
 // #if CF_PAGES
 if (env.DATA_SOURCE && env.DATA_SOURCE === 'd1') {
-  await resetD1ForOnboarding(env, [initSql])
+  await resetD1ForOnboarding(env, [initSql, memoRemapSql, userSchemaSql])
 }
 // #endif
 ---
