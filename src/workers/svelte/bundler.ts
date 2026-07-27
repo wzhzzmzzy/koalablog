@@ -27,6 +27,8 @@ function runtimeModuleId(source: string, importer: string | undefined) {
     return ENV_MODULE_ID
   if (source in SVELTE_RUNTIME_REGISTRY.entrypoints)
     return SVELTE_RUNTIME_REGISTRY.entrypoints[source as keyof typeof SVELTE_RUNTIME_REGISTRY.entrypoints]
+  if (source in SVELTE_RUNTIME_REGISTRY.aliases)
+    return SVELTE_RUNTIME_REGISTRY.aliases[source as keyof typeof SVELTE_RUNTIME_REGISTRY.aliases]
   if (source in SVELTE_RUNTIME_REGISTRY.modules)
     return source
   if (!importer || !(importer in SVELTE_RUNTIME_REGISTRY.modules) || !source.startsWith('.'))

@@ -12,8 +12,10 @@ body {
   font-family: theme.font-family("sans");
 }
 
-// 组件样式
-#page {
+// Legacy page components stay outside the Dashboard shell. The Dashboard has
+// its own shadcn semantic layer, so these selectors must not outrank its
+// Tailwind utilities (for example, the old `#page a` link color).
+#page > :not(.dashboard-shell) {
   // 文章标题使用 Sans-serif 字体
   h1,
   h2,

@@ -1,4 +1,36 @@
-export const CatppuccinLatte = {
+export const CatppuccinColorKeys = [
+  'rosewater',
+  'flamingo',
+  'pink',
+  'mauve',
+  'red',
+  'maroon',
+  'peach',
+  'yellow',
+  'green',
+  'teal',
+  'sky',
+  'sapphire',
+  'blue',
+  'lavender',
+  'text',
+  'subtext-1',
+  'subtext-0',
+  'overlay-2',
+  'overlay-1',
+  'overlay-0',
+  'surface-2',
+  'surface-1',
+  'surface-0',
+  'base',
+  'mantle',
+  'crust',
+] as const
+
+type CatppuccinColor = typeof CatppuccinColorKeys[number]
+type CatppuccinPalette = Record<CatppuccinColor, `#${string}`>
+
+export const CatppuccinLatte: CatppuccinPalette = {
   'rosewater': '#dc8a78',
   'flamingo': '#dd7878',
   'pink': '#ea76cb',
@@ -22,12 +54,12 @@ export const CatppuccinLatte = {
   'surface-2': '#acb0be',
   'surface-1': '#bcc0cc',
   'surface-0': '#ccd0da',
-  'base': '#ffffff',
+  'base': '#eff1f5',
   'mantle': '#e6e9ef',
   'crust': '#dce0e8',
 }
 
-export const CatppuccinFrappe = {
+export const CatppuccinFrappe: CatppuccinPalette = {
   'rosewater': '#f2d5cf',
   'flamingo': '#eebebe',
   'pink': '#f4b8e4',
@@ -56,7 +88,7 @@ export const CatppuccinFrappe = {
   'crust': '#232634',
 }
 
-export const CatppuccinMacchiato = {
+export const CatppuccinMacchiato: CatppuccinPalette = {
   'rosewater': '#f4dbd6',
   'flamingo': '#f0c6c6',
   'pink': '#f5bde6',
@@ -85,7 +117,7 @@ export const CatppuccinMacchiato = {
   'crust': '#181926',
 }
 
-export const CatppuccinMocha = {
+export const CatppuccinMocha: CatppuccinPalette = {
   'rosewater': '#f5e0dc',
   'flamingo': '#f2cdcd',
   'pink': '#f5c2e7',
@@ -121,14 +153,52 @@ export const Themes = {
   mocha: CatppuccinMocha,
 }
 
-export function generateThemeCSS(lightTheme: keyof typeof Themes, darkTheme: keyof typeof Themes) {
-  const lightVars = Object.entries(Themes[lightTheme])
+/**
+ * Dashboard tokens remain flavor-relative: switching Latte/Frappe/Macchiato/
+ * Mocha changes every semantic surface together instead of introducing a
+ * second, fixed UI palette.
+ */
+const DashboardSemanticColors = {
+  'canvas': 'base',
+  'sidebar': 'mantle',
+  'panel': 'mantle',
+  'panel-raised': 'base',
+  'foreground': 'text',
+  'muted': 'surface-0',
+  'muted-foreground': 'subtext-0',
+  'border': 'surface-1',
+  'input': 'surface-0',
+  'hover': 'surface-0',
+  'active': 'surface-1',
+  'primary': 'mauve',
+  'on-primary': 'base',
+  'secondary': 'surface-0',
+  'accent': 'lavender',
+  'accent-foreground': 'crust',
+  'destructive': 'red',
+  'on-destructive': 'base',
+  'success': 'green',
+  'warning': 'yellow',
+  'info': 'blue',
+  'ring': 'mauve',
+  'link': 'blue',
+  'code': 'crust',
+} as const satisfies Record<string, CatppuccinColor>
+
+function generateThemeVariables(theme: CatppuccinPalette) {
+  const paletteVars = Object.entries(theme)
     .map(([key, value]) => `  --koala-catppuccin-${key}: ${value};`)
+    .join('\n')
+  const dashboardVars = Object.entries(DashboardSemanticColors)
+    .map(([key, color]) => `  --koala-dashboard-${key}: var(--koala-catppuccin-${color});`)
     .join('\n')
 
-  const darkVars = Object.entries(Themes[darkTheme])
-    .map(([key, value]) => `  --koala-catppuccin-${key}: ${value};`)
-    .join('\n')
+  return `${paletteVars}\n${dashboardVars}`
+}
+
+export function generateThemeCSS(lightTheme: keyof typeof Themes, darkTheme: keyof typeof Themes) {
+  const lightVars = generateThemeVariables(Themes[lightTheme])
+  const darkVars = generateThemeVariables(Themes[darkTheme])
 
   return `
 <style>

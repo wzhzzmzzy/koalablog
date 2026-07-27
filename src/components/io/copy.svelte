@@ -1,5 +1,6 @@
 <script lang="ts">
-import { Link } from '@lucide/svelte'
+import { Check, Copy } from '@lucide/svelte'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   text: string;
@@ -39,4 +40,17 @@ async function copy() {
 </script>
 
 
-<button class="icon btn" disabled={copied} onclick={copy}><Link /></button>
+<Button
+  variant="outline"
+  size="icon-sm"
+  disabled={copied}
+  onclick={copy}
+  aria-label={`Copy ${text}`}
+  title={`Copy ${text}`}
+>
+  {#if copied}
+    <Check />
+  {:else}
+    <Copy />
+  {/if}
+</Button>

@@ -1,7 +1,10 @@
 ---
-import DashboardLayout from '@/layouts/dashboard.astro'
+import DashboardHome from '@/components/dashboard/DashboardHome.svelte'
+import DashboardShell from '@/layouts/dashboard-shell.astro'
+
+const blogTitle = Astro.locals.config.pageConfig.title ?? 'Koalablog'
 ---
 
-<DashboardLayout title="Dashboard">
-  <div></div>
-</DashboardLayout>
+<DashboardShell title="Dashboard" description="Koalablog workspace tools">
+  <DashboardHome client:load {blogTitle} />
+</DashboardShell>

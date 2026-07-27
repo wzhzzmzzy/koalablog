@@ -1,0 +1,34 @@
+---
+import DashboardNavigation from '@/components/dashboard/DashboardNavigation.svelte'
+import Head from '@/components/head/index.astro'
+import Layout from './layout.astro'
+import '@/styles/dashboard-ui.css'
+
+interface Props {
+  title: string
+  description?: string
+}
+
+const { title, description } = Astro.props
+const blogTitle = Astro.locals.config.pageConfig.title ?? 'Koalablog'
+const segments = Astro.url.pathname.split('/').filter(Boolean)
+const activeRoute = segments[1] ?? 'home'
+---
+
+<Layout>
+  <Fragment slot="meta">
+    <Head title={title} desc={description} />
+  </Fragment>
+
+  <div class="dashboard-shell">
+    <DashboardNavigation
+      client:load
+      {activeRoute}
+      {blogTitle}
+      origin={Astro.url.origin}
+    />
+    <main class="min-w-0 lg:ml-72">
+      <slot />
+    </main>
+  </div>
+</Layout>

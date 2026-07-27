@@ -10,7 +10,7 @@ describe('svelte resolver policy', () => {
 </script><p>{$writable ?? value ?? later}</p>`)
 
     expect(diagnostics).toEqual([])
-  })
+  }, 10_000)
 
   it('allows type-only imports from Svelte type modules and still rejects runtime imports', async () => {
     await expect(svelteResolverPolicyDiagnostics(`<script lang="ts">

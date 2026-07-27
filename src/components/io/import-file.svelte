@@ -10,6 +10,8 @@ import SveltePreview from '@/components/editor/svelte/SveltePreview.svelte'
 import { SvelteBuildController } from '@/components/editor/svelte/build-controller.svelte'
 import type { PreviewArtifact } from '@/components/editor/svelte/preview-runtime'
 import type { SvelteBuildSuccess } from '@/lib/svelte/contracts'
+import { X } from '@lucide/svelte'
+import { Button } from '@/components/ui/button'
 import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 import to from 'await-to-js'
 import './import-file.scss';
@@ -43,9 +45,8 @@ let duplicateFiles = $state<Set<number>>(new Set())
 let allFilePaths = $state<string[]>([])
 
 // DOM references
-// svelte-ignore non_reactive_update
-let drawerElement: HTMLElement | undefined
-let triggerButton: HTMLButtonElement | undefined
+let drawerElement = $state<HTMLElement | undefined>(undefined)
+let triggerButton = $state<HTMLButtonElement | undefined>(undefined)
 
 // Utility functions
 const scrollUtils = {
@@ -295,15 +296,17 @@ const onSave = async () => {
 </script>
 
 <section class="import-section" aria-label="File Import">
-  <span>
-    Import:
-  </span>
-  <button 
+  <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/35 p-3">
+    <div>
+      <p class="text-sm font-medium text-foreground">Import files</p>
+      <p class="mt-1 text-sm text-muted-foreground">Choose a local folder to add Markdown and Svelte Files.</p>
+    </div>
+    <Button
     id="import-from" 
-    class="!w-30 btn"
+    variant="outline"
     disabled={!supportFilePicker || status !== ImportStatus.IDLE}
     onclick={onImport}
-    bind:this={triggerButton}
+    bind:ref={triggerButton}
   >
     {#if status === ImportStatus.LOADING}
       Loading...
@@ -314,7 +317,8 @@ const onSave = async () => {
     {:else}
       Choose File
     {/if}
-  </button>
+    </Button>
+  </div>
 
 {#if saveError && !showDrawer}
   <p class="error mb-0" role="alert">{saveError}</p>
@@ -322,8 +326,7 @@ const onSave = async () => {
 
 <!-- Slide-out drawer -->
 {#if showDrawer}
-  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <aside 
+  <div
     class="import-drawer" 
     role="dialog" 
     aria-labelledby="import-dialog-title"
@@ -346,30 +349,37 @@ const onSave = async () => {
         <!-- Header -->
         <header class="drawer-header flex items-center justify-between p-4">
           <h3 id="import-dialog-title" class="text-lg font-semibold">Import Files</h3>
-          <button 
+          <Button
+            type="button"
             onclick={closeDrawer}
-            class="close-button p-1 hover:bg-opacity-10 rounded btn"
+            variant="ghost"
+            size="icon-sm"
             aria-label="Close import dialog"
           >
-            ✕
-          </button>
+            <X />
+          </Button>
         </header>
       
         <!-- Controls -->
         <nav class="drawer-controls m-0 flex items-center gap-2 p-4" aria-label="Import actions">
-          <button
-            class="select-all-button !w-28 shrink-0 text-sm px-3 py-1 rounded btn"
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            class="select-all-button shrink-0"
             onclick={selectAll}
           >
             {selectedFiles.size === foundFiles.length - duplicateFiles.size ? 'Deselect All' : 'Select All'}
-          </button>
-          <button
-            class="save-button !w-20 text-sm px-3 py-1 rounded btn"
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            class="save-button"
             onclick={onSave}
             disabled={selectedFiles.size === 0 || status === ImportStatus.SAVING || status === ImportStatus.BUILDING || !previewReady}
           >
             {status === ImportStatus.SAVING ? 'Saving...' : status === ImportStatus.BUILDING ? 'Building Svelte...' : 'Save'}
-          </button>
+          </Button>
           <span class="selection-count text-sm ml-auto">
             {selectedFiles.size} of {foundFiles.length - duplicateFiles.size} selected
             {#if duplicateFiles.size > 0}
@@ -427,7 +437,7 @@ const onSave = async () => {
         </main>
       </div>
     </div>
-  </aside>
+  </div>
 {/if}
 
 </section>

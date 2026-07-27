@@ -1,0 +1,141 @@
+/*
+ * This stylesheet is imported only by DashboardShell. Deliberately import
+ * theme + utilities rather than `tailwindcss`, so Tailwind preflight never
+ * resets the established site or Editor styles.
+ */
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+@import "tw-animate-css";
+@import "shadcn-svelte/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@source "../components/dashboard";
+@source "../components/io";
+@source "../components/rebuild";
+@source "../components/settings";
+@source "../components/template";
+@source "../components/ui";
+@source "../pages/dashboard";
+
+@theme inline {
+	--font-sans: "Geist Variable", var(--koala-font-sans);
+	--font-mono: var(--koala-font-mono);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-destructive-foreground: var(--destructive-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+}
+
+/* These semantic values follow the selected Catppuccin flavor at runtime. */
+:root {
+	--radius: 0.75rem;
+	--background: var(--koala-dashboard-canvas);
+	--foreground: var(--koala-dashboard-foreground);
+	--card: var(--koala-dashboard-panel);
+	--card-foreground: var(--koala-dashboard-foreground);
+	--popover: var(--koala-dashboard-panel-raised);
+	--popover-foreground: var(--koala-dashboard-foreground);
+	--primary: var(--koala-dashboard-primary);
+	--primary-foreground: var(--koala-dashboard-on-primary);
+	--secondary: var(--koala-dashboard-secondary);
+	--secondary-foreground: var(--koala-dashboard-foreground);
+	--muted: var(--koala-dashboard-muted);
+	--muted-foreground: var(--koala-dashboard-muted-foreground);
+	--accent: var(--koala-dashboard-accent);
+	--accent-foreground: var(--koala-dashboard-accent-foreground);
+	--destructive: var(--koala-dashboard-destructive);
+	--destructive-foreground: var(--koala-dashboard-on-destructive);
+	--border: var(--koala-dashboard-border);
+	--input: var(--koala-dashboard-input);
+	--ring: var(--koala-dashboard-ring);
+	--sidebar: var(--koala-dashboard-sidebar);
+	--sidebar-foreground: var(--koala-dashboard-foreground);
+	--sidebar-primary: var(--koala-dashboard-primary);
+	--sidebar-primary-foreground: var(--koala-dashboard-on-primary);
+	--sidebar-accent: var(--koala-dashboard-hover);
+	--sidebar-accent-foreground: var(--koala-dashboard-foreground);
+	--sidebar-border: var(--koala-dashboard-border);
+	--sidebar-ring: var(--koala-dashboard-ring);
+}
+
+#page:has(.dashboard-shell) {
+	width: 100%;
+	max-width: none;
+	padding: 0;
+	align-items: stretch;
+}
+
+body:has(.dashboard-shell) {
+	background: var(--background);
+	color: var(--foreground);
+}
+
+.dashboard-shell {
+	min-height: 100svh;
+	width: 100%;
+	background: var(--background);
+	color: var(--foreground);
+	font-family: var(--font-sans);
+}
+
+.dashboard-shell,
+.dashboard-shell *,
+.dashboard-shell *::before,
+.dashboard-shell *::after {
+	box-sizing: border-box;
+}
+
+.dashboard-shell :where(h1, h2, h3, p) {
+	margin: 0;
+}
+
+.dashboard-shell p {
+	line-height: 1.55;
+}
+
+.dashboard-shell :where(button, input, select, textarea) {
+	font: inherit;
+}
+
+.dashboard-shell :where(a, button, input, select, textarea):focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	body:has(.dashboard-shell) *,
+	body:has(.dashboard-shell) *::before,
+	body:has(.dashboard-shell) *::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		scroll-behavior: auto !important;
+		transition-duration: 0.01ms !important;
+	}
+}
