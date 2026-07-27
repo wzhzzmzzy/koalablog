@@ -24,7 +24,7 @@ describe('fresh database migration', () => {
     const database = drizzleSqlite({ connection: { url: sqliteUrl } })
     const journal = JSON.parse(await readFile('migrations/meta/_journal.json', 'utf8')) as { entries: unknown[] }
 
-    expect(journal.entries).toHaveLength(2)
+    expect(journal.entries).toHaveLength(3)
 
     await migrate(database, { migrationsFolder: 'migrations' })
 
