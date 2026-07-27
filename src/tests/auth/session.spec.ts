@@ -1,6 +1,6 @@
 import type { SessionKv } from '@/lib/auth/session'
-import { createSession, deleteSession, deleteSessionsForUser, readSession, SESSION_TTL_SECONDS } from '@/lib/auth/session'
 import { describe, expect, it } from 'vitest'
+import { createSession, deleteSession, deleteSessionsForUser, readSession, SESSION_TTL_SECONDS } from '@/lib/auth/session'
 
 function memorySessionKv(): SessionKv & { entries: Map<string, unknown> } {
   const entries = new Map<string, unknown>()
@@ -13,6 +13,7 @@ function memorySessionKv(): SessionKv & { entries: Map<string, unknown> } {
     delete: async (key: string) => {
       entries.delete(key)
     },
+    list: async (prefix: string) => [...entries.keys()].filter(key => key.startsWith(prefix)),
   }
 }
 
@@ -53,5 +54,18 @@ describe('session lifecycle over KV', () => {
     expect(await readSession(env, first, kv)).toMatchObject({ userId: 7 })
     expect(await readSession(env, second, kv)).toBeNull()
     expect(await readSession(env, other, kv)).toMatchObject({ userId: 8 })
+  })
+
+  it('revokes Sessions from concurrent logins that a lost-update index would miss', async () => {
+    const kv = memorySessionKv()
+    const [current, concurrent] = await Promise.all([
+      createSession(env, { userId: 7, role: 'member' }, kv),
+      createSession(env, { userId: 7, role: 'member' }, kv),
+    ])
+
+    await deleteSessionsForUser(env, 7, kv, current)
+
+    expect(await readSession(env, current, kv)).toMatchObject({ userId: 7 })
+    expect(await readSession(env, concurrent, kv)).toBeNull()
   })
 })

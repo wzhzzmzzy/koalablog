@@ -17,6 +17,7 @@ export interface SessionKv {
   get: (key: string) => Promise<unknown>
   set: (key: string, value: unknown, ttlSeconds?: number) => Promise<void>
   delete: (key: string) => Promise<void>
+  list: (prefix: string) => Promise<string[]>
 }
 
 function cloudflareSessionKv(env: Env): SessionKv {
@@ -29,6 +30,16 @@ function cloudflareSessionKv(env: Env): SessionKv {
       await env.KOALA.put(key, JSON.stringify(value), ttlSeconds ? { expirationTtl: ttlSeconds } : undefined)
     },
     delete: key => env.KOALA.delete(key),
+    list: async (prefix) => {
+      const keys: string[] = []
+      let cursor: string | undefined
+      do {
+        const page = await env.KOALA.list({ prefix, cursor })
+        keys.push(...page.keys.map(entry => entry.name))
+        cursor = page.list_complete ? undefined : page.cursor
+      } while (cursor)
+      return keys
+    },
   }
 }
 
@@ -49,15 +60,24 @@ function resolveSessionKv(env?: Env): SessionKv {
       await storage.delete(key)
       await storage.sync()
     },
+    list: async (prefix) => {
+      await storage.init()
+      return Object.keys(storage.storage).filter(key => key.startsWith(prefix))
+    },
   }
   // #endif
   throw new Error('Session KV is not available')
 }
 
+const SESSION_KEY_PREFIX = 'session:'
+
 function sessionKey(id: string) {
-  return `session:${id}`
+  return `${SESSION_KEY_PREFIX}${id}`
 }
 
+// Legacy per-user index keys are no longer written; they are only purged
+// during revocation so deployments upgrading from the indexed scheme do not
+// leave stale entries behind.
 function sessionIndexKey(userId: number) {
   return `session-index:${userId}`
 }
@@ -75,10 +95,6 @@ export async function createSession(
     expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000,
   }
   await store.set(sessionKey(id), record, SESSION_TTL_SECONDS)
-
-  const indexKey = sessionIndexKey(input.userId)
-  const index = ((await store.get(indexKey)) as string[] | undefined) ?? []
-  await store.set(indexKey, [...index, id])
   return id
 }
 
@@ -92,13 +108,7 @@ export async function readSession(env: Env | undefined, id: string, kv?: Session
 
 export async function deleteSession(env: Env | undefined, id: string, kv?: SessionKv): Promise<void> {
   const store = kv ?? resolveSessionKv(env)
-  const record = (await store.get(sessionKey(id))) as SessionRecord | undefined
   await store.delete(sessionKey(id))
-  if (record) {
-    const indexKey = sessionIndexKey(record.userId)
-    const index = ((await store.get(indexKey)) as string[] | undefined) ?? []
-    await store.set(indexKey, index.filter(entry => entry !== id))
-  }
 }
 
 export async function deleteSessionsForUser(
@@ -108,16 +118,15 @@ export async function deleteSessionsForUser(
   exceptId?: string,
 ): Promise<void> {
   const store = kv ?? resolveSessionKv(env)
-  const indexKey = sessionIndexKey(userId)
-  const index = ((await store.get(indexKey)) as string[] | undefined) ?? []
-  const survivors: string[] = []
-  for (const id of index) {
-    if (exceptId && id === exceptId)
-      survivors.push(id)
-    else
-      await store.delete(sessionKey(id))
-  }
-  await store.set(indexKey, survivors)
+  const keys = await store.list(SESSION_KEY_PREFIX)
+  await Promise.all(keys.map(async (key) => {
+    if (exceptId && key === sessionKey(exceptId))
+      return
+    const record = (await store.get(key)) as SessionRecord | undefined
+    if (record?.userId === userId)
+      await store.delete(key)
+  }))
+  await store.delete(sessionIndexKey(userId))
 }
 
 const prodCookieParams = import.meta.env.MODE === 'development'

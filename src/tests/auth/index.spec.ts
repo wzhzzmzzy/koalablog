@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createClient } from '@libsql/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApiToken, createUser } from '@/db/user'
 import { authInterceptor } from '@/lib/auth'
 import { hashApiToken } from '@/lib/auth/api-token'
 import { createSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
-import { createClient } from '@libsql/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const env = {} as Env
 
@@ -58,6 +58,7 @@ function memorySessionKv() {
     delete: async (key: string) => {
       entries.delete(key)
     },
+    list: async (prefix: string) => [...entries.keys()].filter(key => key.startsWith(prefix)),
   }
 }
 

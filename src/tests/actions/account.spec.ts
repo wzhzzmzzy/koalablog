@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createClient } from '@libsql/client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { changePassword } from '@/actions/form/account'
 import { createUser, findUserByUsername } from '@/db/user'
 import { hashPassword, verifyPassword } from '@/lib/auth/password'
 import { createSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
-import { createClient } from '@libsql/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth', () => ({
   authInterceptor: async (ctx: any) => {
@@ -66,6 +66,7 @@ function memorySessionKv() {
     delete: async (key: string) => {
       entries.delete(key)
     },
+    list: async (prefix: string) => [...entries.keys()].filter(key => key.startsWith(prefix)),
   }
 }
 
