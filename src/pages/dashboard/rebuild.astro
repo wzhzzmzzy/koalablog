@@ -1,8 +1,8 @@
 ---
 import RebuildManager from '@/components/rebuild/RebuildManager.svelte'
-import DashboardLayout from '@/layouts/dashboard.astro'
+import DashboardShell from '@/layouts/dashboard-shell.astro'
 ---
 
-<DashboardLayout title="[Dashboard] Rebuild Svelte Artifacts">
+<DashboardShell title="Rebuild Svelte Artifacts" description="Recreate browser-built Svelte Artifacts safely.">
   <RebuildManager client:load />
-</DashboardLayout>
+</DashboardShell>

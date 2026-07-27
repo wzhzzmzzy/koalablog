@@ -3,6 +3,7 @@ import { flattenFileCollections } from '@/lib/files/collection'
 import { fileExportEntries } from '@/lib/files/disk'
 import { actions } from 'astro:actions'
 import { format } from 'date-fns'
+import { zip } from 'fflate/browser'
 import { pickDirectoryWithFilePicker, supportFSApi } from './file-reader'
 
 function createBlob(blobData: Uint8Array<ArrayBufferLike>, chunkSize = 1024 * 1024) {
@@ -25,11 +26,10 @@ function downloadBlob(blob: Blob, filename: string) {
   a.click()
 
   document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 export async function exportAllFiles() {
-  const fflateLoader = import('fflate/browser')
   const allMarkdown = await actions.db.markdown.all({ includeTrash: false })
   const data = allMarkdown.data as AllCollection | undefined
 
@@ -43,9 +43,8 @@ export async function exportAllFiles() {
   const zipFiles = Object.fromEntries(
     Object.entries(fileExportEntries(files)).map(([path, source]) => [path, textEncoder.encode(source)]),
   )
-  const fflate = await fflateLoader
   return new Promise<void>((resolve, reject) => {
-    fflate.zip(zipFiles, (err, data) => {
+    zip(zipFiles, (err, data) => {
       if (err) {
         reject(err)
       }

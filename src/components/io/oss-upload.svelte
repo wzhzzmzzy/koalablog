@@ -2,6 +2,7 @@
 import { pickFileWithFileInput, uploadFile } from "@/lib/services/file-reader";
 import type { ActionError } from "astro:actions";
 import { FileUp, Loader } from "@lucide/svelte";
+import { Button } from '@/components/ui/button';
 
 interface Props {
   source: 'article' | 'oss'
@@ -22,12 +23,14 @@ async function upload() {
 </script>
 
 {#if error}
-  <p class="error">{error.message}</p>
+  <p class="text-sm text-destructive" role="alert">{error.message}</p>
 {/if}
-<button class="icon btn" disabled={uploading} onclick={upload}>
+<Button variant="outline" size="sm" disabled={uploading} onclick={upload}>
   {#if uploading}
-    <Loader />
+    <Loader class="animate-spin" />
+    Uploading
   {:else}
     <FileUp />
+    Upload file
   {/if}
-</button>
+</Button>

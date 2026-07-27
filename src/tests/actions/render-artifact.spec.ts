@@ -1,5 +1,5 @@
 import { attach } from '@/actions/db/render-artifact'
-import { UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
+import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
@@ -29,8 +29,8 @@ function input(overrides: Record<string, unknown> = {}) {
     fileId: 7,
     schemaVersion: 1 as const,
     renderer: 'svelte' as const,
-    svelteVersion: '5.19.2',
-    unocssVersion: '65.4.3',
+    svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
+    unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
     unocssConfigHash: UNOCSS_CONFIG_HASH,
     sourceHash,
     dependencies: [],

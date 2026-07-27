@@ -1,10 +1,10 @@
 ---
 import TemplateManager from '@/components/template/TemplateManager.svelte'
-import DashboardLayout from '@/layouts/dashboard.astro'
+import DashboardShell from '@/layouts/dashboard-shell.astro'
 ---
 
-<DashboardLayout title="[Dashboard] Creation Templates">
-  <div class="w-full box-border px-4 pb-8 sm:px-6">
+<DashboardShell title="Creation Templates" description="Configure how new Files are initialized.">
+  <div class="w-full px-5 py-8 sm:px-8 lg:px-12 xl:px-16">
     <TemplateManager client:load />
   </div>
-</DashboardLayout>
+</DashboardShell>

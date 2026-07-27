@@ -4,6 +4,7 @@ import process from 'node:process'
 import { sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
+import { MarkdownSource } from '../../src/db'
 import * as schema from '../../src/db/schema'
 import { calculateSourceHash } from '../../src/lib/files/source-hash'
 import { DEFAULT_MEMO_TEMPLATE_V2 } from '../../src/lib/files/template'
@@ -42,7 +43,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
   })
   await database.insert(schema.markdown).values([
     {
-      source: 20,
+      source: MarkdownSource.Memo,
       path: '/phase-two',
       title: 'phase-two',
       content: 'First line\nSecond line',
@@ -52,7 +53,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
       outgoing_links: '[]',
     },
     {
-      source: 20,
+      source: MarkdownSource.Memo,
       path: '/trashed',
       title: 'trashed',
       content: 'Read-only Source',
@@ -63,7 +64,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
       deletedAt: new Date(),
     },
     {
-      source: 20,
+      source: MarkdownSource.Memo,
       path: '/second',
       title: 'second',
       content: 'Second file',
@@ -73,7 +74,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
       outgoing_links: '[]',
     },
     {
-      source: 20,
+      source: MarkdownSource.Memo,
       path: '/trashed-second',
       title: 'trashed-second',
       content: 'Second read-only Source',
@@ -84,7 +85,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
       deletedAt: new Date(),
     },
     {
-      source: 20,
+      source: MarkdownSource.Memo,
       path: '/svelte-public',
       title: 'svelte-public',
       renderer: 'svelte',
@@ -95,7 +96,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
       outgoing_links: '[]',
     },
     {
-      source: 20,
+      source: MarkdownSource.Memo,
       path: '/svelte-drift',
       title: 'svelte-drift',
       renderer: 'svelte',

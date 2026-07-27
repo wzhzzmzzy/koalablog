@@ -6,6 +6,9 @@
   import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
   import type { SvelteBuildSuccess } from '@/lib/svelte/contracts'
   import type { PreviewArtifact } from '@/components/editor/svelte/preview-runtime'
+  import { Badge } from '@/components/ui/badge'
+  import { Button } from '@/components/ui/button'
+  import { Card, CardContent } from '@/components/ui/card'
   import {
     completeRebuild,
     createRebuildState,
@@ -186,66 +189,87 @@
       return 'dependency_changed'
     return entry.status
   }
+
+  function statusClass(entry: RebuildEntry) {
+    if (entry.status === 'success') return 'border-[color:var(--koala-dashboard-success)]/40 bg-[color:var(--koala-dashboard-success)]/10 text-[color:var(--koala-dashboard-success)]'
+    if (entry.status === 'failure') return 'border-destructive/40 bg-destructive/10 text-destructive'
+    if (entry.status === 'dependency_changed') return 'border-[color:var(--koala-dashboard-warning)]/45 bg-[color:var(--koala-dashboard-warning)]/10 text-foreground'
+    if (entry.status === 'running') return 'border-primary/40 bg-primary/10 text-primary'
+    return 'border-border bg-muted text-muted-foreground'
+  }
 </script>
 
-<section class="w-full px-4 pb-8 sm:px-6" aria-labelledby="rebuild-title">
-  <header class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h1 id="rebuild-title" class="mb-1">Rebuild Svelte Artifacts</h1>
-      <p class="m-0 text-sm opacity-80">Builds run sequentially in this open browser tab. Closing it stops the batch.</p>
+<section class="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 xl:px-16" aria-labelledby="rebuild-title">
+  <header class="flex flex-col justify-between gap-5 border-b border-border pb-6 sm:flex-row sm:items-end">
+    <div class="max-w-2xl">
+      <p class="mb-2 text-sm font-medium text-muted-foreground">Svelte artifacts</p>
+      <h1 id="rebuild-title" class="text-2xl font-semibold tracking-tight text-foreground">Rebuild</h1>
+      <p class="mt-2 text-sm text-muted-foreground">Builds run sequentially in this open browser tab. Closing it stops the batch.</p>
     </div>
     <div class="flex flex-wrap gap-2">
-      <button class="btn" type="button" onclick={() => void loadCandidates()} disabled={loading || running}>Refresh candidates</button>
+      <Button variant="outline" type="button" onclick={() => void loadCandidates()} disabled={loading || running}>Refresh candidates</Button>
       {#if running}
-        <button class="btn" type="button" onclick={stopBatch}>Stop after current step</button>
+        <Button variant="outline" type="button" onclick={stopBatch}>Stop after current step</Button>
       {:else}
-        <button class="btn" type="button" onclick={() => void startBatch()} disabled={!canStart}>Start rebuild</button>
+        <Button type="button" onclick={() => void startBatch()} disabled={!canStart}>Start rebuild</Button>
       {/if}
     </div>
   </header>
 
   {#if loadError}
-    <p class="error mt-4" role="alert">{loadError}</p>
+    <p class="mt-6 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{loadError}</p>
   {:else if loading}
-    <p class="mt-4" aria-live="polite">Loading active Svelte Files…</p>
+    <p class="mt-6 text-sm text-muted-foreground" aria-live="polite">Loading active Svelte Files…</p>
   {:else}
-    <p class="mt-4" aria-live="polite">
-      {progress.total} candidates · {progress.success} rebuilt · {progress.failure} failed · {progress.dependencyChanged} dependency_changed · {progress.queued + progress.running} remaining
-    </p>
+    <div class="mt-6 flex flex-wrap gap-2" aria-live="polite">
+      <Badge variant="outline">{progress.total} candidates</Badge>
+      <Badge variant="outline" class="border-[color:var(--koala-dashboard-success)]/40 text-[color:var(--koala-dashboard-success)]">{progress.success} rebuilt</Badge>
+      <Badge variant="outline" class="border-destructive/40 text-destructive">{progress.failure} failed</Badge>
+      <Badge variant="outline" class="border-[color:var(--koala-dashboard-warning)]/45 text-foreground">{progress.dependencyChanged} review</Badge>
+      <Badge variant="outline" class="text-muted-foreground">{progress.queued + progress.running} remaining</Badge>
+    </div>
 
     {#if !previewReady}
-      <p class="mt-2 text-sm opacity-80">Preparing Preview for Snapshot capture…</p>
+      <p class="mt-3 text-sm text-muted-foreground">Preparing Preview for Snapshot capture…</p>
     {/if}
 
     {#if progress.total === 0}
-      <p class="mt-4">No active Svelte Files need rebuilding.</p>
+      <p class="mt-8 text-sm text-muted-foreground">No active Svelte Files need rebuilding.</p>
     {:else}
-      <ul class="mt-4 m-0 list-none p-0 flex flex-col gap-2" aria-label="Svelte rebuild outcomes">
+      <ul class="mt-6 m-0 flex list-none flex-col gap-2 p-0" aria-label="Svelte rebuild outcomes">
         {#each rebuildState.entries as entry (entry.id)}
-          <li class="rounded border border-[--koala-border] p-3" data-rebuild-path={entry.path} data-rebuild-status={entry.status}>
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <a class="font-mono text-sm break-all" href={`/dashboard/edit?id=${entry.id}`}>{entry.path}</a>
-              <span class="text-sm" aria-label={`Rebuild status: ${statusLabel(entry)}`}>{statusLabel(entry)}</span>
-            </div>
-            {#if entry.message}
-              <p class="mb-0 mt-2 text-sm">{entry.message}</p>
-            {/if}
-            {#if entry.status === 'failure' && !running}
-              <button class="btn mt-2" type="button" onclick={() => retry(entry)}>Retry build</button>
-            {:else if entry.status === 'dependency_changed'}
-              <p class="mb-0 mt-2 text-sm">Open the File in the editor to review its dependency change. This utility never confirms it.</p>
-            {/if}
+          <li>
+            <Card size="sm" data-rebuild-path={entry.path} data-rebuild-status={entry.status}>
+              <CardContent class="space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <a class="min-w-0 break-all font-mono text-sm text-foreground underline-offset-4 hover:text-primary hover:underline" href={`/dashboard/edit?id=${entry.id}`}>{entry.path}</a>
+                  <Badge variant="outline" class={statusClass(entry)} aria-label={`Rebuild status: ${statusLabel(entry)}`}>{statusLabel(entry)}</Badge>
+                </div>
+                {#if entry.message}
+                  <p class="text-sm text-muted-foreground">{entry.message}</p>
+                {/if}
+                {#if entry.status === 'failure' && !running}
+                  <Button variant="outline" size="sm" type="button" onclick={() => retry(entry)}>Retry build</Button>
+                {:else if entry.status === 'dependency_changed'}
+                  <p class="text-sm text-muted-foreground">Open the File in the editor to review its dependency change. This utility never confirms it.</p>
+                {/if}
+              </CardContent>
+            </Card>
           </li>
         {/each}
       </ul>
     {/if}
   {/if}
 
-  <section class="mt-6" aria-label="Svelte Artifact Snapshot Preview">
-    <h2 class="text-base">Snapshot Preview</h2>
-    <p class="mt-0 text-sm opacity-80">The final processed File is rendered here only to capture its canonical Snapshot.</p>
-    <div class="h-64 overflow-hidden rounded border border-[--koala-border]">
-      <SveltePreview bind:this={preview} onFocusReturn={() => {}} onReady={() => { previewReady = true }} />
+  <section class="mt-8" aria-label="Svelte Artifact Snapshot Preview">
+    <div class="mb-3">
+      <h2 class="text-sm font-medium text-foreground">Snapshot Preview</h2>
+      <p class="mt-1 text-sm text-muted-foreground">The final processed File is rendered here only to capture its canonical Snapshot.</p>
     </div>
+    <Card class="overflow-hidden">
+      <div class="h-64 overflow-hidden bg-[color:var(--koala-dashboard-code)]">
+        <SveltePreview bind:this={preview} onFocusReturn={() => {}} onReady={() => { previewReady = true }} />
+      </div>
+    </Card>
   </section>
 </section>

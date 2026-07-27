@@ -1,6 +1,7 @@
 import process from 'node:process'
 import cloudflare from '@astrojs/cloudflare'
 import svelte from '@astrojs/svelte'
+import tailwindcss from '@tailwindcss/vite'
 
 import metaTags from 'astro-meta-tags'
 import { defineConfig } from 'astro/config'
@@ -11,6 +12,36 @@ import PreprocessorDirectives from 'unplugin-preprocessor-directives/vite'
 const cfConfig = {
   adapter: cloudflare(),
 }
+
+const dashboardTailwindEntry = /[/\\]src[/\\]styles[/\\]dashboard-ui\.css(?:\?.*)?$/
+
+/**
+ * Tailwind is deliberately scoped to the non-Editor Dashboard. Its Vite
+ * generator otherwise receives UnoCSS's virtual `__uno.css` module too, which
+ * makes Tailwind attempt to evaluate UnoCSS-specific functions such as
+ * `--spacing(...)`.
+ */
+const dashboardTailwindPlugins = tailwindcss().map((plugin) => {
+  if (!plugin.name.startsWith('@tailwindcss/vite:generate'))
+    return plugin
+
+  if (typeof plugin.transform !== 'object')
+    return plugin
+
+  const { handler, ...hook } = plugin.transform
+  return {
+    ...plugin,
+    transform: {
+      ...hook,
+      handler(code, id, options) {
+        if (!dashboardTailwindEntry.test(id))
+          return
+
+        return handler.call(this, code, id, options)
+      },
+    },
+  }
+})
 
 // https://astro.build/config
 export default defineConfig({
@@ -23,7 +54,7 @@ export default defineConfig({
     inlineStylesheets: 'always',
   },
   vite: {
-    plugins: [PreprocessorDirectives()],
+    plugins: [...dashboardTailwindPlugins, PreprocessorDirectives()],
     worker: {
       format: 'es',
     },
