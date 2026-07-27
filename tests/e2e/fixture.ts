@@ -1,7 +1,7 @@
 import { test as base } from '@playwright/test'
 import { resetEditorE2EFixture } from '../../scripts/test/editor-e2e-fixture'
 
-type E2EFixtures = {
+interface E2EFixtures {
   autoFixture: void
 }
 
