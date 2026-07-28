@@ -97,7 +97,6 @@
     "@astrojs/check": "^0.9.8",
     "@cloudflare/vitest-pool-workers": "^0.8.0",
     "@cloudflare/workers-types": "^4.20250424.0",
-    "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/outfit": "^5.3.0",
     "@internationalized/date": "^3.12.2",
     "@playwright/test": "^1.61.1",
