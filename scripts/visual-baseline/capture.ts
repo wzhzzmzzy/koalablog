@@ -18,15 +18,16 @@
  * agent from the manifest alone.
  */
 
-import { spawn, type ChildProcess } from 'node:child_process'
+import type { Buffer } from 'node:buffer'
+import type { BaselineManifest, ManifestPage, PageDiffResult } from './types'
+import { type ChildProcess, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { chromium, type Page } from '@playwright/test'
-import { BASE_URL, E2E_AUTHORIZATION, E2E_PORT, PAGE_MATRIX, STABILISE_CSS } from './matrix'
 import { deriveThreshold, diffScreenshots, formatDiffResult, verifyAgainstThreshold } from './diff'
-import type { BaselineManifest, ManifestPage, PageDiffResult } from './types'
+import { BASE_URL, E2E_AUTHORIZATION, E2E_PORT, PAGE_MATRIX, STABILISE_CSS } from './matrix'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -133,7 +134,7 @@ async function stabilisePage(page: Page): Promise<void> {
   await page.waitForTimeout(300)
 }
 
-async function captureMatrix(runDir: string, browserVersion: string): Promise<void> {
+async function captureMatrix(runDir: string, _browserVersion: string): Promise<void> {
   console.log(`\n  Capturing matrix → ${runDir}`)
   mkdirSync(runDir, { recursive: true })
 
