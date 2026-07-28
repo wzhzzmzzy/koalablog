@@ -59,10 +59,10 @@
   })
 </script>
 
-<div class="grid gap-3 sm:grid-cols-2">
-  <section class="rounded-lg border border-border bg-muted/35 p-3" aria-label="Light theme">
-    <div class="mb-3 flex items-center gap-2 text-sm font-medium"><Sun class="size-4 text-[color:var(--koala-dashboard-warning)]" /> Light</div>
-    <div class="grid grid-cols-2 gap-1">
+<div class="grid divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+  <section class="min-w-0 py-1 sm:pr-5" aria-labelledby="light-theme-label">
+    <div id="light-theme-label" class="mb-3 flex items-center gap-2 text-sm font-medium"><Sun class="size-4 text-[color:var(--koala-dashboard-warning)]" /> Light mode</div>
+    <div class="grid grid-cols-2 gap-1.5">
       {#each Object.keys(ThemeOptions) as key}
         {@const theme = key as CatppuccinTheme}
         <Button variant="ghost" size="sm" class="theme-flavor-option justify-between" style={themePreviewStyle(theme)} aria-pressed={lightTheme === theme} onclick={() => selectTheme(theme, 'light')}>
@@ -72,9 +72,9 @@
       {/each}
     </div>
   </section>
-  <section class="rounded-lg border border-border bg-muted/35 p-3" aria-label="Dark theme">
-    <div class="mb-3 flex items-center gap-2 text-sm font-medium"><Moon class="size-4 text-[color:var(--koala-dashboard-primary)]" /> Dark</div>
-    <div class="grid grid-cols-2 gap-1">
+  <section class="min-w-0 py-5 sm:py-1 sm:pl-5" aria-labelledby="dark-theme-label">
+    <div id="dark-theme-label" class="mb-3 flex items-center gap-2 text-sm font-medium"><Moon class="size-4 text-[color:var(--koala-dashboard-primary)]" /> Dark mode</div>
+    <div class="grid grid-cols-2 gap-1.5">
       {#each Object.keys(ThemeOptions) as key}
         {@const theme = key as CatppuccinTheme}
         <Button variant="ghost" size="sm" class="theme-flavor-option justify-between" style={themePreviewStyle(theme)} aria-pressed={darkTheme === theme} onclick={() => selectTheme(theme, 'dark')}>
