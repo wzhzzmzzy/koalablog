@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { RendererMode } from '@/lib/files/types';
+  import { FileText } from '@lucide/svelte';
   import type { PreviewArtifact, PreviewRuntimeErrorMessage } from './svelte/preview-runtime';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
   import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
@@ -18,6 +19,8 @@
     svelteArtifact?: PreviewArtifact | null;
     svelteBuildError?: string | null;
     trashed: boolean;
+    changed: boolean;
+    privateValue: boolean;
     conflict: EditBufferServerValues | null;
     baseRevision: number;
     onUseServer: () => void;
@@ -38,6 +41,8 @@
     svelteArtifact = null,
     svelteBuildError = null,
     trashed,
+    changed,
+    privateValue,
     conflict,
     baseRevision,
     onUseServer,
@@ -48,6 +53,10 @@
 
   let textEditor: TextEditorHandle | undefined = $state();
   let sveltePreview: SveltePreview | undefined = $state();
+  const lineCount = $derived(value.length === 0 ? 1 : value.split('\n').length);
+  const modeLabel = $derived(showPreview ? 'Preview' : 'Source');
+  const rendererLabel = $derived(renderer === 'svelte' ? 'Svelte' : 'Markdown');
+  const fileExtension = $derived(renderer === 'svelte' ? '.svelte' : '.md');
 
   export function focus() {
     textEditor?.focus();
@@ -72,51 +81,71 @@
   }
 </script>
 
-<input
-  id="title-input"
-  type="text"
-  class="text-[--koala-text] {showPreview ? 'hidden' : ''} w-full text-xl font-bold bg-transparent border-none outline-none border-b border-[--koala-border] pb-2 placeholder-[--koala-editor-placeholder]"
-  value={title}
-  placeholder="File name"
-  aria-label="File name"
-  readonly
-/>
-
-{#if conflict}
-  <div class="mb-2 rounded border border-[--koala-warning-text] p-3 text-sm" role="alert">
-    <p class="m-0">Server revision {conflict.revision} differs from the Edit Buffer base revision {baseRevision}. The local Source is still intact.</p>
-    <p class="m-0 mt-1 break-all">Server Path: {conflict.path}</p>
-    <div class="mt-2 flex flex-wrap gap-2">
-      <button type="button" class="btn" onclick={onUseServer}>Use server version</button>
-      <button type="button" class="btn" onclick={onRebase}>Keep local and rebase</button>
+<section class="editor-content" aria-label="File editor">
+  <header class="editor-content__header">
+    <div class="editor-content__identity">
+      <span class="editor-content__identity-mark" aria-hidden="true"><FileText size={19} /></span>
+      <div class="editor-content__heading">
+        <h1 class="editor-file-title">
+          <span class="editor-file-title__name">{title || 'Untitled'}</span>
+          <span class="editor-file-title__extension">{fileExtension}</span>
+        </h1>
+      </div>
     </div>
+    <span class="editor-content__mode">{modeLabel}</span>
+  </header>
+
+  {#if conflict}
+    <div class="editor-conflict" role="alert">
+      <p>Server revision {conflict.revision} differs from the Edit Buffer base revision {baseRevision}. The local Source is still intact.</p>
+      <p class="break-all">Server Path: {conflict.path}</p>
+      <div class="editor-conflict__actions">
+        <button type="button" class="editor-conflict__button" onclick={onUseServer}>Use server version</button>
+        <button type="button" class="editor-conflict__button" onclick={onRebase}>Keep local and rebase</button>
+      </div>
+    </div>
+  {/if}
+
+  <div class="editor-canvas {showPreview ? 'hidden' : ''}">
+    <TextEditor
+      bind:this={textEditor}
+      {fileId}
+      {filePath}
+      {renderer}
+      {diagnostics}
+      {value}
+      readonly={trashed}
+      {onChange}
+      {uploadImage}
+    />
   </div>
-{/if}
 
-<div class="w-full flex-1 min-h-0 {showPreview ? 'hidden' : ''}">
-  <TextEditor
-    bind:this={textEditor}
-    {fileId}
-    {filePath}
-    {renderer}
-    {diagnostics}
-    {value}
-    readonly={trashed}
-    {onChange}
-    {uploadImage}
-  />
-</div>
+  {#if showPreview && renderer === 'svelte'}
+    <section class="editor-canvas editor-svelte-preview" aria-label="Svelte Preview">
+      {#if svelteBuildError}
+        <p class="m-0 p-4 text-[--koala-error-text]" role="alert">{svelteBuildError}</p>
+      {:else}
+        <SveltePreview bind:this={sveltePreview} artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
+      {/if}
+    </section>
+  {:else}
+    <article id="preview-md" class="editor-markdown-preview {showPreview ? '' : 'hidden'}">
+      {@html previewHtml}
+    </article>
+  {/if}
 
-{#if showPreview && renderer === 'svelte'}
-  <section class="w-full flex-1 min-h-0 overflow-hidden" aria-label="Svelte Preview">
-    {#if svelteBuildError}
-      <p class="m-0 p-4 text-[--koala-error-text]" role="alert">{svelteBuildError}</p>
-    {:else}
-      <SveltePreview bind:this={sveltePreview} artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
-    {/if}
-  </section>
-{:else}
-  <article id="preview-md" class="w-full flex-1 overflow-y-auto {showPreview ? '' : 'hidden'}">
-    {@html previewHtml}
-  </article>
-{/if}
+  <footer class="editor-status-bar" aria-label="File status">
+    <div class="editor-status-bar__group">
+      <span class="editor-status-bar__state {trashed ? 'editor-status-bar__state--readonly' : (changed ? 'editor-status-bar__state--dirty' : '')}">
+        <span class="editor-status-bar__dot" aria-hidden="true"></span>
+        {trashed ? 'Recycled · read-only' : (changed ? 'Unsaved changes' : 'Saved')}
+      </span>
+      <span class="editor-status-bar__detail">{modeLabel} · {rendererLabel}</span>
+      {#if privateValue && !trashed}<span class="editor-status-bar__detail">Private</span>{/if}
+    </div>
+    <div class="editor-status-bar__group">
+      <span class="editor-status-bar__detail editor-status-bar__detail--desktop">{lineCount} {lineCount === 1 ? 'line' : 'lines'}</span>
+      <span class="editor-status-bar__detail">{value.length} characters</span>
+    </div>
+  </footer>
+</section>

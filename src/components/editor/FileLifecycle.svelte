@@ -100,14 +100,14 @@
 </script>
 
 {#if trashed}
-  <button type="button" class="icon btn" onclick={() => restoreFile(false)} aria-label="Restore" title="Restore">
+  <button type="button" class="editor-tool-button" onclick={() => restoreFile(false)} aria-label="Restore" title="Restore">
     <RotateCcw size={20} />
   </button>
-  <button type="button" class="icon !text-[--koala-error-text] btn" onclick={openPurgeConfirm} aria-label="Permanently delete" title="Permanently delete">
+  <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={openPurgeConfirm} aria-label="Permanently delete" title="Permanently delete">
     <Trash2 size={20} />
   </button>
 {:else if file.id > 0}
-  <button type="button" class="icon !text-[--koala-error-text] btn" onclick={openTrashConfirm} aria-label="Move to recycle bin" title="Move to recycle bin">
+  <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={openTrashConfirm} aria-label="Move to recycle bin" title="Move to recycle bin">
     <Trash2 size={20} />
   </button>
 {/if}
@@ -115,19 +115,19 @@
 {#if showTrashConfirm}
   <div
     bind:this={activeDialog}
-    class="fixed inset-0 flex items-center justify-center z-50"
+    class="editor-modal-backdrop"
     role="dialog"
     tabindex="-1"
     aria-modal="true"
     aria-labelledby={dialogTitleId}
     onkeydown={handleDialogKeydown}
   >
-    <div class="bg-[--koala-input-bg] px-5 py-2 sm:p-6 rounded-lg max-w-[90vw] sm:max-w-md sm:w-full">
-      <h3 id={dialogTitleId} class="text-xl font-bold mb-4">Move to recycle bin?</h3>
-      <p class="mb-6">The File can be restored later.</p>
-      <div class="flex justify-end gap-3">
-        <button type="button" class="icon btn" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
-        <button type="button" class="icon !text-[--koala-error-text] btn" onclick={trashFile} aria-label="Move to recycle bin">
+    <div class="editor-modal">
+      <h3 id={dialogTitleId}>Move to recycle bin?</h3>
+      <p>The File can be restored later.</p>
+      <div class="editor-modal__actions">
+        <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
+        <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={trashFile} aria-label="Move to recycle bin">
           <Trash2 size={20} />
         </button>
       </div>
@@ -138,19 +138,19 @@
 {#if showPurgeConfirm}
   <div
     bind:this={activeDialog}
-    class="fixed inset-0 flex items-center justify-center z-50"
+    class="editor-modal-backdrop"
     role="dialog"
     tabindex="-1"
     aria-modal="true"
     aria-labelledby={dialogTitleId}
     onkeydown={handleDialogKeydown}
   >
-    <div class="bg-[--koala-input-bg] px-5 py-2 sm:p-6 rounded-lg max-w-[90vw] sm:max-w-md sm:w-full">
-      <h3 id={dialogTitleId} class="text-xl font-bold mb-4">Permanently delete?</h3>
-      <p class="mb-6">This cannot be undone. Other Files with the same Title will not be affected.</p>
-      <div class="flex justify-end gap-3">
-        <button type="button" class="icon btn" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
-        <button type="button" class="icon !text-[--koala-error-text] btn" onclick={purgeFile} aria-label="Permanently delete">
+    <div class="editor-modal">
+      <h3 id={dialogTitleId}>Permanently delete?</h3>
+      <p>This cannot be undone. Other Files with the same Title will not be affected.</p>
+      <div class="editor-modal__actions">
+        <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
+        <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={purgeFile} aria-label="Permanently delete">
           <Trash2 size={20} />
         </button>
       </div>
@@ -161,22 +161,22 @@
 {#if restoreConflict}
   <div
     bind:this={activeDialog}
-    class="fixed inset-0 bg-[--koala-catppuccin-crust] flex items-center justify-center z-50"
+    class="editor-modal-backdrop"
     role="dialog"
     tabindex="-1"
     aria-modal="true"
     aria-labelledby={dialogTitleId}
     onkeydown={handleDialogKeydown}
   >
-    <div class="bg-[--koala-input-bg] px-5 py-2 sm:p-6 rounded-lg max-w-[90vw] sm:max-w-md sm:w-full">
-      <h3 id={dialogTitleId} class="text-xl font-bold mb-4">Name already in use</h3>
-      <p class="mb-2">Another active File uses this Path.</p>
-      <p class="mb-6 text-sm text-[--koala-subtext-0] break-all">
+    <div class="editor-modal">
+      <h3 id={dialogTitleId}>Name already in use</h3>
+      <p>Another active File uses this Path.</p>
+      <p class="break-all">
         Restore as {restoreConflict.suggestedPath} with Title “{restoreConflict.suggestedTitle}”.
       </p>
-      <div class="flex justify-end gap-3">
-        <button type="button" class="icon btn" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
-        <button type="button" class="btn flex items-center gap-2" onclick={() => restoreFile(true)}>
+      <div class="editor-modal__actions">
+        <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
+        <button type="button" class="editor-conflict__button" onclick={() => restoreFile(true)}>
           <RotateCcw size={20} />
           <span>Restore renamed</span>
         </button>

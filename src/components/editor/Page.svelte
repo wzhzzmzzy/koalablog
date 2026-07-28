@@ -2,7 +2,9 @@
   import { actions } from 'astro:actions';
   import type { FileRecord } from '@/db/types';
   import type { AbsolutePathPrefix } from '@/lib/files/types';
+  import { FolderOpen, Plus } from '@lucide/svelte';
   import { tick } from 'svelte';
+  import '@/styles/editor-workspace.css';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
@@ -30,12 +32,10 @@
   // 启用自动持久化
   useEditBufferPersistence();
 
-  // Automatic mobile behavior must not overwrite the explicit toolbar preference.
+  // New mobile sessions begin with File Explorer closed, but an explicit toolbar
+  // preference must survive navigation and reloads at every viewport size.
   if (!hasStoredSidebarPreference()) {
     setShowSidebar(!isMobile);
-  } else if (isMobile) {
-    // Force sidebar closed on mobile initialization for better UX
-    setShowSidebar(false);
   }
   
   // Init History and Current
@@ -133,39 +133,58 @@
   }
 </script>
 
-<div class="flex h-screen overflow-hidden w-full">
-    <Notification />
-    <!-- Sidebar Container -->
-    <div data-testid="editor-sidebar" class="{editorStore.showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
-        <div class="flex-1 overflow-hidden pt-5">
-             <Sidebar
-                currentId={editorStore.currentFile?.id || 0}
-                {templatePrefixes}
-                onSelect={handleSelect}
-                onCreate={createNew}
-                onRefresh={handleRefresh}
-                onEmptyTrash={handleEmptyTrash}
-             />
-        </div>
-    </div>
+<div class="editor-workspace">
+  <Notification />
 
-    <!-- Main Content -->
-    <div class="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        {#if editorStore.currentFile}
-             <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
-                 <Editor 
-                    file={editorStore.currentFile}
-                    onSave={handleSave}
-                    onUpdate={handleUpdate}
-                    onPurge={handlePurge}
-                 />
-             </div>
-        {:else}
-             <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
-                <div class="w-full flex-1 min-h-0 flex flex-col pt-5">
-                  <EditorToolbar file={null} onBackToDashboard={backToDashboard} />
-                </div>
-             </div>
-        {/if}
+  <aside
+    data-testid="editor-sidebar"
+    class="editor-workspace__sidebar {editorStore.showSidebar ? 'w-64' : 'w-0'}"
+    aria-label="File Explorer"
+  >
+    <div class="editor-workspace__sidebar-inner">
+      <Sidebar
+        currentId={editorStore.currentFile?.id || 0}
+        {templatePrefixes}
+        onSelect={handleSelect}
+        onCreate={createNew}
+        onRefresh={handleRefresh}
+        onEmptyTrash={handleEmptyTrash}
+      />
     </div>
+  </aside>
+
+  {#if editorStore.showSidebar}
+    <button
+      type="button"
+      class="editor-workspace__sidebar-scrim"
+      aria-label="Close File Explorer"
+      onclick={() => setShowSidebar(false)}
+    ></button>
+  {/if}
+
+  <main class="editor-workspace__main">
+    <div class="editor-workspace__document">
+      {#if editorStore.currentFile}
+        <Editor
+          file={editorStore.currentFile}
+          onSave={handleSave}
+          onUpdate={handleUpdate}
+          onPurge={handlePurge}
+        />
+      {:else}
+        <div class="editor-empty-layout">
+          <EditorToolbar file={null} onBackToDashboard={backToDashboard} />
+          <section class="editor-empty-state" aria-labelledby="editor-empty-state-title">
+            <div class="editor-empty-state__icon" aria-hidden="true"><FolderOpen size={28} /></div>
+            <h1 id="editor-empty-state-title">Choose a File to begin</h1>
+            <p>Open a File from File Explorer, or create one to start writing in a focused workspace.</p>
+            <button type="button" class="editor-empty-state__action" onclick={() => setShowSidebar(true)}>
+              <Plus size={17} />
+              <span>Open File Explorer</span>
+            </button>
+          </section>
+        </div>
+      {/if}
+    </div>
+  </main>
 </div>

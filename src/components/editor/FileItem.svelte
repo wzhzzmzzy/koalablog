@@ -13,14 +13,13 @@
 </script>
 
 <button
-  class="outline-none border-none w-full text-left p-2 hover:bg-[--koala-hover-block] transition-colors
-         {item.id === currentId ? 'bg-[--koala-focusing-block]' : 'bg-transparent'}
-         relative flex items-center gap-1.5 rounded
-        {editBuffers.has(item.id) ? '!text-[--koala-warning-text] font-italic' : 'text-[--koala-text]'}"
-  onclick={() => {
-    onSelect(item)
-  }}
+  type="button"
+  class="editor-file-tree__item"
+  onclick={() => onSelect(item)}
+  aria-current={item.id === currentId ? 'page' : undefined}
+  title={item.path}
 >
-    <FileText size={14} class="opacity-70 shrink-0 " />
-    <span class="text-sm text-[--koala-text]">{item.title}</span>
+    <FileText size={14} class="editor-file-tree__item-icon" />
+    <span class="editor-file-tree__item-label">{item.title}</span>
+    {#if editBuffers.has(item.id)}<span class="editor-file-tree__dirty" aria-hidden="true"></span>{/if}
 </button>
