@@ -500,8 +500,8 @@
   }
 </script>
 
-<div class="w-full flex-1 min-h-0 flex flex-col pt-5">
-  <form method="POST" class="flex-1 flex flex-col h-full overflow-hidden">
+<div class="editor-file-workspace">
+  <form method="POST" class="editor-file-form">
     <EditorToolbar
       {file}
       bind:pathValue
@@ -537,6 +537,8 @@
       {svelteArtifact}
       {svelteBuildError}
       {trashed}
+      {changed}
+      {privateValue}
       {conflict}
       baseRevision={baseRevisionValue}
       onUseServer={useServerVersion}

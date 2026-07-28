@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types';
   import type { RendererMode } from '@/lib/files/types';
-  import { ArrowLeft, Check, Eye, House, Link, Lock, LockOpen, Menu, RotateCw, Save, SquarePen, Trash2, Upload } from '@lucide/svelte';
+  import { ArrowLeft, Check, Eye, FileText, House, Link, Lock, LockOpen, Menu, RotateCw, Save, SquarePen, Trash2, Upload } from '@lucide/svelte';
   import FileLifecycle from './FileLifecycle.svelte';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
   import RendererToggle from './svelte/RendererToggle.svelte';
@@ -58,17 +58,18 @@
 
   const hasFile = $derived(file !== null);
   const hasPersistedFile = $derived((file?.id ?? 0) > 0);
+  const hasPreviousFile = $derived(hasFile && editorStore.history.length > 1);
   const unavailableTitle = 'Select a File from File Explorer first';
   const rendererDisabledReason = $derived(hasFile && trashed
     ? 'Renderer cannot be changed for a recycled File'
     : unavailableTitle);
 </script>
 
-<div data-testid="editor-toolbar" class="flex flex-wrap md:flex-nowrap justify-between items-center mb-2 gap-2 md:gap-4 shrink-0">
-  <div class="flex items-center gap-2 shrink-0">
+<div data-testid="editor-toolbar" class="editor-toolbar">
+  <div class="editor-toolbar__navigation" aria-label="Workspace navigation">
     <button
       type="button"
-      class="icon btn"
+      class="editor-tool-button"
       onclick={(event) => { event.preventDefault(); toggleSidebar(); }}
       aria-label="Toggle sidebar"
       title="Toggle sidebar"
@@ -77,40 +78,30 @@
     </button>
     <button
       type="button"
-      class="icon btn"
+      class="editor-tool-button"
       onclick={onBackToDashboard}
       aria-label="Back to dashboard"
       title="Back to dashboard"
     >
       <House size={20} />
     </button>
-    {#if hasFile && editorStore.history.length > 1}
-      <button
-        type="button"
-        class="icon btn"
-        onclick={onBack}
-        aria-label="Back to previous File"
-        title="Back to previous File"
-      >
-        <ArrowLeft size={20} />
-      </button>
-    {:else if !hasFile}
-      <button
-        type="button"
-        class="icon btn opacity-30 !cursor-not-allowed"
-        disabled
-        aria-label="Back to previous File"
-        title={unavailableTitle}
-      >
-        <ArrowLeft size={20} />
-      </button>
-    {/if}
+    <button
+      type="button"
+      class="editor-tool-button"
+      onclick={onBack}
+      disabled={!hasPreviousFile}
+      aria-label="Back to previous File"
+      title={hasPreviousFile ? 'Back to previous File' : (hasFile ? 'No previous File in history' : unavailableTitle)}
+    >
+      <ArrowLeft size={20} />
+    </button>
   </div>
 
-  <div class="order-last basis-full w-full md:order-none md:basis-auto md:w-auto flex-1 max-w-xl mx-auto flex items-center gap-2 bg-[--koala-bg] rounded px-2">
+  <div class="editor-toolbar__context">
+    <span class="editor-toolbar__context-mark" aria-hidden="true"><FileText size={14} /></span>
     <input
       id="path-input"
-      class="w-full bg-transparent border-none outline-none text-sm text-[--koala-subtext-0] h-8 text-center"
+      class="editor-path-input"
       type="text"
       name="path"
       aria-label="Absolute File Path"
@@ -123,19 +114,22 @@
     />
   </div>
 
-  <div class="flex flex-wrap justify-end items-center gap-0 md:gap-1 md:shrink-0">
+  <div class="editor-toolbar__renderer">
     <RendererToggle
       value={rendererValue}
       disabled={!hasFile || trashed}
       disabledReason={rendererDisabledReason}
       onChange={onRendererChange}
     />
+  </div>
+
+  <div class="editor-toolbar__actions" aria-label="File actions">
     {#if trashed && file}
       <FileLifecycle {file} {onUpdate} {onPurge} />
     {:else}
       <button
         type="button"
-        class="icon btn {hasPersistedFile ? '' : 'opacity-30 !cursor-not-allowed'}"
+        class="editor-tool-button"
         onclick={onTogglePrivate}
         disabled={!hasPersistedFile}
         aria-label={hasPersistedFile ? (privateValue ? 'Make public' : 'Make private') : 'Set File privacy'}
@@ -148,18 +142,21 @@
         {/if}
       </button>
       <button
+        type="button"
         id="save"
-        class="icon btn {changed ? '!text-[--koala-success-text]' : ''} {!hasFile ? 'opacity-30 !cursor-not-allowed' : ''}"
+        class="editor-tool-button {changed ? 'editor-tool-button--changed' : 'editor-tool-button--primary'}"
         onclick={onSave}
         disabled={!hasFile || Boolean(conflict)}
         aria-label="Save File"
-        title={!hasFile ? unavailableTitle : (conflict ? 'Resolve the Source conflict first' : 'Save')}
+        title={!hasFile ? unavailableTitle : (conflict ? 'Resolve the Source conflict first' : (changed ? 'Save changes' : 'Save File'))}
       >
-        <Save size={20} />
+        <Save size={18} />
+        <span class="editor-tool-button__label">Save</span>
       </button>
       <button
+        type="button"
         id="upload"
-        class="icon btn {!hasFile ? 'opacity-30 !cursor-not-allowed' : ''}"
+        class="editor-tool-button"
         onclick={onUpload}
         disabled={!hasFile}
         aria-label="Upload image"
@@ -170,7 +167,7 @@
       {#if file && rendererValue === 'svelte' && file.id > 0}
         <button
           type="button"
-          class="icon btn"
+          class="editor-tool-button"
           onclick={onRebuild}
           aria-label="Rebuild Svelte Artifact"
           title={changed ? 'Save Source before rebuilding' : 'Rebuild Svelte Artifact'}
@@ -179,8 +176,9 @@
         </button>
       {/if}
       <button
+        type="button"
         id="preview"
-        class="icon btn {!hasFile ? 'opacity-30 !cursor-not-allowed' : ''}"
+        class="editor-tool-button"
         onclick={onPreview}
         disabled={!hasFile}
         aria-label={showPreview ? 'Edit Source' : 'Preview File'}
@@ -192,11 +190,11 @@
           <Eye size={20} />
         {/if}
       </button>
-      {#if file && file.id > 0}
+      {#if file && hasPersistedFile}
         <FileLifecycle {file} {onUpdate} {onPurge} />
         <button
           type="button"
-          class="icon btn"
+          class="editor-tool-button"
           onclick={onCopyLink}
           aria-label="Copy File link"
           title="Copy Link"
@@ -207,10 +205,10 @@
             <Link size={20} />
           {/if}
         </button>
-      {:else if !file}
+      {:else}
         <button
           type="button"
-          class="icon btn opacity-30 !cursor-not-allowed"
+          class="editor-tool-button"
           disabled
           aria-label="Move to recycle bin"
           title={unavailableTitle}
@@ -219,7 +217,7 @@
         </button>
         <button
           type="button"
-          class="icon btn opacity-30 !cursor-not-allowed"
+          class="editor-tool-button"
           disabled
           aria-label="Copy File link"
           title={unavailableTitle}

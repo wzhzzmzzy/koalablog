@@ -20,6 +20,7 @@
 
   const tree = $derived(buildFileTree(editorStore.items, templatePrefixes));
   const recycleBin = $derived(getTrashedFiles(editorStore.items));
+  const activeFileCount = $derived(editorStore.items.filter(item => !item.deletedAt).length);
 
   // Folder expansion state
   let expandedFolders = $state<Record<string, boolean>>({});
@@ -115,38 +116,38 @@
 </script>
 
 {#snippet folderNode(node: FileTreeNode)}
-  <div>
+  <div class="editor-tree-branch">
     {#if node.name}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <div 
-          class="flex items-center justify-between group cursor-pointer select-none p-2"
-          onclick={() => toggleFolder(node.prefix)}
-          aria-roledescription="button"
-        >
-            <div class="flex items-center gap-1.5 text-sm font-medium text-[--koala-subtext-0]">
-                {#if refreshingFolders[getRefreshKey(node.prefix)]}
-                    <LoaderCircle size={14} class="animate-spin" />
-                {:else if expandedFolders[node.prefix]}
-                    <ChevronDown size={14} />
-                {:else}
-                    <ChevronRight size={14} />
-                {/if}
-                <span>{node.name}</span>
-            </div>
-            <button 
-                class="outline-none border-none bg-transparent p-0.5 rounded cursor-pointer" 
-                onclick={(e) => { e.stopPropagation(); onCreate(node.prefix); }}
-                aria-label="Create new file in {node.name}"
-                title="Create new file in {node.name}"
-            >
-                <Plus size={14} class="text-[--koala-text]" />
-            </button>
+        <div class="editor-tree-folder">
+          <button
+            type="button"
+            class="editor-tree-folder__toggle"
+            onclick={() => toggleFolder(node.prefix)}
+            aria-expanded={Boolean(expandedFolders[node.prefix])}
+          >
+            {#if refreshingFolders[getRefreshKey(node.prefix)]}
+              <LoaderCircle size={14} class="animate-spin" />
+            {:else if expandedFolders[node.prefix]}
+              <ChevronDown size={14} />
+            {:else}
+              <ChevronRight size={14} />
+            {/if}
+            <span>{node.name}</span>
+          </button>
+          <button
+            type="button"
+            class="editor-tree-folder__create"
+            onclick={() => onCreate(node.prefix)}
+            aria-label="Create new file in {node.name}"
+            title="Create new file in {node.name}"
+          >
+            <Plus size={15} />
+          </button>
         </div>
     {/if}
 
     {#if !node.name || expandedFolders[node.prefix]}
-        <div class="{node.name ? 'border-l border-[--koala-border-subtle] ml-2 pl-2' : ''}">
+        <div class="{node.name ? 'editor-tree-children' : ''}">
             {#each Object.values(node.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
                 {@render folderNode(child)}
             {/each}
@@ -159,65 +160,89 @@
 {/snippet}
 
 
-<div class="h-full flex flex-col w-full overflow-y-auto">
-  {#if isFileTreeEmpty(tree) && !editorStore.loading}
-    <div class="p-4 text-center text-[--koala-subtext-0] text-sm">No files found.</div>
-  {:else}
-      {#each Object.values(tree.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
-            {@render folderNode(child)}
-      {/each}
-      {#each tree.items as item (item.id)}
-            <FileItem {item} {currentId} onSelect={handleTopLevelFileSelect} />
-      {/each}
-  {/if}
+<div class="editor-sidebar">
+  <header class="editor-sidebar__header">
+    <div class="editor-sidebar__heading">
+      <span>File Explorer</span>
+      <span class="editor-sidebar__count">{activeFileCount}</span>
+    </div>
+    <button
+      type="button"
+      class="editor-sidebar__new-button"
+      onclick={() => onCreate('/')}
+      aria-label="Create new File"
+      title="Create new File"
+    >
+      <Plus size={15} />
+      <span>New</span>
+    </button>
+  </header>
 
-  <button
-    class="outline-none border-none w-full text-left p-2 hover:bg-[--koala-hover-block] transition-colors
-           bg-transparent relative flex items-center gap-1.5 rounded opacity-60 italic shrink-0"
-    onclick={() => onCreate('/')}
-  >
-      <Plus size={14} class="shrink-0 text-[--koala-text]" />
-      <span class="truncate text-sm text-[--koala-text]">New file...</span>
-  </button>
+  <div class="editor-sidebar__tree">
+    {#if isFileTreeEmpty(tree) && !editorStore.loading}
+      <div class="editor-sidebar__empty">No Files found.</div>
+    {:else}
+        {#each Object.values(tree.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
+              {@render folderNode(child)}
+        {/each}
+        {#each tree.items as item (item.id)}
+              <FileItem {item} {currentId} onSelect={handleTopLevelFileSelect} />
+        {/each}
+    {/if}
+
+    <button
+      type="button"
+      class="editor-sidebar__new-file"
+      onclick={() => onCreate('/')}
+    >
+      <Plus size={15} />
+      <span>New File</span>
+    </button>
+  </div>
 
   {#if recycleBin.length > 0}
-    <div class="mt-auto border-t border-[--koala-border-subtle] pt-1">
-      <div class="flex items-center gap-1 p-1">
+    <section class="editor-recycle-bin" aria-label="Recycle bin">
+      <div class="editor-recycle-bin__header">
         <button
-          class="outline-none border-none bg-transparent flex-1 min-w-0 p-1 flex items-center gap-1.5 text-left"
+          type="button"
+          class="editor-recycle-bin__toggle"
           onclick={toggleRecycleBin}
+          aria-expanded={recycleBinExpanded}
           title="Recycle bin"
         >
-          <Trash2 size={20} />
-          <span class="truncate text-sm text-[--koala-subtext-0]">Recycle Bin:</span>
-          <span class="text-sm text-[--koala-subtext-0]">{recycleBin.length}</span>
+          {#if recycleBinExpanded}<ChevronDown size={16} />{:else}<ChevronRight size={16} />{/if}
+          <Trash2 size={16} />
+          <span>Recycle Bin</span>
+          <span class="editor-sidebar__count">{recycleBin.length}</span>
         </button>
         <button
-          class="icon btn !p-1 !text-[--koala-error-text]"
+          type="button"
+          class="editor-recycle-bin__clear"
           onclick={handleEmptyTrash}
           disabled={emptyingTrash}
           aria-label="Empty recycle bin"
           title="Empty recycle bin"
         >
-          {#if emptyingTrash}<LoaderCircle size={20} class="animate-spin" />{:else}<X size={20} />{/if}
+          {#if emptyingTrash}<LoaderCircle size={17} class="animate-spin" />{:else}<X size={17} />{/if}
         </button>
       </div>
 
       {#if recycleBinExpanded}
-        <div class="border-l border-[--koala-border-subtle] ml-2 pl-2">
+        <div class="editor-recycle-bin__items">
           {#each recycleBin as item (item.id)}
             <button
-              class="outline-none border-none w-full text-left px-2 py-1.5 hover:bg-[--koala-hover-block] transition-colors
-                     {item.id === currentId ? 'bg-[--koala-focusing-block]' : 'bg-transparent'} rounded"
+              type="button"
+              class="editor-recycle-bin__item"
               onclick={() => onSelect(item)}
+              aria-current={item.id === currentId ? 'page' : undefined}
               title={`${item.path} · ${formatDate(item.deletedAt)} · #${item.id}`}
             >
-              <span class="block truncate text-sm text-[--koala-text]">{item.title}</span>
-              <span class="block truncate text-xs text-[--koala-subtext-0]">{item.path} · {formatDate(item.deletedAt)}</span>
+              <span class="editor-recycle-bin__item-title">{item.title}</span>
+              <span class="editor-recycle-bin__item-meta">{item.path} · {formatDate(item.deletedAt)}</span>
             </button>
           {/each}
         </div>
       {/if}
-    </div>
+    </section>
   {/if}
 </div>

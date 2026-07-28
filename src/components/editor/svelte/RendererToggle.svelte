@@ -23,12 +23,12 @@
 <fieldset
   role="radiogroup"
   aria-label="Renderer Mode"
-  class="m-0 flex h-8 items-center gap-1 border-0 p-0 text-xs text-[--koala-subtext-0]"
+  class="editor-renderer-toggle"
 >
   <legend class="sr-only">Renderer Mode</legend>
   {#each options as option}
     <label
-      class="flex h-8 items-center gap-1 rounded px-1.5 hover:bg-[--koala-icon-btn-bg] {disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}"
+      class="editor-renderer-option {disabled ? 'editor-renderer-option--disabled' : ''}"
     >
       <input
         type="radio"
@@ -38,7 +38,7 @@
         disabled={disabled}
         title={disabled ? disabledReason : option.label}
         aria-describedby={disabled ? 'renderer-mode-disabled-reason' : undefined}
-        class="m-0 h-3.5 w-3.5 accent-[--koala-link]"
+        class="editor-renderer-option__input"
         onchange={() => selectRenderer(option.value)}
       />
       <span>{option.label}</span>

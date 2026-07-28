@@ -52,3 +52,14 @@ test('touch scrolling stays inside the Source editor on a narrow screen', async 
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
   await expect(page.locator('.cm-gutters')).toBeHidden()
 })
+
+test('an explicit File Explorer preference remains open on mobile startup', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+  await page.evaluate(() => localStorage.setItem('koala-editor-sidebar-v2', 'true'))
+
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+
+  await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-64\b/)
+})

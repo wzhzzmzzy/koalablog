@@ -83,7 +83,7 @@ async function gateUpload(page: Page) {
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
-  await page.route('**/_actions/oss.upload', async (route) => {
+  await page.route('**/_actions/oss.upload/', async (route) => {
     await gate
     await route.continue()
   })
@@ -445,7 +445,7 @@ test('removing a placeholder discards its late upload result', async ({ page }) 
 })
 
 test('failed image upload removes only its placeholder', async ({ page }) => {
-  await page.route('**/_actions/oss.upload', route => route.abort('failed'))
+  await page.route('**/_actions/oss.upload/', route => route.abort('failed'))
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
 
@@ -727,8 +727,8 @@ test('renaming a File preserves Source selection, scroll, folds, and undo', asyn
   await source.press('Control+End')
   await source.press('Shift+Home')
   const scroller = page.locator('.cm-scroller')
+  await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
   const savedScrollTop = await scroller.evaluate(element => element.scrollTop)
-  expect(savedScrollTop).toBeGreaterThan(0)
 
   const path = page.getByRole('textbox', { name: 'Absolute File Path' })
   await path.fill('/phase-two-renamed')
