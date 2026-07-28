@@ -104,6 +104,20 @@ test('File Source exposes the stable editor contract', async ({ page }) => {
   await expectEditorText(source, 'First line\nSecond line updated')
 })
 
+test('dirty File keeps the Save icon alongside its label', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  const saveButton = page.getByRole('button', { name: 'Save File' })
+  await source.fill('Unsaved Source')
+
+  await expect(page.getByText('Unsaved changes')).toBeVisible()
+  await expect(saveButton).toHaveClass(/editor-tool-button--changed/)
+  await expect.poll(async () => (await saveButton.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(76)
+  await expect(saveButton.locator('svg')).toBeVisible()
+})
+
 test('Renderer Mode changes only the Edit Buffer and survives File switching and reload', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
