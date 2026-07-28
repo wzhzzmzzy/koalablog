@@ -36,213 +36,343 @@ const darkTheme = pageConfig.theme?.dark ?? 'mocha'
 const ossConfig = Astro.locals.config.oss
 const ossAccess = isAdmin ? await readToday(Astro.locals.runtime?.env) : null
 
-const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-lg border bg-transparent px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-3'
+const inputClass = 'h-9 w-full min-w-0 rounded-lg border border-input bg-transparent px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground hover:border-foreground/25 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+const primaryButtonClass = 'inline-flex h-8 items-center justify-center rounded-lg border border-transparent appearance-none bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50'
+const secondaryButtonClass = 'inline-flex h-8 items-center justify-center rounded-lg border border-input appearance-none bg-transparent px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50'
 ---
 
 <DashboardShell title="Settings" description="Manage site configuration, access, and utilities.">
-  <account-settings class="mx-auto block w-full max-w-5xl px-5 py-8 sm:px-8 lg:px-12 xl:px-16">
-    <div class="grid gap-8">
-      <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="account-settings-title">
-        <div class="mb-6">
-          <h2 id="account-settings-title" class="text-base font-medium text-foreground">Account</h2>
-          <p class="mt-1 text-sm text-muted-foreground">Your password and personal API Tokens.</p>
-        </div>
-        <div class="grid gap-6">
-          <form data-account-action="changePassword" method="post" class="grid max-w-md gap-3">
-            <div class="grid gap-2">
-              <label class="text-sm font-medium" for="current-password">Current Password</label>
-              <input class={inputClass} id="current-password" type="password" name="currentPassword" autocomplete="current-password" required />
-            </div>
-            <div class="grid gap-2">
-              <label class="text-sm font-medium" for="new-password">New Password</label>
-              <input class={inputClass} id="new-password" type="password" name="newPassword" autocomplete="new-password" required />
-            </div>
-            <button class="inline-flex h-8 w-24 items-center justify-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">Update</button>
-          </form>
-          <p class="dashboard-success-banner hidden rounded-lg border px-4 py-3 text-sm font-medium" role="status" data-feedback="changePassword">Password updated — your other sessions were signed out.</p>
+  <account-settings class="settings-page">
+    <header class="settings-page-header">
+      <div>
+        <p class="settings-eyebrow">Dashboard</p>
+        <h1>Settings</h1>
+        <p>Manage access, site defaults, and workspace utilities from one place.</p>
+      </div>
+      {isAdmin && <span class="settings-page-status">Site administrator</span>}
+    </header>
 
-          <div class="grid gap-3 border-t border-border pt-6">
-            <h3 class="text-sm font-medium text-foreground">API Tokens</h3>
-            <ul class="grid gap-2">
-              {apiTokens.map(token => (
-                <li class="flex items-center gap-3 text-sm" data-token-row={token.id}>
-                  <span class="text-foreground">{token.label || '(unlabeled)'}</span>
-                  <button type="button" class="inline-flex h-7 items-center rounded-lg border border-input bg-transparent px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted" data-revoke-token={token.id}>Revoke</button>
+    <section class="settings-section" aria-labelledby="account-settings-title">
+      <div class="settings-section-grid">
+        <header class="settings-section-heading">
+          <h2 id="account-settings-title">Account</h2>
+          <p>Your password and personal API tokens.</p>
+        </header>
+
+        <div class="settings-section-content">
+          <form data-account-action="changePassword" method="post" class="settings-list">
+            <div class="settings-list-row">
+              <div class="settings-row-copy">
+                <label for="current-password">Current password</label>
+                <p>Confirm your identity before choosing a new password.</p>
+              </div>
+              <div class="settings-row-control">
+                <input class={inputClass} id="current-password" type="password" name="currentPassword" autocomplete="current-password" required />
+              </div>
+            </div>
+            <div class="settings-list-row">
+              <div class="settings-row-copy">
+                <label for="new-password">New password</label>
+                <p>Updating it signs all other sessions out.</p>
+              </div>
+              <div class="settings-row-control">
+                <input class={inputClass} id="new-password" type="password" name="newPassword" autocomplete="new-password" required />
+              </div>
+            </div>
+            <div class="settings-form-actions">
+              <button class={primaryButtonClass}>Update password</button>
+            </div>
+          </form>
+
+          <p class="dashboard-success-banner settings-notice hidden" role="status" data-feedback="changePassword">Password updated — your other sessions were signed out.</p>
+
+          <div class="settings-subsection">
+            <div class="settings-subsection-header">
+              <div>
+                <h3>API tokens</h3>
+                <p>Create a scoped access token for scripts and integrations.</p>
+              </div>
+              <form data-account-action="createApiToken" method="post" class="settings-inline-form">
+                <label class="sr-only" for="api-token-label">Token label</label>
+                <input class={inputClass} id="api-token-label" type="text" name="label" placeholder="Token label (optional)" />
+                <button class={secondaryButtonClass}>Create</button>
+              </form>
+            </div>
+
+            {apiTokens.length > 0
+              ? (
+                  <ul class="settings-token-list">
+                    {apiTokens.map(token => (
+                      <li data-token-row={token.id}>
+                        <span>{token.label || '(unlabeled)'}</span>
+                        <button type="button" class={secondaryButtonClass} data-revoke-token={token.id}>Revoke</button>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              : <p class="settings-empty-state">No personal API tokens yet.</p>}
+
+            <div class="settings-token-receipt hidden" data-new-token>
+              <p>Copy this token now — it will not be shown again.</p>
+              <div>
+                <code data-new-token-value></code>
+                <button type="button" class={secondaryButtonClass} data-copy-token>Copy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {isAdmin && (
+      <section class="settings-section" aria-labelledby="users-settings-title">
+        <div class="settings-section-grid">
+          <header class="settings-section-heading">
+            <h2 id="users-settings-title">Users</h2>
+            <p>Create accounts and reset their passwords.</p>
+          </header>
+
+          <div class="settings-section-content">
+            <ul class="settings-user-list">
+              {users.map(user => (
+                <li>
+                  <div class="settings-user-identity">
+                    <span>{user.username}</span>
+                    <span>{user.role}</span>
+                  </div>
+                  <form data-account-action="resetPassword" data-user-id={user.id} method="post" class="settings-inline-form">
+                    <label class="sr-only" for={`reset-password-${user.id}`}>New password for {user.username}</label>
+                    <input class={inputClass} id={`reset-password-${user.id}`} type="password" name="password" placeholder="New password" autocomplete="off" required />
+                    <button class={secondaryButtonClass}>Reset</button>
+                  </form>
                 </li>
               ))}
             </ul>
-            <form data-account-action="createApiToken" method="post" class="flex items-center gap-2">
-              <input class={inputClass} type="text" name="label" placeholder="Token label (optional)" />
-              <button class="inline-flex h-9 w-20 shrink-0 items-center justify-center rounded-lg border border-input bg-transparent px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted">Create</button>
-            </form>
-            <div class="hidden rounded-lg border border-border bg-muted/40 p-3" data-new-token>
-              <p class="mb-2 text-sm text-muted-foreground">Copy this token now — it will not be shown again:</p>
-              <div class="flex items-center gap-2">
-                <code class="font-mono text-sm text-foreground" data-new-token-value></code>
-                <button type="button" class="inline-flex h-7 items-center rounded-lg border border-input bg-transparent px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted" data-copy-token>Copy</button>
+
+            <div class="settings-subsection">
+              <div class="settings-subsection-header">
+                <div>
+                  <h3>Add user</h3>
+                  <p>New users can access their own account settings after signing in.</p>
+                </div>
               </div>
+              <form data-account-action="createUser" method="post" class="settings-create-user-form">
+                <label class="sr-only" for="new-username">Username</label>
+                <input class={inputClass} id="new-username" type="text" name="username" placeholder="Username" required />
+                <label class="sr-only" for="new-user-password">Initial password</label>
+                <input class={inputClass} id="new-user-password" type="password" name="password" placeholder="Initial password" autocomplete="off" required />
+                <button class={primaryButtonClass}>Create user</button>
+              </form>
             </div>
           </div>
         </div>
       </section>
+    )}
 
-      {isAdmin && (
-        <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="users-settings-title">
-          <div class="mb-6">
-            <h2 id="users-settings-title" class="text-base font-medium text-foreground">Users</h2>
-            <p class="mt-1 text-sm text-muted-foreground">Create accounts and reset passwords.</p>
-          </div>
-          <ul class="mb-5 grid gap-2">
-            {users.map(user => (
-              <li class="flex flex-wrap items-center gap-3 text-sm">
-                <span class="font-medium text-foreground">{user.username}</span>
-                <i class="text-muted-foreground">({user.role})</i>
-                <form data-account-action="resetPassword" data-user-id={user.id} method="post" class="flex items-center gap-2">
-                  <input class={inputClass} type="password" name="password" placeholder="New password" autocomplete="off" required />
-                  <button class="inline-flex h-8 items-center rounded-lg border border-input bg-transparent px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">Reset</button>
-                </form>
-              </li>
-            ))}
-          </ul>
-          <form data-account-action="createUser" method="post" class="flex flex-wrap items-center gap-2">
-            <input class={inputClass} type="text" name="username" placeholder="Username" required />
-            <input class={inputClass} type="password" name="password" placeholder="Initial password" autocomplete="off" required />
-            <button class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80">Create User</button>
-          </form>
-        </section>
-      )}
+    {isAdmin && (
+      <setting-form class="block">
+        <form id="settings-form" method="POST" action={actions.form.settings}>
+          <section class="settings-section" aria-labelledby="site-settings-title">
+            <div class="settings-section-grid">
+              <header class="settings-section-heading">
+                <h2 id="site-settings-title">Site</h2>
+                <p>Changes in this section are saved as one site-wide configuration.</p>
+              </header>
 
-      {isAdmin && (
-        <setting-form>
-          <form id="settings-form" method="POST" action={actions.form.settings} class="grid gap-8">
-            <header class="flex flex-col justify-between gap-5 border-b border-border pb-6 sm:flex-row sm:items-end">
-              <div>
-                <p class="mb-2 text-sm font-medium text-muted-foreground">Site configuration</p>
-                <h2 class="text-xl font-semibold tracking-tight text-foreground">Site</h2>
-                <p class="mt-2 text-sm text-muted-foreground">Changes are saved as one site-wide configuration.</p>
-              </div>
-              <button type="submit" class="inline-flex h-8 items-center justify-center gap-1.5 self-start rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:self-auto">
-                <Save size={16} />
-                Save changes
-              </button>
-            </header>
-
-            { saved && <p class="dashboard-success-banner rounded-lg border px-4 py-3 text-sm font-medium" role="status">Saved Successfully</p> }
-            { saveResult?.error && <p class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{saveResult.error.message}</p> }
-
-            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="general-settings-title">
-              <div class="mb-6">
-                <h2 id="general-settings-title" class="text-base font-medium text-foreground">General</h2>
-                <p class="mt-1 text-sm text-muted-foreground">Identity and access defaults for this site.</p>
-              </div>
-              <div class="grid gap-5">
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium" for="title-input">Blog Title</label>
-                  <input class={inputClass} id="title-input" name="title" value={title} />
+              <div class="settings-section-content">
+                <div class="settings-site-actions">
+                  <p>Review your changes, then save when you are ready.</p>
+                  <button type="submit" class={primaryButtonClass}>
+                    <Save size={16} />
+                    Save changes
+                  </button>
                 </div>
 
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium" for="avatar-input">Avatar</label>
-                  <div class="flex flex-col gap-2 sm:flex-row">
-                    <input class={inputClass} id="avatar-input" name="avatar" value={avatar} />
-                    <button type="button" id="upload-avatar-btn" class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-input bg-transparent px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50" aria-label="Upload avatar">
-                      <Upload size={16} />
-                      Upload
-                    </button>
+                { saved && <p class="dashboard-success-banner settings-notice" role="status">Saved successfully.</p> }
+                { saveResult?.error && <p class="settings-error-notice" role="alert">{saveResult.error.message}</p> }
+
+                <section class="settings-subsection" aria-labelledby="general-settings-title">
+                  <header class="settings-subsection-header">
+                    <div>
+                      <h3 id="general-settings-title">General</h3>
+                      <p>Basic identity shown across the site.</p>
+                    </div>
+                  </header>
+                  <div class="settings-list">
+                    <div class="settings-list-row">
+                      <div class="settings-row-copy">
+                        <span>Blog identity</span>
+                        <p>Set the title and avatar used in navigation and public pages.</p>
+                      </div>
+                      <div class="settings-row-control settings-field-stack">
+                        <label class="settings-field-label" for="title-input">
+                          <span>Blog title</span>
+                          <input class={inputClass} id="title-input" name="title" value={title} />
+                        </label>
+                        <div class="settings-field-label">
+                          <label for="avatar-input">Avatar URL</label>
+                          <div class="settings-upload-control">
+                            <input class={inputClass} id="avatar-input" name="avatar" value={avatar} />
+                            <button type="button" id="upload-avatar-btn" class={secondaryButtonClass} aria-label="Upload avatar">
+                              <Upload size={16} />
+                              Upload
+                            </button>
+                          </div>
+                        </div>
+                        <p id="avatar-upload-status" class="hidden settings-inline-error" role="alert"></p>
+                      </div>
+                    </div>
                   </div>
-                  <p id="avatar-upload-status" class="hidden text-sm text-destructive" role="alert"></p>
-                </div>
-              </div>
-            </section>
+                </section>
 
-            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="appearance-settings-title">
-              <div class="mb-6">
-                <h2 id="appearance-settings-title" class="text-base font-medium text-foreground">Appearance</h2>
-                <p class="mt-1 text-sm text-muted-foreground">Choose the Catppuccin flavor used in light and dark system modes.</p>
-              </div>
-              <div id="theme-bus" class="hidden">
-                <input id="light" type="hidden" name="lightTheme" value={lightTheme} />
-                <input id="dark" type="hidden" name="darkTheme" value={darkTheme} />
-              </div>
-              <ThemeSwitch client:load light={lightTheme} dark={darkTheme} />
-            </section>
-
-            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="storage-settings-title">
-              <div class="mb-6">
-                <h2 id="storage-settings-title" class="text-base font-medium text-foreground">Object Storage</h2>
-                <p class="mt-1 text-sm text-muted-foreground">Current usage: {ossAccess?.readTimes ?? 0} reads and {ossAccess?.operateTimes ?? 0} write operations today.</p>
-              </div>
-              <div class="grid gap-5 sm:grid-cols-2">
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium" for="read-limit-input">Monthly Read Limit</label>
-                  <input class={inputClass} id="read-limit-input" name="readLimit" value={ossConfig.readLimit} inputmode="numeric" />
-                </div>
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium" for="operate-limit-input">Monthly Operate Limit</label>
-                  <input class={inputClass} id="operate-limit-input" name="operateLimit" value={ossConfig.operateLimit} inputmode="numeric" />
-                </div>
-              </div>
-            </section>
-
-            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="rss-settings-title">
-              <div class="mb-6">
-                <h2 id="rss-settings-title" class="text-base font-medium text-foreground">RSS</h2>
-                <p class="mt-1 text-sm text-muted-foreground">Configure the feed available to readers.</p>
-              </div>
-              <div class="grid gap-5">
-                <RssEnableSwitch client:load checked={rssConfig?.enable || false} />
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium" for="rss-desc-input">Description</label>
-                  <input class={inputClass} id="rss-desc-input" type="text" name="rssDesc" value={rssConfig?.description} />
-                </div>
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium" for="rss-lang-input">Language</label>
-                  <input class={inputClass} id="rss-lang-input" type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
-                </div>
-              </div>
-            </section>
-
-            <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="font-settings-title">
-              <div class="mb-6">
-                <h2 id="font-settings-title" class="text-base font-medium text-foreground">Typography</h2>
-                <p class="mt-1 text-sm text-muted-foreground">Optional font overrides for readers and the editor.</p>
-              </div>
-              <div class="grid gap-5">
-                <div class="grid gap-2">
-                  <label class="text-sm font-medium" for="font-cdn-input">CDN URL</label>
-                  <input class={inputClass} id="font-cdn-input" type="text" name="fontCDN" value={fontConfig?.cdn} placeholder="https://fonts.googleapis.com/css2?..." />
-                </div>
-                <div class="grid gap-5 sm:grid-cols-3">
-                  <div class="grid gap-2">
-                    <label class="text-sm font-medium" for="font-sans-input">Sans</label>
-                    <input class={inputClass} id="font-sans-input" type="text" name="fontSans" value={fontConfig?.sans} placeholder="'Noto Sans SC', sans-serif" />
+                <section class="settings-subsection" aria-labelledby="appearance-settings-title">
+                  <header class="settings-subsection-header">
+                    <div>
+                      <h3 id="appearance-settings-title">Appearance</h3>
+                      <p>Choose the Catppuccin flavor used in each system mode.</p>
+                    </div>
+                  </header>
+                  <div class="settings-list">
+                    <div class="settings-list-row">
+                      <div class="settings-row-copy">
+                        <span>Theme flavors</span>
+                        <p>Preview and choose a light and dark default independently.</p>
+                      </div>
+                      <div class="settings-row-control">
+                        <div id="theme-bus" class="hidden">
+                          <input id="light" type="hidden" name="lightTheme" value={lightTheme} />
+                          <input id="dark" type="hidden" name="darkTheme" value={darkTheme} />
+                        </div>
+                        <ThemeSwitch client:load light={lightTheme} dark={darkTheme} />
+                      </div>
+                    </div>
                   </div>
-                  <div class="grid gap-2">
-                    <label class="text-sm font-medium" for="font-serif-input">Serif</label>
-                    <input class={inputClass} id="font-serif-input" type="text" name="fontSerif" value={fontConfig?.serif} placeholder="'Noto Serif SC', serif" />
-                  </div>
-                  <div class="grid gap-2">
-                    <label class="text-sm font-medium" for="font-mono-input">Mono</label>
-                    <input class={inputClass} id="font-mono-input" type="text" name="fontMono" value={fontConfig?.mono} placeholder="'JetBrains Mono', monospace" />
-                  </div>
-                </div>
-              </div>
-            </section>
-          </form>
+                </section>
 
-          <section class="mt-8 rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="settings-utility-title">
-            <div class="mb-6">
-              <h2 id="settings-utility-title" class="text-base font-medium text-foreground">Utilities</h2>
-              <p class="mt-1 text-sm text-muted-foreground">Import a local workspace or export a portable archive.</p>
-            </div>
-            <div class="flex flex-col gap-3">
-              <ImportFile client:load />
-              <ExportZip client:load />
+                <section class="settings-subsection" aria-labelledby="storage-settings-title">
+                  <header class="settings-subsection-header">
+                    <div>
+                      <h3 id="storage-settings-title">Object storage</h3>
+                      <p>Set the monthly guardrails for reads and write operations.</p>
+                    </div>
+                    <p class="settings-usage-summary">Today: {ossAccess?.readTimes ?? 0} reads · {ossAccess?.operateTimes ?? 0} writes</p>
+                  </header>
+                  <div class="settings-list">
+                    <div class="settings-list-row">
+                      <div class="settings-row-copy">
+                        <span>Monthly limits</span>
+                        <p>Use 0 to disable a limit.</p>
+                      </div>
+                      <div class="settings-row-control settings-field-grid">
+                        <label class="settings-field-label" for="read-limit-input">
+                          <span>Read limit</span>
+                          <input class={inputClass} id="read-limit-input" name="readLimit" value={ossConfig.readLimit} inputmode="numeric" />
+                        </label>
+                        <label class="settings-field-label" for="operate-limit-input">
+                          <span>Write limit</span>
+                          <input class={inputClass} id="operate-limit-input" name="operateLimit" value={ossConfig.operateLimit} inputmode="numeric" />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="settings-subsection" aria-labelledby="rss-settings-title">
+                  <header class="settings-subsection-header">
+                    <div>
+                      <h3 id="rss-settings-title">RSS</h3>
+                      <p>Control the feed available to readers.</p>
+                    </div>
+                  </header>
+                  <div class="settings-list">
+                    <div class="settings-list-row">
+                      <div class="settings-row-copy">
+                        <span>Feed availability</span>
+                        <p>Publish a discoverable RSS feed for this site.</p>
+                      </div>
+                      <div class="settings-row-control">
+                        <RssEnableSwitch client:load checked={rssConfig?.enable || false} />
+                      </div>
+                    </div>
+                    <div class="settings-list-row">
+                      <div class="settings-row-copy">
+                        <span>Feed metadata</span>
+                        <p>Use a short description and BCP 47 language tag.</p>
+                      </div>
+                      <div class="settings-row-control settings-field-grid">
+                        <label class="settings-field-label" for="rss-desc-input">
+                          <span>Description</span>
+                          <input class={inputClass} id="rss-desc-input" type="text" name="rssDesc" value={rssConfig?.description} />
+                        </label>
+                        <label class="settings-field-label" for="rss-lang-input">
+                          <span>Language</span>
+                          <input class={inputClass} id="rss-lang-input" type="text" name="rssLang" value={rssConfig?.lang || 'en-US'} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="settings-subsection" aria-labelledby="font-settings-title">
+                  <header class="settings-subsection-header">
+                    <div>
+                      <h3 id="font-settings-title">Typography</h3>
+                      <p>Optionally override the fonts used by readers and the editor.</p>
+                    </div>
+                  </header>
+                  <div class="settings-list">
+                    <div class="settings-list-row">
+                      <div class="settings-row-copy">
+                        <label for="font-cdn-input">Font source</label>
+                        <p>Load a stylesheet before the configured font families are applied.</p>
+                      </div>
+                      <div class="settings-row-control">
+                        <input class={inputClass} id="font-cdn-input" type="text" name="fontCDN" value={fontConfig?.cdn} placeholder="https://fonts.googleapis.com/css2?..." />
+                      </div>
+                    </div>
+                    <div class="settings-list-row">
+                      <div class="settings-row-copy">
+                        <span>Font families</span>
+                        <p>Each value accepts a CSS font-family stack.</p>
+                      </div>
+                      <div class="settings-row-control settings-font-grid">
+                        <label class="settings-field-label" for="font-sans-input">
+                          <span>Sans</span>
+                          <input class={inputClass} id="font-sans-input" type="text" name="fontSans" value={fontConfig?.sans} placeholder="'Noto Sans SC', sans-serif" />
+                        </label>
+                        <label class="settings-field-label" for="font-serif-input">
+                          <span>Serif</span>
+                          <input class={inputClass} id="font-serif-input" type="text" name="fontSerif" value={fontConfig?.serif} placeholder="'Noto Serif SC', serif" />
+                        </label>
+                        <label class="settings-field-label" for="font-mono-input">
+                          <span>Mono</span>
+                          <input class={inputClass} id="font-mono-input" type="text" name="fontMono" value={fontConfig?.mono} placeholder="'JetBrains Mono', monospace" />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
             </div>
           </section>
-        </setting-form>
-      )}
-    </div>
+        </form>
+      </setting-form>
+    )}
+
+    {isAdmin && (
+      <section class="settings-section" aria-labelledby="settings-utility-title">
+        <div class="settings-section-grid">
+          <header class="settings-section-heading">
+            <h2 id="settings-utility-title">Utilities</h2>
+            <p>Import a local workspace or export a portable archive.</p>
+          </header>
+          <div class="settings-section-content">
+            <ImportFile client:load />
+            <ExportZip client:load />
+          </div>
+        </div>
+      </section>
+    )}
   </account-settings>
 </DashboardShell>
 

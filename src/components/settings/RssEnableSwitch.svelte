@@ -9,7 +9,7 @@
   let enabled = $state(checked)
 </script>
 
-<div class="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/35 px-4 py-3">
+<div class="flex items-center justify-between gap-4">
   <div class="min-w-0">
     <p id="rss-enable-label" class="text-sm font-medium text-foreground">Enable RSS</p>
     <p id="rss-enable-description" class="mt-1 text-sm text-muted-foreground">Publish this site’s feed for readers.</p>

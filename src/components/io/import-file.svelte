@@ -296,7 +296,7 @@ const onSave = async () => {
 </script>
 
 <section class="import-section" aria-label="File Import">
-  <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/35 p-3">
+  <div class="flex flex-wrap items-center justify-between gap-4 border-b border-border py-4">
     <div>
       <p class="text-sm font-medium text-foreground">Import files</p>
       <p class="mt-1 text-sm text-muted-foreground">Choose a local folder to add Markdown and Svelte Files.</p>
