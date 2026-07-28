@@ -1,5 +1,11 @@
 #page button.icon {
-  --at-apply: w-10 py-2 rounded inline-flex items-center justify-center;
+  width: 2.5rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-radius: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background-color: transparent;
 }
 
