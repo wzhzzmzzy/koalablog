@@ -2,13 +2,13 @@ import path from 'node:path'
 import process from 'node:process'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/libsql'
-import { expect, test } from './fixture'
-import { buildSvelteSourceInBrowser } from './toolchain'
 import { MarkdownSource } from '../../src/db'
 import * as schema from '../../src/db/schema'
 import { calculateSourceHash } from '../../src/lib/files/source-hash'
 import { calculateArtifactHashes } from '../../src/lib/svelte/artifact-hash'
 import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '../../src/lib/svelte/toolchain'
+import { expect, test } from './fixture'
+import { buildSvelteSourceInBrowser } from './toolchain'
 
 // Cascade contract regression guard (slice 01 of the static UnoCSS -> Tailwind
 // migration). Locks the BEHAVIOR — that the Artifact Stylesheet wins over
@@ -183,4 +183,59 @@ test('Artifact Stylesheet wins over static utilities for the shared flex class (
   finally {
     await noJavascript.close()
   }
+})
+
+// CSSOM probe (slice 04) — asserts the Site Stylesheet's statically generated
+// utilities now live inside a named `utilities` cascade layer, the layering
+// half of the cascade contract. Resilient to dev-vs-build inlining differences:
+// it walks document.styleSheets, finds the `utilities` CSSLayerBlockRule, and
+// asserts it carries at least one rule (does not hard-code a count). The
+// pre-migration (layer-free) and post-migration (layered) mechanic both
+// satisfy the computed-style test above; this probe pins the post-migration
+// mechanism specifically, so slice 05's removal can rely on it.
+test('Site Stylesheet utilities are wrapped in a named `utilities` cascade layer (CSSOM probe)', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'networkidle' })
+
+  const layerInfo = await page.evaluate(() => {
+    const sheets = Array.from(document.styleSheets)
+    const layers: Array<{ name: string, ruleCount: number, sampleSelector: string | null }> = []
+    for (const sheet of sheets) {
+      let rules: CSSRuleList
+      try {
+        rules = sheet.cssRules
+      }
+      catch {
+        // Cross-origin stylesheet without CORS-accessible rules — skip.
+        continue
+      }
+      const walk = (ruleList: CSSRuleList) => {
+        for (const rule of Array.from(ruleList)) {
+          if (rule instanceof CSSLayerBlockRule) {
+            const inner = Array.from(rule.cssRules)
+            const sample = inner.find(r => r instanceof CSSStyleRule)?.cssText?.split('{')[0]?.trim() ?? null
+            layers.push({
+              name: rule.name,
+              ruleCount: inner.length,
+              sampleSelector: sample,
+            })
+          }
+          if (rule instanceof CSSMediaRule) {
+            walk(rule.cssRules)
+          }
+        }
+      }
+      walk(rules)
+    }
+    return layers
+  })
+
+  const utilitiesLayer = layerInfo.find(l => l.name === 'utilities')
+  expect(
+    utilitiesLayer,
+    'no CSSLayerBlockRule named `utilities` found in any stylesheet — site.css is not generating layered utilities (was the dashboardTailwindPlugins gate widened to let site.css through?)',
+  ).toBeDefined()
+  expect(
+    utilitiesLayer!.ruleCount,
+    '`utilities` layer exists but contains zero rules — Tailwind generated no utilities from the site.css @source scan',
+  ).toBeGreaterThan(0)
 })
