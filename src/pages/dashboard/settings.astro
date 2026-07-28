@@ -59,7 +59,7 @@ const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ri
             </div>
             <button class="inline-flex h-8 w-24 items-center justify-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">Update</button>
           </form>
-          <p class="hidden rounded-lg border border-[color:var(--koala-dashboard-success)]/35 bg-[color:var(--koala-dashboard-success)]/10 px-4 py-3 text-sm text-[color:var(--koala-dashboard-success)]" role="status" data-feedback="changePassword">Password updated — your other sessions were signed out.</p>
+          <p class="dashboard-success-banner hidden rounded-lg border px-4 py-3 text-sm font-medium" role="status" data-feedback="changePassword">Password updated — your other sessions were signed out.</p>
 
           <div class="grid gap-3 border-t border-border pt-6">
             <h3 class="text-sm font-medium text-foreground">API Tokens</h3>
@@ -67,19 +67,19 @@ const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ri
               {apiTokens.map(token => (
                 <li class="flex items-center gap-3 text-sm" data-token-row={token.id}>
                   <span class="text-foreground">{token.label || '(unlabeled)'}</span>
-                  <button type="button" class="inline-flex h-7 items-center rounded-lg border border-input px-2.5 text-xs font-medium transition-colors hover:bg-muted" data-revoke-token={token.id}>Revoke</button>
+                  <button type="button" class="inline-flex h-7 items-center rounded-lg border border-input bg-transparent px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted" data-revoke-token={token.id}>Revoke</button>
                 </li>
               ))}
             </ul>
             <form data-account-action="createApiToken" method="post" class="flex items-center gap-2">
               <input class={inputClass} type="text" name="label" placeholder="Token label (optional)" />
-              <button class="inline-flex h-9 w-20 shrink-0 items-center justify-center rounded-lg border border-input px-3 text-sm font-medium transition-colors hover:bg-muted">Create</button>
+              <button class="inline-flex h-9 w-20 shrink-0 items-center justify-center rounded-lg border border-input bg-transparent px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted">Create</button>
             </form>
             <div class="hidden rounded-lg border border-border bg-muted/40 p-3" data-new-token>
               <p class="mb-2 text-sm text-muted-foreground">Copy this token now — it will not be shown again:</p>
               <div class="flex items-center gap-2">
                 <code class="font-mono text-sm text-foreground" data-new-token-value></code>
-                <button type="button" class="inline-flex h-7 items-center rounded-lg border border-input px-2.5 text-xs font-medium transition-colors hover:bg-muted" data-copy-token>Copy</button>
+                <button type="button" class="inline-flex h-7 items-center rounded-lg border border-input bg-transparent px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted" data-copy-token>Copy</button>
               </div>
             </div>
           </div>
@@ -99,7 +99,7 @@ const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ri
                 <i class="text-muted-foreground">({user.role})</i>
                 <form data-account-action="resetPassword" data-user-id={user.id} method="post" class="flex items-center gap-2">
                   <input class={inputClass} type="password" name="password" placeholder="New password" autocomplete="off" required />
-                  <button class="inline-flex h-8 items-center rounded-lg border border-input px-2.5 text-xs font-medium transition-colors hover:bg-muted">Reset</button>
+                  <button class="inline-flex h-8 items-center rounded-lg border border-input bg-transparent px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">Reset</button>
                 </form>
               </li>
             ))}
@@ -127,7 +127,7 @@ const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ri
               </button>
             </header>
 
-            { saved && <p class="rounded-lg border border-[color:var(--koala-dashboard-success)]/35 bg-[color:var(--koala-dashboard-success)]/10 px-4 py-3 text-sm text-[color:var(--koala-dashboard-success)]" role="status">Saved Successfully</p> }
+            { saved && <p class="dashboard-success-banner rounded-lg border px-4 py-3 text-sm font-medium" role="status">Saved Successfully</p> }
             { saveResult?.error && <p class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{saveResult.error.message}</p> }
 
             <section class="rounded-xl border border-border bg-card p-5 sm:p-6" aria-labelledby="general-settings-title">
@@ -145,7 +145,7 @@ const inputClass = 'border-input focus-visible:border-ring focus-visible:ring-ri
                   <label class="text-sm font-medium" for="avatar-input">Avatar</label>
                   <div class="flex flex-col gap-2 sm:flex-row">
                     <input class={inputClass} id="avatar-input" name="avatar" value={avatar} />
-                    <button type="button" id="upload-avatar-btn" class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-input bg-transparent px-3 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50" aria-label="Upload avatar">
+                    <button type="button" id="upload-avatar-btn" class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-input bg-transparent px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50" aria-label="Upload avatar">
                       <Upload size={16} />
                       Upload
                     </button>

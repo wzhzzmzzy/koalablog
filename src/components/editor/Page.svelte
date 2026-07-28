@@ -5,10 +5,11 @@
   import { tick } from 'svelte';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
+  import EditorToolbar from './EditorToolbar.svelte';
   import Notification from './Notification.svelte';
   import { discardEditorState } from './TextEditor.svelte';
   import { initializeEditBuffers, useEditBufferPersistence } from './edit-buffer.svelte';
-  import { editorStore, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, notify, toggleSidebar, setShowSidebar, useSidebarPersistence, SIDEBAR_STORAGE_KEY, removeItem, removeTrashedItems } from './store.svelte';
+  import { editorStore, hasStoredSidebarPreference, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, notify, setShowSidebar, removeItem, removeTrashedItems } from './store.svelte';
   import { formatFileSaveError } from './utils';
 
   interface Props {
@@ -28,10 +29,9 @@
 
   // 启用自动持久化
   useEditBufferPersistence();
-  useSidebarPersistence();
 
-  // Only override sidebar if no stored preference exists or it's mobile
-  if (typeof localStorage !== 'undefined' && localStorage.getItem(SIDEBAR_STORAGE_KEY) === null) {
+  // Automatic mobile behavior must not overwrite the explicit toolbar preference.
+  if (!hasStoredSidebarPreference()) {
     setShowSidebar(!isMobile);
   } else if (isMobile) {
     // Force sidebar closed on mobile initialization for better UX
@@ -64,6 +64,11 @@
     if (window.innerWidth < 768) {
       setShowSidebar(false);
     }
+  }
+
+  function backToDashboard(event: MouseEvent) {
+    event.preventDefault();
+    window.location.href = '/dashboard';
   }
 
   function handleSave(m: FileRecord) {
@@ -131,7 +136,7 @@
 <div class="flex h-screen overflow-hidden w-full">
     <Notification />
     <!-- Sidebar Container -->
-    <div class="{editorStore.showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
+    <div data-testid="editor-sidebar" class="{editorStore.showSidebar ? 'w-64' : 'w-0'} transition-[width] duration-300 ease-in-out overflow-hidden flex flex-col shrink-0 h-screen">
         <div class="flex-1 overflow-hidden pt-5">
              <Sidebar
                 currentId={editorStore.currentFile?.id || 0}
@@ -154,6 +159,12 @@
                     onUpdate={handleUpdate}
                     onPurge={handlePurge}
                  />
+             </div>
+        {:else}
+             <div class="flex-1 h-full overflow-y-auto px-4 md:px-8 flex flex-col">
+                <div class="w-full flex-1 min-h-0 flex flex-col pt-5">
+                  <EditorToolbar file={null} onBackToDashboard={backToDashboard} />
+                </div>
              </div>
         {/if}
     </div>

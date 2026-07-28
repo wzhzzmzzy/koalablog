@@ -44,7 +44,7 @@
 </script>
 
 <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-  <Input id="bearer-token-input" class="font-mono text-xs sm:max-w-md" value={bearerToken || 'Not generated'} readonly />
+  <Input id="bearer-token-input" class="font-mono text-xs sm:max-w-md" value={bearerToken} placeholder="Not generated" readonly />
   <div class="flex items-center gap-2">
     <Button id="copy-bearer-token-btn" type="button" variant="outline" size="icon-sm" disabled={!bearerToken || copied} onclick={copyToken} aria-label="Copy bearer token" title="Copy bearer token">
       {#if copied}<Check />{:else}<Copy />{/if}

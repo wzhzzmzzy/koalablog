@@ -1,7 +1,9 @@
 import type { FileRecord } from '@/db/types'
 import { editBuffers, reconcileEditBuffer, removeEditBuffer } from './edit-buffer.svelte'
 
-export const SIDEBAR_STORAGE_KEY = 'koala-editor-sidebar'
+// v1 also stored automatic mobile/narrow-screen closes, so its boolean could not
+// distinguish a layout response from an explicit user preference.
+export const SIDEBAR_STORAGE_KEY = 'koala-editor-sidebar-v2'
 
 function getStoredSidebar() {
   if (typeof localStorage === 'undefined')
@@ -50,12 +52,8 @@ export function notify(type: 'info' | 'success' | 'error' | 'warning', text: str
   }
 }
 
-export function useSidebarPersistence() {
-  $effect(() => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(editorStore.showSidebar))
-    }
-  })
+export function hasStoredSidebarPreference() {
+  return typeof localStorage !== 'undefined' && localStorage.getItem(SIDEBAR_STORAGE_KEY) !== null
 }
 
 export function setShowSidebar(show: boolean) {
@@ -63,7 +61,11 @@ export function setShowSidebar(show: boolean) {
 }
 
 export function toggleSidebar() {
-  editorStore.showSidebar = !editorStore.showSidebar
+  const show = !editorStore.showSidebar
+  editorStore.showSidebar = show
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(show))
+  }
 }
 
 function applyServerItems(nextItems: FileRecord[], refreshedItems: FileRecord[], authoritative: boolean) {

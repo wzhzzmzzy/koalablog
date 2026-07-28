@@ -129,6 +129,31 @@ body:has(.dashboard-shell) {
 	outline-offset: 2px;
 }
 
+.dashboard-shell .dashboard-success-banner {
+	border-color: color-mix(in srgb, var(--koala-dashboard-success) 35%, var(--card));
+	background-color: color-mix(in srgb, var(--koala-dashboard-success) 12%, var(--card));
+	color: var(--foreground);
+}
+
+.dashboard-shell .theme-flavor-option {
+	border-color: var(--theme-flavor-border);
+	background-color: var(--theme-flavor-surface);
+	color: var(--theme-flavor-text);
+}
+
+.dashboard-shell .theme-flavor-option:hover {
+	border-color: var(--theme-flavor-ring);
+	background-color: var(--theme-flavor-hover);
+	color: var(--theme-flavor-text);
+}
+
+.dashboard-shell .theme-flavor-option[aria-pressed="true"] {
+	border-color: var(--theme-flavor-ring);
+	background-color: var(--theme-flavor-active);
+	box-shadow: 0 0 0 1px var(--theme-flavor-ring);
+	color: var(--theme-flavor-text);
+}
+
 @media (prefers-reduced-motion: reduce) {
 	body:has(.dashboard-shell) *,
 	body:has(.dashboard-shell) *::before,

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { CatppuccinTheme } from '@/lib/const/config'
+  import { Themes } from '@/styles/theme'
   import { Check, Moon, Sun } from '@lucide/svelte'
   import { onMount } from 'svelte'
   import { Button } from '@/components/ui/button'
@@ -20,6 +21,18 @@
   let lightTheme = $state(light)
   let darkTheme = $state(dark)
   let busEl: HTMLDivElement | null = null
+
+  function themePreviewStyle(theme: CatppuccinTheme) {
+    const palette = Themes[theme]
+    return [
+      `--theme-flavor-surface: ${palette['surface-0']}`,
+      `--theme-flavor-hover: ${palette['surface-1']}`,
+      `--theme-flavor-active: ${palette['surface-2']}`,
+      `--theme-flavor-text: ${palette.text}`,
+      `--theme-flavor-border: ${palette['surface-1']}`,
+      `--theme-flavor-ring: ${palette.mauve}`,
+    ].join('; ')
+  }
 
   function dispatchTheme() {
     busEl?.dispatchEvent(new CustomEvent('update-theme', {
@@ -52,7 +65,7 @@
     <div class="grid grid-cols-2 gap-1">
       {#each Object.keys(ThemeOptions) as key}
         {@const theme = key as CatppuccinTheme}
-        <Button variant={lightTheme === theme ? 'secondary' : 'ghost'} size="sm" class="justify-between" aria-pressed={lightTheme === theme} onclick={() => selectTheme(theme, 'light')}>
+        <Button variant="ghost" size="sm" class="theme-flavor-option justify-between" style={themePreviewStyle(theme)} aria-pressed={lightTheme === theme} onclick={() => selectTheme(theme, 'light')}>
           {ThemeOptions[theme]}
           {#if lightTheme === theme}<Check />{/if}
         </Button>
@@ -64,7 +77,7 @@
     <div class="grid grid-cols-2 gap-1">
       {#each Object.keys(ThemeOptions) as key}
         {@const theme = key as CatppuccinTheme}
-        <Button variant={darkTheme === theme ? 'secondary' : 'ghost'} size="sm" class="justify-between" aria-pressed={darkTheme === theme} onclick={() => selectTheme(theme, 'dark')}>
+        <Button variant="ghost" size="sm" class="theme-flavor-option justify-between" style={themePreviewStyle(theme)} aria-pressed={darkTheme === theme} onclick={() => selectTheme(theme, 'dark')}>
           {ThemeOptions[theme]}
           {#if darkTheme === theme}<Check />{/if}
         </Button>

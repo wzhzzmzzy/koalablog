@@ -4,11 +4,11 @@
   interface Props {
     value: RendererMode;
     disabled: boolean;
+    disabledReason?: string;
     onChange: (renderer: RendererMode) => void;
   }
 
-  let { value, disabled, onChange }: Props = $props();
-  const disabledReason = 'Renderer cannot be changed for a recycled File';
+  let { value, disabled, disabledReason = 'Renderer cannot be changed for a recycled File', onChange }: Props = $props();
   const options = [
     { value: 'markdown', label: 'Markdown' },
     { value: 'svelte', label: 'Svelte' },

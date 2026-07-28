@@ -786,3 +786,52 @@ test('creating a File focuses its Path without focusing Source', async ({ page }
   await expect(path).toHaveValue(/^\/memo\//)
   await expect(page.getByRole('textbox', { name: /^File Source for \/memo\// })).not.toBeFocused()
 })
+
+test('an empty Editor keeps its complete toolbar available', async ({ page }) => {
+  await page.goto('/dashboard/edit')
+  await page.waitForLoadState('networkidle')
+
+  const toolbar = page.getByTestId('editor-toolbar')
+  await expect(toolbar).toBeVisible()
+  await expect(toolbar.getByRole('button', { name: 'Toggle sidebar' })).toBeVisible()
+  await expect(toolbar.getByRole('button', { name: 'Back to dashboard' })).toBeVisible()
+  await expect(toolbar.getByRole('textbox', { name: 'Absolute File Path' })).toBeDisabled()
+  await expect(toolbar.getByRole('radio', { name: 'Markdown' })).toBeDisabled()
+  await expect(toolbar.getByRole('button', { name: 'Save File' })).toBeDisabled()
+  await expect(toolbar.getByRole('button', { name: 'Move to recycle bin' })).toBeDisabled()
+  await expect(toolbar.getByRole('button', { name: 'Copy File link' })).toBeDisabled()
+})
+
+test('automatic sidebar close does not follow a user back to desktop', async ({ page }) => {
+  await page.goto('/dashboard/edit')
+  await page.waitForLoadState('networkidle')
+
+  const sidebar = page.getByTestId('editor-sidebar')
+  await page.setViewportSize({ width: 375, height: 700 })
+  await page.getByRole('button', { name: 'phase-two', exact: true }).click()
+  await expect(sidebar).toHaveClass(/\bw-0\b/)
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('koala-editor-sidebar-v2'))).toBeNull()
+
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/dashboard/edit')
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-64\b/)
+})
+
+test('a manual sidebar preference is retained while an old automatic value is ignored', async ({ page }) => {
+  await page.goto('/dashboard/edit')
+  await page.waitForLoadState('networkidle')
+  await page.evaluate(() => localStorage.setItem('koala-editor-sidebar', 'false'))
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-64\b/)
+
+  await page.getByRole('button', { name: 'phase-two', exact: true }).click()
+  await page.getByRole('button', { name: 'Toggle sidebar' }).click()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('koala-editor-sidebar-v2'))).toBe('false')
+
+  await page.goto('/dashboard/edit')
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-0\b/)
+  await expect(page.getByTestId('editor-toolbar').getByRole('button', { name: 'Toggle sidebar' })).toBeVisible()
+})
