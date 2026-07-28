@@ -285,17 +285,17 @@
 <div
   bind:this={container}
   class="h-full w-full min-h-0
-    [&_.cm-editor]:h-full [&_.cm-editor]:bg-transparent [&_.cm-editor]:text-sm [&_.cm-editor]:text-[--koala-editor-text]
+    [&_.cm-editor]:h-full [&_.cm-editor]:bg-transparent [&_.cm-editor]:text-sm [&_.cm-editor]:text-[color:var(--koala-editor-text)]
     [&_.cm-editor.cm-focused]:outline-none
     [&_.cm-scroller]:overflow-auto [&_.cm-scroller]:[font-family:var(--koala-font-mono)]
     [&_.cm-scroller]:leading-[1.6] [&_.cm-scroller]:[touch-action:pan-x_pan-y]
     [&_.cm-content]:min-h-full [&_.cm-content]:py-2 [&_.cm-content]:[caret-color:var(--koala-editor-text)]
     [&_.cm-line]:px-2
     [&_.cm-gutters]:bg-transparent
-    [&_.cm-gutters]:text-[--koala-subtext-0] lt-sm:[&_.cm-gutters]:hidden
-    [&_.cm-activeLine]:bg-[color-mix(in_srgb,var(--koala-focusing-block)_60%,transparent)] [&_.cm-activeLineGutter]:bg-[--koala-focusing-block]
-    [&_::selection]:!bg-[--koala-editor-selection-bg]
+    [&_.cm-gutters]:text-[color:var(--koala-subtext-0)] max-sm:[&_.cm-gutters]:hidden
+    [&_.cm-activeLine]:bg-[color-mix(in_srgb,var(--koala-focusing-block)_60%,transparent)] [&_.cm-activeLineGutter]:bg-[color:var(--koala-focusing-block)]
+    [&_::selection]:!bg-[color:var(--koala-editor-selection-bg)]
     [&_.cm-cursor]:[border-left-color:var(--koala-editor-text)] [&_.cm-dropCursor]:[border-left-color:var(--koala-editor-text)]
-    [&_.cm-searchMatch]:bg-[--koala-warning-bg] [&_.cm-searchMatch]:outline [&_.cm-searchMatch]:outline-[--koala-warning-text]
-    [&_.cm-searchMatch.cm-searchMatch-selected]:bg-[--koala-focusing-block]"
+    [&_.cm-searchMatch]:bg-[color:var(--koala-warning-bg)] [&_.cm-searchMatch]:outline [&_.cm-searchMatch]:outline-[color:var(--koala-warning-text)]
+    [&_.cm-searchMatch.cm-searchMatch-selected]:bg-[color:var(--koala-focusing-block)]"
 ></div>

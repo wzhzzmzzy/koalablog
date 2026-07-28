@@ -51,7 +51,7 @@ const handleSubmit = async (e: Event) => {
       bind:value={formData.blogTitle}
       class={`outline-none border-none ${
         validationErrors.blogTitle ? 'border-red-500' : 'border-gray-300'
-      } text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2`}
+      } text-sm block h-10 w-full bg-[color:var(--koala-code-bg)] text-[color:var(--koala-code-text)] pl-2`}
       placeholder="Set your blog title"
     />
     {#if validationErrors.blogTitle}
@@ -68,7 +68,7 @@ const handleSubmit = async (e: Event) => {
       bind:value={formData.username}
       class={`outline-none border-none ${
         validationErrors.username ? 'border-red-500' : 'border-gray-300'
-      } text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2`}
+      } text-sm block h-10 w-full bg-[color:var(--koala-code-bg)] text-[color:var(--koala-code-text)] pl-2`}
       placeholder="Your admin username"
     />
     {#if validationErrors.username}
@@ -85,7 +85,7 @@ const handleSubmit = async (e: Event) => {
       bind:value={formData.password}
       class={`outline-none border-none ${
         validationErrors.password ? 'border-red-500' : 'border-gray-300'
-      } text-sm block h-10 w-full bg-[--koala-code-bg] color-[--koala-code-text] pl-2`}
+      } text-sm block h-10 w-full bg-[color:var(--koala-code-bg)] text-[color:var(--koala-code-text)] pl-2`}
       placeholder="Do not forget it"
     />
     {#if validationErrors.password}

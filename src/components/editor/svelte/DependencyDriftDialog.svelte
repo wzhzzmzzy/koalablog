@@ -13,7 +13,7 @@
 </script>
 
 <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation">
-  <section class="w-full max-w-2xl rounded bg-[--koala-bg] p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="dependency-drift-title">
+  <section class="w-full max-w-2xl rounded bg-[color:var(--koala-bg)] p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="dependency-drift-title">
     <h2 id="dependency-drift-title" class="m-0 text-lg">Review Svelte dependency changes</h2>
     <p class="mt-2 text-sm">Replacing this Artifact changes its pinned browser dependencies. Confirm only after reviewing each entry.</p>
     <dl class="mt-3 break-all text-xs">
@@ -29,7 +29,7 @@
         </li>
       {/each}
     </ul>
-    {#if diff.truncated}<p class="text-sm text-[--koala-warning-text]">Additional dependency changes are omitted from this bounded review.</p>{/if}
+    {#if diff.truncated}<p class="text-sm text-[color:var(--koala-warning-text)]">Additional dependency changes are omitted from this bounded review.</p>{/if}
     <div class="mt-5 flex justify-end gap-2">
       <button type="button" class="btn" onclick={onCancel}>Cancel</button>
       <button type="button" class="btn" onclick={onApprove}>Approve replacement</button>
