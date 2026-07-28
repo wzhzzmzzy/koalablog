@@ -14,12 +14,16 @@ const cfConfig = {
 }
 
 const dashboardTailwindEntry = /[/\\]src[/\\]styles[/\\]dashboard-ui\.css(?:\?.*)?$/
+const siteTailwindEntry = /[/\\]src[/\\]styles[/\\]site\.css(?:\?.*)?$/
 
 /**
- * Tailwind is deliberately scoped to the non-Editor Dashboard. Its Vite
- * generator otherwise receives UnoCSS's virtual `__uno.css` module too, which
- * makes Tailwind attempt to evaluate UnoCSS-specific functions such as
- * `--spacing(...)`.
+ * Tailwind is deliberately scoped to the static Tailwind entries (Site
+ * Stylesheet + Dashboard Stylesheet). Its Vite generator otherwise
+ * receives UnoCSS's virtual `__uno.css` module too, which makes Tailwind
+ * attempt to evaluate UnoCSS-specific functions such as `--spacing(...)`.
+ * The gate is widened in slice 04 to let both static entries through;
+ * UnoCSS's virtual module still exists, so the wrapper itself is removed
+ * only in slice 05.
  */
 const dashboardTailwindPlugins = tailwindcss().map((plugin) => {
   if (!plugin.name.startsWith('@tailwindcss/vite:generate'))
@@ -34,7 +38,7 @@ const dashboardTailwindPlugins = tailwindcss().map((plugin) => {
     transform: {
       ...hook,
       handler(code, id, options) {
-        if (!dashboardTailwindEntry.test(id))
+        if (!dashboardTailwindEntry.test(id) && !siteTailwindEntry.test(id))
           return
 
         return handler.call(this, code, id, options)
