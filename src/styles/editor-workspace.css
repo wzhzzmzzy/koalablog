@@ -258,6 +258,8 @@ body:has(.editor-workspace) {
 }
 
 .editor-tool-button--changed {
+  width: auto;
+  min-width: 4.75rem;
   color: var(--koala-catppuccin-base);
   background: var(--koala-catppuccin-green);
   box-shadow: 0 0.6rem 1.2rem -0.95rem color-mix(in srgb, var(--koala-catppuccin-green) 72%, transparent);
@@ -521,9 +523,12 @@ body:has(.editor-workspace) {
   background: color-mix(in srgb, var(--koala-catppuccin-mauve) 12%, transparent) !important;
 }
 
-.editor-workspace .cm-selectionBackground,
+.editor-workspace .cm-selectionBackground {
+  background: transparent !important;
+}
+
 .editor-workspace .cm-content ::selection {
-  background: color-mix(in srgb, var(--koala-catppuccin-mauve) 34%, transparent) !important;
+  background: color-mix(in srgb, var(--koala-catppuccin-overlay-0) 34%, transparent) !important;
 }
 
 .editor-workspace .cm-cursor,
