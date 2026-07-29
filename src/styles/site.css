@@ -9,9 +9,9 @@
  * named cascade layer so the layer-free Artifact Stylesheet always wins
  * for any shared class name (ADR 0013).
  *
- * Static UnoCSS remains active during the migration coexistence period
- * (slice 04); both engines emit identical declarations, so source order is
- * visually irrelevant. UnoCSS removal is slice 05.
+ * This is the sole static utility engine: Tailwind 4 generates every
+ * static utility class from this entry. UnoCSS is retained only inside
+ * the Svelte Artifact Worker and never participates in the static build.
  */
 @import "tailwindcss/theme" layer(theme);
 @import "tailwindcss/utilities" layer(utilities);

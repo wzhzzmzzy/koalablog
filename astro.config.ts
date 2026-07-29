@@ -6,46 +6,11 @@ import tailwindcss from '@tailwindcss/vite'
 import metaTags from 'astro-meta-tags'
 import { defineConfig } from 'astro/config'
 import Sonda from 'sonda/astro'
-import UnoCss from 'unocss/astro'
 import PreprocessorDirectives from 'unplugin-preprocessor-directives/vite'
 
 const cfConfig = {
   adapter: cloudflare(),
 }
-
-const dashboardTailwindEntry = /[/\\]src[/\\]styles[/\\]dashboard-ui\.css(?:\?.*)?$/
-const siteTailwindEntry = /[/\\]src[/\\]styles[/\\]site\.css(?:\?.*)?$/
-
-/**
- * Tailwind is deliberately scoped to the static Tailwind entries (Site
- * Stylesheet + Dashboard Stylesheet). Its Vite generator otherwise
- * receives UnoCSS's virtual `__uno.css` module too, which makes Tailwind
- * attempt to evaluate UnoCSS-specific functions such as `--spacing(...)`.
- * The gate is widened in slice 04 to let both static entries through;
- * UnoCSS's virtual module still exists, so the wrapper itself is removed
- * only in slice 05.
- */
-const dashboardTailwindPlugins = tailwindcss().map((plugin) => {
-  if (!plugin.name.startsWith('@tailwindcss/vite:generate'))
-    return plugin
-
-  if (typeof plugin.transform !== 'object')
-    return plugin
-
-  const { handler, ...hook } = plugin.transform
-  return {
-    ...plugin,
-    transform: {
-      ...hook,
-      handler(code, id, options) {
-        if (!dashboardTailwindEntry.test(id) && !siteTailwindEntry.test(id))
-          return
-
-        return handler.call(this, code, id, options)
-      },
-    },
-  }
-})
 
 // https://astro.build/config
 export default defineConfig({
@@ -58,7 +23,7 @@ export default defineConfig({
     inlineStylesheets: 'always',
   },
   vite: {
-    plugins: [...dashboardTailwindPlugins, PreprocessorDirectives()],
+    plugins: [tailwindcss(), PreprocessorDirectives()],
     worker: {
       format: 'es',
     },
@@ -72,7 +37,6 @@ export default defineConfig({
     },
   },
   integrations: [
-    UnoCss(),
     svelte(),
     process.env.SONDA_ENABLED === '1' ? Sonda({ server: true }) : null,
     metaTags(),
