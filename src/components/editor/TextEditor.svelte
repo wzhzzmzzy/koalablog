@@ -14,6 +14,7 @@
 <script lang="ts">
   import type { RendererMode } from '@/lib/files/types';
   import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
+  import type { FileReferenceCandidate } from './text-editor/file-reference-completion';
   import CodeMirrorAdapter from './text-editor/codemirror-adapter.svelte';
 
   interface Props {
@@ -23,11 +24,12 @@
     diagnostics?: TextEditorDiagnosticUpdate | null;
     value: string;
     readonly: boolean;
+    referenceCandidates: readonly FileReferenceCandidate[];
     onChange: (value: string) => void;
     uploadImage: (file: File) => Promise<{ url: string }>;
   }
 
-  let { fileId, filePath, renderer, diagnostics = null, value, readonly, onChange, uploadImage }: Props = $props();
+  let { fileId, filePath, renderer, diagnostics = null, value, readonly, referenceCandidates, onChange, uploadImage }: Props = $props();
   let adapter: TextEditorHandle | undefined = $state();
 
   export function focus() {
@@ -47,6 +49,7 @@
   {diagnostics}
   {value}
   {readonly}
+  {referenceCandidates}
   {onChange}
   {uploadImage}
 />
