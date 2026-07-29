@@ -216,14 +216,6 @@
           "autoincrement": false,
           "default": false
         },
-        "remoteTruth": {
-          "name": "remoteTruth",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
         "revision": {
           "name": "revision",
           "type": "integer",

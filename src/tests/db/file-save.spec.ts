@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readAnyById, readById, readByPath, restore, saveFile, saveSyncedFile, trash, updatePrivate } from '@/db/markdown'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readAnyById, readById, readByPath, restore, saveFile, saveSyncedFile, trash, updatePrivate } from '@/db/markdown'
 
 const env = {} as Env
 
@@ -95,14 +95,13 @@ describe('file Source Save derivation', () => {
         tags: '项目',
         outgoing_links: '["/wiki/术语"]',
         private: true,
-        remoteTruth: true,
         revision: 1,
       },
     })
     expect(await readById(env, result.status === 'saved' ? result.file.id : 0)).toMatchObject(result.status === 'saved' ? result.file : {})
   })
 
-  it('keeps a sync-originated Save out of the remote-truth queue', async () => {
+  it('keeps an owner-scoped synchronized save valid', async () => {
     const result = await saveSyncedFile(env, {
       id: 0,
       path: '/wiki/synced',
@@ -114,7 +113,7 @@ describe('file Source Save derivation', () => {
 
     expect(result).toMatchObject({
       status: 'saved',
-      file: { remoteTruth: false },
+      file: { path: '/wiki/synced' },
     })
   })
 })

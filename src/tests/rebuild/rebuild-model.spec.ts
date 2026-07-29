@@ -22,7 +22,6 @@ function file(overrides: Partial<FileRecord> = {}): FileRecord {
     outgoing_links: null,
     path: '/page/koala',
     private: false,
-    remoteTruth: false,
     renderer: 'svelte',
     revision: 1,
     source: MarkdownSource.Memo,

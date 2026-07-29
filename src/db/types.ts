@@ -13,7 +13,6 @@ export interface FileRecord {
   incoming_links?: string | null
   outgoing_links?: string | null
   private: boolean
-  remoteTruth: boolean
   revision: number
   createdAt: Date
   updatedAt: Date

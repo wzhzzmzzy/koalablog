@@ -10,7 +10,6 @@ CREATE TABLE `markdown` (
 	`incoming_links` text,
 	`outgoing_links` text,
 	`private` integer DEFAULT false NOT NULL,
-	`remoteTruth` integer DEFAULT false NOT NULL,
 	`revision` integer DEFAULT 1 NOT NULL,
 	`createdAt` integer DEFAULT (unixepoch()) NOT NULL,
 	`updatedAt` integer DEFAULT (unixepoch()) NOT NULL,

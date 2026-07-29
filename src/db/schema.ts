@@ -18,7 +18,6 @@ export const markdown = sqliteTable('markdown', {
   incoming_links: text(),
   outgoing_links: text(),
   private: integer({ mode: 'boolean' }).default(false).notNull(),
-  remoteTruth: integer({ mode: 'boolean' }).default(false).notNull(),
   revision: integer().default(1).notNull(),
   createdAt: integer({ mode: 'timestamp' })
     .notNull()

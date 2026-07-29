@@ -95,7 +95,6 @@ export async function createFile(env: Env | undefined, input: CreateFileInput): 
         renderer: candidate.renderer,
         content: candidate.content,
         private: candidate.path.startsWith('/memo/'),
-        remoteTruth: true,
         userId: input.userId,
       })
       return { status: 'created', file }

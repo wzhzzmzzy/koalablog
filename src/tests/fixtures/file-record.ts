@@ -15,7 +15,6 @@ export function makeFileRecord(overrides: Partial<FileRecord> = {}): FileRecord 
     incoming_links: null,
     outgoing_links: null,
     private: false,
-    remoteTruth: false,
     revision: 1,
     createdAt: now,
     updatedAt: now,
