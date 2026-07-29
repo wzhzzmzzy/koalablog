@@ -1,5 +1,5 @@
-import { batchImport } from '@/actions/db/markdown'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { batchImport } from '@/actions/db/markdown'
 
 const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),
@@ -14,7 +14,7 @@ const context = { locals: { runtime: { env: { DB: 'db' } }, session: { userId: 1
 describe('file disk import action', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('preserves Renderer and Source verbatim while applying Visibility Default from the absolute Path', async () => {
+  it('preserves Renderer and Source verbatim while making imported Files private', async () => {
     const source = '---\ncustom: user-owned\n---\n\nBody'
     mocks.batchAdd.mockResolvedValue([{ id: 1, path: '/memo/note', title: 'note', content: source }])
 
@@ -25,11 +25,11 @@ describe('file disk import action', () => {
 
     expect(mocks.batchAdd).toHaveBeenCalledWith({ DB: 'db' }, [
       { path: '/memo/note', renderer: 'markdown', content: source, private: true, userId: 1 },
-      { path: '/post/note', renderer: 'svelte', content: source, private: false, userId: 1 },
+      { path: '/post/note', renderer: 'svelte', content: source, private: true, userId: 1 },
     ])
   })
 
-  it('normalizes File Path before deriving the Visibility Default and writing', async () => {
+  it('normalizes File Path before writing a private imported File', async () => {
     mocks.batchAdd.mockResolvedValue([{ id: 1, path: '/memo/note', title: 'note', content: 'source' }])
 
     await batchImport.orThrow.call(context, [

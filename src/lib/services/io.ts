@@ -1,20 +1,5 @@
-import type { AllCollection } from '@/actions/db/markdown'
-import { flattenFileCollections } from '@/lib/files/collection'
-import { fileExportEntries } from '@/lib/files/disk'
-import { actions } from 'astro:actions'
 import { format } from 'date-fns'
-import { zip } from 'fflate/browser'
 import { pickDirectoryWithFilePicker, supportFSApi } from './file-reader'
-
-function createBlob(blobData: Uint8Array<ArrayBufferLike>, chunkSize = 1024 * 1024) {
-  const chunks = []
-
-  for (let i = 0; i < blobData.length; i += chunkSize) {
-    chunks.push(blobData.slice(i, i + chunkSize))
-  }
-
-  return new Blob(chunks, { type: 'application/zip' })
-}
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -30,30 +15,44 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export async function exportAllFiles() {
-  const allMarkdown = await actions.db.markdown.all({ includeTrash: false })
-  const data = allMarkdown.data as AllCollection | undefined
+  const response = await fetch('/api/workspace/exchange')
+  if (!response.ok)
+    throw new Error(`Workspace export failed: ${response.status}`)
+  downloadBlob(await response.blob(), `export-all-${format(new Date(), 'yyyyMMdd_HHmmss')}.zip`)
+}
 
-  if (!data) {
-    throw new Error('No data to export')
-  }
-
-  const textEncoder = new TextEncoder()
-
-  const files = flattenFileCollections(data)
-  const zipFiles = Object.fromEntries(
-    Object.entries(fileExportEntries(files)).map(([path, source]) => [path, textEncoder.encode(source)]),
-  )
-  return new Promise<void>((resolve, reject) => {
-    zip(zipFiles, (err, data) => {
-      if (err) {
-        reject(err)
-      }
-      else {
-        downloadBlob(createBlob(data), `export-all-${format(new Date(), 'yyyyMMdd_HHmmss')}.zip`)
-        resolve()
-      }
+export async function pickExchangeArchive() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'application/zip,.zip'
+  input.style.display = 'none'
+  document.body.appendChild(input)
+  try {
+    const file = await new Promise<File | null>((resolve) => {
+      input.addEventListener('change', () => resolve(input.files?.[0] ?? null), { once: true })
+      input.click()
     })
+    return file
+  }
+  finally {
+    input.remove()
+  }
+}
+
+export async function importExchangeArchive(archive: File) {
+  const response = await fetch('/api/workspace/exchange', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/zip' },
+    body: await archive.arrayBuffer(),
   })
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => ({}))
+    const message = typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string'
+      ? body.error
+      : `Workspace import failed: ${response.status}`
+    throw new Error(message)
+  }
+  return response.json() as Promise<{ created: string[], skippedExisting: string[], rebuildRequired: string[] }>
 }
 
 export function importFromFilePicker() {

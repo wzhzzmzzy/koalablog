@@ -108,17 +108,17 @@ test('browser import reports cross-extension Path collisions before saving', asy
   expect(importRequests).toBe(0)
 })
 
-test('browser import keeps saved Source and reports a per-Path Svelte build failure', async ({ page }) => {
+test('browser import keeps saved Svelte Source and reports Dashboard rebuild requirement', async ({ page }) => {
   test.setTimeout(120_000)
   const paths = ['/post/phase-three/imported-markdown', '/page/phase-three/invalid-widget']
   const markdownSource = '# Imported before build failure'
-  const invalidSvelteSource = '<script>const = invalid</script>'
+  const svelteSource = '<h1>Build this in Dashboard</h1>'
   const database = drizzle({ connection: { url: 'file:.playwright/local.db' } })
 
   try {
     await mockDirectoryPicker(page, {
       post: { 'phase-three': { 'imported-markdown.md': markdownSource } },
-      page: { 'phase-three': { 'invalid-widget.svelte': invalidSvelteSource } },
+      page: { 'phase-three': { 'invalid-widget.svelte': svelteSource } },
     })
     await page.goto('/dashboard/settings')
     await page.waitForLoadState('networkidle')
@@ -129,14 +129,14 @@ test('browser import keeps saved Source and reports a per-Path Svelte build fail
     await expect(save).toBeEnabled()
     await save.click()
 
-    await expect(importDialog.locator('[data-import-build-failure="/page/phase-three/invalid-widget"]')).toBeVisible({ timeout: 90_000 })
+    await expect(importDialog.locator('[data-import-rebuild-required="/page/phase-three/invalid-widget"]')).toBeVisible()
     await expect.poll(async () => {
       const rows = await database.select({ path: markdown.path, renderer: markdown.renderer, content: markdown.content })
         .from(markdown)
         .where(inArray(markdown.path, paths))
       return rows.sort((left, right) => left.path.localeCompare(right.path))
     }).toEqual([
-      { path: '/page/phase-three/invalid-widget', renderer: 'svelte', content: invalidSvelteSource },
+      { path: '/page/phase-three/invalid-widget', renderer: 'svelte', content: svelteSource },
       { path: '/post/phase-three/imported-markdown', renderer: 'markdown', content: markdownSource },
     ])
   }
