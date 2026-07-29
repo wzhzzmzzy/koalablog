@@ -12,7 +12,7 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
           type="text"
           id="username"
           name="username"
-          class="input !w-full box-border h-12"
+          class="input w-full! box-border h-12"
           placeholder="Input username"
           required
         />
@@ -23,7 +23,7 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
           type="password"
           id="password"
           name="password"
-          class="input !w-full box-border h-12"
+          class="input w-full! box-border h-12"
           placeholder="Input password"
           required
         />
@@ -32,7 +32,7 @@ const redirectTo = Astro.url.searchParams.get('from') || '/'
       <button
         id="login-btn"
         type="submit"
-        class="!w-full font-medium text-sm text-center btn"
+        class="w-full! font-medium text-sm text-center btn"
       >
         Login, then redirect to {redirectTo}
       </button>

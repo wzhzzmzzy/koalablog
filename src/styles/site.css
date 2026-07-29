@@ -1,0 +1,47 @@
+/*
+ * Site Stylesheet — the style payload for shared static UI: the Page Shell,
+ * public pages, and reusable Editor UI. Loaded by the root Layout so every
+ * page receives it (the Dashboard Stylesheet layers on top for Dashboard UI).
+ *
+ * Deliberately import `theme` + `utilities` rather than `tailwindcss`, so
+ * Tailwind preflight never resets the established site or Editor styles —
+ * mirroring src/styles/dashboard-ui.css. Utilities are emitted inside a
+ * named cascade layer so the layer-free Artifact Stylesheet always wins
+ * for any shared class name (ADR 0013).
+ *
+ * This is the sole static utility engine: Tailwind 4 generates every
+ * static utility class from this entry. UnoCSS is retained only inside
+ * the Svelte Artifact Worker and never participates in the static build.
+ */
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
+/*
+ * Source boundaries — explicitly exclude Dashboard-owned markup so the
+ * Dashboard component library's class payload does not leak into the
+ * public Site Stylesheet. The non-recursive `*.astro` glob matches only
+ * the top-level public pages; src/pages/dashboard/** is covered by the
+ * Dashboard Stylesheet instead.
+ */
+@source "../layouts";
+@source "../pages/*.astro";
+@source "../components/article-view";
+@source "../components/editor";
+@source "../components/head";
+@source "../components/memos";
+@source "../components/onboarding";
+
+/*
+ * Koala font semantics — match the Artifact profile's shortcuts so the
+ * same `font-ui` / `font-content` / `font-code` utilities work statically.
+ * `@theme inline` makes the values reference the runtime CSS variables
+ * defined in src/styles/global.css rather than baking in fixed stacks.
+ */
+@theme inline {
+	--font-sans: var(--koala-font-sans);
+	--font-serif: var(--koala-font-serif);
+	--font-mono: var(--koala-font-mono);
+	--font-ui: var(--koala-font-sans);
+	--font-content: var(--koala-font-serif);
+	--font-code: var(--koala-font-mono);
+}

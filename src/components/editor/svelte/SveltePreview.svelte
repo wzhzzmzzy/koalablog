@@ -69,7 +69,7 @@
   }
 </script>
 
-<div class="h-full min-h-0 w-full bg-[--koala-bg]" data-koala-svelte-preview>
+<div class="h-full min-h-0 w-full bg-[color:var(--koala-bg)]" data-koala-svelte-preview>
   <style bind:this={artifactStyle} data-koala-artifact></style>
   <div bind:this={artifactRoot} class="h-full min-h-0 w-full" data-koala-artifact-root tabindex="-1"></div>
 </div>

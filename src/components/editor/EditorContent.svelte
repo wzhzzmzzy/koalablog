@@ -123,7 +123,7 @@
   {#if showPreview && renderer === 'svelte'}
     <section class="editor-canvas editor-svelte-preview" aria-label="Svelte Preview">
       {#if svelteBuildError}
-        <p class="m-0 p-4 text-[--koala-error-text]" role="alert">{svelteBuildError}</p>
+        <p class="m-0 p-4 text-[color:var(--koala-error-text)]" role="alert">{svelteBuildError}</p>
       {:else}
         <SveltePreview bind:this={sveltePreview} artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
       {/if}

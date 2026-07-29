@@ -136,6 +136,18 @@ _Avoid_: Dashboard Build, artifact compiler, online preview
 A Render Artifact whose Renderer Mode and Source Hash match the current Svelte File. File revision, Path, and visibility are not currentness inputs, so an exact Source reversion may make a preserved Artifact current again; a missing or stale Artifact makes the File unrenderable without changing or hiding its Source.
 _Avoid_: Published version, current file, draft
 
+**Site Stylesheet**:
+The style payload for shared static UI — the Page Shell, public pages, and reusable Editor UI.
+_Avoid_: Static Tailwind, global CSS
+
+**Dashboard Stylesheet**:
+The additional style payload for Dashboard-owned UI and its component library.
+_Avoid_: dashboard-ui.css, shadcn styles
+
+**Artifact Stylesheet**:
+The style payload persisted and delivered as part of a Render Artifact.
+_Avoid_: Artifact CSS, Worker UnoCSS output
+
 **Disk Representation**:
 The extension-bearing path used when exchanging source files with a local directory or ZIP archive. Markdown uses `.md` and Svelte uses `.svelte`; import removes that renderer extension to recover the extensionless absolute file path.
 _Avoid_: File path, public URL, render artifact

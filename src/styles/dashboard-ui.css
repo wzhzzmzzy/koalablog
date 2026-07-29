@@ -111,14 +111,17 @@ body:has(.dashboard-shell) {
 	box-sizing: border-box;
 }
 
+@layer base {
 .dashboard-shell :where(h1, h2, h3, p) {
 	margin: 0;
+}
 }
 
 .dashboard-shell p {
 	line-height: 1.55;
 }
 
+@layer base {
 .dashboard-shell :where(button, input, select, textarea) {
 	font: inherit;
 }
@@ -126,6 +129,7 @@ body:has(.dashboard-shell) {
 .dashboard-shell :where(a, button, input, select, textarea):focus-visible {
 	outline: 2px solid var(--ring);
 	outline-offset: 2px;
+}
 }
 
 .dashboard-shell .dashboard-success-banner {

@@ -1,3 +1,8 @@
+/* Cascade order: hand-written base styles rank below Tailwind's theme and
+ * utilities layers, so utilities always win over the rules in @layer base —
+ * mirroring the source-order semantics the UnoCSS pipeline had (ADR 0013). */
+@layer base, theme, utilities;
+
 :root {
   --koala-font-sans:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -9,24 +14,33 @@
     "Courier New", monospace;
 }
 
+@layer base {
 a {
-  --at-apply: no-underline;
+  text-decoration: none;
 }
 
 nav {
-  --at-apply: my-5;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
 nav > p > a + a {
-  --at-apply: ml-3;
+  margin-left: 0.75rem;
 }
 
 blockquote {
-  --at-apply: border-l border-l-solid ml-8 pl-4;
+  border-left-width: 1px;
+  border-left-style: solid;
+  margin-left: 2rem;
+  padding-left: 1rem;
 }
 
 .code-block {
-  --at-apply: overflow-x-auto max-w-[800px] px-2 box-border;
+  overflow-x: auto;
+  max-width: 800px;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  box-sizing: border-box;
 }
 
 body {
@@ -80,7 +94,9 @@ ul {
   cursor: pointer;
   outline: none;
   border: none;
-  --at-apply: h-10 w-18 text-[16px];
+  height: 2.5rem;
+  width: 4.5rem;
+  font-size: 16px;
 }
 
 
@@ -88,7 +104,7 @@ ul {
 input.input {
   border: none;
   outline: none;
-  --at-apply: p-2;
+  padding: 0.5rem;
   font-size: 16px;
 }
 
@@ -159,4 +175,5 @@ ul .task-list-item {
 
 .task-list-item.checked .task-list-marker {
   color: var(--koala-catppuccin-green);
+}
 }
