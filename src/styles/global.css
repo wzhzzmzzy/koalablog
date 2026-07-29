@@ -1,3 +1,8 @@
+/* Cascade order: hand-written base styles rank below Tailwind's theme and
+ * utilities layers, so utilities always win over the rules in @layer base —
+ * mirroring the source-order semantics the UnoCSS pipeline had (ADR 0013). */
+@layer base, theme, utilities;
+
 :root {
   --koala-font-sans:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -9,6 +14,7 @@
     "Courier New", monospace;
 }
 
+@layer base {
 a {
   text-decoration: none;
 }
@@ -169,4 +175,5 @@ ul .task-list-item {
 
 .task-list-item.checked .task-list-marker {
   color: var(--koala-catppuccin-green);
+}
 }
