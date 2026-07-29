@@ -19,7 +19,7 @@ declare module 'pngjs' {
   class PNG {
     width: number
     height: number
-    data: Buffer
+    data: import('node:buffer').Buffer
     gamma: number
     bpp: number
 
@@ -29,13 +29,13 @@ declare module 'pngjs' {
       fill?: boolean | number
     })
 
-    static parse(data: Buffer, callback?: (err: Error | null, png: PNG) => void): PNG
+    static parse(data: import('node:buffer').Buffer, callback?: (err: Error | null, png: PNG) => void): PNG
     static sync: {
-      read(buffer: Buffer): PNG
-      write(png: PNG, options?: unknown): Buffer
+      read: (buffer: import('node:buffer').Buffer) => PNG
+      write: (png: PNG, options?: unknown) => import('node:buffer').Buffer
     }
 
-    parse(data: Buffer, callback?: (err: Error | null, png: PNG) => void): PNG
+    parse(data: import('node:buffer').Buffer, callback?: (err: Error | null, png: PNG) => void): PNG
     pack(): NodeJS.ReadableStream
     bitblt(dst: PNG, sx: number, sy: number, w: number, h: number, dx: number, dy: number): void
     adjustGamma(): void

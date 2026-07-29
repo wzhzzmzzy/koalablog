@@ -8,11 +8,11 @@
  * can be unit-tested and reused by the post-migration acceptance slice.
  */
 
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { PNG } from 'pngjs'
-import pixelmatch from 'pixelmatch'
 import type { PageDiffResult, ThresholdCalibration } from './types'
+import { Buffer } from 'node:buffer'
+import { readFileSync } from 'node:fs'
+import pixelmatch from 'pixelmatch'
+import { PNG } from 'pngjs'
 
 /**
  * Read a PNG file into a raw RGBA buffer + dimensions.
@@ -60,7 +60,6 @@ export function diffScreenshots(
   // If dimensions differ, count the excess area as fully mismatched.
   const baselineTotal = baseline.width * baseline.height
   const candidateTotal = candidate.width * candidate.height
-  const commonTotal = width * height
 
   let totalPixels: number
   let effectiveMismatched: number

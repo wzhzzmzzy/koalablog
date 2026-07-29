@@ -51,8 +51,10 @@ export interface ThresholdCalibration {
   maxObservedRatio: number
   /** Absolute margin added on top of maxObservedRatio. */
   margin: number
-  /** Final calibrated threshold (a screenshot passes acceptance when its
-   *  pixelRatio against the baseline is ≤ this value). */
+  /**
+   * Final calibrated threshold (a screenshot passes acceptance when its
+   *  pixelRatio against the baseline is ≤ this value).
+   */
   threshold: number
 }
 
