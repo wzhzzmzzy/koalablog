@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Use Tailwind for static styles, retain UnoCSS only for Artifact builds
