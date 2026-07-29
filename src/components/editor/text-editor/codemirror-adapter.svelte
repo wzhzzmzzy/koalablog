@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import { restoreCodeMirrorState, saveCodeMirrorState } from './codemirror-state';
   import { reconcileTextEditorDiagnostics, type TextEditorDiagnosticUpdate } from './diagnostics';
+  import { fileReferenceCompletion, type FileReferenceCandidate } from './file-reference-completion';
   import { createImageHistoryController } from './image-history';
   import { imagesFromClipboard, imagesFromDrop, prepareImageBatch, type PendingImage } from './images';
   import { isCurrentTextEditorLanguageRequest, planTextEditorLanguageRequest } from './language-state';
@@ -21,11 +22,12 @@
     diagnostics: TextEditorDiagnosticUpdate | null;
     value: string;
     readonly: boolean;
+    referenceCandidates: readonly FileReferenceCandidate[];
     onChange: (value: string) => void;
     uploadImage: (file: File) => Promise<{ url: string }>;
   }
 
-  let { fileId, filePath, renderer, diagnostics, value, readonly, onChange, uploadImage }: Props = $props();
+  let { fileId, filePath, renderer, diagnostics, value, readonly, referenceCandidates, onChange, uploadImage }: Props = $props();
   let container: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined = $state();
   let activeFileId = fileId;
@@ -43,9 +45,16 @@
   const accessCompartment = new Compartment();
   const labelCompartment = new Compartment();
   const languageCompartment = new Compartment();
+  const referenceCompletionCompartment = new Compartment();
 
   function initialLanguageExtension(initialRenderer: RendererMode): Extension {
     return initialRenderer === RENDERER_MODE.Markdown ? markdownLanguageExtension() : [];
+  }
+
+  function referenceCompletionExtension(nextRenderer: RendererMode, nextReadonly: boolean, nextCandidates: readonly FileReferenceCandidate[], nextFileId: number): Extension {
+    return nextRenderer === RENDERER_MODE.Markdown && !nextReadonly
+      ? fileReferenceCompletion({ candidates: nextCandidates, excludeId: nextFileId })
+      : [];
   }
 
   function accessExtension(isReadonly: boolean) {
@@ -71,6 +80,7 @@
         languageCompartment.of(initialLanguageExtension(initialRenderer)),
         accessCompartment.of(accessExtension(readonly)),
         labelCompartment.of(labelExtension(filePath, fileId)),
+        referenceCompletionCompartment.of(referenceCompletionExtension(initialRenderer, readonly, referenceCandidates, fileId)),
         EditorView.domEventHandlers({
           paste(event) {
             const files = imagesFromClipboard(event);
@@ -170,6 +180,36 @@
     });
   }
 
+  // The $effect below runs on every keystroke, so reconfigure only when an
+  // actual input changed; a redundant reconfigure would reset the open tooltip.
+  let appliedReferenceCompletion: {
+    renderer: RendererMode;
+    readonly: boolean;
+    candidates: readonly FileReferenceCandidate[];
+    fileId: number;
+  } | null = null;
+
+  function applyReferenceCompletion(nextRenderer: RendererMode, nextReadonly: boolean, nextCandidates: readonly FileReferenceCandidate[], nextFileId: number) {
+    if (!view) return;
+    const last = appliedReferenceCompletion;
+    if (last
+      && last.renderer === nextRenderer
+      && last.readonly === nextReadonly
+      && last.candidates === nextCandidates
+      && last.fileId === nextFileId) return;
+    appliedReferenceCompletion = {
+      renderer: nextRenderer,
+      readonly: nextReadonly,
+      candidates: nextCandidates,
+      fileId: nextFileId,
+    };
+    view.dispatch({
+      effects: referenceCompletionCompartment.reconfigure(
+        referenceCompletionExtension(nextRenderer, nextReadonly, nextCandidates, nextFileId),
+      ),
+    });
+  }
+
   function applyRestoredState(nextFileId: number, acceptedValue: string, nextRenderer: RendererMode) {
     if (!view) return;
     const restored = restoreState(nextFileId, acceptedValue, nextRenderer);
@@ -243,6 +283,7 @@
       parent: container,
     });
     applyDynamicConfiguration(readonly, filePath, fileId);
+    applyReferenceCompletion(renderer, readonly, referenceCandidates, fileId);
     void applyLanguage(renderer);
     applyDiagnostics(diagnostics);
 
@@ -276,6 +317,7 @@
       applyRestoredState(nextFileId, acceptedValue, nextRenderer);
     }
     applyDynamicConfiguration(nextReadonly, nextPath, nextFileId);
+    applyReferenceCompletion(nextRenderer, nextReadonly, referenceCandidates, nextFileId);
     const stateWasReplaced = action === 'switch' || action === 'replace';
     void applyLanguage(nextRenderer, stateWasReplaced);
     applyDiagnostics(nextDiagnostics, stateWasReplaced);

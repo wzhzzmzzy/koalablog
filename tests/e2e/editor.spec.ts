@@ -104,6 +104,56 @@ test('File Source exposes the stable editor contract', async ({ page }) => {
   await expectEditorText(source, 'First line\nSecond line updated')
 })
 
+test('typing [[ completes a File Reference into its canonical Source form', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('See ')
+  await source.pressSequentially('[[')
+
+  const tooltip = page.locator('.cm-tooltip-autocomplete')
+  await expect(tooltip).toBeVisible()
+  await expect(tooltip).toContainText('second')
+  await expect(tooltip).toContainText('/memo/secret')
+  await expect(tooltip).not.toContainText('phase-two')
+  await expect(tooltip).not.toContainText('trashed')
+
+  await source.pressSequentially('second')
+  await expect(tooltip).toContainText('second')
+  await expect(tooltip).not.toHaveClass(/cm-tooltip-autocomplete-disabled/)
+  await source.press('Enter')
+
+  await expect(tooltip).toBeHidden()
+  await expectEditorText(source, 'See [[/second]]')
+
+  await page.getByRole('button', { name: 'Save File' }).click()
+  await expect(page.getByText('Saved Success')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Preview File' }).click()
+  const reference = page.locator('#preview-md a.outgoing-link', { hasText: '/second' })
+  await expect(reference).toHaveAttribute('href', '/second')
+})
+
+test('a [[ query without matches offers a local empty state', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('')
+  await source.pressSequentially('[[')
+
+  const tooltip = page.locator('.cm-tooltip-autocomplete')
+  await expect(tooltip).toBeVisible()
+
+  await source.pressSequentially('zzzzz')
+  await expect(tooltip).toContainText('No matching Files')
+  await expect(tooltip).not.toHaveClass(/cm-tooltip-autocomplete-disabled/)
+  await source.press('Enter')
+
+  await expectEditorText(source, '[[zzzzz]]')
+})
+
 test('dirty File keeps the Save icon alongside its label', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')

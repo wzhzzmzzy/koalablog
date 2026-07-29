@@ -17,6 +17,7 @@
   import type { DependencyDiff } from '@/lib/svelte/dependency-diff';
   import { findPreviousActiveFile, formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
   import type { TextEditorHandle } from './TextEditor.svelte';
+  import { toFileReferenceCandidates } from './text-editor/file-reference-completion';
   import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
   import { editorStore, upsertItem, popHistory, setCurrentFile, notify } from './store.svelte';
   interface Props {
@@ -39,6 +40,7 @@
   let displayTitleValue = $derived(getDisplayTitle({ source, title: titleValue, content: sourceValue }))
   let trashed = $derived(Boolean(file.deletedAt))
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
+  let referenceCandidates = $derived(toFileReferenceCandidates(editorStore.items))
   let editorContent: TextEditorHandle | undefined = $state()
   const svelteBuildController = new SvelteBuildController()
 
@@ -532,6 +534,7 @@
       renderer={rendererValue}
       diagnostics={svelteBuildController.diagnostics}
       value={sourceValue}
+      {referenceCandidates}
       {showPreview}
       {previewHtml}
       {svelteArtifact}

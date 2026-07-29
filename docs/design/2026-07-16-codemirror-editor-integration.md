@@ -1,11 +1,11 @@
 # CodeMirror 6 Editor Integration
 
 Date: 2026-07-16
-Revised: 2026-07-21
+Revised: 2026-07-21, 2026-07-29
 
 ## Outcome
 
-Replace the textarea behind one deep Text Editor Interface. Phase 2 delivers Markdown-only capability parity; Phase 3 extends the same Interface with Svelte language and diagnostics after Renderer Mode exists. File orchestration, persistence, Source analysis, preview, and rendering remain outside CodeMirror.
+Replace the textarea behind one deep Text Editor Interface. Phase 2 delivers Markdown-only capability parity; Phase 3 extends the same Interface with Svelte language and diagnostics after Renderer Mode exists. Phase 4 adds File Reference completion within the same Interface. File orchestration, persistence, Source analysis, preview, and rendering remain outside CodeMirror.
 
 ## Phase boundaries
 
@@ -38,8 +38,8 @@ Phase 3 adds those Svelte-specific extensions without changing the Phase-2 File 
 
 ## Non-goals
 
-- Path, Title, lifecycle, visibility, references, preview, or persistence logic inside CodeMirror.
-- Source tag/reference parsing inside the editor module.
+- Path, Title, lifecycle, visibility, reference resolution, preview, or persistence logic inside CodeMirror.
+- Source tag/reference parsing or resolution inside the editor module.
 - Serializing `EditorState` to localStorage.
 - Full Language Server support, collaborative editing, Prettier, Vim mode, or a minimap.
 - Cross-file navigation, relative Svelte imports, or npm completion.
@@ -72,6 +72,23 @@ declare function discardEditorState(fileId: number): void
 `focus()` and `insertImages()` act on the mounted editor and are exposed through its typed component handle. `discardEditorState(fileId)` is a module-level lifecycle command used after purge and empty-trash; it removes private cached editor state without exposing CodeMirror's registry to File orchestration.
 
 Phase 3 may add renderer and serializable diagnostic props, but it must not widen the Interface with CodeMirror types.
+
+Phase 4 adds File Reference candidates under the same rule:
+
+```ts
+interface FileReferenceCandidate {
+  id: number
+  path: string
+  title: string
+  updatedAt: Date
+}
+
+interface TextEditorProps {
+  referenceCandidates: readonly FileReferenceCandidate[]
+}
+```
+
+`FileEditor` produces the candidate array from the dashboard store: every active (non-trashed) File across both renderers, including Private Files owned by the current user. Text Editor excludes the currently edited File by ID. Candidate, renderer, or read-only changes reconfigure a dedicated completion Compartment without replacing `EditorState`, so history, selection, scroll, and edit buffers survive a refresh. A read-only editor disables the completion source.
 
 ## Ownership and internal modules
 
@@ -129,12 +146,12 @@ Use curated packages rather than the aggregate setup:
 - `@codemirror/commands`
 - `@codemirror/language`
 - `@codemirror/search`
-- `@codemirror/autocomplete` only for the required bracket-closing behavior
+- `@codemirror/autocomplete` for the required bracket-closing behavior; Phase 4 also uses it for File Reference completion
 - `@codemirror/lang-markdown`
 
 Phase 2 does not add `@replit/codemirror-lang-svelte`, compiler diagnostics, or the Svelte Build Worker.
 
-The configured Markdown capability set includes line numbers, active line, undo/redo, search/replace, selection matching, multiple selection, bracket matching/closing, indentation, `Tab`/`Shift-Tab`, folding, Markdown wrapping, accessible labels/focus, Koalablog theme variables, and a narrow-screen gutter policy. Narrow screens hide line-number and fold gutters without reducing editing capability. Completion suggestions, formatting, Vim mode, and LSP remain out of scope; `@codemirror/autocomplete` is used only for bracket closing.
+The configured Markdown capability set includes line numbers, active line, undo/redo, search/replace, selection matching, multiple selection, bracket matching/closing, indentation, `Tab`/`Shift-Tab`, folding, Markdown wrapping, accessible labels/focus, Koalablog theme variables, and a narrow-screen gutter policy. Narrow screens hide line-number and fold gutters without reducing editing capability. Formatting, Vim mode, LSP, and general word or LSP completion remain out of scope; the only completion source is the Phase-4 File Reference source.
 
 ## Per-File state and refresh reconciliation
 
@@ -238,3 +255,13 @@ After Renderer Mode and source-row migration exist:
 5. Keep Build Worker and Svelte Preview behind separate Interfaces owned by `FileEditor`.
 
 This sequence is not part of CodeMirror Phase-2 acceptance.
+
+## Phase-4: File Reference completion
+
+Phase 4 adds Obsidian-style `[[` completion to Markdown Source editing while preserving the canonical File Reference contract: selecting a candidate inserts only `[[/absolute/path]]`, and `src/lib/files/analysis.ts` remains the single Source reference analyzer.
+
+- Typing `[[` opens the candidate list automatically; further typing filters entirely in the browser. At most 12 ranked candidates are displayed. An empty result is a local, inert “No matching Files” option and never triggers a network request.
+- Ranking: title exact, title prefix, path-segment prefix, path contains, then subsequence fuzzy; ties break by recent update, then path.
+- `text-editor/file-reference-completion.ts` owns trigger recognition, ranking, and replacement. The trigger check is display-only recognition of an open `[[` span that rejects escaped `\[[` input and inline or fenced code contexts; it never resolves, validates, or rewrites references.
+- Selecting a candidate consumes the auto-closed `]]` pair produced by bracket closing, so exactly one closing pair remains.
+- The source is active only for the Markdown renderer in an editable editor and is wired through a dedicated Compartment in the adapter.

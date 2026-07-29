@@ -4,6 +4,7 @@
   import type { PreviewArtifact, PreviewRuntimeErrorMessage } from './svelte/preview-runtime';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
   import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
+  import type { FileReferenceCandidate } from './text-editor/file-reference-completion';
   import SveltePreview from './svelte/SveltePreview.svelte';
   import TextEditor, { type TextEditorHandle } from './TextEditor.svelte';
 
@@ -14,6 +15,7 @@
     renderer: RendererMode;
     diagnostics?: TextEditorDiagnosticUpdate | null;
     value: string;
+    referenceCandidates: readonly FileReferenceCandidate[];
     showPreview: boolean;
     previewHtml: string;
     svelteArtifact?: PreviewArtifact | null;
@@ -36,6 +38,7 @@
     renderer,
     diagnostics = null,
     value,
+    referenceCandidates,
     showPreview,
     previewHtml,
     svelteArtifact = null,
@@ -115,6 +118,7 @@
       {diagnostics}
       {value}
       readonly={trashed}
+      {referenceCandidates}
       {onChange}
       {uploadImage}
     />
