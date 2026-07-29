@@ -48,7 +48,29 @@ Both Actions use the ordinary browser session. Never use /api/sync/* from page S
 
 ## Calling Actions from a Svelte Artifact
 
-Published Svelte Files cannot rely on astro:actions imports. Use same-origin fetch():
+Published Svelte Files cannot rely on `astro:actions` imports. Import the Artifact-provided runtime instead:
+
+~~~ts
+import {
+  ActionError,
+  isOwnerAccessError,
+  readOwnedMarkdown,
+  saveOwnedMarkdown,
+} from '@koala/page-runtime'
+
+const stateFile = await readOwnedMarkdown({
+  path: '/area/widget-state',
+  prefix: '/area',
+})
+
+const saved = await saveOwnedMarkdown(stateFile, nextMarkdown)
+~~~
+
+The virtual module is bundled into the Artifact. It makes same-origin `fetch()` calls with the existing session cookie, performs bounded devalue decoding for ordinary File records, and exposes `ActionError` with `code` and `status` for errors such as `CONFLICT` / `source_conflict`.
+
+`readOwnedMarkdown` is the owner-facing capability check: it requires an exact active private Markdown sidecar returned by the owner-scoped Action. `isOwnerAccessError` may select a friendly UI state, but it is not the authorization boundary. The private route and `ownerGuard` remain the actual enforcement.
+
+For reference, these are the calls encapsulated by the virtual runtime:
 
 ~~~ts
 const response = await fetch('/_actions/db.markdown.byPrefix', {
@@ -59,9 +81,9 @@ const response = await fetch('/_actions/db.markdown.byPrefix', {
 })
 ~~~
 
-For form.save, put the fields in FormData; do not set the multipart Content-Type manually.
+For `form.save`, the virtual runtime puts the fields in `FormData`; do not set the multipart `Content-Type` manually.
 
-Successful Action responses use application/json+devalue. Their body is a flattened devalue graph, not ordinary JSON. Decode the small supported subset locally:
+Successful Action responses use `application/json+devalue`. Their body is a flattened devalue graph, not ordinary JSON. The virtual runtime decodes only the needed subset:
 
 - Integers reference entries in the flattened values array.
 - Records have field values expressed as those references.
@@ -69,13 +91,13 @@ Successful Action responses use application/json+devalue. Their body is a flatte
 - Dates use ["Date", isoString].
 - -1 is undefined.
 
-Keep the decoder bounded to the File-record shapes that the page accepts. Reject unknown tagged values and __proto__; do not add a general-purpose evaluator.
+It rejects unknown tagged values and `__proto__`; do not add a general-purpose evaluator or a second page-local decoder.
 
 ## Browser build restrictions
 
 The Svelte compiler runs in a browser Worker and uses @rollup/browser.
 
-- Static and literal dynamic module imports may only be built-in Svelte modules or absolute HTTPS ESM URLs.
+- Static and literal dynamic module imports may only be built-in Svelte modules, `@koala/page-runtime`, or absolute HTTPS ESM URLs.
 - Runtime fetch() is ordinary browser code and is not a Rollup dependency.
 - Do not use Node imports, path.resolve, filesystem APIs, @lucide/svelte, or non-literal dynamic imports.
 - For icons, use a literal dynamic HTTPS ESM import inside onMount, with simple text fallbacks.

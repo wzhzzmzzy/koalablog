@@ -55,15 +55,33 @@ Use stable runtime item IDs derived from category/item position unless the Markd
 
 ## Implement the private runtime
 
-Do not import astro:actions in a user Svelte File. It is not part of the Svelte Artifact module contract. Instead, make same-origin browser fetch() calls using the existing session cookie:
+Do not import `astro:actions` in a user Svelte File. It is not part of the Svelte Artifact module contract. Use the built-in Artifact virtual module instead:
 
-1. On mount, call /_actions/db.markdown.byPrefix with JSON { prefix }.
-2. Find the exact sidecar path and retain its id, path, private, and revision.
-3. Update UI state optimistically.
-4. Serialize all categories to Markdown and call /_actions/form.save with FormData containing id, path, renderer: markdown, content, private: true, and baseRevision.
-5. Replace the local File baseline with the returned record, especially its new revision.
+~~~ts
+import {
+  ActionError,
+  callAction,
+  isOwnerAccessError,
+  readOwnedMarkdown,
+  saveOwnedMarkdown,
+} from '@koala/page-runtime'
+~~~
 
-Astro Action success bodies are devalue-flattened JSON. Include a small, local decoder for plain File records (objects, arrays, primitives, Dates), or otherwise use a browser-compatible decoder that the Artifact resolver accepts. Do not call the Bearer-token sync endpoints.
+`@koala/page-runtime` is resolved and inlined by the browser Artifact bundler. It is not a relative project file and it is not a runtime HTTPS dependency. It provides:
+
+- `callAction(path, input)` for same-origin POST Actions using session cookies, form/JSON request bodies, bounded devalue success decoding, and normalized `ActionError` failures.
+- `readOwnedMarkdown({ prefix, path })` to find exactly one active, private Markdown File owned by the current session.
+- `saveOwnedMarkdown(file, content)` to save that File with its latest revision and forced private Markdown fields.
+- `isOwnerAccessError(error)` only for owner-facing UI states. It is not authorization; the server remains authoritative.
+
+The helpers intentionally reuse the existing Actions. A page should:
+
+1. On mount, call `readOwnedMarkdown({ prefix, path })` and retain the returned id, path, private, and revision.
+2. Update UI state optimistically.
+3. Serialize all categories to Markdown and call `saveOwnedMarkdown(file, content)`.
+4. Replace the local File baseline with the returned record, especially its new revision.
+
+Astro Action success bodies are devalue-flattened JSON; `callAction` decodes the intentionally small File-record subset. Do not duplicate a decoder in each page and do not call the Bearer-token sync endpoints.
 
 Queue rapid saves so a completion toggle cannot be lost while the prior request is in flight. On source_conflict, re-read the companion File, discard the stale baseline, and show a useful owner-facing message. Show load/save/error status without exposing server internals.
 
@@ -80,7 +98,7 @@ Assume the public Page Shell may constrain content to about 800px:
 - Put title, link, comments, and references in an explicit inline form or dialog. Support add/remove only when the request needs them.
 - Use semantic button, ol/li, tab roles, visible keyboard focus, and a reduced-motion fallback.
 
-Use onMount(() => import('https://…')) for browser-loaded icon ESM when icons are needed. Do not use @lucide/svelte, Node builtins, filesystem APIs, non-literal dynamic imports, or path.resolve; the Artifact builder uses browser Rollup.
+Use `onMount(() => import('https://…'))` for browser-loaded icon ESM when icons are needed. Do not use `@lucide/svelte`, Node builtins, filesystem APIs, non-literal dynamic imports, or `path.resolve`; the Artifact builder uses browser Rollup. `@koala/page-runtime` is the only additional bare module specifier available to user Svelte Files.
 
 ## Validate and hand off
 

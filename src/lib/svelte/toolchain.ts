@@ -2,6 +2,7 @@ export { SVELTE_TOOLCHAIN_VERSIONS } from './toolchain-versions'
 export { UNOCSS_CONFIG_HASH } from './unocss-profile'
 
 export const SVELTE_USER_MODULE_SPECIFIERS = [
+  '@koala/page-runtime',
   'svelte',
   'svelte/animate',
   'svelte/easing',

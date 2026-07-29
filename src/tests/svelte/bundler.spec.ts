@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bundleSvelteArtifact } from '@/workers/svelte/bundler'
 import { compileSvelteSource } from '@/workers/svelte/compiler'
-import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const moduleRequire = createRequire(import.meta.url)
 const rollupBrowserPath = moduleRequire.resolve('@rollup/browser')
@@ -79,7 +79,7 @@ describe('svelte Artifact bundler', () => {
     const result = await bundleSvelteArtifact({
       javascript: compiled.javascript,
       modules: new Map([
-        [entryUrl, "export * from '/lucide.bundle.js'"],
+        [entryUrl, 'export * from \'/lucide.bundle.js\''],
         [bundledUrl, 'export const CircleCheckBig = []'],
       ]),
     })
@@ -88,5 +88,32 @@ describe('svelte Artifact bundler', () => {
     if (!result.ok)
       return
     expect(result.value.javascript).not.toContain('/lucide.bundle.js')
+  })
+
+  it('inlines the page runtime virtual module for static and literal dynamic imports', async () => {
+    const source = `<script>
+  import { callAction, readOwnedMarkdown, saveOwnedMarkdown } from '@koala/page-runtime'
+
+  const apiNames = [callAction.name, readOwnedMarkdown.name, saveOwnedMarkdown.name]
+  const later = import('@koala/page-runtime').then(runtime => Object.keys(runtime).sort())
+</script>
+
+<p>{apiNames.join(',')}</p>
+{#await later then exports}<p>{exports}</p>{/await}`
+    const compiled = await compileSvelteSource(source)
+
+    if (!compiled.ok)
+      throw new Error(JSON.stringify(compiled))
+    useLocalRollupWasm()
+    const result = await bundleSvelteArtifact({
+      javascript: compiled.javascript,
+      modules: new Map(),
+    })
+
+    expect(result).toMatchObject({ ok: true })
+    if (!result.ok)
+      return
+    expect(result.value.javascript).toMatch(/^\(function \(exports\)/)
+    expect(result.value.javascript).not.toContain('@koala/page-runtime')
   })
 })

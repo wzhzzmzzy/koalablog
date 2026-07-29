@@ -1,5 +1,5 @@
-import { svelteHttpsModuleSpecifiers, svelteResolverPolicyDiagnostics } from '@/workers/svelte/resolver-policy'
 import { describe, expect, it } from 'vitest'
+import { svelteHttpsModuleSpecifiers, svelteResolverPolicyDiagnostics } from '@/workers/svelte/resolver-policy'
 
 describe('svelte resolver policy', () => {
   it('allows public Svelte browser modules and absolute HTTPS modules', async () => {
@@ -11,6 +11,15 @@ describe('svelte resolver policy', () => {
 
     expect(diagnostics).toEqual([])
   }, 10_000)
+
+  it('allows page runtime static and literal dynamic imports', async () => {
+    const diagnostics = await svelteResolverPolicyDiagnostics(`<script>
+  import { callAction, readOwnedMarkdown, saveOwnedMarkdown } from '@koala/page-runtime'
+  const later = import('@koala/page-runtime')
+</script><p>{callAction}{readOwnedMarkdown}{saveOwnedMarkdown}{later}</p>`)
+
+    expect(diagnostics).toEqual([])
+  })
 
   it('allows type-only imports from Svelte type modules and still rejects runtime imports', async () => {
     await expect(svelteResolverPolicyDiagnostics(`<script lang="ts">

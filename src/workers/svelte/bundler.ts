@@ -1,4 +1,5 @@
 import type { Plugin } from '@rollup/browser'
+import { KOALA_PAGE_RUNTIME_MODULE, KOALA_PAGE_RUNTIME_MODULE_SOURCE } from '../../lib/svelte/page-runtime'
 import { SVELTE_RUNTIME_REGISTRY } from '../../lib/svelte/runtime-registry.generated'
 
 const APP_INPUT_ID = 'koala-svelte-app'
@@ -6,6 +7,7 @@ const APP_MODULE_ID = '\0koala-svelte-app'
 const ENTRY_INPUT_ID = 'koala-svelte-entry'
 const ENTRY_MODULE_ID = '\0koala-svelte-entry'
 const ENV_MODULE_ID = '\0koala-svelte-env'
+const PAGE_RUNTIME_MODULE_ID = '\0koala-page-runtime'
 const ARTIFACT_GLOBAL_NAME = 'KoalaArtifact'
 
 export interface SvelteBundleInput {
@@ -23,6 +25,8 @@ export type SvelteBundleResult =
   | { ok: false, message: string }
 
 function runtimeModuleId(source: string, importer: string | undefined) {
+  if (source === KOALA_PAGE_RUNTIME_MODULE)
+    return PAGE_RUNTIME_MODULE_ID
   if (source === 'esm-env')
     return ENV_MODULE_ID
   if (source in SVELTE_RUNTIME_REGISTRY.entrypoints)
@@ -85,6 +89,8 @@ export function createSvelteBundlePlugin(input: SvelteBundleInput, runtimeImport
         return input.javascript
       if (id === ENV_MODULE_ID)
         return 'export const BROWSER = true; export const DEV = false;'
+      if (id === PAGE_RUNTIME_MODULE_ID)
+        return KOALA_PAGE_RUNTIME_MODULE_SOURCE
       if (id in SVELTE_RUNTIME_REGISTRY.modules)
         return SVELTE_RUNTIME_REGISTRY.modules[id as keyof typeof SVELTE_RUNTIME_REGISTRY.modules]
       return input.modules.get(id) ?? null
