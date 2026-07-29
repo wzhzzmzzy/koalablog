@@ -2,6 +2,9 @@
   "name": "koalablog",
   "type": "module",
   "version": "0.0.1",
+  "bin": {
+    "koala": "./bin/koala.mjs"
+  },
   "packageManager": "pnpm@10.14.0",
   "scripts": {
     "dev:d1": "pnpm run svelte:toolchain:prepare && pnpm run db:clean && wrangler types && cross-env CF_PAGES=1 astro dev",
@@ -19,6 +22,7 @@
     "test:e2e": "playwright test",
     "test:e2e:setup": "tsx scripts/test/setup-editor-e2e.ts",
     "test:e2e:server": "pnpm run svelte:toolchain:prepare && pnpm run test:e2e:setup && cross-env DATA_SOURCE=sqlite SQLITE_URL=file:.playwright/local.db KOALA_CONFIG_PATH=.playwright/koala.config.json astro dev --host 127.0.0.1 --port ${E2E_PORT:-4322}",
+    "koala": "node ./bin/koala.mjs",
     "migration:d1:local": "pnpx wrangler d1 migrations apply DB --local",
     "migration:d1:remote": "pnpx wrangler d1 migrations apply DB --remote",
     "migration:sqlite": "./node_modules/.bin/drizzle-kit migrate && rm -f ./koala.config.json",
@@ -90,6 +94,7 @@
     "svelte": "5.33.0",
     "typescript": "^5.7.3",
     "undici": "^7.22.0",
+    "vite": "^6.4.3",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -102,6 +107,7 @@
     "@playwright/test": "^1.61.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/markdown-it": "^14.1.2",
+    "@sveltejs/vite-plugin-svelte": "^5.1.1",
     "@unocss/preset-icons": "65.4.3",
     "@unocss/preset-rem-to-px": "65.4.3",
     "bits-ui": "^2.18.1",

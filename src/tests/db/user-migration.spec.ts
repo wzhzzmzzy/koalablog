@@ -91,10 +91,10 @@ describe('first User migration', () => {
   it('migrates the admin key into the first User and retires key-based auth config', async () => {
     const client = createClient({ url: `file:${databasePath}` })
     await client.executeMultiple(`
-      INSERT INTO markdown (source, path, title, renderer, content, sourceHash, private, remoteTruth)
+      INSERT INTO markdown (source, path, title, renderer, content, sourceHash, private)
       VALUES
-        (10, '/post/a', 'a', 'markdown', '', 'hash-a', 0, 1),
-        (30, '/memo/b', 'b', 'markdown', '', 'hash-b', 1, 1);
+        (10, '/post/a', 'a', 'markdown', '', 'hash-a', 0),
+        (30, '/memo/b', 'b', 'markdown', '', 'hash-b', 1);
     `)
     client.close()
     const storage = memoryConfigStorage({ adminKey: 'old-admin-key', guestKey: 'guest-pass', bearerToken: 'bearer-abc' })

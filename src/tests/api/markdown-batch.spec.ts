@@ -1,6 +1,6 @@
-import { DELETE, GET, POST } from '@/pages/api/markdown/batch'
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DELETE, GET, POST } from '@/pages/api/markdown/batch'
 
 const mocks = vi.hoisted(() => ({
   authInterceptor: vi.fn(async (ctx: any) => {
@@ -164,7 +164,7 @@ describe('markdown batch API Source validation', () => {
     expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
   })
 
-  it('rejects remote-truth state because the server derives sync metadata', async () => {
+  it('rejects unsupported legacy synchronization metadata', async () => {
     const response = await POST(createContext(new Request('https://koala.test/api/markdown/batch', {
       method: 'POST',
       headers: { Authorization: 'Bearer token' },
@@ -179,7 +179,7 @@ describe('markdown batch API Source validation', () => {
     })))
 
     expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({ error: 'File metadata is derived by the server' })
+    expect(await response.json()).toEqual({ error: 'File input contains unsupported fields' })
     expect(mocks.saveSyncedFile).not.toHaveBeenCalled()
   })
 

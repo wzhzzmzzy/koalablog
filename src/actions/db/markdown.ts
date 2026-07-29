@@ -1,4 +1,6 @@
 import type { FileRecord } from '@/db/types'
+import { ActionError, defineAction } from 'astro:actions'
+import { z } from 'astro:schema'
 import { getMarkdownSourceKey, MarkdownSource } from '@/db'
 import { createFile } from '@/db/file-create'
 import {
@@ -13,8 +15,6 @@ import {
 } from '@/db/markdown'
 import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { RENDERER_MODE } from '@/lib/files/types'
-import { ActionError, defineAction } from 'astro:actions'
-import { z } from 'astro:schema'
 import { authGuard, loginGuard, ownerGuard } from '../utils/auth'
 
 export interface AllCollection {
@@ -176,7 +176,8 @@ export const batchImport = defineAction({
         path: parsed.value,
         renderer: file.renderer,
         content: file.content,
-        private: parsed.value.startsWith('/memo/'),
+        // Content Exchange imports are intentionally private regardless of Path.
+        private: true,
         userId: ctx.locals.session.userId!,
       }
     })

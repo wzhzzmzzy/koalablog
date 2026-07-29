@@ -25,25 +25,25 @@ describe('memo Source remap migration', () => {
   it('remaps Page, Wiki, and Unknown sources to Memo without touching File identity', async () => {
     await env.DB.batch([
       env.DB.prepare(`
-        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, remoteTruth, createdAt, updatedAt, deletedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(1, 10, '/post/hello', 'hello', 'markdown', 'post content', 'hash-1', 0, 1, 1_767_225_600, 1_767_312_000, null),
+        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, createdAt, updatedAt, deletedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(1, 10, '/post/hello', 'hello', 'markdown', 'post content', 'hash-1', 0, 1_767_225_600, 1_767_312_000, null),
       env.DB.prepare(`
-        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, remoteTruth, createdAt, updatedAt, deletedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(2, 20, '/about', 'about', 'markdown', 'page content', 'hash-2', 0, 1, 1_767_225_600, 1_767_312_000, null),
+        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, createdAt, updatedAt, deletedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(2, 20, '/about', 'about', 'markdown', 'page content', 'hash-2', 0, 1_767_225_600, 1_767_312_000, null),
       env.DB.prepare(`
-        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, remoteTruth, createdAt, updatedAt, deletedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(3, 30, '/memo/note', 'note', 'markdown', 'memo content', 'hash-3', 1, 0, 1_767_225_600, 1_767_312_000, null),
+        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, createdAt, updatedAt, deletedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(3, 30, '/memo/note', 'note', 'markdown', 'memo content', 'hash-3', 1, 1_767_225_600, 1_767_312_000, null),
       env.DB.prepare(`
-        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, remoteTruth, createdAt, updatedAt, deletedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(4, 31, '/wiki/shared', 'shared', 'markdown', 'wiki content', 'hash-4', 1, 0, 1_767_225_600, 1_767_312_000, 1_770_000_000),
+        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, createdAt, updatedAt, deletedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(4, 31, '/wiki/shared', 'shared', 'markdown', 'wiki content', 'hash-4', 1, 1_767_225_600, 1_767_312_000, 1_770_000_000),
       env.DB.prepare(`
-        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, remoteTruth, createdAt, updatedAt, deletedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(5, 99, '/mystery', 'mystery', 'markdown', 'unknown content', 'hash-5', 0, 0, 1_767_225_600, 1_767_312_000, null),
+        INSERT INTO markdown (id, source, path, title, renderer, content, sourceHash, private, createdAt, updatedAt, deletedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(5, 99, '/mystery', 'mystery', 'markdown', 'unknown content', 'hash-5', 0, 1_767_225_600, 1_767_312_000, null),
     ])
 
     await runStatements(memoRemap)

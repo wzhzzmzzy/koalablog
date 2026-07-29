@@ -79,7 +79,7 @@ function parseBatchInput(body: unknown): { files?: BatchSourceInput[], error?: s
     const item = candidate as Record<string, unknown>
     if ('title' in item || 'subject' in item)
       return { error: 'File input must not include title' }
-    if (['link', 'source', 'tags', 'outgoingLinks', 'remoteTruth', 'revision', 'createdAt', 'updatedAt', 'deletedAt'].some(field => field in item))
+    if (['link', 'source', 'tags', 'outgoingLinks', 'revision', 'createdAt', 'updatedAt', 'deletedAt'].some(field => field in item))
       return { error: 'File metadata is derived by the server' }
     if (Object.keys(item).some(field => !['id', 'path', 'renderer', 'content', 'private', 'baseRevision'].includes(field)))
       return { error: 'File input contains unsupported fields' }

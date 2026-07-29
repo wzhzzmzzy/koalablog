@@ -22,7 +22,6 @@ export interface BatchFileInput {
   renderer: RendererMode
   content: string
   private?: boolean
-  remoteTruth?: boolean
   createdAt?: Date
   updatedAt?: Date
   deletedAt?: Date
@@ -73,7 +72,6 @@ async function insertValues(input: BatchFileInput) {
     ...await baseValues(path, input.renderer, input.content),
     source: classifySource(path),
     private: input.private ?? false,
-    remoteTruth: input.remoteTruth ?? false,
     createdAt: input.createdAt,
     updatedAt: input.updatedAt,
     deletedAt: input.deletedAt,
@@ -91,12 +89,11 @@ export async function batchAdd(env: Env, files: BatchFileInput[]) {
   return connectDB(env).insert(markdown).values(await Promise.all(files.map(insertValues))).returning()
 }
 
-async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boolean): Promise<SaveFileResult> {
+async function saveSourceFile(env: Env, input: SaveFileInput, ownerScoped: boolean): Promise<SaveFileResult> {
   const path = requiredPath(input.path)
   const values = {
     ...await baseValues(path, input.renderer, input.content),
     private: input.private,
-    remoteTruth,
     updatedAt: new Date(),
   }
   const db = connectDB(env)
@@ -124,6 +121,7 @@ async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boole
       eq(markdown.id, input.id),
       eq(markdown.revision, input.baseRevision),
       isNull(markdown.deletedAt),
+      ownerScoped && input.userId !== undefined ? eq(markdown.userId, input.userId) : undefined,
     )).returning()
     file = updated[0]
   }
@@ -136,15 +134,17 @@ async function saveSourceFile(env: Env, input: SaveFileInput, remoteTruth: boole
     return { status: 'saved', file }
 
   const current = await readAnyById(env, input.id)
+  if (ownerScoped && input.userId !== undefined && current?.userId !== input.userId)
+    return { status: 'not_found' }
   return current ? { status: 'conflict', current } : { status: 'not_found' }
 }
 
 export function saveFile(env: Env, input: SaveFileInput) {
-  return saveSourceFile(env, input, true)
+  return saveSourceFile(env, input, false)
 }
 
 export function saveSyncedFile(env: Env, input: SaveFileInput) {
-  return saveSourceFile(env, input, false)
+  return saveSourceFile(env, input, true)
 }
 
 export async function updatePrivate(
@@ -155,7 +155,6 @@ export async function updatePrivate(
 ): Promise<SaveFileResult> {
   const [file] = await connectDB(env).update(markdown).set({
     private: privated,
-    remoteTruth: true,
     revision: sql`${markdown.revision} + 1`,
     updatedAt: new Date(),
   }).where(and(
@@ -384,15 +383,37 @@ export function readAll(env: Env, source: MarkdownSource, userId?: number) {
   })
 }
 
-export function readRemoteTruth(env: Env) {
+export function readActiveByOwner(env: Env, userId: number) {
   return connectDB(env).query.markdown.findMany({
-    columns: { id: true, path: true, title: true, content: true, revision: true },
-    where: and(eq(markdown.remoteTruth, true), isNull(markdown.deletedAt)),
+    where: and(eq(markdown.userId, userId), isNull(markdown.deletedAt)),
+    orderBy: desc(markdown.updatedAt),
   })
 }
 
-export function clearRemoteTruth(env: Env, id: number) {
-  return connectDB(env).update(markdown).set({ remoteTruth: false }).where(eq(markdown.id, id))
+export function readActiveByIdForOwner(env: Env, id: number, userId: number) {
+  return connectDB(env).query.markdown.findFirst({
+    where: and(eq(markdown.id, id), eq(markdown.userId, userId), isNull(markdown.deletedAt)),
+  })
+}
+
+export async function trashByIdForOwner(env: Env, id: number, userId: number, baseRevision: number): Promise<SaveFileResult> {
+  const [file] = await connectDB(env).update(markdown).set({
+    deletedAt: new Date(),
+    updatedAt: new Date(),
+    revision: sql`${markdown.revision} + 1`,
+  }).where(and(
+    eq(markdown.id, id),
+    eq(markdown.userId, userId),
+    eq(markdown.revision, baseRevision),
+    isNull(markdown.deletedAt),
+  )).returning()
+  if (file)
+    return { status: 'saved', file }
+
+  const current = await readAnyById(env, id)
+  if (!current || current.userId !== userId)
+    return { status: 'not_found' }
+  return { status: 'conflict', current }
 }
 
 export function readByPrefix(env: Env, prefix: string, userId?: number) {
