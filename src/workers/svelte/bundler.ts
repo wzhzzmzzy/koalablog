@@ -40,7 +40,7 @@ function runtimeModuleId(source: string, importer: string | undefined) {
 function remoteModuleId(source: string, importer: string | undefined, modules: ReadonlyMap<string, string>) {
   if (modules.has(source))
     return source
-  if (!importer || !modules.has(importer) || !source.startsWith('.'))
+  if (!importer || !modules.has(importer) || (!source.startsWith('.') && !source.startsWith('/')))
     return null
   const resolved = new URL(source, importer).href
   return modules.has(resolved) ? resolved : null

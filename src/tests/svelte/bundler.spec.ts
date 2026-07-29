@@ -62,4 +62,31 @@ describe('svelte Artifact bundler', () => {
       'svelte/transition',
     ]))
   })
+
+  it('resolves root-relative imports inside an HTTPS ESM entry module', async () => {
+    const entryUrl = 'https://modules.example.test/lucide-entry.js'
+    const bundledUrl = 'https://modules.example.test/lucide.bundle.js'
+    const source = `<script>
+  const icons = import('${entryUrl}')
+</script>
+
+{#await icons then value}<p>{Object.keys(value).length}</p>{/await}`
+    const compiled = await compileSvelteSource(source)
+
+    if (!compiled.ok)
+      throw new Error(JSON.stringify(compiled))
+    useLocalRollupWasm()
+    const result = await bundleSvelteArtifact({
+      javascript: compiled.javascript,
+      modules: new Map([
+        [entryUrl, "export * from '/lucide.bundle.js'"],
+        [bundledUrl, 'export const CircleCheckBig = []'],
+      ]),
+    })
+
+    expect(result).toMatchObject({ ok: true })
+    if (!result.ok)
+      return
+    expect(result.value.javascript).not.toContain('/lucide.bundle.js')
+  })
 })
