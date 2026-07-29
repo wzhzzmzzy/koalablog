@@ -23,11 +23,12 @@
  */
 
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
 
-const DEFAULT_ARCHIVE = '/private/tmp/koalablog-visual-baseline'
+const DEFAULT_ARCHIVE = path.join(os.homedir(), 'Library', 'Application Support', 'koalablog', 'visual-baseline')
 
 interface ManifestPage {
   id: string

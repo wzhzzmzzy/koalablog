@@ -11,30 +11,22 @@
  *   pnpm tsx scripts/visual-baseline/capture.ts [--archive <dir>]
  *
  * Defaults:
- *   --archive  /private/tmp/koalablog-visual-baseline
+ *   --archive  ~/Library/Application Support/koalablog/visual-baseline
  *
  * The archive is the acceptance anchor for slices 04 and 06 of the
  * UnoCSS → Tailwind migration.  It must be reproducible by a different
  * agent from the manifest alone.
  */
 
-import type { Buffer } from 'node:buffer'
 import type { BaselineManifest, ManifestPage, PageDiffResult } from './types'
-import { type ChildProcess, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { chromium, type Page } from '@playwright/test'
+import { chromium } from '@playwright/test'
 import { deriveThreshold, diffScreenshots, formatDiffResult, verifyAgainstThreshold } from './diff'
-import { BASE_URL, E2E_AUTHORIZATION, E2E_PORT, PAGE_MATRIX, STABILISE_CSS } from './matrix'
-
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
-
-const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..')
-const DEFAULT_ARCHIVE = '/private/tmp/koalablog-visual-baseline'
+import { BASE_URL, E2E_PORT, PAGE_MATRIX } from './matrix'
+import { captureMatrix, cleanOwnedOutputs, DEFAULT_ARCHIVE, killPort, startServer, stopServer, waitForServer } from './runner'
 
 function parseArgs(): { archiveDir: string } {
   const args = process.argv.slice(2)
@@ -47,138 +39,6 @@ function parseArgs(): { archiveDir: string } {
   }
   return { archiveDir }
 }
-
-// ---------------------------------------------------------------------------
-// Server management
-// ---------------------------------------------------------------------------
-
-async function killPort(port: number): Promise<void> {
-  try {
-    // macOS lsof
-    const { execSync } = await import('node:child_process')
-    const pids = execSync(`lsof -ti :${port} 2>/dev/null || true`, { encoding: 'utf8' }).trim()
-    if (pids) {
-      for (const pid of pids.split('\n')) {
-        try {
-          process.kill(Number(pid), 'SIGKILL')
-        }
-        catch {
-          // already dead
-        }
-      }
-    }
-  }
-  catch {
-    // best-effort
-  }
-}
-
-function startServer(): ChildProcess {
-  const env = {
-    ...process.env,
-    E2E_PORT: String(E2E_PORT),
-  }
-  const proc = spawn('pnpm', ['run', 'test:e2e:server'], {
-    cwd: REPO_ROOT,
-    env,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    shell: true,
-  })
-
-  // Stream server stderr/stdout for debugging.
-  proc.stdout?.on('data', (data: Buffer) => {
-    const line = data.toString().trim()
-    if (line)
-      console.log(`  [server] ${line}`)
-  })
-  proc.stderr?.on('data', (data: Buffer) => {
-    const line = data.toString().trim()
-    if (line)
-      console.error(`  [server:err] ${line}`)
-  })
-
-  return proc
-}
-
-async function waitForServer(baseUrl: string, timeoutMs = 180_000): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  const healthUrl = `${baseUrl}/api/health`
-  console.log(`  Waiting for server at ${healthUrl} ...`)
-
-  while (Date.now() < deadline) {
-    try {
-      const resp = await fetch(healthUrl)
-      if (resp.ok) {
-        console.log('  Server is ready.')
-        return
-      }
-    }
-    catch {
-      // not ready yet
-    }
-    await new Promise(r => setTimeout(r, 1000))
-  }
-  throw new Error(`Server did not become ready within ${timeoutMs / 1000}s`)
-}
-
-// ---------------------------------------------------------------------------
-// Capture logic
-// ---------------------------------------------------------------------------
-
-async function stabilisePage(page: Page): Promise<void> {
-  // Wait for fonts to be loaded.
-  await page.evaluate(() => (document as Document & { fonts: { ready: Promise<unknown> } }).fonts.ready)
-  // Inject CSS to disable animations, transitions, and caret blink.
-  await page.addStyleTag({ content: STABILISE_CSS })
-  // Small settle delay for the CSS to take effect.
-  await page.waitForTimeout(300)
-}
-
-async function captureMatrix(runDir: string, _browserVersion: string): Promise<void> {
-  console.log(`\n  Capturing matrix → ${runDir}`)
-  mkdirSync(runDir, { recursive: true })
-
-  const browser = await chromium.launch()
-  try {
-    for (const entry of PAGE_MATRIX) {
-      console.log(`    ${entry.id} ...`)
-      const context = await browser.newContext({
-        viewport: entry.viewport,
-        colorScheme: entry.colorScheme,
-        extraHTTPHeaders: entry.authenticated
-          ? { Authorization: E2E_AUTHORIZATION }
-          : {},
-      })
-      const page = await context.newPage()
-      try {
-        await page.goto(`${BASE_URL}${entry.path}`, { waitUntil: 'networkidle', timeout: 60_000 })
-        await stabilisePage(page)
-        if (entry.pinState) {
-          await entry.pinState(page)
-          // Re-stabilise after pinState interactions.
-          await page.waitForTimeout(200)
-        }
-        const screenshotPath = path.join(runDir, `${entry.id}.png`)
-        await page.screenshot({ path: screenshotPath, type: 'png', fullPage: false })
-      }
-      catch (err) {
-        console.error(`    FAILED ${entry.id}: ${err}`)
-        throw err
-      }
-      finally {
-        await context.close()
-      }
-    }
-  }
-  finally {
-    await browser.close()
-  }
-  console.log(`  Done (${PAGE_MATRIX.length} pages).`)
-}
-
-// ---------------------------------------------------------------------------
-// Hashing
-// ---------------------------------------------------------------------------
 
 function sha256File(filePath: string): string {
   const content = readFileSync(filePath)
@@ -224,8 +84,7 @@ async function main(): Promise<void> {
     const verificationDir = path.join(archiveDir, 'verification')
     const runCDir = path.join(verificationDir, 'run-c')
 
-    // Clean slate.
-    rmSync(archiveDir, { recursive: true, force: true })
+    cleanOwnedOutputs(archiveDir)
     mkdirSync(screenshotsDir, { recursive: true })
     mkdirSync(runADir, { recursive: true })
     mkdirSync(runBDir, { recursive: true })
@@ -233,15 +92,15 @@ async function main(): Promise<void> {
 
     // --- Run A (baseline + calibration capture 1) ---
     console.log('\n--- Run A (baseline + calibration 1) ---')
-    await captureMatrix(runADir, browserVersion)
+    await captureMatrix(runADir)
 
     // --- Run B (calibration capture 2) ---
     console.log('\n--- Run B (calibration capture 2) ---')
-    await captureMatrix(runBDir, browserVersion)
+    await captureMatrix(runBDir)
 
     // --- Run C (verification re-capture) ---
     console.log('\n--- Run C (verification re-capture) ---')
-    await captureMatrix(runCDir, browserVersion)
+    await captureMatrix(runCDir)
 
     // --- Calibration: diff A vs B ---
     console.log('\n--- Calibration: A vs B ---')
@@ -343,21 +202,7 @@ async function main(): Promise<void> {
     }
   }
   finally {
-    // Always kill the server.
-    console.log('\n--- Shutting down server ---')
-    try {
-      serverProc.kill('SIGTERM')
-      // Give it 5s to shut down gracefully, then force kill.
-      await new Promise(r => setTimeout(r, 3000))
-      if (!serverProc.killed) {
-        serverProc.kill('SIGKILL')
-      }
-    }
-    catch {
-      // best-effort
-    }
-    await killPort(E2E_PORT)
-    console.log('  Server stopped.')
+    await stopServer(serverProc)
   }
 }
 
