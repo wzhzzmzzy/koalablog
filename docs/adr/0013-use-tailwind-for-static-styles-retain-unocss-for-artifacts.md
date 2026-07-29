@@ -1,0 +1,21 @@
+---
+status: proposed
+---
+
+# Use Tailwind for static styles, retain UnoCSS only for Artifact builds
+
+Koalablog currently runs two utility engines through Astro's build — UnoCSS for the static site and Tailwind 4 scoped to the Dashboard — which forces a Vite plugin workaround that keeps Tailwind away from UnoCSS's virtual stylesheet. This proposal moves static styling to Tailwind 4 exclusively: a Site Stylesheet loaded by the root Layout (covering layouts, public pages, and shared components including the Editor, explicitly excluding Dashboard-owned pages) alongside the existing Dashboard Stylesheet. Both will apply no global preflight and will emit utilities in named cascade layers, so the Artifact Stylesheet — deliberately layer-free — wins for any common class name. The migration deliberately ends at the Artifact boundary: the Svelte Artifact Worker keeps its pinned UnoCSS profile, and the `unocssVersion` / `unocssConfigHash` contracts and stored Artifacts remain untouched. Tailwind 4 does export a programmatic `compile()` / `build(candidates)` API, but a Tailwind-based Artifact toolchain has not been shown to satisfy the existing contract — same-origin offline toolchain loading, root-scoped generation, on-demand preflight, and persisted metadata/hash compatibility — so replacing the Worker engine is out of scope for this migration rather than ruled out forever. Root scoping constrains only the generated utilities; trusted component CSS may still escape the Artifact Root under the existing trust model (ADR 0009), unchanged by this proposal.
+
+## Considered Options
+
+- **Full UnoCSS removal, re-implementing Artifact CSS on Tailwind's `compile()`**: rejected for this migration — it widens the blast radius from static styling into Artifact compilation, metadata/hash contracts, offline Worker loading, and compatibility with existing Source. The seam is frozen deliberately; a Tailwind replacement can be evaluated on its own evidence later without blocking the static migration.
+- **Server-side Artifact CSS builds**: rejected — replaces the client's instant, offline-capable compile loop with a server roundtrip for every preview.
+- **One shared static Tailwind entry for site and Dashboard**: rejected — public pages would carry the Dashboard component library's CSS payload, and Dashboard-owned page markup (e.g. settings) is too class-dense to share a scan scope with the public site.
+- **Migrating the eight static `--at-apply` usages to Tailwind `@apply`**: rejected — they will be expanded to plain CSS so no directive transformation remains in the static pipeline at all.
+
+## Consequences
+
+- `unocss`, `@unocss/preset-icons`, `@unocss/preset-rem-to-px`, and `uno.config.ts` will leave the project; `@unocss/core`, `@unocss/preset-uno`, and `@unocss/transformer-directives` stay as Worker runtime dependencies, version-pinned by the toolchain registry.
+- The Tailwind Vite plugin workaround in `astro.config.ts` will be removed once UnoCSS's virtual stylesheet no longer exists.
+- The Koala font semantics (`font-ui`, `font-content`, `font-code`) will be preserved statically as Tailwind theme tokens, matching the Artifact profile's shortcuts.
+- Visual parity will be enforced by a pre-migration screenshot baseline with a pixel-diff threshold calibrated from repeat captures of unchanged code; the cascade contract will be enforced by a Playwright regression asserting Artifact styles win over static utilities.
