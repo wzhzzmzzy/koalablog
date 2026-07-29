@@ -127,3 +127,7 @@ pnpm tsx scripts/visual-baseline/verify-manifest.ts --archive /path/to/archive
 - The `matrix.ts` file is the single source of truth for the page matrix — slice 04 should import it rather than redefining entries.
 - The `diff.ts` file provides `diffScreenshots()`, `deriveThreshold()`, and `verifyAgainstThreshold()` — slice 04 should reuse these.
 - The `manifest.json` contains the full matrix definition (paths, viewports, themes, auth) so a different agent can reconstruct the capture without reading the source code.
+
+### Location update (2026-07-29, post-review)
+
+The durable archive moved from `/private/tmp/koalablog-visual-baseline` to `~/Library/Application Support/koalablog/visual-baseline` — a stable per-user location outside tmp cleaners. `capture.ts` no longer deletes the whole archive directory: `cleanOwnedOutputs()` removes only harness-owned outputs before regenerating, so foreign files (QA scripts, probe dumps) survive accidental re-captures. `verify-manifest.ts` keeps its zero-dependency design and defaults to the same location (the path literal is duplicated deliberately rather than importing the Playwright-coupled runner module). All harness files now pass the configured ESLint cleanly.
