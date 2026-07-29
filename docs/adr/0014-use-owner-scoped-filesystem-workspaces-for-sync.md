@@ -1,0 +1,3 @@
+# Use owner-scoped filesystem workspaces for sync
+
+Koalablog will replace the legacy fixed-directory `sync-vault` and `remoteTruth` protocol with a one-Owner Local Workspace containing ordinary `.md` and `.svelte` Source plus `attachments/`. A minimal `.koala/` baseline supports a Bearer-authenticated, external-scheduler-driven ten-minute reconciliation without a local database, watcher, daemon, server change log, or transactional workspace snapshot. We chose this over a D1 replica or event-driven sync because the workspace must remain directly editable, HDD-friendly, and simple for AI maintenance; the cost is periodic full manifest reads, last-writer-wins conflict resolution, and per-item rather than whole-workspace atomicity.

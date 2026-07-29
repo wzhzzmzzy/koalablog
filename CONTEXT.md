@@ -69,7 +69,7 @@ An explicit, literal reference to another file by its absolute file path, such a
 _Avoid_: Title link, ambiguous link, implicit file
 
 **Visibility Default**:
-The initial public or private state assigned from the file's path category, independently of its creation template. Files under `/memo/` start private; files under other paths start public.
+The initial public or private state assigned by Dashboard File Creation from the file's path category, independently of its creation template. Files under `/memo/` start private; files under other paths start public. Local Workspace Creation instead always starts private.
 _Avoid_: Template privacy, content privacy
 
 **Source**:
@@ -93,8 +93,12 @@ A server-side login state for one User on one device, identified by an opaque co
 _Avoid_: JWT, login cookie, token
 
 **API Token**:
-A credential owned by exactly one User for API access; many API Tokens can exist at once, and a request bearing one acts with that User's identity.
+A credential owned by exactly one User for API access; many API Tokens can exist at once, and a request bearing one acts with that User's identity. Every remote operation in a Sync Cycle authenticates with its Owner's API Token through Bearer authorization.
 _Avoid_: Bearer token, global token
+
+**Sync Credential Configuration**:
+The per-user, workspace-external configuration that supplies a Sync Cycle's API Token from its process environment or personal configuration. It is never stored in a Local Workspace, Sync State, or Source-controlled file.
+_Avoid_: Workspace secret, checked-in token, sync metadata secret
 
 **Svelte File**:
 A self-contained file whose content is trusted, executable Svelte source owned by the site operator rather than prose to be rendered as Markdown. It owns the blog page's body region while the surrounding page shell remains site-owned, and may depend on the platform Svelte runtime, absolute web modules, or browser runtime requests rather than neighbouring files.
@@ -121,8 +125,12 @@ The saved, script-free HTML representation of a Svelte File's initial body. It c
 _Avoid_: Server rendering, cache, screenshot
 
 **Render Artifact**:
-The versioned compiled browser bundle, component and generated utility styles, and SEO snapshot derived entirely in the client from one saved Source Hash of a Svelte File. It identifies its artifact schema, Svelte and style-toolchain versions, and Source Hash, but its presence or validity never determines whether the Source File exists or can be saved.
+The versioned compiled browser bundle, component and generated utility styles, and SEO snapshot derived entirely in the client from one saved Source Hash of a Svelte File. It identifies its artifact schema, Svelte and style-toolchain versions, and Source Hash, but its presence or validity never determines whether the Source File exists or can be saved. A synchronized Svelte Source without a Current Render Artifact is `rebuild_required`, not a failed synchronization.
 _Avoid_: Source file, generated file, publication state
+
+**Local Svelte Preview**:
+A temporary localhost-only Vite runtime that compiles and displays one Local Workspace Svelte Source. It neither uploads Source nor creates a Render Artifact; Dashboard Build remains the only way to attach an online Artifact.
+_Avoid_: Dashboard Build, artifact compiler, online preview
 
 **Current Render Artifact**:
 A Render Artifact whose Renderer Mode and Source Hash match the current Svelte File. File revision, Path, and visibility are not currentness inputs, so an exact Source reversion may make a preserved Artifact current again; a missing or stale Artifact makes the File unrenderable without changing or hiding its Source.
@@ -131,3 +139,59 @@ _Avoid_: Published version, current file, draft
 **Disk Representation**:
 The extension-bearing path used when exchanging source files with a local directory or ZIP archive. Markdown uses `.md` and Svelte uses `.svelte`; import removes that renderer extension to recover the extensionless absolute file path.
 _Avoid_: File path, public URL, render artifact
+
+**Attachment**:
+A binary object referenced by a File Source and stored separately from that Source. A Local Workspace may upload Attachments, while a Render Artifact is derived separately in the Dashboard and is never synchronized as an Attachment.
+_Avoid_: File Source, Svelte artifact, embedded binary
+
+**Attachment Root**:
+The `attachments/` directory at the root of a Local Workspace and Content Exchange. Every Attachment has a stable absolute Source reference under `/attachments/`; no other local directory is treated as Attachment storage. Removing an Attachment from this directory deletes the same online Attachment, and renaming one uploads its new path then deletes its old path, without rewriting Sources that reference it.
+_Avoid_: Arbitrary upload directory, source directory, generated artifact directory
+
+**Implicit Directory**:
+A Local Workspace path segment that exists only because it contains a File Source or Attachment. It is not an online record, so empty directories are neither synchronized nor restored.
+_Avoid_: Folder entity, directory synchronization, empty-directory record
+
+**Content Exchange**:
+A portable import or export containing editable File Source and Attachments in their filesystem representation. Dashboard ZIP and CLI import/export use the same format. It excludes online identity, revision, credentials, recycle-bin history, and Render Artifacts; importing it creates new private Files through Local Workspace Creation. An import skips and reports an existing same-path File rather than overwriting it.
+_Avoid_: Database backup, D1 dump, workspace clone
+
+**Local Workspace**:
+A user-managed filesystem tree containing editable File Source in its Disk Representation for exactly one Owner. It is the local peer of that Owner's online File workspace, not a SQLite database, D1 backup, or local implementation of the Koalablog editor and renderer.
+_Avoid_: Local database, D1 mirror, vault database
+
+**Local Workspace Creation**:
+The File Creation caused by discovering a Local Workspace Source without a corresponding online File. It initializes the new File as private regardless of its File Path; the File's persisted Source is otherwise assigned by the ordinary creation rule.
+_Avoid_: Dashboard creation, path-derived visibility, public local default
+
+**Local Rename**:
+The move or rename of a Local Workspace Source that is recognized as the same local filesystem object. It updates the corresponding online File Path while retaining File identity and persisted metadata; an unrecognizable cross-filesystem copy instead becomes Local Workspace Creation plus File Removal.
+_Avoid_: Delete and recreate, path-derived metadata reset, implicit reference rewrite
+
+**Sync State**:
+The minimal, generated baseline held under a Local Workspace's hidden `.koala/` directory. It records only the last confirmed File identity, remote revision, and Source Hash needed to detect a concurrent change; it stores no File history, source copy, or local database.
+_Avoid_: Version history, local metadata database, D1 replica
+
+**Sync Conflict**:
+The condition where a File's Local Workspace Source and online Source both changed after their last confirmed synchronization. Synchronization selects the Source with the later edit time and overwrites the earlier Source; local edit time is filesystem `mtime`, online edit time is D1 `updatedAt`, and an equal time selects the online Source. It does not create conflict copies, merge content, or pause the File.
+_Avoid_: Automatic merge, manual conflict resolution, conflict copy
+
+**File Removal**:
+The synchronized lifecycle transition that moves an active File to the online recycle bin. Removing its Local Workspace Source initiates this transition, while online removal removes the corresponding local Source; restoration is initiated online and recreates the local Source.
+_Avoid_: Immediate purge, permanent local deletion, untracked unlink
+
+**Sync Cycle**:
+The one-shot reconciliation of a Local Workspace and the online File workspace. An external scheduler invokes it every ten minutes without filesystem watching; the CLI provides no daemon, service, or automatic startup and then applies the File Removal and Sync Conflict rules. Each File and Attachment completes independently, so a failed cycle preserves completed changes and is retried later rather than publishing a transactional workspace snapshot.
+_Avoid_: File watcher, event-driven local sync, continuous disk monitoring, built-in daemon
+
+**HDD-Friendly Scan**:
+The Local Workspace pass within a Sync Cycle that traverses the workspace once and compares directory-entry metadata, modification time, and size to Sync State. It reads Source, hashes content, or uploads only a candidate whose metadata changed.
+_Avoid_: File watcher, repeated full-content scan, background indexing
+
+**Instant Search**:
+A direct, non-persistent search over Local Workspace File Source that returns matching File Paths and context snippets. Attachments participate only through their filenames and Source references; their binary content is not extracted. It does not depend on embeddings, vector storage, or a semantic index.
+_Avoid_: Vector search, embedding index, knowledge graph
+
+**AI Workspace Maintenance**:
+An AI's authorized Local Workspace work: searching and reading Sources, creating or updating Sources, adding Attachments, and explicitly running a Sync Cycle. Removing a Source or Attachment is excluded unless the user explicitly requests that removal in the current task.
+_Avoid_: Unbounded remote administration, implicit deletion, direct token use
