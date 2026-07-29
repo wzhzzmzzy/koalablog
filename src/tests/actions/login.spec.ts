@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { login, logout } from '@/actions/form/login'
-import { createUser } from '@/db/user'
-import { hashPassword } from '@/lib/auth/password'
-import { SESSION_COOKIE_NAME } from '@/lib/auth/session'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { login, logout } from '@/actions/form/login'
+import { createUser, findUserByUsername } from '@/db/user'
+import { hashPassword, verifyPassword } from '@/lib/auth/password'
+import { SESSION_COOKIE_NAME } from '@/lib/auth/session'
 
 const env = {} as Env
 
@@ -94,6 +94,22 @@ describe('login action', () => {
 
     await expect(login.orThrow.call(ctx, { username: 'admin', password: 'wrong' })).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
     expect(ctx.cookies.set).not.toHaveBeenCalled()
+  })
+
+  it('upgrades a legacy password hash after a successful login', async () => {
+    const legacy = {
+      salt: '0123456789abcdeffedcba9876543210',
+      hash: '798192cf692bf26be52c662c96c0947de44cab6690d1026b22a31474a545a1fd',
+    }
+    await createUser(env, { username: 'legacy-admin', passwordHash: legacy.hash, passwordSalt: legacy.salt, role: 'admin' })
+
+    await expect(login.orThrow.call(createContext(memorySessionKv()), { username: 'legacy-admin', password: 'hunter2' }))
+      .resolves
+      .toBeUndefined()
+
+    const upgraded = await findUserByUsername(env, 'legacy-admin')
+    expect(upgraded?.passwordHash).not.toBe(legacy.hash)
+    expect(await verifyPassword('hunter2', { salt: upgraded!.passwordSalt, hash: upgraded!.passwordHash })).toBe(true)
   })
 })
 

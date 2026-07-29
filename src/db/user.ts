@@ -1,6 +1,6 @@
 import type { UserRole } from '@/lib/auth/session'
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
-import { verifyPassword } from '@/lib/auth/password'
+import { hashPassword, verifyPassword, verifyPasswordWithRehash } from '@/lib/auth/password'
 import { connectDB } from '.'
 import { apiToken, markdown, user } from './schema'
 
@@ -69,11 +69,20 @@ const DUMMY_PASSWORD_HASH = {
 
 export async function verifyUserCredentials(env: Env, username: string, password: string) {
   const found = await findUserByUsername(env, username)
-  const stored = found
-    ? { salt: found.passwordSalt, hash: found.passwordHash }
-    : DUMMY_PASSWORD_HASH
-  const valid = await verifyPassword(password, stored)
-  return found && valid ? found : null
+  if (found) {
+    const verification = await verifyPasswordWithRehash(password, { salt: found.passwordSalt, hash: found.passwordHash })
+    if (!verification.valid)
+      return null
+
+    if (verification.needsRehash) {
+      const { salt, hash } = await hashPassword(password)
+      await updateUserPassword(env, found.id, { passwordHash: hash, passwordSalt: salt })
+    }
+    return found
+  }
+
+  await verifyPassword(password, DUMMY_PASSWORD_HASH)
+  return null
 }
 
 export function updateUserPassword(env: Env, userId: number, input: { passwordHash: string, passwordSalt: string }) {
