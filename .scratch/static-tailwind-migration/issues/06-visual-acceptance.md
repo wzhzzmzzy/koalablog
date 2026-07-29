@@ -43,3 +43,11 @@ On pass, flip ADR 0013 from `proposed` to `accepted`.
 6. `pnpm build:cf` + focused tests + visual checks pass; unrelated workspace files preserved — YES: build exit 0; astro check 7 pre-existing errors unchanged; the original checkout and its unrelated dirty files were never touched.
 
 **ADR 0013 status flipped to `accepted`.** Migration complete.
+
+### Rebase addendum (2026-07-29)
+
+Branch rebased onto `origin/main` (e0ec462, PR #33 lighter password hash + PR #34 local-workspace-sync). One semantic conflict resolved: `package.json` keeps main's additions (`bin`, `koala` script, `vite`, `@sveltejs/vite-plugin-svelte`) and this branch's removals (`unocss`, `@unocss/preset-icons`, `@unocss/preset-rem-to-px`); lockfile regenerated via `pnpm install`. ADR 0013 and CONTEXT.md auto-merged. Pre-rebase state preserved as branch `backup/omo-unocss-prune-pre-rebase`.
+
+Post-rebase verification (all re-run): astro check 7 pre-existing errors unchanged; `CF_PAGES=1 pnpm build` exit 0; vitest 391/393 (the frozen PBKDF2 vector now passes via main's lighter hash; the remaining failure is the pre-existing render-artifact oversize test, untouched by this work); cascade + svelte-toolchain + dashboard-button-style e2e 7/7.
+
+PR #34 rebuilt the Settings page: pixel diff showed a legitimate redesign (3.28%), verified interactively (settings-page structure renders, theme flavor switch + save round-trip works). The `dashboard-settings-desktop-light` baseline was refreshed with a `baselineRefresh` note in the manifest (reason + commit recorded); full matrix is green again.
