@@ -1,10 +1,16 @@
-const PBKDF2_ITERATIONS = 50_000
+const PBKDF2_ITERATIONS = 10_000
+const LEGACY_PBKDF2_ITERATIONS = [50_000]
 const SALT_BYTES = 16
 const KEY_BITS = 256
 
 export interface StoredPasswordHash {
   salt: string
   hash: string
+}
+
+export interface PasswordVerification {
+  valid: boolean
+  needsRehash: boolean
 }
 
 export function toHex(input: ArrayBuffer | Uint8Array): string {
@@ -31,18 +37,37 @@ function timingSafeEqual(left: string, right: string): boolean {
   return diff === 0
 }
 
-export async function hashPassword(password: string, saltHex?: string): Promise<StoredPasswordHash> {
-  const salt = saltHex ? fromHex(saltHex) : crypto.getRandomValues(new Uint8Array(SALT_BYTES))
+async function derivePasswordHash(password: string, salt: Uint8Array, iterations: number): Promise<string> {
   const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
   const derived = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations: PBKDF2_ITERATIONS },
+    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
     material,
     KEY_BITS,
   )
-  return { salt: toHex(salt), hash: toHex(derived) }
+  return toHex(derived)
+}
+
+export async function hashPassword(password: string, saltHex?: string): Promise<StoredPasswordHash> {
+  const salt = saltHex ? fromHex(saltHex) : crypto.getRandomValues(new Uint8Array(SALT_BYTES))
+  const hash = await derivePasswordHash(password, salt, PBKDF2_ITERATIONS)
+  return { salt: toHex(salt), hash }
+}
+
+export async function verifyPasswordWithRehash(password: string, stored: StoredPasswordHash): Promise<PasswordVerification> {
+  const salt = fromHex(stored.salt)
+  const currentHash = await derivePasswordHash(password, salt, PBKDF2_ITERATIONS)
+  if (timingSafeEqual(currentHash, stored.hash))
+    return { valid: true, needsRehash: false }
+
+  for (const iterations of LEGACY_PBKDF2_ITERATIONS) {
+    const legacyHash = await derivePasswordHash(password, salt, iterations)
+    if (timingSafeEqual(legacyHash, stored.hash))
+      return { valid: true, needsRehash: true }
+  }
+
+  return { valid: false, needsRehash: false }
 }
 
 export async function verifyPassword(password: string, stored: StoredPasswordHash): Promise<boolean> {
-  const candidate = await hashPassword(password, stored.salt)
-  return timingSafeEqual(candidate.hash, stored.hash)
+  return (await verifyPasswordWithRehash(password, stored)).valid
 }

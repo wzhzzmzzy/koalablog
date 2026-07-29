@@ -1,5 +1,5 @@
-import { hashPassword, verifyPassword } from '@/lib/auth/password'
 import { describe, expect, it } from 'vitest'
+import { hashPassword, verifyPassword } from '@/lib/auth/password'
 
 describe('password hashing', () => {
   it('verifies a password against its own salted hash', async () => {
@@ -19,9 +19,18 @@ describe('password hashing', () => {
     expect(first.hash).not.toBe(second.hash)
   })
 
-  it('matches the frozen PBKDF2-SHA256 test vector', async () => {
+  it('matches the 10,000-iteration PBKDF2-SHA256 test vector', async () => {
     const stored = await hashPassword('correct horse battery staple', '0123456789abcdeffedcba9876543210')
 
-    expect(stored.hash).toBe('f5975e897ff04dd78637fb6ba396b0fb7242af2a21428a4171140e985c5696fc')
+    expect(stored.hash).toBe('25f0a5e2e91dabc068583aee44c802a0a13954d1d13765168ab0c81610738fc1')
+  })
+
+  it('continues to verify the legacy 50,000-iteration PBKDF2-SHA256 vector', async () => {
+    const legacy = {
+      salt: '0123456789abcdeffedcba9876543210',
+      hash: '761e56ad81dbb14a00e6d44a9184d7df8b3029baa7d1bfcac6b198a9f44e262f',
+    }
+
+    expect(await verifyPassword('correct horse battery staple', legacy)).toBe(true)
   })
 })
