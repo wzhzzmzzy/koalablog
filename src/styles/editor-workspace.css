@@ -1,5 +1,6 @@
 @import "@fontsource-variable/outfit";
 
+
 #page:has(.editor-workspace) {
   width: 100%;
   max-width: none;
@@ -1275,4 +1276,78 @@ body:has(.editor-workspace) {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* CodeMirror chrome for .cm-adapter. These selectors target runtime-injected
+ * CodeMirror DOM, so they must stay unlayered and at least as specific as
+ * CodeMirror's own base theme — as layered Tailwind utilities they lost to
+ * the injected base theme (slice 05 regression, ADR 0013). This block sits at
+ * the end of the file so equal-specificity editor-workspace rules above keep
+ * their baseline outcomes through source order. */
+.cm-adapter .cm-editor {
+  height: 100%;
+  background-color: transparent;
+  color: var(--koala-editor-text);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.cm-adapter .cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-adapter .cm-scroller {
+  overflow: auto;
+  font-family: var(--koala-font-mono);
+  line-height: 1.6;
+  touch-action: pan-x pan-y;
+}
+
+.cm-adapter .cm-content {
+  min-height: 100%;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  caret-color: var(--koala-editor-text);
+}
+
+.cm-adapter .cm-line {
+  padding-right: 0.5rem;
+  padding-left: 0.5rem;
+}
+
+.cm-adapter .cm-gutters {
+  background-color: transparent;
+  color: var(--koala-subtext-0);
+}
+
+@media (width < 40rem) {
+  .cm-adapter .cm-gutters {
+    display: none;
+  }
+}
+
+.cm-adapter .cm-activeLine {
+  background-color: color-mix(in srgb, var(--koala-focusing-block) 60%, transparent);
+}
+
+.cm-adapter .cm-activeLineGutter {
+  background-color: var(--koala-focusing-block);
+}
+
+.cm-adapter ::selection {
+  background-color: var(--koala-editor-selection-bg) !important;
+}
+
+.cm-adapter .cm-cursor,
+.cm-adapter .cm-dropCursor {
+  border-left-color: var(--koala-editor-text);
+}
+
+.cm-adapter .cm-searchMatch {
+  background-color: var(--koala-warning-bg);
+  outline: 1px solid var(--koala-warning-text);
+}
+
+.cm-adapter .cm-searchMatch.cm-searchMatch-selected {
+  background-color: var(--koala-focusing-block);
 }
