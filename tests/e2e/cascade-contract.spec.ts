@@ -103,19 +103,23 @@ test.describe.configure({ timeout: 90_000 })
 
 test('Artifact Stylesheet wins over static utilities for the shared flex class (cascade contract)', async ({ page, browser }) => {
   // --- 1. Build the probe source through the same-origin Worker toolchain ---
-  await page.goto('/dashboard/edit?path=/phase-two')
-  await page.waitForLoadState('networkidle')
-
-  // The first Worker creation in a dev-server session can trigger a Vite HMR
-  // navigation (compiling the Worker entry + its toolchain dependencies). Warm
-  // it up with a trivial build so the real build runs against a stable page.
-  try {
-    await buildSvelteSourceInBrowser(page, '<div class="warmup">warmup</div>')
-  }
-  catch {
-    // Navigation during warm-up is expected — re-navigate and let Vite settle.
+  // The first Worker creation in a dev-server session can trigger one or more
+  // Vite HMR full reloads (compiling the Worker entry + its toolchain
+  // dependencies), which abort in-flight navigations with ERR_ABORTED — a
+  // single catch-and-renavigate can itself be aborted by a follow-up reload.
+  // Retry the (goto + warm-up build) pair a bounded number of times so the
+  // real build below runs against a stable, warm page.
+  let warmedUp = false
+  for (let attempt = 0; attempt < 3 && !warmedUp; attempt++) {
     await page.goto('/dashboard/edit?path=/phase-two')
     await page.waitForLoadState('networkidle')
+    try {
+      await buildSvelteSourceInBrowser(page, '<div class="warmup">warmup</div>')
+      warmedUp = true
+    }
+    catch {
+      // HMR reload aborted the warm-up — retry the whole pair.
+    }
   }
 
   const result = await buildSvelteSourceInBrowser(page, CASCADE_PROBE_SOURCE)
