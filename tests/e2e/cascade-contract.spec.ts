@@ -99,7 +99,7 @@ async function seedCascadeProbeArtifact(build: BuiltArtifact) {
   }
 }
 
-test.describe.configure({ timeout: 90_000 })
+test.describe.configure({ timeout: 180_000 })
 
 test('Artifact Stylesheet wins over static utilities for the shared flex class (cascade contract)', async ({ page, browser }) => {
   // --- 1. Build the probe source through the same-origin Worker toolchain ---
@@ -107,10 +107,11 @@ test('Artifact Stylesheet wins over static utilities for the shared flex class (
   // Vite HMR full reloads (compiling the Worker entry + its toolchain
   // dependencies), which abort in-flight navigations with ERR_ABORTED — a
   // single catch-and-renavigate can itself be aborted by a follow-up reload.
-  // Retry the (goto + warm-up build) pair a bounded number of times so the
-  // real build below runs against a stable, warm page.
+  // Cold caches need several cycles (worker, svelte/compiler, unocss, rollup),
+  // so retry the (goto + warm-up build) pair with a settle window between
+  // attempts and give the describe block a generous timeout.
   let warmedUp = false
-  for (let attempt = 0; attempt < 3 && !warmedUp; attempt++) {
+  for (let attempt = 0; attempt < 5 && !warmedUp; attempt++) {
     await page.goto('/dashboard/edit?path=/phase-two')
     await page.waitForLoadState('networkidle')
     try {
@@ -118,7 +119,9 @@ test('Artifact Stylesheet wins over static utilities for the shared flex class (
       warmedUp = true
     }
     catch {
-      // HMR reload aborted the warm-up — retry the whole pair.
+      // HMR reload aborted the warm-up — let Vite settle, then retry.
+      await page.waitForLoadState('networkidle').catch(() => {})
+      await page.waitForTimeout(1000)
     }
   }
 
