@@ -31,3 +31,6 @@ local.db
 /test-results/
 
 koala.config.json
+
+.omo/
+.opencode/
