@@ -72,7 +72,7 @@ import {
 - `callAction(path, input)` for same-origin POST Actions using session cookies, form/JSON request bodies, bounded devalue success decoding, and normalized `ActionError` failures.
 - `readOwnedMarkdown({ prefix, path })` to find exactly one active, private Markdown File owned by the current session.
 - `saveOwnedMarkdown(file, content)` to save that File with its latest revision and forced private Markdown fields.
-- `isOwnerAccessError(error)` only for owner-facing UI states. It is not authorization; the server remains authoritative.
+- `isOwnerAccessError(error)` only when the Action explicitly returns `UNAUTHORIZED`. Missing, mispathed, non-private, or non-Markdown sidecars remain specific companion-file errors; do not mislabel them as a login failure.
 
 The helpers intentionally reuse the existing Actions. A page should:
 

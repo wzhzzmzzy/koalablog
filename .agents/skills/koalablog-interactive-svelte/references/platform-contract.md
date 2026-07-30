@@ -68,7 +68,7 @@ const saved = await saveOwnedMarkdown(stateFile, nextMarkdown)
 
 The virtual module is bundled into the Artifact. It makes same-origin `fetch()` calls with the existing session cookie, performs bounded devalue decoding for ordinary File records, and exposes `ActionError` with `code` and `status` for errors such as `CONFLICT` / `source_conflict`.
 
-`readOwnedMarkdown` is the owner-facing capability check: it requires an exact active private Markdown sidecar returned by the owner-scoped Action. `isOwnerAccessError` may select a friendly UI state, but it is not the authorization boundary. The private route and `ownerGuard` remain the actual enforcement.
+`readOwnedMarkdown` requires an exact active private Markdown sidecar returned by the owner-scoped Action. `isOwnerAccessError` is only true for an explicit `UNAUTHORIZED` Action response; a missing, mispathed, non-private, or non-Markdown sidecar remains a specific companion-file error. The private route and `ownerGuard` remain the actual enforcement.
 
 For reference, these are the calls encapsulated by the virtual runtime:
 

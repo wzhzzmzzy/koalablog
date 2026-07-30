@@ -15,10 +15,10 @@ export class ActionError extends Error {
   }
 }
 
-export class OwnerAccessError extends Error {
-  constructor(path) {
-    super('This page can only edit its own private state file.');
-    this.name = 'OwnerAccessError';
+export class CompanionFileError extends Error {
+  constructor(path, message) {
+    super(message || 'No active private Markdown File exists at ' + path + '.');
+    this.name = 'CompanionFileError';
     this.path = path;
   }
 }
@@ -111,15 +111,16 @@ export async function callAction(path, input) {
 }
 
 function ownedMarkdownFile(value, path) {
-  if (!value || typeof value !== 'object'
-    || value.path !== path
+  if (!value || typeof value !== 'object')
+    throw new CompanionFileError(path);
+  if (value.path !== path
     || value.renderer !== 'markdown'
     || value.private !== true
     || value.deletedAt != null
     || !Number.isInteger(value.id)
     || !Number.isInteger(value.revision)
     || typeof value.content !== 'string') {
-    throw new OwnerAccessError(path);
+    throw new CompanionFileError(path, 'Companion File at ' + path + ' must be active private Markdown.');
   }
   return value;
 }
@@ -147,7 +148,6 @@ export async function saveOwnedMarkdown(file, content) {
 }
 
 export function isOwnerAccessError(error) {
-  return error instanceof OwnerAccessError
-    || (error instanceof ActionError && (error.code === 'UNAUTHORIZED' || error.code === 'NOT_FOUND'));
+  return error instanceof ActionError && error.code === 'UNAUTHORIZED';
 }
 `

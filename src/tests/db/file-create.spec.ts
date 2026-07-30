@@ -105,13 +105,13 @@ describe('server File creation Template resolution', () => {
         path: '/post/project/welcome',
         title: 'welcome',
         content: 'post welcome at /post/project/welcome',
-        private: false,
+        private: true,
         revision: 1,
       },
     })
   })
 
-  it('applies the ordinary memo Template and Visibility Default', async () => {
+  it('creates files as private by default', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(2026, 6, 16, 6, 7))
     await ensureTemplateCatalogInitialized(env)

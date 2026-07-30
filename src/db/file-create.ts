@@ -94,7 +94,7 @@ export async function createFile(env: Env | undefined, input: CreateFileInput): 
         path: candidate.path,
         renderer: candidate.renderer,
         content: candidate.content,
-        private: candidate.path.startsWith('/memo/'),
+        private: true,
         userId: input.userId,
       })
       return { status: 'created', file }
