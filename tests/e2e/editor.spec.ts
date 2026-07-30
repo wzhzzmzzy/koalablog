@@ -338,7 +338,7 @@ test('switching Files restores Source, selection, and undo by File ID', async ({
 
   source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await page.getByRole('button', { name: 'Preview File' }).click()
-  await expect(source).toBeHidden()
+  await expect(page.getByTestId('editor-preview-overlay')).toBeVisible()
   await page.getByRole('button', { name: 'Edit Source' }).click()
   await expect(source).toBeFocused()
   await source.pressSequentially('X')
@@ -543,12 +543,13 @@ test('dropping an image uses the drop coordinates instead of the stale selection
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await source.fill('first\nsecond')
   await source.press('Control+Home')
-  const box = await source.boundingBox()
-  if (!box)
-    throw new Error('File Source has no bounding box')
+  const secondLine = source.locator('.cm-line').nth(1)
+  const secondLineBox = await secondLine.boundingBox()
+  if (!secondLineBox)
+    throw new Error('Second Source line has no bounding box')
   await dispatchImageTransfer(source, 'drop', 'dropped.png', {
-    x: box.x + 100,
-    y: box.y + 34,
+    x: secondLineBox.x + Math.min(100, secondLineBox.width - 1),
+    y: secondLineBox.y + secondLineBox.height / 2,
   })
 
   await expect.poll(async () => (await editorText(source)).match(/!\[\]\(\/api\/oss\/[^)]+\)/g)?.length ?? 0).toBe(1)
@@ -638,8 +639,8 @@ test('selection remains visible inside the active CodeMirror line', async ({ pag
 
     const activeRect = activeLine.getBoundingClientRect()
     const selectionRect = selection.getBoundingClientRect()
-    const background = getComputedStyle(activeLine).backgroundColor
-    const alphaMatch = background.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)|\/\s*([\d.]+)/)
+    const selectionBackground = getComputedStyle(selection).backgroundColor
+    const alphaMatch = selectionBackground.match(/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)|\/\s*([\d.]+)/)
     const alpha = Number(
       alphaMatch?.[1]
       ?? alphaMatch?.[2]
@@ -655,7 +656,7 @@ test('selection remains visible inside the active CodeMirror line', async ({ pag
 
   expect(feedback.activeLine).toBe('First line')
   expect(feedback.selectionOverlapsActiveLine).toBe(true)
-  expect(feedback.alpha).toBeLessThan(1)
+  expect(feedback.alpha).toBe(0)
 })
 
 test('narrow screens hide gutters while keeping Source scrolling and editing', async ({ page }) => {
@@ -785,10 +786,11 @@ test('renaming a File preserves Source selection, scroll, folds, and undo', asyn
   const originalSource = await editorText(source)
   const lines = ['# Folded', 'hidden', '', '# Long section', ...Array.from({ length: 100 }, (_, index) => `line ${index + 1}`)]
   await source.fill(lines.join('\n'))
+  await source.press('Meta+ArrowUp')
   await page.locator('[title="Fold line"]').first().click()
   await expect(page.locator('[title="Unfold line"]:visible').first()).toBeVisible()
 
-  await source.press('Control+End')
+  await source.press('Meta+ArrowDown')
   await source.press('Shift+Home')
   const scroller = page.locator('.cm-scroller')
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)

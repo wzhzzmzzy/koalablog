@@ -7,6 +7,7 @@
   import { EditorView } from '@codemirror/view';
   import { onMount } from 'svelte';
   import { restoreCodeMirrorState, saveCodeMirrorState } from './codemirror-state';
+  import { catppuccinEditorTheme, resolveEditorCatppuccinTheme } from './catppuccin-theme';
   import { reconcileTextEditorDiagnostics, type TextEditorDiagnosticUpdate } from './diagnostics';
   import { fileReferenceCompletion, type FileReferenceCandidate } from './file-reference-completion';
   import { createImageHistoryController } from './image-history';
@@ -46,6 +47,7 @@
   const labelCompartment = new Compartment();
   const languageCompartment = new Compartment();
   const referenceCompletionCompartment = new Compartment();
+  const themeCompartment = new Compartment();
 
   function initialLanguageExtension(initialRenderer: RendererMode): Extension {
     return initialRenderer === RENDERER_MODE.Markdown ? markdownLanguageExtension() : [];
@@ -71,12 +73,22 @@
     });
   }
 
+  function activeCatppuccinTheme() {
+    const page = document.querySelector<HTMLElement>('#page');
+    return resolveEditorCatppuccinTheme({
+      light: page?.dataset.lightTheme,
+      dark: page?.dataset.darkTheme,
+      prefersDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
+    });
+  }
+
   function createState(doc: string, initialRenderer: RendererMode) {
     return EditorState.create({
       doc,
       extensions: [
         imageHistory.extension,
         textEditorExtensions(imageHistory.keyBindings),
+        themeCompartment.of(catppuccinEditorTheme(activeCatppuccinTheme())),
         languageCompartment.of(initialLanguageExtension(initialRenderer)),
         accessCompartment.of(accessExtension(readonly)),
         labelCompartment.of(labelExtension(filePath, fileId)),
@@ -287,7 +299,14 @@
     void applyLanguage(renderer);
     applyDiagnostics(diagnostics);
 
+    const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const refreshTheme = () => view?.dispatch({
+      effects: themeCompartment.reconfigure(catppuccinEditorTheme(activeCatppuccinTheme())),
+    });
+    colorScheme.addEventListener('change', refreshTheme);
+
     return () => {
+      colorScheme.removeEventListener('change', refreshTheme);
       cacheCurrentState();
       view?.destroy();
       view = undefined;

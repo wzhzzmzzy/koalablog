@@ -10,7 +10,7 @@
   const links = [
     { href: '/dashboard/oss', label: 'Storage', icon: HardDrive },
     { href: '/dashboard/template', label: 'Templates', icon: FileText },
-    { href: '/dashboard/rebuild', label: 'Rebuild', icon: RefreshCw },
+    { href: '/dashboard/rebuild', label: 'Deploy', icon: RefreshCw },
     { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   ]
 </script>

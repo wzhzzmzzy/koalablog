@@ -16,23 +16,33 @@
   let showTrashConfirm = $state(false);
   let showPurgeConfirm = $state(false);
   let restoreConflict = $state<{ suggestedPath: string; suggestedTitle: string } | null>(null);
-  let activeDialog: HTMLDivElement | undefined = $state();
+  let activeDialog: HTMLDialogElement | undefined = $state();
   const trashed = $derived(Boolean(file.deletedAt));
   const dialogTitleId = $derived(`file-lifecycle-dialog-${file.id}`);
 
   async function focusDialog() {
     await tick();
+    if (activeDialog && !activeDialog.open)
+      activeDialog.showModal();
     activeDialog?.querySelector<HTMLButtonElement>('button')?.focus();
   }
 
   function closeDialogs() {
+    if (activeDialog?.open)
+      activeDialog.close();
     showTrashConfirm = false;
     showPurgeConfirm = false;
     restoreConflict = null;
   }
 
-  function handleDialogKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') closeDialogs();
+  function handleDialogCancel(event: Event) {
+    event.preventDefault();
+    closeDialogs();
+  }
+
+  function handleDialogClick(event: MouseEvent) {
+    if (event.target === activeDialog)
+      closeDialogs();
   }
 
   async function openTrashConfirm() {
@@ -113,74 +123,65 @@
 {/if}
 
 {#if showTrashConfirm}
-  <div
+  <dialog
     bind:this={activeDialog}
-    class="editor-modal-backdrop"
-    role="dialog"
-    tabindex="-1"
-    aria-modal="true"
+    class="editor-modal"
     aria-labelledby={dialogTitleId}
-    onkeydown={handleDialogKeydown}
+    onclose={closeDialogs}
+    oncancel={handleDialogCancel}
+    onclick={handleDialogClick}
   >
-    <div class="editor-modal">
-      <h3 id={dialogTitleId}>Move to recycle bin?</h3>
-      <p>The File can be restored later.</p>
-      <div class="editor-modal__actions">
-        <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
-        <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={trashFile} aria-label="Move to recycle bin">
-          <Trash2 size={20} />
-        </button>
-      </div>
+    <h3 id={dialogTitleId}>Move to recycle bin?</h3>
+    <p>The File can be restored later.</p>
+    <div class="editor-modal__actions">
+      <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
+      <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={trashFile} aria-label="Move to recycle bin">
+        <Trash2 size={20} />
+      </button>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 {#if showPurgeConfirm}
-  <div
+  <dialog
     bind:this={activeDialog}
-    class="editor-modal-backdrop"
-    role="dialog"
-    tabindex="-1"
-    aria-modal="true"
+    class="editor-modal"
     aria-labelledby={dialogTitleId}
-    onkeydown={handleDialogKeydown}
+    onclose={closeDialogs}
+    oncancel={handleDialogCancel}
+    onclick={handleDialogClick}
   >
-    <div class="editor-modal">
-      <h3 id={dialogTitleId}>Permanently delete?</h3>
-      <p>This cannot be undone. Other Files with the same Title will not be affected.</p>
-      <div class="editor-modal__actions">
-        <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
-        <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={purgeFile} aria-label="Permanently delete">
-          <Trash2 size={20} />
-        </button>
-      </div>
+    <h3 id={dialogTitleId}>Permanently delete?</h3>
+    <p>This cannot be undone. Other Files with the same Title will not be affected.</p>
+    <div class="editor-modal__actions">
+      <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
+      <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={purgeFile} aria-label="Permanently delete">
+        <Trash2 size={20} />
+      </button>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 {#if restoreConflict}
-  <div
+  <dialog
     bind:this={activeDialog}
-    class="editor-modal-backdrop"
-    role="dialog"
-    tabindex="-1"
-    aria-modal="true"
+    class="editor-modal"
     aria-labelledby={dialogTitleId}
-    onkeydown={handleDialogKeydown}
+    onclose={closeDialogs}
+    oncancel={handleDialogCancel}
+    onclick={handleDialogClick}
   >
-    <div class="editor-modal">
-      <h3 id={dialogTitleId}>Name already in use</h3>
-      <p>Another active File uses this Path.</p>
-      <p class="break-all">
-        Restore as {restoreConflict.suggestedPath} with Title “{restoreConflict.suggestedTitle}”.
-      </p>
-      <div class="editor-modal__actions">
-        <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
-        <button type="button" class="editor-conflict__button" onclick={() => restoreFile(true)}>
-          <RotateCcw size={20} />
-          <span>Restore renamed</span>
-        </button>
-      </div>
+    <h3 id={dialogTitleId}>Name already in use</h3>
+    <p>Another active File uses this Path.</p>
+    <p class="break-all">
+      Restore as {restoreConflict.suggestedPath} with Title “{restoreConflict.suggestedTitle}”.
+    </p>
+    <div class="editor-modal__actions">
+      <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
+      <button type="button" class="editor-conflict__button" onclick={() => restoreFile(true)}>
+        <RotateCcw size={20} />
+        <span>Restore renamed</span>
+      </button>
     </div>
-  </div>
+  </dialog>
 {/if}

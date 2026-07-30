@@ -116,6 +116,10 @@ body:has(.editor-workspace) {
   overflow: hidden;
 }
 
+.editor-workspace:has(.editor-preview-overlay) .editor-workspace__main {
+  z-index: 30;
+}
+
 .editor-workspace__document {
   display: flex;
   width: 100%;
@@ -180,7 +184,6 @@ body:has(.editor-workspace) {
 }
 
 .editor-toolbar__context:focus-within {
-  border-color: color-mix(in srgb, var(--editor-focus) 58%, transparent);
   background: var(--editor-panel-raised);
 }
 
@@ -209,6 +212,11 @@ body:has(.editor-workspace) {
 
 .editor-path-input::placeholder {
   color: var(--editor-muted);
+}
+
+.editor-workspace .editor-path-input:focus-visible {
+  outline: none;
+  outline-offset: 0;
 }
 
 .editor-tool-button {
@@ -270,6 +278,19 @@ body:has(.editor-workspace) {
   border-color: color-mix(in srgb, var(--koala-catppuccin-green) 72%, var(--koala-catppuccin-text));
   color: var(--koala-catppuccin-base);
   background: color-mix(in srgb, var(--koala-catppuccin-green) 88%, var(--koala-catppuccin-teal));
+}
+
+.editor-tool-button--deploy {
+  width: auto;
+  min-width: 5.75rem;
+  border-color: var(--editor-border);
+  color: var(--editor-text);
+  background: color-mix(in srgb, var(--editor-panel-raised) 86%, transparent);
+}
+
+.editor-tool-button--deploy:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--editor-focus) 42%, var(--editor-border));
+  background: var(--editor-hover);
 }
 
 .editor-tool-button--danger {
@@ -334,12 +355,13 @@ body:has(.editor-workspace) {
 
 .editor-renderer-option input {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: inherit;
+  opacity: 0;
 }
 
 .editor-renderer-option:has(input:focus-visible) {
@@ -388,6 +410,14 @@ body:has(.editor-workspace) {
   border-radius: 0.65rem;
   color: var(--koala-catppuccin-mauve);
   background: color-mix(in srgb, var(--koala-catppuccin-mauve) 12%, transparent);
+}
+
+.editor-toolbar__context-mark[data-renderer="svelte"],
+.editor-content__identity-mark[data-renderer="svelte"],
+.editor-preview-overlay__icon[data-renderer="svelte"] {
+  border-color: color-mix(in srgb, #ff3e00 34%, transparent);
+  color: #ff3e00;
+  background: color-mix(in srgb, #ff3e00 13%, transparent);
 }
 
 .editor-content__heading {
@@ -481,6 +511,87 @@ body:has(.editor-workspace) {
   background: var(--editor-code-surface);
 }
 
+.editor-preview-overlay {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--editor-text);
+  background: var(--editor-code-surface);
+}
+
+.editor-preview-overlay__header {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem clamp(0.75rem, 2.5vw, 1.5rem);
+  border-bottom: 1px solid var(--editor-border);
+  background: color-mix(in srgb, var(--editor-panel) 94%, transparent);
+  box-shadow: 0 0.8rem 1.75rem -1.75rem var(--editor-shadow);
+}
+
+.editor-preview-overlay__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.editor-preview-overlay__icon {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--koala-catppuccin-mauve) 32%, transparent);
+  border-radius: 0.55rem;
+  color: var(--koala-catppuccin-mauve);
+  background: color-mix(in srgb, var(--koala-catppuccin-mauve) 12%, transparent);
+}
+
+.editor-preview-overlay__title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--editor-text);
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-preview-overlay__close {
+  width: auto;
+  min-width: 6.75rem;
+  border-color: var(--editor-border);
+  color: var(--editor-text);
+  background: color-mix(in srgb, var(--editor-panel-raised) 86%, transparent);
+}
+
+.editor-preview-overlay__canvas {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-preview-overlay .editor-markdown-preview,
+.editor-preview-overlay .editor-svelte-preview {
+  border-radius: 0;
+}
+
+.editor-svelte-snapshot-host {
+  display: none;
+}
+
 .editor-workspace .cm-editor,
 .editor-workspace .cm-scroller {
   height: 100%;
@@ -497,16 +608,12 @@ body:has(.editor-workspace) {
   max-width: 88rem;
   margin: 0 auto;
   padding: 1.25rem clamp(1rem, 3.2vw, 2.5rem) 3rem clamp(0.65rem, 1.2vw, 1rem) !important;
-  color: var(--editor-text);
   font-size: 0.91rem;
   line-height: 1.75;
 }
 
 .editor-workspace .cm-gutters {
   min-width: 3.25rem;
-  border-right: 1px solid var(--editor-border);
-  color: var(--editor-subtle);
-  background: color-mix(in srgb, var(--koala-catppuccin-mantle) 58%, transparent);
 }
 
 .editor-workspace .cm-lineNumbers .cm-gutterElement {
@@ -516,25 +623,6 @@ body:has(.editor-workspace) {
 
 .editor-workspace .cm-activeLine {
   border-radius: 0.32rem;
-  background: color-mix(in srgb, var(--koala-catppuccin-surface-0) 48%, transparent) !important;
-}
-
-.editor-workspace .cm-activeLineGutter {
-  color: var(--editor-text);
-  background: color-mix(in srgb, var(--koala-catppuccin-mauve) 12%, transparent) !important;
-}
-
-.editor-workspace .cm-selectionBackground {
-  background: transparent !important;
-}
-
-.editor-workspace .cm-content ::selection {
-  background: color-mix(in srgb, var(--koala-catppuccin-overlay-0) 34%, transparent) !important;
-}
-
-.editor-workspace .cm-cursor,
-.editor-workspace .cm-dropCursor {
-  border-left-color: var(--koala-catppuccin-lavender) !important;
 }
 
 .editor-markdown-preview,
@@ -1073,25 +1161,26 @@ body:has(.editor-workspace) {
   line-height: 1.45;
 }
 
-.editor-modal-backdrop {
-  position: fixed;
-  z-index: 30;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: color-mix(in srgb, var(--koala-catppuccin-crust) 62%, transparent);
-  backdrop-filter: blur(4px);
-}
-
 .editor-modal {
-  width: min(100%, 28rem);
+  box-sizing: border-box;
+  width: min(28rem, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  overflow: auto;
   padding: 1.25rem;
   border: 1px solid var(--editor-border-strong);
   border-radius: 1rem;
   color: var(--editor-text);
   background: var(--editor-panel-raised);
   box-shadow: 0 1.5rem 3rem -1.5rem var(--editor-shadow);
+}
+
+.editor-modal::backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--koala-catppuccin-crust) 62%, transparent);
+  backdrop-filter: blur(4px);
 }
 
 .editor-modal h3 {
@@ -1278,16 +1367,11 @@ body:has(.editor-workspace) {
   }
 }
 
-/* CodeMirror chrome for .cm-adapter. These selectors target runtime-injected
- * CodeMirror DOM, so they must stay unlayered and at least as specific as
- * CodeMirror's own base theme — as layered Tailwind utilities they lost to
- * the injected base theme (slice 05 regression, ADR 0013). This block sits at
- * the end of the file so equal-specificity editor-workspace rules above keep
- * their baseline outcomes through source order. */
+/* CodeMirror layout for .cm-adapter. Theme colors deliberately come from the
+ * official @catppuccin/codemirror extension so chrome and syntax highlighting
+ * stay aligned with its pinned release. */
 .cm-adapter .cm-editor {
   height: 100%;
-  background-color: transparent;
-  color: var(--koala-editor-text);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
@@ -1307,7 +1391,6 @@ body:has(.editor-workspace) {
   min-height: 100%;
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
-  caret-color: var(--koala-editor-text);
 }
 
 .cm-adapter .cm-line {
@@ -1315,39 +1398,18 @@ body:has(.editor-workspace) {
   padding-left: 0.5rem;
 }
 
-.cm-adapter .cm-gutters {
-  background-color: transparent;
-  color: var(--koala-subtext-0);
+/* Keep CodeMirror's drawn rectangle transparent so the native selection is the
+ * single selection layer, including when the Catppuccin extension is active. */
+.cm-adapter .cm-selectionBackground {
+  background: transparent !important;
+}
+
+.cm-adapter .cm-content ::selection {
+  background: color-mix(in srgb, var(--koala-catppuccin-overlay-0) 34%, transparent) !important;
 }
 
 @media (width < 40rem) {
   .cm-adapter .cm-gutters {
     display: none;
   }
-}
-
-.cm-adapter .cm-activeLine {
-  background-color: color-mix(in srgb, var(--koala-focusing-block) 60%, transparent);
-}
-
-.cm-adapter .cm-activeLineGutter {
-  background-color: var(--koala-focusing-block);
-}
-
-.cm-adapter ::selection {
-  background-color: var(--koala-editor-selection-bg) !important;
-}
-
-.cm-adapter .cm-cursor,
-.cm-adapter .cm-dropCursor {
-  border-left-color: var(--koala-editor-text);
-}
-
-.cm-adapter .cm-searchMatch {
-  background-color: var(--koala-warning-bg);
-  outline: 1px solid var(--koala-warning-text);
-}
-
-.cm-adapter .cm-searchMatch.cm-searchMatch-selected {
-  background-color: var(--koala-focusing-block);
 }

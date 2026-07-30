@@ -26,7 +26,7 @@
     { id: 'edit', label: 'Editor', href: '/dashboard/edit', icon: PenLine },
     { id: 'oss', label: 'Storage', href: '/dashboard/oss', icon: HardDrive },
     { id: 'template', label: 'Templates', href: '/dashboard/template', icon: FileText },
-    { id: 'rebuild', label: 'Rebuild', href: '/dashboard/rebuild', icon: RefreshCw },
+    { id: 'rebuild', label: 'Deploy', href: '/dashboard/rebuild', icon: RefreshCw },
     { id: 'settings', label: 'Settings', href: '/dashboard/settings', icon: Settings },
   ]
 </script>

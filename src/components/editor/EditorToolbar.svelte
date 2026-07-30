@@ -4,6 +4,7 @@
   import { ArrowLeft, Check, Eye, FileText, House, Link, Lock, LockOpen, Menu, RotateCw, Save, SquarePen, Trash2, Upload } from '@lucide/svelte';
   import FileLifecycle from './FileLifecycle.svelte';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
+  import SvelteIcon from './SvelteIcon.svelte';
   import RendererToggle from './svelte/RendererToggle.svelte';
   import { editorStore, toggleSidebar } from './store.svelte';
 
@@ -20,6 +21,7 @@
     showPreview?: boolean;
     copyBtnText?: string;
     trashed?: boolean;
+    deploying?: boolean;
     onBackToDashboard: ClickHandler;
     onBack?: ClickHandler;
     onTogglePrivate?: ClickHandler;
@@ -27,7 +29,7 @@
     onSave?: ClickHandler;
     onUpload?: ClickHandler;
     onPreview?: ClickHandler;
-    onRebuild?: ClickHandler;
+    onDeploy?: ClickHandler;
     onCopyLink?: () => void;
     onUpdate?: (file: FileRecord) => void;
     onPurge?: (id: number) => void;
@@ -43,6 +45,7 @@
     showPreview = false,
     copyBtnText = 'Link',
     trashed = false,
+    deploying = false,
     onBackToDashboard,
     onBack = noopClick,
     onTogglePrivate = noopClick,
@@ -50,7 +53,7 @@
     onSave = noopClick,
     onUpload = noopClick,
     onPreview = noopClick,
-    onRebuild = noopClick,
+    onDeploy = noopClick,
     onCopyLink = () => {},
     onUpdate,
     onPurge,
@@ -98,7 +101,13 @@
   </div>
 
   <div class="editor-toolbar__context">
-    <span class="editor-toolbar__context-mark" aria-hidden="true"><FileText size={14} /></span>
+    <span class="editor-toolbar__context-mark" data-testid="editor-path-file-icon" data-renderer={rendererValue} aria-hidden="true">
+      {#if rendererValue === 'svelte'}
+        <SvelteIcon size={14} />
+      {:else}
+        <FileText size={14} />
+      {/if}
+    </span>
     <input
       id="path-input"
       class="editor-path-input"
@@ -167,12 +176,14 @@
       {#if file && rendererValue === 'svelte' && file.id > 0}
         <button
           type="button"
-          class="editor-tool-button"
-          onclick={onRebuild}
-          aria-label="Rebuild Svelte Artifact"
-          title={changed ? 'Save Source before rebuilding' : 'Rebuild Svelte Artifact'}
+          class="editor-tool-button editor-tool-button--deploy"
+          onclick={onDeploy}
+          disabled={changed || deploying}
+          aria-label="Deploy Svelte File"
+          title={changed ? 'Save Source before deploying' : (deploying ? 'Deploying Svelte File' : 'Deploy Svelte File')}
         >
           <RotateCw size={20} />
+          <span class="editor-tool-button__label">Deploy</span>
         </button>
       {/if}
       <button

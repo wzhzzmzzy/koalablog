@@ -199,19 +199,19 @@
   }
 </script>
 
-<section class="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 xl:px-16" aria-labelledby="rebuild-title">
+<section class="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:px-12 xl:px-16" aria-labelledby="deploy-title">
   <header class="flex flex-col justify-between gap-5 border-b border-border pb-6 sm:flex-row sm:items-end">
     <div class="max-w-2xl">
-      <p class="mb-2 text-sm font-medium text-muted-foreground">Svelte artifacts</p>
-      <h1 id="rebuild-title" class="text-2xl font-semibold tracking-tight text-foreground">Rebuild</h1>
-      <p class="mt-2 text-sm text-muted-foreground">Builds run sequentially in this open browser tab. Closing it stops the batch.</p>
+      <p class="mb-2 text-sm font-medium text-muted-foreground">Svelte files</p>
+      <h1 id="deploy-title" class="text-2xl font-semibold tracking-tight text-foreground">Deploy</h1>
+      <p class="mt-2 text-sm text-muted-foreground">Deployments run sequentially in this open browser tab. Closing it stops the batch.</p>
     </div>
     <div class="flex flex-wrap gap-2">
       <Button variant="outline" type="button" onclick={() => void loadCandidates()} disabled={loading || running}>Refresh candidates</Button>
       {#if running}
         <Button variant="outline" type="button" onclick={stopBatch}>Stop after current step</Button>
       {:else}
-        <Button type="button" onclick={() => void startBatch()} disabled={!canStart}>Start rebuild</Button>
+        <Button type="button" onclick={() => void startBatch()} disabled={!canStart}>Start deployment</Button>
       {/if}
     </div>
   </header>
@@ -223,7 +223,7 @@
   {:else}
     <div class="mt-6 flex flex-wrap gap-2" aria-live="polite">
       <Badge variant="outline">{progress.total} candidates</Badge>
-      <Badge variant="outline" class="border-[color:var(--koala-dashboard-success)]/40 text-[color:var(--koala-dashboard-success)]">{progress.success} rebuilt</Badge>
+      <Badge variant="outline" class="border-[color:var(--koala-dashboard-success)]/40 text-[color:var(--koala-dashboard-success)]">{progress.success} deployed</Badge>
       <Badge variant="outline" class="border-destructive/40 text-destructive">{progress.failure} failed</Badge>
       <Badge variant="outline" class="border-[color:var(--koala-dashboard-warning)]/45 text-foreground">{progress.dependencyChanged} review</Badge>
       <Badge variant="outline" class="text-muted-foreground">{progress.queued + progress.running} remaining</Badge>
@@ -234,22 +234,22 @@
     {/if}
 
     {#if progress.total === 0}
-      <p class="mt-8 text-sm text-muted-foreground">No active Svelte Files need rebuilding.</p>
+      <p class="mt-8 text-sm text-muted-foreground">No active Svelte Files need deploying.</p>
     {:else}
-      <ul class="mt-6 m-0 flex list-none flex-col gap-2 p-0" aria-label="Svelte rebuild outcomes">
+      <ul class="mt-6 m-0 flex list-none flex-col gap-2 p-0" aria-label="Svelte deployment outcomes">
         {#each rebuildState.entries as entry (entry.id)}
           <li>
             <Card size="sm" data-rebuild-path={entry.path} data-rebuild-status={entry.status}>
               <CardContent class="space-y-3">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                   <a class="min-w-0 break-all font-mono text-sm text-foreground underline-offset-4 hover:text-primary hover:underline" href={`/dashboard/edit?id=${entry.id}`}>{entry.path}</a>
-                  <Badge variant="outline" class={statusClass(entry)} aria-label={`Rebuild status: ${statusLabel(entry)}`}>{statusLabel(entry)}</Badge>
+                  <Badge variant="outline" class={statusClass(entry)} aria-label={`Deployment status: ${statusLabel(entry)}`}>{statusLabel(entry)}</Badge>
                 </div>
                 {#if entry.message}
                   <p class="text-sm text-muted-foreground">{entry.message}</p>
                 {/if}
                 {#if entry.status === 'failure' && !running}
-                  <Button variant="outline" size="sm" type="button" onclick={() => retry(entry)}>Retry build</Button>
+                  <Button variant="outline" size="sm" type="button" onclick={() => retry(entry)}>Retry deployment</Button>
                 {:else if entry.status === 'dependency_changed'}
                   <p class="text-sm text-muted-foreground">Open the File in the editor to review its dependency change. This utility never confirms it.</p>
                 {/if}

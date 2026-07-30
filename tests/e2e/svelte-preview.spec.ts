@@ -247,10 +247,10 @@ test('shared Snapshot canonicalizer preserves safe no-script navigation and form
   })
 })
 
-test('editor builds a Svelte buffer only after Preview opens', async ({ page }) => {
+test('editor builds a visible Svelte Preview only after Preview opens', async ({ page }) => {
   await openEditor(page)
   await page.getByRole('radio', { name: 'Svelte' }).check()
-  await expect(page.locator('[data-koala-svelte-preview]')).toHaveCount(0)
+  await expect(page.locator('[data-koala-svelte-preview]:visible')).toHaveCount(0)
 
   const workerLoadReloadedEditor = page.waitForEvent('framenavigated', {
     predicate: frame => frame === page.mainFrame(),
@@ -266,7 +266,7 @@ test('editor builds a Svelte buffer only after Preview opens', async ({ page }) 
     await page.getByRole('radio', { name: 'Svelte' }).check()
     await page.getByRole('button', { name: 'Preview File' }).click()
   }
-  const preview = page.locator('[data-koala-svelte-preview]')
+  const preview = page.locator('.editor-preview-overlay [data-koala-svelte-preview]')
   await expect(preview).toHaveCount(1)
   await expect(preview.locator('[data-koala-artifact-root]')).toContainText('First line', { timeout: 30_000 })
   await expect(page.locator('iframe[data-koala-svelte-preview]')).toHaveCount(0)

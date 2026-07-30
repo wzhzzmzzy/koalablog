@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { RendererMode } from '@/lib/files/types';
-  import { FileText } from '@lucide/svelte';
+  import { FileText, SquarePen } from '@lucide/svelte';
   import type { PreviewArtifact, PreviewRuntimeErrorMessage } from './svelte/preview-runtime';
   import type { EditBufferServerValues } from './edit-buffer.svelte';
   import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
   import type { FileReferenceCandidate } from './text-editor/file-reference-completion';
+  import SvelteIcon from './SvelteIcon.svelte';
   import SveltePreview from './svelte/SveltePreview.svelte';
   import TextEditor, { type TextEditorHandle } from './TextEditor.svelte';
 
@@ -27,6 +28,7 @@
     baseRevision: number;
     onUseServer: () => void;
     onRebase: () => void;
+    onClosePreview: () => void;
     onChange: (value: string) => void;
     uploadImage: (file: File) => Promise<{ url: string }>;
   }
@@ -50,12 +52,15 @@
     baseRevision,
     onUseServer,
     onRebase,
+    onClosePreview,
     onChange,
     uploadImage,
   }: Props = $props();
 
   let textEditor: TextEditorHandle | undefined = $state();
   let sveltePreview: SveltePreview | undefined = $state();
+  let svelteSnapshotPreview: SveltePreview | undefined = $state();
+  let previewCloseButton: HTMLButtonElement | undefined = $state();
   const lineCount = $derived(value.length === 0 ? 1 : value.split('\n').length);
   const modeLabel = $derived(showPreview ? 'Preview' : 'Source');
   const rendererLabel = $derived(renderer === 'svelte' ? 'Svelte' : 'Markdown');
@@ -70,13 +75,18 @@
   }
 
   export async function snapshotSvelteArtifact(artifact: PreviewArtifact) {
-    if (!sveltePreview)
-      throw new Error('Open Svelte Preview before capturing an Artifact Snapshot')
-    return sveltePreview.snapshot(artifact)
+    const snapshotPreview = sveltePreview ?? svelteSnapshotPreview
+    if (!snapshotPreview)
+      throw new Error('Svelte Snapshot Preview is not ready')
+    return snapshotPreview.snapshot(artifact)
+  }
+
+  export function focusPreview() {
+    previewCloseButton?.focus()
   }
 
   function returnPreviewFocus() {
-    textEditor?.focus();
+    void onClosePreview()
   }
 
   function reportPreviewError(error: Error | PreviewRuntimeErrorMessage) {
@@ -87,7 +97,13 @@
 <section class="editor-content" aria-label="File editor">
   <header class="editor-content__header">
     <div class="editor-content__identity">
-      <span class="editor-content__identity-mark" aria-hidden="true"><FileText size={19} /></span>
+      <span class="editor-content__identity-mark" data-testid="editor-title-file-icon" data-renderer={renderer} aria-hidden="true">
+        {#if renderer === 'svelte'}
+          <SvelteIcon size={17} />
+        {:else}
+          <FileText size={19} />
+        {/if}
+      </span>
       <div class="editor-content__heading">
         <h1 class="editor-file-title">
           <span class="editor-file-title__name">{title || 'Untitled'}</span>
@@ -124,18 +140,50 @@
     />
   </div>
 
-  {#if showPreview && renderer === 'svelte'}
-    <section class="editor-canvas editor-svelte-preview" aria-label="Svelte Preview">
-      {#if svelteBuildError}
-        <p class="m-0 p-4 text-[color:var(--koala-error-text)]" role="alert">{svelteBuildError}</p>
-      {:else}
-        <SveltePreview bind:this={sveltePreview} artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
-      {/if}
+  {#if showPreview}
+    <section class="editor-preview-overlay" data-testid="editor-preview-overlay" aria-label="File preview">
+      <header class="editor-preview-overlay__header">
+        <div class="editor-preview-overlay__identity">
+          <span class="editor-preview-overlay__icon" data-renderer={renderer} aria-hidden="true">
+            {#if renderer === 'svelte'}
+              <SvelteIcon size={17} />
+            {:else}
+              <FileText size={18} />
+            {/if}
+          </span>
+          <p class="editor-preview-overlay__title">
+            <span>{title || 'Untitled'}</span><span class="editor-file-title__extension">{fileExtension}</span>
+          </p>
+        </div>
+        <button
+          bind:this={previewCloseButton}
+          type="button"
+          class="editor-tool-button editor-preview-overlay__close"
+          onclick={() => void onClosePreview()}
+          aria-label="Edit Source"
+          title="Edit Source"
+        >
+          <SquarePen size={18} />
+          <span class="editor-tool-button__label">Edit Source</span>
+        </button>
+      </header>
+
+      <div class="editor-preview-overlay__canvas">
+        {#if renderer === 'svelte'}
+          <section class="editor-svelte-preview" aria-label="Svelte Preview">
+            {#if svelteBuildError}
+              <p class="m-0 p-4 text-[color:var(--koala-error-text)]" role="alert">{svelteBuildError}</p>
+            {:else}
+              <SveltePreview bind:this={sveltePreview} artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
+            {/if}
+          </section>
+        {:else}
+          <article id="preview-md" class="editor-markdown-preview">
+            {@html previewHtml}
+          </article>
+        {/if}
+      </div>
     </section>
-  {:else}
-    <article id="preview-md" class="editor-markdown-preview {showPreview ? '' : 'hidden'}">
-      {@html previewHtml}
-    </article>
   {/if}
 
   <footer class="editor-status-bar" aria-label="File status">
@@ -152,4 +200,10 @@
       <span class="editor-status-bar__detail">{value.length} characters</span>
     </div>
   </footer>
+
+  {#if renderer === 'svelte' && !showPreview}
+    <div class="editor-svelte-snapshot-host" aria-hidden="true">
+      <SveltePreview bind:this={svelteSnapshotPreview} onFocusReturn={() => {}} onPreviewError={reportPreviewError} />
+    </div>
+  {/if}
 </section>

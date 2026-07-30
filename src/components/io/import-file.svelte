@@ -286,7 +286,7 @@ const onSave = async () => {
 {/if}
 {#if rebuildRequired.size > 0 && !showDrawer}
   <p class="error mb-0" role="status" data-import-rebuild-required>
-    Source imported; open Dashboard and Build: {Array.from(rebuildRequired).join(', ')}
+    Source imported; open Dashboard and Deploy: {Array.from(rebuildRequired).join(', ')}
   </p>
 {/if}
 
@@ -393,7 +393,7 @@ const onSave = async () => {
                       <p class="error">This File already exists at the same Path</p>
                     {/if}
                     {#if rebuildRequired.has(file.path)}
-                      <p class="error" data-import-rebuild-required={file.path}>Source saved; open this File in Dashboard and select Build to create its Svelte Artifact.</p>
+                      <p class="error" data-import-rebuild-required={file.path}>Source saved; open this File in Dashboard and select Deploy to create its Svelte Artifact.</p>
                     {/if}
                   </div>
                 </div>
