@@ -28,7 +28,7 @@ function output(value, json) {
 }
 
 function hasFailures(summary) {
-  return summary.failed?.length > 0
+  return summary.failed?.length > 0 || summary.conflicted?.length > 0
 }
 
 async function main(argv) {

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { synchronizeOnce } from '../../scripts/koala/sync.mjs'
-import { initializeWorkspace, readSyncState } from '../../scripts/koala/workspace.mjs'
+import { initializeWorkspace, readSyncState, sourceHash } from '../../scripts/koala/workspace.mjs'
 
 const directories: string[] = []
 const hash = (value: string) => value.padEnd(64, '0').slice(0, 64)
@@ -24,6 +24,16 @@ function file(path: string, revision = 1, overrides: Record<string, unknown> = {
     revision,
     updatedAt: '2026-07-29T00:00:00.000Z',
     ...overrides,
+  }
+}
+
+function sourceFile(path: string, content: string, revision = 1, overrides: Record<string, unknown> = {}) {
+  const renderer = typeof overrides.renderer === 'string' ? overrides.renderer : 'markdown'
+  return {
+    ...file(path, revision, overrides),
+    content,
+    renderer,
+    sourceHash: sourceHash(renderer, content),
   }
 }
 
@@ -71,27 +81,54 @@ describe('one-shot local workspace synchronization', () => {
     expect((await readSyncState(root)).files['/from-dashboard']).toMatchObject({ id: 1, revision: 4 })
   })
 
-  it('uses remote Source when timestamps tie and does not create a conflict copy', async () => {
+  it('pulls remote Source when only local metadata changed after the baseline', async () => {
     const root = await workspace()
     const path = join(root, 'note.md')
     await writeFile(path, 'initial')
-    const initial = file('/note')
+    const initial = sourceFile('/note', 'initial')
     const remoteClient = client({})
     remoteClient.createFile.mockResolvedValue(initial)
     await synchronizeOnce(root, remoteClient)
 
-    const timestamp = new Date('2026-07-29T02:03:04.000Z')
-    await writeFile(path, 'local revision')
+    const timestamp = new Date('2026-07-31T00:00:20.000Z')
     await utimes(path, timestamp, timestamp)
-    const remote = file('/note', 2, { sourceHash: hash('remote'), updatedAt: timestamp.toISOString() })
+    const remote = sourceFile('/note', 'remote revision', 2, { updatedAt: '2026-07-31T00:00:10.000Z' })
     remoteClient.manifest.mockResolvedValue({ files: [remote], attachments: [] })
-    remoteClient.getFile.mockResolvedValue({ ...remote, content: 'remote revision' })
+    remoteClient.getFile.mockResolvedValue(remote)
+    remoteClient.updateFile.mockClear()
 
     const result = await synchronizeOnce(root, remoteClient)
 
     expect(result.pulled).toEqual(['/note'])
+    expect(result.conflicted).toEqual([])
     expect(remoteClient.updateFile).not.toHaveBeenCalled()
     expect(await readFile(path, 'utf8')).toBe('remote revision')
+  })
+
+  it('reports a Sync Conflict without overwriting either divergent Source', async () => {
+    const root = await workspace()
+    const path = join(root, 'note.md')
+    await writeFile(path, 'initial')
+    const initial = sourceFile('/note', 'initial')
+    const remoteClient = client({})
+    remoteClient.createFile.mockResolvedValue(initial)
+    await synchronizeOnce(root, remoteClient)
+
+    await writeFile(path, 'local revision')
+    const remote = sourceFile('/note', 'remote revision', 2, { updatedAt: '2026-07-31T00:00:10.000Z' })
+    remoteClient.manifest.mockResolvedValue({ files: [remote], attachments: [] })
+    remoteClient.getFile.mockResolvedValue(remote)
+    remoteClient.updateFile.mockClear()
+
+    const result = await synchronizeOnce(root, remoteClient)
+
+    expect(result.conflicted).toEqual(['/note'])
+    expect(result.files.conflicted).toEqual(['/note'])
+    expect(result.failed).toEqual([])
+    expect(remoteClient.getFile).not.toHaveBeenCalled()
+    expect(remoteClient.updateFile).not.toHaveBeenCalled()
+    expect(await readFile(path, 'utf8')).toBe('local revision')
+    expect((await readSyncState(root)).files['/note']).toMatchObject({ revision: 1, sourceHash: initial.sourceHash })
   })
 
   it('propagates explicit local removal as an online trash operation and accepts partial retry', async () => {

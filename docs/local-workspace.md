@@ -10,7 +10,7 @@ koala workspace init "$KOALABLOG_WORKSPACE"
 koala sync --once --json
 ```
 
-The token stays outside the workspace; do not put it in `.koala/`, Source, archives, or shell output. `sync --once` returns a nonzero status when any individual item fails. Successful items are retained and the next scheduled call retries only what remains unconfirmed.
+The token stays outside the workspace; do not put it in `.koala/`, Source, archives, or shell output. `sync --once` returns a nonzero status when any individual item fails or a File appears in the JSON result's `conflicted` list. A Sync Conflict leaves both Sources and its prior Sync State unchanged; resolve it by making the chosen Source identical on both sides, then run another Sync Cycle. Successful items are retained and the next scheduled call retries only what remains unconfirmed.
 
 ## Schedule every ten minutes
 

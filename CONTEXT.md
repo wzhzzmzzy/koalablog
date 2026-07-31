@@ -185,15 +185,15 @@ The minimal, generated baseline held under a Local Workspace's hidden `.koala/` 
 _Avoid_: Version history, local metadata database, D1 replica
 
 **Sync Conflict**:
-The condition where a File's Local Workspace Source and online Source both changed after their last confirmed synchronization. Synchronization selects the Source with the later edit time and overwrites the earlier Source; local edit time is filesystem `mtime`, online edit time is D1 `updatedAt`, and an equal time selects the online Source. It does not create conflict copies, merge content, or pause the File.
-_Avoid_: Automatic merge, manual conflict resolution, conflict copy
+The condition where a File's Local Workspace Source and online Source both changed after their last confirmed synchronization and have different Source Hashes. Synchronization leaves both Sources and the prior Sync State entry unchanged, reports the File in the Sync Cycle's `conflicted` result, and exits nonzero. It does not select a last writer, create conflict copies, or merge Source; a person resolves it by making the two Sources identical and then runs another Sync Cycle.
+_Avoid_: Automatic merge, last-writer-wins, conflict copy
 
 **File Removal**:
 The synchronized lifecycle transition that moves an active File to the online recycle bin. Removing its Local Workspace Source initiates this transition, while online removal removes the corresponding local Source; restoration is initiated online and recreates the local Source.
 _Avoid_: Immediate purge, permanent local deletion, untracked unlink
 
 **Sync Cycle**:
-The one-shot reconciliation of a Local Workspace and the online File workspace. An external scheduler invokes it every ten minutes without filesystem watching; the CLI provides no daemon, service, or automatic startup and then applies the File Removal and Sync Conflict rules. Each File and Attachment completes independently, so a failed cycle preserves completed changes and is retried later rather than publishing a transactional workspace snapshot.
+The one-shot reconciliation of a Local Workspace and the online File workspace. An external scheduler invokes it every ten minutes without filesystem watching; the CLI provides no daemon, service, or automatic startup and then applies the File Removal and Sync Conflict rules. Each File and Attachment completes independently, so a failed or conflicted item preserves completed changes and is retried later rather than publishing a transactional workspace snapshot.
 _Avoid_: File watcher, event-driven local sync, continuous disk monitoring, built-in daemon
 
 **HDD-Friendly Scan**:

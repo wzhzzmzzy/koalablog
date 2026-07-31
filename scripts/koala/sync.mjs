@@ -19,16 +19,24 @@ function fileChanged(previous, file) {
   return !previous || previous.mtimeMs !== file.mtimeMs || previous.size !== file.size
 }
 
-function remoteFileChanged(previous, remote) {
-  return !previous || previous.sourceHash !== remote.sourceHash || previous.revision !== remote.revision
-}
-
 function remoteAttachmentChanged(previous, remote) {
   return !previous || previous.etag !== remote.etag || previous.updatedAt !== remote.updatedAt || previous.size !== remote.size
 }
 
-function remoteWins(localMtimeMs, updatedAt) {
+function remoteAttachmentWins(localMtimeMs, updatedAt) {
   return new Date(updatedAt).getTime() >= localMtimeMs
+}
+
+function remoteSourceChanged(previous, remote) {
+  return !previous || previous.sourceHash !== remote.sourceHash
+}
+
+async function localSourceChange(previous, file) {
+  if (previous && !fileChanged(previous, file))
+    return { changed: false }
+  const content = await readSource(file)
+  const hash = sourceHash(file.renderer, content)
+  return { changed: !previous || previous.sourceHash !== hash, content, hash }
 }
 
 function contentType(path) {
@@ -85,6 +93,7 @@ function emptySummary() {
     renamed: [],
     rebuildRequired: [],
     failed: [],
+    conflicted: [],
     files: {
       created: [],
       updated: [],
@@ -92,6 +101,7 @@ function emptySummary() {
       removed: [],
       renamed: [],
       failed: [],
+      conflicted: [],
     },
     attachments: {
       uploaded: [],
@@ -105,6 +115,11 @@ function emptySummary() {
 function recordFile(summary, key, path) {
   summary[key].push(path)
   summary.files[key].push(path)
+}
+
+function recordConflict(summary, path) {
+  summary.conflicted.push(path)
+  summary.files.conflicted.push(path)
 }
 
 function markRebuild(summary, file) {
@@ -146,10 +161,16 @@ export async function synchronizeOnce(root, client) {
     if (!oldState || !remote)
       continue
     try {
-      // A remote content edit wins the source body when newer, but the local
-      // filesystem rename still changes the online File Path without changing ID.
-      let content = await readSource(file)
-      if (remoteFileChanged(oldState, remote) && remoteWins(file.mtimeMs, remote.updatedAt))
+      const localChange = await localSourceChange(oldState, file)
+      const remoteChanged = remoteSourceChanged(oldState, remote)
+      if (localChange.changed && remoteChanged && localChange.hash !== remote.sourceHash) {
+        recordConflict(summary, `${oldPath} -> ${file.path}`)
+        continue
+      }
+      // A rename is independent from Source reconciliation. If the Source
+      // changed remotely only, preserve it while moving the same File identity.
+      let content = localChange.content ?? await readSource(file)
+      if (remoteChanged && !localChange.changed)
         content = (await client.getFile(remote.id)).content
       const saved = await client.updateFile(remote.id, {
         path: file.path,
@@ -193,13 +214,20 @@ export async function synchronizeOnce(root, client) {
         continue
       }
       handledRemoteFiles.add(file.path)
-      const localChanged = fileChanged(previous, file)
-      const remoteChanged = remoteFileChanged(previous, remote)
-      if (!localChanged && !remoteChanged) {
+      const localChange = await localSourceChange(previous, file)
+      const remoteChanged = remoteSourceChanged(previous, remote)
+      if (!localChange.changed && !remoteChanged) {
         nextState.files[file.path] = stateEntry(file, remote)
         continue
       }
-      if (remoteChanged && (!localChanged || remoteWins(file.mtimeMs, remote.updatedAt))) {
+      if (localChange.changed && remoteChanged) {
+        if (localChange.hash === remote.sourceHash)
+          nextState.files[file.path] = stateEntry(file, remote)
+        else
+          recordConflict(summary, file.path)
+        continue
+      }
+      if (remoteChanged) {
         const source = await client.getFile(remote.id)
         const refreshed = await writeRemoteFile(root, source)
         nextState.files[file.path] = stateEntry(refreshed, remote)
@@ -210,7 +238,7 @@ export async function synchronizeOnce(root, client) {
       const saved = await client.updateFile(remote.id, {
         path: file.path,
         renderer: file.renderer,
-        content: await readSource(file),
+        content: localChange.content,
         baseRevision: remote.revision,
       })
       nextState.files[file.path] = stateEntry(file, saved)
@@ -282,7 +310,7 @@ export async function synchronizeOnce(root, client) {
         nextState.attachments[attachment.path] = attachmentStateEntry(attachment, remote, previous.hash)
         continue
       }
-      if (remoteChanged && (!localChanged || remoteWins(attachment.mtimeMs, remote.updatedAt))) {
+      if (remoteChanged && (!localChanged || remoteAttachmentWins(attachment.mtimeMs, remote.updatedAt))) {
         const bytes = await client.getAttachment(attachment.path)
         const refreshed = await writeRemoteAttachment(root, attachment.path, bytes)
         nextState.attachments[attachment.path] = attachmentStateEntry(refreshed, remote, attachmentHash(bytes))
