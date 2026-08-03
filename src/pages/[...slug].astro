@@ -1,29 +1,49 @@
 ---
 import type { FileRecord } from '@/db/types'
 import FilePage from '@/components/article-view/FilePage.astro'
-import { readByPath } from '@/db/markdown'
+import PathPrefixPage from '@/components/path-prefix/PathPrefixPage.astro'
+import { readByPath, readVisiblePathPrefix } from '@/db/markdown'
 import { getDisplayTitle } from '@/lib/files/display-title'
+import { parseAbsolutePathPrefix } from '@/lib/files/path'
 import { retriveRss } from '@/lib/utils/rss'
 
 const { slug } = Astro.params
+const isPrefixRequest = Astro.url.pathname.endsWith('/')
 
-if (slug === 'rss.xml') {
+if (slug === 'rss.xml' && !isPrefixRequest) {
   return retriveRss(Astro)
 }
 
 const path = `/${slug || ''}`
-const maybePage: FileRecord | undefined = await readByPath(Astro.locals.runtime?.env, path)
+const maybePage: FileRecord | undefined = isPrefixRequest
+  ? undefined
+  : await readByPath(Astro.locals.runtime?.env, path)
 
-if (!maybePage) {
-  return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
-}
-if (maybePage.private && maybePage.userId !== Astro.locals.session.userId) {
+if (maybePage?.private && maybePage.userId !== Astro.locals.session.userId) {
   if (!Astro.locals.session.userId) {
     return Astro.redirect(`/login?from=${encodeURIComponent(Astro.url.pathname)}`)
   }
   return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
 }
 
-const displayTitle = getDisplayTitle(maybePage)
+const parsedPrefix = maybePage ? undefined : parseAbsolutePathPrefix(path)
+const prefix = parsedPrefix?.ok ? parsedPrefix.value : undefined
+const listing = prefix
+  ? await readVisiblePathPrefix(Astro.locals.runtime?.env, prefix, Astro.locals.session.userId ?? undefined)
+  : undefined
+
+if (!maybePage && (!prefix || !listing || (listing.files.length === 0 && listing.prefixes.length === 0))) {
+  return Astro.redirect(`/404?source=${encodeURIComponent(Astro.url.pathname)}`)
+}
+
+if (!maybePage && !isPrefixRequest) {
+  return Astro.redirect(`${Astro.url.pathname}/${Astro.url.search}`)
+}
+
+const displayTitle = maybePage ? getDisplayTitle(maybePage) : undefined
 ---
-<FilePage article={maybePage} title={displayTitle} />
+{
+  maybePage
+    ? <FilePage article={maybePage} title={displayTitle} />
+    : <PathPrefixPage prefix={prefix!} listing={listing!} />
+}
