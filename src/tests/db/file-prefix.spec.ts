@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { add, readByPrefix } from '@/db/markdown'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { add, readByPrefix, readVisiblePathPrefix } from '@/db/markdown'
 
 const env = {} as Env
 let databasePath: string
@@ -90,5 +90,33 @@ describe('file Prefix refresh', () => {
     const files = await readByPrefix(env, '/😀/')
 
     expect(files.map(file => file.path)).toEqual(['/😀/inside'])
+  })
+})
+
+describe('public Path Prefix listing', () => {
+  it('returns visible direct Files and derives only visible direct Prefixes', async () => {
+    await add(env, { path: '/memos/public', renderer: 'markdown', content: '', userId: 1 })
+    await add(env, { path: '/memos/private-owner', renderer: 'markdown', content: '', private: true, userId: 1 })
+    await add(env, { path: '/memos/private-other', renderer: 'markdown', content: '', private: true, userId: 2 })
+    await add(env, { path: '/memos/inbox/today', renderer: 'markdown', content: '', userId: 2 })
+    await add(env, { path: '/memos/inbox/archive/old', renderer: 'markdown', content: '', userId: 2 })
+    await add(env, { path: '/memos/owner-only/secret', renderer: 'markdown', content: '', private: true, userId: 1 })
+    await add(env, { path: '/memos/hidden/secret', renderer: 'markdown', content: '', private: true, userId: 2 })
+    await add(env, { path: '/memos/trashed', renderer: 'markdown', content: '', deletedAt: new Date(), userId: 1 })
+    await add(env, { path: '/memos-old/outside', renderer: 'markdown', content: '', userId: 1 })
+
+    const anonymous = await readVisiblePathPrefix(env, '/memos/')
+    expect(anonymous.files.map(file => file.path)).toEqual(['/memos/public'])
+    expect(anonymous.prefixes).toEqual(['/memos/inbox/'])
+
+    const owner = await readVisiblePathPrefix(env, '/memos/', 1)
+    expect(owner.files.map(file => file.path)).toEqual([
+      '/memos/private-owner',
+      '/memos/public',
+    ])
+    expect(owner.prefixes).toEqual([
+      '/memos/inbox/',
+      '/memos/owner-only/',
+    ])
   })
 })

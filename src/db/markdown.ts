@@ -1,5 +1,5 @@
-import type { AbsoluteFilePath, RendererMode } from '@/lib/files/types'
-import { and, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
+import type { AbsoluteFilePath, AbsolutePathPrefix, RendererMode } from '@/lib/files/types'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
 import { analyzeMarkdownSource } from '@/lib/files/analysis'
 import { classifySource, deriveTitle, parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { calculateSourceHash } from '@/lib/files/source-hash'
@@ -26,6 +26,16 @@ export interface BatchFileInput {
   updatedAt?: Date
   deletedAt?: Date
   userId: number
+}
+
+export interface PathPrefixFileEntry {
+  path: string
+  updatedAt: Date
+}
+
+export interface PathPrefixListing {
+  files: PathPrefixFileEntry[]
+  prefixes: AbsolutePathPrefix[]
 }
 
 export type SaveFileResult =
@@ -429,6 +439,46 @@ export function readByPrefix(env: Env, prefix: string, userId?: number) {
     ),
     orderBy: desc(markdown.createdAt),
   })
+}
+
+export async function readVisiblePathPrefix(env: Env, prefix: string, viewerId?: number): Promise<PathPrefixListing> {
+  const parsed = parseAbsolutePathPrefix(prefix)
+  if (!parsed.ok)
+    throw new FileInputError('invalid_path', `Invalid Path Prefix: ${parsed.error.code}`)
+
+  const descendants = await connectDB(env).query.markdown.findMany({
+    columns: {
+      path: true,
+      updatedAt: true,
+    },
+    where: and(
+      isNull(markdown.deletedAt),
+      sql`instr(${markdown.path}, ${parsed.value}) = 1`,
+      viewerId !== undefined
+        ? or(eq(markdown.private, false), eq(markdown.userId, viewerId))
+        : eq(markdown.private, false),
+    ),
+    orderBy: asc(markdown.path),
+  })
+
+  const files: PathPrefixFileEntry[] = []
+  const prefixes = new Set<AbsolutePathPrefix>()
+
+  for (const file of descendants) {
+    const relativePath = file.path.slice(parsed.value.length)
+    const separatorIndex = relativePath.indexOf('/')
+    if (separatorIndex === -1) {
+      files.push(file)
+      continue
+    }
+
+    prefixes.add(`${parsed.value}${relativePath.slice(0, separatorIndex)}/` as AbsolutePathPrefix)
+  }
+
+  return {
+    files,
+    prefixes: [...prefixes].sort(),
+  }
 }
 
 export function readAllPublic(env: Env) {

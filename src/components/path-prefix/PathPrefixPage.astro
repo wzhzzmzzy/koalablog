@@ -1,0 +1,121 @@
+---
+import type { PathPrefixListing } from '@/db/markdown'
+import type { AbsolutePathPrefix } from '@/lib/files/types'
+import Layout from '@/layouts/home.astro'
+
+interface Props {
+  prefix: AbsolutePathPrefix
+  listing: PathPrefixListing
+}
+
+const { prefix, listing } = Astro.props
+const segments = prefix.split('/').filter(Boolean)
+const parentPrefix = segments.length > 0
+  ? segments.length === 1
+    ? '/'
+    : `/${segments.slice(0, -1).join('/')}/`
+  : undefined
+const formatUpdatedAt = (date: Date) => date.toISOString().slice(0, 16).replace('T', ' ')
+---
+
+<Layout title={`Index of ${prefix}`}>
+  <section class="path-prefix-page">
+    <h1>Index of <code>{prefix}</code></h1>
+    <table aria-label={`Files under ${prefix}`}>
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Last modified</th>
+          <th scope="col">Type</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          parentPrefix
+            ? (
+                <tr>
+                  <td><a class="entry-name" href={parentPrefix}>../</a></td>
+                  <td>—</td>
+                  <td>Path Prefix</td>
+                </tr>
+              )
+            : null
+        }
+        {
+          listing.prefixes.map(childPrefix => (
+            <tr>
+              <td>
+                <a class="entry-name" href={childPrefix}>{childPrefix.slice(prefix.length)}</a>
+              </td>
+              <td>—</td>
+              <td>Path Prefix</td>
+            </tr>
+          ))
+        }
+        {
+          listing.files.map(file => (
+            <tr>
+              <td><a class="entry-name" href={file.path}>{file.path.slice(prefix.length)}</a></td>
+              <td><time datetime={file.updatedAt.toISOString()}>{formatUpdatedAt(file.updatedAt)}</time></td>
+              <td>File</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </section>
+</Layout>
+
+<style>
+  .path-prefix-page {
+    box-sizing: border-box;
+    margin: 0 auto;
+    max-width: 800px;
+    padding: 0 1.5rem 2rem;
+    width: 100%;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 400;
+  }
+
+  table {
+    table-layout: fixed;
+  }
+
+  th:first-child,
+  td:first-child {
+    width: 55%;
+  }
+
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 28%;
+  }
+
+  th:last-child,
+  td:last-child {
+    width: 17%;
+  }
+
+  .entry-name {
+    display: block;
+    font-family: var(--koala-font-mono);
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 640px) {
+    th:nth-child(2),
+    td:nth-child(2),
+    th:last-child,
+    td:last-child {
+      display: none;
+    }
+
+    th:first-child,
+    td:first-child {
+      width: 100%;
+    }
+  }
+</style>

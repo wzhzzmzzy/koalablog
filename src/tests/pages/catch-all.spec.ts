@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { saveFile } from '@/db/markdown'
-import CatchAllPage from '@/pages/[...slug].astro'
 import { createClient } from '@libsql/client'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { add, saveFile } from '@/db/markdown'
+import CatchAllPage from '@/pages/[...slug].astro'
 
 const env = {} as Env
 
@@ -148,5 +148,122 @@ describe('catch-all article route', () => {
     })
     expect(response.status).toBe(302)
     expect(response.headers.get('Location')).toBe('/404?source=%2Fmemo%2Fsecret')
+  })
+
+  it('redirects a missing extensionless File Path to its visible Path Prefix URL', async () => {
+    await add(env, { path: '/memos/public-note', renderer: 'markdown', content: '', userId: 1 })
+
+    const container = await AstroContainer.create()
+    const response = await container.renderToResponse(CatchAllPage, {
+      params: { slug: 'memos' },
+      locals,
+      request: new Request('https://koala.test/memos'),
+    })
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('Location')).toBe('/memos/')
+  })
+
+  it('does not expose a Path Prefix that contains only invisible Files', async () => {
+    await add(env, { path: '/secret/hidden', renderer: 'markdown', content: '', private: true, userId: 7 })
+
+    const container = await AstroContainer.create()
+    const anonymousResponse = await container.renderToResponse(CatchAllPage, {
+      params: { slug: 'secret' },
+      locals,
+      request: new Request('https://koala.test/secret'),
+    })
+    expect(anonymousResponse.headers.get('Location')).toBe('/404?source=%2Fsecret')
+
+    const ownerResponse = await container.renderToResponse(CatchAllPage, {
+      params: { slug: 'secret' },
+      locals: { ...locals, session: { userId: 7, role: 'member' } },
+      request: new Request('https://koala.test/secret'),
+    })
+    expect(ownerResponse.headers.get('Location')).toBe('/secret/')
+  })
+
+  it('lists only visible direct Files and visible direct child Prefixes', async () => {
+    await add(env, { path: '/memos/public-note', renderer: 'markdown', content: '', userId: 1 })
+    await add(env, { path: '/memos/private-note', renderer: 'markdown', content: '', private: true, userId: 7 })
+    await add(env, { path: '/memos/private-other', renderer: 'markdown', content: '', private: true, userId: 8 })
+    await add(env, { path: '/memos/inbox/today', renderer: 'markdown', content: '', userId: 1 })
+    await add(env, { path: '/memos/owner-only/secret', renderer: 'markdown', content: '', private: true, userId: 7 })
+    await add(env, { path: '/memos/hidden/secret', renderer: 'markdown', content: '', private: true, userId: 8 })
+    await add(env, { path: '/memos/trashed', renderer: 'markdown', content: '', deletedAt: new Date(), userId: 1 })
+
+    const container = await AstroContainer.create()
+    const anonymousHtml = await container.renderToString(CatchAllPage, {
+      params: { slug: 'memos' },
+      locals,
+      request: new Request('https://koala.test/memos/'),
+    })
+
+    expect(anonymousHtml).toContain('href="/"')
+    expect(anonymousHtml).toContain('../</a>')
+    expect(anonymousHtml).toContain('href="/memos/inbox/"')
+    expect(anonymousHtml).toContain('inbox/</a>')
+    expect(anonymousHtml).toContain('href="/memos/public-note"')
+    expect(anonymousHtml).toContain('public-note</a>')
+    expect(anonymousHtml).not.toContain('private-note')
+    expect(anonymousHtml).not.toContain('private-other')
+    expect(anonymousHtml).not.toContain('owner-only/')
+    expect(anonymousHtml).not.toContain('hidden/')
+    expect(anonymousHtml).not.toContain('today')
+    expect(anonymousHtml).not.toContain('trashed')
+
+    const ownerHtml = await container.renderToString(CatchAllPage, {
+      params: { slug: 'memos' },
+      locals: { ...locals, session: { userId: 7, role: 'member' } },
+      request: new Request('https://koala.test/memos/'),
+    })
+
+    expect(ownerHtml).toContain('private-note')
+    expect(ownerHtml).toContain('owner-only/')
+    expect(ownerHtml).not.toContain('private-other')
+    expect(ownerHtml).not.toContain('hidden/')
+  })
+
+  it('links a nested Path Prefix to its parent and keeps deeper Files behind child Prefixes', async () => {
+    await add(env, { path: '/memos/inbox/note', renderer: 'markdown', content: '', userId: 1 })
+    await add(env, { path: '/memos/inbox/archive/old', renderer: 'markdown', content: '', userId: 1 })
+
+    const container = await AstroContainer.create()
+    const html = await container.renderToString(CatchAllPage, {
+      params: { slug: 'memos/inbox' },
+      locals,
+      request: new Request('https://koala.test/memos/inbox/'),
+    })
+
+    expect(html).toContain('href="/memos/"')
+    expect(html).toContain('../</a>')
+    expect(html).toContain('href="/memos/inbox/archive/"')
+    expect(html).toContain('archive/</a>')
+    expect(html).toContain('href="/memos/inbox/note"')
+    expect(html).toContain('note</a>')
+    expect(html).not.toContain('old')
+  })
+
+  it('renders an exact File without a slash and its Path Prefix listing with a slash', async () => {
+    await add(env, { path: '/memos', renderer: 'markdown', content: 'exact File body', userId: 1 })
+    await add(env, { path: '/memos/child', renderer: 'markdown', content: '', userId: 1 })
+
+    const container = await AstroContainer.create()
+    const fileHtml = await container.renderToString(CatchAllPage, {
+      params: { slug: 'memos' },
+      locals,
+      request: new Request('https://koala.test/memos'),
+    })
+    expect(fileHtml).toContain('exact File body')
+
+    const prefixHtml = await container.renderToString(CatchAllPage, {
+      params: { slug: 'memos' },
+      locals,
+      request: new Request('https://koala.test/memos/'),
+    })
+    expect(prefixHtml).toContain('Index of')
+    expect(prefixHtml).toContain('href="/memos/child"')
+    expect(prefixHtml).toContain('child</a>')
+    expect(prefixHtml).not.toContain('exact File body')
   })
 })
