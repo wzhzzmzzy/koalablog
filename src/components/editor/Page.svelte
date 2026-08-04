@@ -3,7 +3,7 @@
   import type { FileRecord } from '@/db/types';
   import type { AbsolutePathPrefix } from '@/lib/files/types';
   import { FolderOpen, Plus } from '@lucide/svelte';
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import '@/styles/editor-workspace.css';
   import Sidebar from './Sidebar.svelte';
   import Editor from './index.svelte';
@@ -22,6 +22,7 @@
   }
 
   let { initialFile, initialItems = null, templatePrefixes = [], isMobile = false }: Props = $props();
+  let sidebar: { focusSearch: () => void } | undefined = $state();
 
   // 统一初始化 Store
   if (initialItems) {
@@ -41,6 +42,19 @@
   // Init History and Current
   if (initialFile && !initialFile.deletedAt) pushHistory(initialFile.path);
   setCurrentFile(initialFile);
+
+  onMount(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.repeat || event.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k')
+        return;
+      event.preventDefault();
+      setShowSidebar(true);
+      sidebar?.focusSearch();
+    };
+
+    window.addEventListener('keydown', handleKeydown, true);
+    return () => window.removeEventListener('keydown', handleKeydown, true);
+  });
 
   // Sync URL with the current File.
   $effect(() => {
@@ -143,6 +157,7 @@
   >
     <div class="editor-workspace__sidebar-inner">
       <Sidebar
+        bind:this={sidebar}
         currentId={editorStore.currentFile?.id || 0}
         {templatePrefixes}
         onSelect={handleSelect}
