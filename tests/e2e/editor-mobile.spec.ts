@@ -63,3 +63,26 @@ test('an explicit File Explorer preference remains open on mobile startup', asyn
 
   await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-64\b/)
 })
+
+test('mobile File Explorer preserves an Instant Search query after opening a result', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+  await page.setViewportSize({ width: 393, height: 727 })
+  await page.evaluate(() => localStorage.setItem('koala-editor-sidebar-v2', 'true'))
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+
+  const search = page.getByRole('searchbox', { name: 'Search Files' })
+  await expect(search).toBeVisible()
+  await search.fill('path-findable')
+  const result = page.locator('.editor-search-result').filter({ hasText: 'path-findable' })
+  await expect(result).toBeVisible()
+  await result.click()
+
+  await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-0\b/)
+  await expect(page.getByRole('textbox', { name: 'File Source for /search/path-findable' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Toggle sidebar' }).click()
+  await expect(search).toHaveValue('path-findable')
+  await expect(result).toBeVisible()
+})

@@ -201,8 +201,8 @@ The Local Workspace pass within a Sync Cycle that traverses the workspace once a
 _Avoid_: File watcher, repeated full-content scan, background indexing
 
 **Instant Search**:
-A direct, non-persistent search over Local Workspace File Source that returns matching File Paths and context snippets. Attachments participate only through their filenames and Source references; their binary content is not extracted. It does not depend on embeddings, vector storage, or a semantic index.
-_Avoid_: Vector search, embedding index, knowledge graph
+A direct, non-persistent literal search over File Source available in the current client surface. In Editor it searches active Files as modified by Edit Buffers while excluding leading Markdown frontmatter from Source matches; in a Local Workspace it searches disk Source, and Attachment binary content is never extracted.
+_Avoid_: Full-text search, vector search, embedding index, knowledge graph
 
 **AI Workspace Maintenance**:
 An AI's authorized Local Workspace work: searching and reading Sources, creating or updating Sources, adding Attachments, and explicitly running a Sync Cycle. Removing a Source or Attachment is excluded unless the user explicitly requests that removal in the current task.
