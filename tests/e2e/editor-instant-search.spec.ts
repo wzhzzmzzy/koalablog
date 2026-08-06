@@ -18,11 +18,10 @@ async function openFileFinder(page: import('@playwright/test').Page) {
 }
 
 async function renameInBuffer(page: import('@playwright/test').Page, path: string) {
-  await page.getByRole('button', { name: 'More File actions' }).click()
-  await page.getByRole('menuitem', { name: 'Rename / Move' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Rename / Move File' })
-  await dialog.getByRole('textbox', { name: 'Absolute File Path' }).fill(path)
-  await dialog.getByRole('button', { name: 'Use Path' }).click()
+  await page.getByTestId('editor-path-edit').click()
+  const input = page.getByRole('textbox', { name: 'File Path' })
+  await input.fill(path)
+  await input.press('Enter')
 }
 
 async function chooseRenderer(page: import('@playwright/test').Page, renderer: 'Markdown' | 'Svelte') {
@@ -39,6 +38,7 @@ test('Cmd+K opens the File Finder, supports keyboard selection, and restores foc
   await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-0\b/)
 
   const finder = await openFileFinder(page)
+  await expect(finder).toHaveCSS('outline-style', 'none')
   await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-0\b/)
   await expect(page.getByRole('heading', { name: 'Recent' })).toBeVisible()
   await expect(page.getByRole('option', { name: /phase-two/ })).toBeVisible()

@@ -127,26 +127,26 @@ async function chooseUpload(page: Page) {
 }
 
 async function setBufferPath(page: Page, path: string) {
-  await chooseMoreAction(page, 'Rename / Move')
-  const dialog = page.getByRole('dialog', { name: 'Rename / Move File' })
-  await dialog.getByRole('textbox', { name: 'Absolute File Path' }).fill(path)
-  await dialog.getByRole('button', { name: 'Use Path' }).click()
+  await page.getByTestId('editor-path-edit').click()
+  const input = page.getByRole('textbox', { name: 'File Path' })
+  await input.fill(path)
+  await input.press('Enter')
 }
 
-test('Rename / Move Escape closes the dialog and returns focus to More', async ({ page }) => {
+test('File Path Escape cancels inline editing and restores the path trigger focus', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
 
-  const more = page.getByRole('button', { name: 'More File actions' })
-  await more.click()
-  await page.getByRole('menuitem', { name: 'Rename / Move' }).click()
+  const path = page.getByTestId('editor-path-edit')
+  await path.click()
+  const input = page.getByRole('textbox', { name: 'File Path' })
+  await expect(input).toHaveValue('/phase-two')
+  await input.fill('/discarded-path')
+  await input.press('Escape')
 
-  const dialog = page.getByRole('dialog', { name: 'Rename / Move File' })
-  await expect(dialog).toBeVisible()
-  await page.keyboard.press('Escape')
-
-  await expect(dialog).toBeHidden()
-  await expect(more).toBeFocused()
+  await expect(input).toHaveCount(0)
+  await expect(path).toHaveText('/phase-two')
+  await expect(path).toBeFocused()
 })
 
 test('File Source exposes the stable editor contract', async ({ page }) => {
@@ -913,7 +913,7 @@ test('emptying the recycle bin discards every trashed File and selects a fallbac
   await expect(page.getByRole('button', { name: 'Empty recycle bin' })).toHaveCount(0)
 })
 
-test('creating a File focuses Source because Path changes now use Rename / Move', async ({ page }) => {
+test('creating a File focuses Source because Path changes are inline', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
 

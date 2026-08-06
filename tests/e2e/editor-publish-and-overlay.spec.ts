@@ -75,11 +75,11 @@ test('File deletion uses a native viewport backdrop', async ({ page }) => {
   })
 })
 
-test('File identity stays read-only and Svelte Files use Svelte icons', async ({ page }) => {
+test('File Path uses inline editing and Svelte Files use Svelte icons', async ({ page }) => {
   await openEditor(page)
 
   await expect(page.getByRole('textbox', { name: 'Absolute File Path' })).toHaveCount(0)
-  await expect(page.getByTestId('editor-toolbar').getByText('/phase-two', { exact: true })).toHaveAttribute('class', /editor-path-display/)
+  await expect(page.getByTestId('editor-path-edit')).toHaveAttribute('class', /editor-path-display/)
 
   await chooseRenderer(page, 'Svelte')
   await expect(page.getByTestId('editor-path-file-icon')).toHaveAttribute('data-renderer', 'svelte')

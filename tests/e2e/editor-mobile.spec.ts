@@ -5,13 +5,13 @@ async function openEditor(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle')
 }
 
-test('mobile workspace keeps compact identity, Source/Preview actions, and More actions reachable', async ({ page }) => {
+test('mobile workspace keeps compact identity, Source/Preview actions, and inline Path editing reachable', async ({ page }) => {
   await openEditor(page)
 
   for (const viewport of [{ width: 393, height: 727 }, { width: 320, height: 640 }]) {
     await page.setViewportSize(viewport)
     const toolbar = page.getByTestId('editor-toolbar')
-    await expect(toolbar.getByText('/phase-two', { exact: true })).toBeInViewport({ ratio: 1 })
+    await expect(toolbar.getByTestId('editor-path-edit')).toBeInViewport({ ratio: 1 })
     await expect(toolbar.getByRole('button', { name: 'More File actions' })).toBeInViewport({ ratio: 1 })
     await expect(toolbar.getByRole('button', { name: 'Save File' })).toBeInViewport({ ratio: 1 })
     await expect(toolbar.getByRole('button', { name: 'source' })).toBeInViewport({ ratio: 1 })
@@ -27,7 +27,7 @@ test('mobile workspace keeps compact identity, Source/Preview actions, and More 
     const menu = page.getByRole('menu', { name: 'More File actions' })
     await expect(menu.getByRole('menuitem', { name: 'Upload Image' })).toBeVisible()
     await expect(menu.getByRole('menuitem', { name: 'Copy File Reference' })).toBeVisible()
-    await expect(menu.getByRole('menuitem', { name: 'Rename / Move' })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Rename / Move' })).toHaveCount(0)
     await expect(menu.getByRole('menuitem', { name: 'Move to recycle bin' })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
@@ -85,7 +85,7 @@ test('selecting the current File closes the mobile File Explorer without adding 
   await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Fphase-two$/)
 })
 
-test('touch editable surfaces keep a 16px font size, including File Finder and Rename / Move', async ({ page }) => {
+test('touch editable surfaces keep a 16px font size, including File Finder and inline File Path', async ({ page }) => {
   await openEditor(page)
   await page.setViewportSize({ width: 393, height: 727 })
 
@@ -97,8 +97,6 @@ test('touch editable surfaces keep a 16px font size, including File Finder and R
   await expect(finder).toHaveCSS('font-size', '16px')
   await finder.press('Escape')
 
-  await page.getByRole('button', { name: 'More File actions' }).click()
-  await page.getByRole('menuitem', { name: 'Rename / Move' }).click()
-  const rename = page.getByRole('dialog', { name: 'Rename / Move File' }).getByRole('textbox', { name: 'Absolute File Path' })
-  await expect(rename).toHaveCSS('font-size', '16px')
+  await page.getByTestId('editor-path-edit').click()
+  await expect(page.getByRole('textbox', { name: 'File Path' })).toHaveCSS('font-size', '16px')
 })
