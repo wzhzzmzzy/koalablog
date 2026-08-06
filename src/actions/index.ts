@@ -1,5 +1,5 @@
 import { all, batchImport, byPrefix, create, emptyTrash, purge, restore, trash } from './db/markdown'
-import { attach as attachRenderArtifact } from './db/render-artifact'
+import { attach as attachRenderArtifact, status as renderArtifactStatus } from './db/render-artifact'
 import { read as readTemplates, replace as replaceTemplates } from './db/templates'
 import { changePassword, createApiToken, createUser, resetPassword, revokeApiToken } from './form/account'
 import { login, logout } from './form/login'
@@ -44,6 +44,7 @@ export const server = {
     },
     renderArtifact: {
       attach: attachRenderArtifact,
+      status: renderArtifactStatus,
     },
   },
 }

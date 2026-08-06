@@ -1,7 +1,7 @@
-import FilePage from '@/components/article-view/FilePage.astro'
-import { MarkdownSource } from '@/db'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import FilePage from '@/components/article-view/FilePage.astro'
+import { MarkdownSource } from '@/db'
 
 const mocks = vi.hoisted(() => ({
   readActivePaths: vi.fn(),
@@ -62,6 +62,7 @@ beforeEach(() => {
   })
   mocks.readArtifactAccess.mockResolvedValue({
     artifact: {
+      sourceHash: 'b'.repeat(64),
       snapshotHtml: '<p>Svelte summary</p><a href="/safe">Safe</a>',
     },
     decision: { cacheControl: 'public, no-cache', status: 200, type: 'allowed' },
@@ -109,7 +110,8 @@ describe('shared File page shell', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toBe('public, no-cache')
     expect(html).toContain('<title>koala</title>')
-    expect(html).toContain('href="/api/render-artifacts/7/')
+    expect(html).toContain(`href="/api/render-artifacts/7/${'b'.repeat(64)}/styles.css"`)
+    expect(html).toContain(`data-koala-artifact-module="/api/render-artifacts/7/${'b'.repeat(64)}/module.js"`)
     expect(html).toContain('data-koala-artifact-root')
     expect(html).toContain('<p>Svelte summary</p><a href="/safe">Safe</a>')
     expect(html).not.toContain('secret()')

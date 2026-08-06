@@ -2,11 +2,8 @@
   import type { FileRecord } from '@/db/types';
   import type { AbsolutePathPrefix } from '@/lib/files/types';
   import { actions } from 'astro:actions';
-  import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2, X, Search, FileText } from '@lucide/svelte';
-  import { tick } from 'svelte';
+  import { Plus, ChevronRight, ChevronDown, LoaderCircle, Trash2, X } from '@lucide/svelte';
   import { editorStore, notify } from './store.svelte';
-  import { editBuffers } from './edit-buffer.svelte';
-  import { highlightSearchText, searchFiles } from './instant-search';
   import FileItem from './FileItem.svelte';
   import { buildFileTree, getTrashedFiles, isFileTreeEmpty, type FileTreeNode } from './file-tree';
 
@@ -24,66 +21,12 @@
   const tree = $derived(buildFileTree(editorStore.items, templatePrefixes));
   const recycleBin = $derived(getTrashedFiles(editorStore.items));
   const activeFileCount = $derived(editorStore.items.filter(item => !item.deletedAt).length);
-  let searchInput: HTMLInputElement | undefined = $state();
-  let query = $state('');
-  let activeQuery = $state('');
-  let searchTimer: ReturnType<typeof setTimeout> | undefined;
-  const searchPending = $derived(query !== activeQuery);
-  const searchMode = $derived(query.length > 0);
-  const searchResponse = $derived(searchFiles(editorStore.items, activeQuery, editBuffers));
-
   // Folder expansion state
   let expandedFolders = $state<Record<string, boolean>>({});
   let refreshingFolders = $state<Record<string, boolean>>({});
   let recycleBinExpanded = $state(false);
   let emptyingTrash = $state(false);
   const pendingRefreshes = new Map<string, Promise<void>>();
-
-  $effect(() => {
-    const nextQuery = query;
-    if (searchTimer)
-      clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      activeQuery = nextQuery;
-    }, 80);
-
-    return () => {
-      if (searchTimer)
-        clearTimeout(searchTimer);
-    };
-  });
-
-  export function focusSearch() {
-    void tick().then(() => {
-      searchInput?.focus();
-      searchInput?.select();
-    });
-  }
-
-  function clearSearch() {
-    query = '';
-    activeQuery = '';
-    if (searchTimer)
-      clearTimeout(searchTimer);
-    searchInput?.focus();
-  }
-
-  function handleSearchKeydown(event: KeyboardEvent) {
-    if (event.key !== 'Escape')
-      return;
-    event.preventDefault();
-    if (query) {
-      clearSearch();
-      return;
-    }
-    searchInput?.blur();
-  }
-
-  function matchLabel(kind: 'path' | 'tag' | 'source') {
-    if (kind === 'path') return 'Path';
-    if (kind === 'tag') return 'Tag';
-    return 'Source';
-  }
 
   function getRefreshKey(path: string) {
     return path || '__root__';
@@ -123,10 +66,6 @@
   function handleTopLevelFileSelect(item: FileRecord) {
     onSelect(item);
     void refreshPath('/');
-  }
-
-  function handleSearchResultSelect(item: FileRecord) {
-    onSelect(item);
   }
 
   function toggleRecycleBin() {
@@ -238,96 +177,8 @@
     </button>
   </header>
 
-  <div class="editor-sidebar__search" data-testid="editor-instant-search">
-    <Search size={15} aria-hidden="true" />
-    <input
-      bind:this={searchInput}
-      bind:value={query}
-      type="search"
-      autocomplete="off"
-      spellcheck="false"
-      aria-label="Search Files"
-      placeholder="Search Files"
-      onkeydown={handleSearchKeydown}
-    />
-    {#if query}
-      <button
-        type="button"
-        class="editor-sidebar__search-clear"
-        aria-label="Clear File search"
-        title="Clear search"
-        onclick={clearSearch}
-      >
-        <X size={14} />
-      </button>
-    {:else}
-      <kbd class="editor-sidebar__search-shortcut" aria-label="Command or Control K">⌘K</kbd>
-    {/if}
-  </div>
-
   <div class="editor-sidebar__tree">
-    {#if searchMode}
-      {#if searchPending}
-        <div class="editor-sidebar__search-state" aria-live="polite">Searching Files…</div>
-      {:else if searchResponse.total === 0}
-        <div class="editor-sidebar__search-empty" aria-live="polite">
-          <Search size={17} aria-hidden="true" />
-          <strong>No matching active Files</strong>
-          <span>Searches Path, Tags, and Source. Recycle Bin is excluded.</span>
-        </div>
-      {:else}
-        <div class="editor-sidebar__search-summary" aria-live="polite">
-          <span>{searchResponse.total} {searchResponse.total === 1 ? 'result' : 'results'}</span>
-          {#if searchResponse.total > searchResponse.results.length}
-            <span>Showing {searchResponse.results.length}</span>
-          {/if}
-        </div>
-        <div class="editor-sidebar__search-results">
-          {#each searchResponse.results as result (result.file.id)}
-            <button
-              type="button"
-              class="editor-search-result"
-              aria-current={result.file.id === currentId ? 'page' : undefined}
-              title={result.path}
-              onclick={() => handleSearchResultSelect(result.file)}
-            >
-              <span class="editor-search-result__title-row">
-                <FileText size={14} class="editor-file-tree__item-icon" />
-                <span class="editor-search-result__title">
-                  {#each highlightSearchText(result.title, activeQuery) as segment}
-                    {#if segment.matched}<mark>{segment.text}</mark>{:else}{segment.text}{/if}
-                  {/each}
-                </span>
-                {#if result.dirty}<span class="editor-file-tree__dirty" aria-label="Unsaved changes"></span>{/if}
-              </span>
-              <span class="editor-search-result__path">
-                {#each highlightSearchText(result.path, activeQuery) as segment}
-                  {#if segment.matched}<mark>{segment.text}</mark>{:else}{segment.text}{/if}
-                {/each}
-              </span>
-              <span class="editor-search-result__matches" aria-label={`Matches in ${result.matches.map(matchLabel).join(', ')}`}>
-                {#each result.matches as match}
-                  <span data-match-kind={match}>{matchLabel(match)}</span>
-                {/each}
-                {#each result.matchedTags as tag}
-                  <span class="editor-search-result__tag">#{tag}</span>
-                {/each}
-              </span>
-              {#if result.sourceSnippet}
-                <span class="editor-search-result__snippet">
-                  {#each highlightSearchText(result.sourceSnippet, activeQuery) as segment}
-                    {#if segment.matched}<mark>{segment.text}</mark>{:else}{segment.text}{/if}
-                  {/each}
-                </span>
-                {#if result.sourceMatchCount > 1}
-                  <span class="editor-search-result__count">{result.sourceMatchCount} matches</span>
-                {/if}
-              {/if}
-            </button>
-          {/each}
-        </div>
-      {/if}
-    {:else if isFileTreeEmpty(tree) && !editorStore.loading}
+    {#if isFileTreeEmpty(tree) && !editorStore.loading}
       <div class="editor-sidebar__empty">No Files found.</div>
     {:else}
         {#each Object.values(tree.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
@@ -338,16 +189,14 @@
         {/each}
     {/if}
 
-    {#if !searchMode}
-      <button
-        type="button"
-        class="editor-sidebar__new-file"
-        onclick={() => onCreate('/')}
-      >
-        <Plus size={15} />
-        <span>New File</span>
-      </button>
-    {/if}
+    <button
+      type="button"
+      class="editor-sidebar__new-file"
+      onclick={() => onCreate('/')}
+    >
+      <Plus size={15} />
+      <span>New File</span>
+    </button>
   </div>
 
   {#if recycleBin.length > 0}

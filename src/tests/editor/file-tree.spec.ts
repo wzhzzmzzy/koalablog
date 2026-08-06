@@ -1,9 +1,9 @@
+import { describe, expect, it } from 'vitest'
 import { editBuffers, setEditBuffer } from '@/components/editor/edit-buffer.svelte'
 import { buildFileTree, getTrashedFiles, isFileTreeEmpty } from '@/components/editor/file-tree'
-import { editorStore, replaceItemsByPrefix, setItems } from '@/components/editor/store.svelte'
+import { editorStore, replaceItemsByPrefix, setItems, upsertItem } from '@/components/editor/store.svelte'
 import { parseAbsolutePathPrefix } from '@/lib/files/path'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
-import { describe, expect, it } from 'vitest'
 
 function prefix(input: string) {
   const parsed = parseAbsolutePathPrefix(input)
@@ -36,6 +36,16 @@ describe('editor File tree', () => {
 
     expect(tree.children.post.items.map(item => item.id)).toEqual([active.id])
     expect(recycleBin.map(item => item.id)).toEqual([newer.id, older.id])
+  })
+
+  it('replaces the stale active same-Path File when a Renderer replacement gets a new identity', () => {
+    const markdown = makeFileRecord({ id: 1, path: '/page/application', renderer: 'markdown' })
+    const svelte = makeFileRecord({ id: 2, path: '/page/application', renderer: 'svelte' })
+    setItems([markdown])
+
+    upsertItem(svelte)
+
+    expect(editorStore.items).toEqual([svelte])
   })
 
   it('refreshes a Path without confusing a deleted duplicate with the active Edit Buffer', () => {

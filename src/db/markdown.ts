@@ -89,6 +89,58 @@ async function insertValues(input: BatchFileInput) {
   }
 }
 
+async function replaceRendererFile(
+  env: Env,
+  input: SaveFileInput,
+  values: Awaited<ReturnType<typeof baseValues>> & { private: boolean, updatedAt: Date },
+  ownerScoped: boolean,
+): Promise<SaveFileResult> {
+  const replacedAt = new Date()
+  const db = connectDB(env)
+  const ownerFilter = ownerScoped && input.userId !== undefined ? eq(markdown.userId, input.userId) : undefined
+  const trashPrevious = db.update(markdown).set({
+    deletedAt: replacedAt,
+    updatedAt: replacedAt,
+    revision: sql`${markdown.revision} + 1`,
+  }).where(and(
+    eq(markdown.id, input.id),
+    eq(markdown.revision, input.baseRevision),
+    isNull(markdown.deletedAt),
+    ownerFilter,
+  )).returning()
+  const createReplacement = db.insert(markdown).select(sql`
+    SELECT
+      NULL, ${classifySource(values.path)}, ${values.path}, ${values.title},
+      ${values.renderer}, ${values.content}, ${values.sourceHash}, ${values.tags},
+      NULL, ${values.outgoing_links}, ${values.private ? 1 : 0}, 1,
+      unixepoch(), unixepoch(), NULL, ${markdown.userId}
+    FROM ${markdown}
+    WHERE ${and(
+      eq(markdown.id, input.id),
+      eq(markdown.revision, input.baseRevision + 1),
+      eq(markdown.deletedAt, replacedAt),
+      ownerFilter,
+    )}
+  `).returning()
+
+  try {
+    const [trashed, created] = await db.batch([trashPrevious, createReplacement])
+    const file = created[0]
+    if (trashed.length > 0 && file)
+      return { status: 'saved', file }
+  }
+  catch (error) {
+    if (isActivePathConstraintError(error))
+      return { status: 'path_conflict', path: values.path }
+    throw error
+  }
+
+  const current = await readAnyById(env, input.id)
+  if (ownerScoped && input.userId !== undefined && current?.userId !== input.userId)
+    return { status: 'not_found' }
+  return current ? { status: 'conflict', current } : { status: 'not_found' }
+}
+
 export async function add(env: Env, input: BatchFileInput) {
   return connectDB(env).insert(markdown).values(await insertValues(input)).returning()
 }
@@ -121,6 +173,14 @@ async function saveSourceFile(env: Env, input: SaveFileInput, ownerScoped: boole
       throw error
     }
   }
+
+  const currentBeforeSave = await readAnyById(env, input.id)
+  if (!currentBeforeSave || (ownerScoped && input.userId !== undefined && currentBeforeSave.userId !== input.userId))
+    return { status: 'not_found' }
+  if (currentBeforeSave.revision !== input.baseRevision || currentBeforeSave.deletedAt)
+    return { status: 'conflict', current: currentBeforeSave }
+  if (currentBeforeSave.renderer !== input.renderer)
+    return replaceRendererFile(env, input, values, ownerScoped)
 
   let file: typeof markdown.$inferSelect | undefined
   try {

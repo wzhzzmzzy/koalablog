@@ -1,12 +1,12 @@
+import { ActionError, defineAction } from 'astro:actions'
+import { z } from 'astro:schema'
 import { readById } from '@/db/markdown'
-import { readCurrentRenderArtifact, replaceCurrentRenderArtifact } from '@/db/render-artifact'
+import { readDeployedRenderArtifact, readDeploymentSummary, replaceDeployedRenderArtifact } from '@/db/render-artifact'
 import { calculateArtifactHashes, canonicalDependencies } from '@/lib/svelte/artifact-hash'
 import { artifactLimitViolation } from '@/lib/svelte/artifact-limits'
 import { dependencyDiff, sameDependencies } from '@/lib/svelte/dependency-diff'
 import { isCanonicalSnapshotHtml } from '@/lib/svelte/snapshot'
 import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
-import { ActionError, defineAction } from 'astro:actions'
-import { z } from 'astro:schema'
 import { loginGuard } from '../utils/auth'
 
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/)
@@ -35,7 +35,7 @@ const artifactInput = z.object({
   }).strict().optional(),
 }).strict()
 
-function reject(code: 'CONFLICT' | 'PAYLOAD_TOO_LARGE' | 'UNPROCESSABLE_CONTENT', detail: Record<string, unknown>): never {
+function reject(code: 'CONFLICT' | 'CONTENT_TOO_LARGE' | 'UNPROCESSABLE_CONTENT', detail: Record<string, unknown>): never {
   throw new ActionError({ code, message: JSON.stringify(detail) })
 }
 
@@ -78,30 +78,47 @@ export const attach = defineAction({
 
     const violation = artifactLimitViolation(artifact)
     if (violation)
-      return reject('PAYLOAD_TOO_LARGE', { code: 'artifact_too_large', field: violation })
+      return reject('CONTENT_TOO_LARGE', { code: 'artifact_too_large', field: violation })
 
     const hashes = await calculateArtifactHashes(artifact)
-    const current = await readCurrentRenderArtifact(env, artifact.fileId)
-    const dependenciesChanged = current && !sameDependencies(current.dependencies, artifact.dependencies)
+    const deployed = await readDeployedRenderArtifact(env, artifact.fileId)
+    const rebuiltDeployment = deployed?.sourceHash === artifact.sourceHash ? deployed : undefined
+    const dependenciesChanged = rebuiltDeployment && !sameDependencies(rebuiltDeployment.dependencies, artifact.dependencies)
     if (dependenciesChanged && !confirmation) {
       return reject('CONFLICT', {
         code: 'dependency_changed',
-        currentArtifactHash: current.artifactHash,
+        currentArtifactHash: rebuiltDeployment.artifactHash,
         proposedArtifactHash: hashes.artifactHash,
-        diff: dependencyDiff(current.dependencies, artifact.dependencies),
+        diff: dependencyDiff(rebuiltDeployment.dependencies, artifact.dependencies),
       })
     }
     if (confirmation && (
-      !current
-      || current.artifactHash !== confirmation.currentArtifactHash
+      !rebuiltDeployment
+      || rebuiltDeployment.artifactHash !== confirmation.currentArtifactHash
       || hashes.artifactHash !== confirmation.proposedArtifactHash
     )) {
       return reject('CONFLICT', { code: 'dependency_confirmation_stale' })
     }
 
-    const attached = await replaceCurrentRenderArtifact(env, { ...artifact, ...hashes }, current?.artifactHash ?? null)
+    const attached = await replaceDeployedRenderArtifact(env, { ...artifact, ...hashes }, rebuiltDeployment?.artifactHash ?? null)
     if (!attached)
       return reject('CONFLICT', { code: confirmation ? 'dependency_confirmation_stale' : 'artifact_changed' })
     return attached
+  },
+})
+
+export const status = defineAction({
+  accept: 'json',
+  input: z.object({ fileId: z.number().int().positive() }).strict(),
+  handler: async (input, ctx) => {
+    await loginGuard(ctx)
+    const summary = await readDeploymentSummary(
+      ctx.locals.runtime?.env || {},
+      input.fileId,
+      ctx.locals.session.userId ?? undefined,
+    )
+    if (!summary)
+      throw new ActionError({ code: 'NOT_FOUND', message: 'File not found' })
+    return summary
   },
 })

@@ -6,12 +6,16 @@
   import { onMount, tick } from 'svelte';
   import '@/styles/editor-workspace.css';
   import Sidebar from './Sidebar.svelte';
+  import FileFinder from './FileFinder.svelte';
   import Editor from './index.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
   import Notification from './Notification.svelte';
   import { discardEditorState } from './TextEditor.svelte';
   import { initializeEditBuffers, useEditBufferPersistence } from './edit-buffer.svelte';
-  import { editorStore, hasStoredSidebarPreference, setItems, setCurrentFile, upsertItem, pushHistory, updateLastHistory, replaceItemsByPrefix, notify, setShowSidebar, removeItem, removeTrashedItems } from './store.svelte';
+  import { getMarkdownSourceKey } from '@/db';
+  import { editorRecentFiles } from './recent-files.svelte';
+  import { createWorkspaceNavigation } from './workspace-navigation.svelte';
+  import { editorStore, hasStoredSidebarPreference, setItems, setCurrentFile, upsertItem, replaceItemsByPrefix, notify, setShowSidebar, removeItem, removeTrashedItems } from './store.svelte';
   import { formatFileSaveError } from './utils';
 
   interface Props {
@@ -22,7 +26,8 @@
   }
 
   let { initialFile, initialItems = null, templatePrefixes = [], isMobile = false }: Props = $props();
-  let sidebar: { focusSearch: () => void } | undefined = $state();
+  let finderOpen = $state(false);
+  let editor: { focus: () => void } | undefined = $state();
 
   // 统一初始化 Store
   if (initialItems) {
@@ -39,45 +44,43 @@
     setShowSidebar(!isMobile);
   }
   
-  // Init History and Current
-  if (initialFile && !initialFile.deletedAt) pushHistory(initialFile.path);
   setCurrentFile(initialFile);
+
+  const workspaceNavigation = createWorkspaceNavigation({
+    initialFile,
+    getFiles: () => editorStore.items,
+    getCurrentFile: () => editorStore.currentFile,
+    select: setCurrentFile,
+    isMobile: () => window.innerWidth < 768,
+    closeSidebar: () => setShowSidebar(false),
+    recordRecent: editorRecentFiles.record,
+    dashboardUrl: file => file ? `/dashboard/${getMarkdownSourceKey(file.source)}` : '/dashboard',
+    focusIntent: () => {
+      void tick().then(() => {
+        const preview = document.querySelector<HTMLElement>('.editor-view-layout--preview .editor-markdown-preview')
+        if (preview)
+          preview.focus()
+        else
+          editor?.focus()
+      })
+    },
+  });
+  const recentFiles = $derived(editorRecentFiles.resolve(editorStore.items));
 
   onMount(() => {
     const handleKeydown = (event: KeyboardEvent) => {
       if (event.repeat || event.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k')
         return;
       event.preventDefault();
-      setShowSidebar(true);
-      sidebar?.focusSearch();
+      finderOpen = true;
     };
 
     window.addEventListener('keydown', handleKeydown, true);
     return () => window.removeEventListener('keydown', handleKeydown, true);
   });
 
-  // Sync URL with the current File.
-  $effect(() => {
-    if (editorStore.currentFile) {
-      const url = new URL(window.location.href);
-      if (editorStore.currentFile.deletedAt) {
-        url.searchParams.delete('path');
-        url.searchParams.set('id', String(editorStore.currentFile.id));
-      } else if (url.searchParams.get('path') !== editorStore.currentFile.path || url.searchParams.has('id')) {
-        url.searchParams.set('path', editorStore.currentFile.path);
-        url.searchParams.delete('id');
-      }
-      if (url.href !== window.location.href) window.history.pushState({}, '', url);
-    }
-  });
-
   function handleSelect(m: FileRecord) {
-    if (!m.deletedAt && m.path) pushHistory(m.path);
-    setCurrentFile(m);
-
-    if (window.innerWidth < 768) {
-      setShowSidebar(false);
-    }
+    workspaceNavigation.open(m);
   }
 
   function backToDashboard(event: MouseEvent) {
@@ -86,14 +89,13 @@
   }
 
   function handleSave(m: FileRecord) {
-    updateLastHistory(m.path);
-    setCurrentFile(m);
     upsertItem(m);
+    setCurrentFile(m);
   }
 
   function handleUpdate(m: FileRecord) {
-    setCurrentFile(m);
     upsertItem(m);
+    setCurrentFile(m);
   }
 
   function selectFallback() {
@@ -138,17 +140,23 @@
 
     const file = result.data;
     upsertItem(file);
-    pushHistory(file.path);
-    setCurrentFile(file);
+    workspaceNavigation.open(file);
     notify('success', `Created ${file.path}`, 3000);
     if (window.innerWidth < 768) setShowSidebar(false);
     await tick();
-    document.querySelector<HTMLInputElement>('#path-input')?.focus();
+    editor?.focus();
   }
 </script>
 
 <div class="editor-workspace">
   <Notification />
+  <FileFinder
+    open={finderOpen}
+    files={editorStore.items}
+    {recentFiles}
+    onOpen={file => workspaceNavigation.open(file)}
+    onClose={() => { finderOpen = false; }}
+  />
 
   <aside
     data-testid="editor-sidebar"
@@ -157,7 +165,6 @@
   >
     <div class="editor-workspace__sidebar-inner">
       <Sidebar
-        bind:this={sidebar}
         currentId={editorStore.currentFile?.id || 0}
         {templatePrefixes}
         onSelect={handleSelect}
@@ -181,10 +188,12 @@
     <div class="editor-workspace__document">
       {#if editorStore.currentFile}
         <Editor
+          bind:this={editor}
           file={editorStore.currentFile}
           onSave={handleSave}
           onUpdate={handleUpdate}
           onPurge={handlePurge}
+          onBack={() => workspaceNavigation.back()}
         />
       {:else}
         <div class="editor-empty-layout">

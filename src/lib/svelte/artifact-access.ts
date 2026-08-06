@@ -29,13 +29,13 @@ export function decideArtifactAccess(input: ArtifactAccessInput): ArtifactAccess
       ? { cacheControl: 'no-store', location: `/login?from=${encodeURIComponent(file.path)}`, status: 302, type: 'login' }
       : notFound()
   }
-  if (input.requestedSourceHash && input.requestedSourceHash !== file.sourceHash)
-    return notFound()
-  if (input.artifactSourceHash !== file.sourceHash) {
+  if (!input.artifactSourceHash) {
     return representation === 'page'
       ? { cacheControl: 'no-store', status: 503, type: 'artifact_unavailable' }
       : notFound()
   }
+  if (input.requestedSourceHash && input.requestedSourceHash !== input.artifactSourceHash)
+    return notFound()
   return {
     cacheControl: file.private ? 'private, no-store' : 'public, no-cache',
     status: 200,

@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
     }
   }),
   batchTrashByPaths: vi.fn(),
-  readCurrentRenderArtifact: vi.fn(),
+  readDeploymentSummary: vi.fn(),
   readAll: vi.fn(),
   saveSyncedFile: vi.fn(),
 }))
@@ -26,7 +26,7 @@ vi.mock('@/db/markdown', () => ({
 }))
 
 vi.mock('@/db/render-artifact', () => ({
-  readCurrentRenderArtifact: mocks.readCurrentRenderArtifact,
+  readDeploymentSummary: mocks.readDeploymentSummary,
 }))
 
 function createContext(request: Request) {
@@ -42,7 +42,7 @@ function createContext(request: Request) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  mocks.readCurrentRenderArtifact.mockResolvedValue(undefined)
+  mocks.readDeploymentSummary.mockResolvedValue(undefined)
 })
 
 describe('markdown batch API reads and deletes', () => {
@@ -82,7 +82,7 @@ describe('markdown batch API reads and deletes', () => {
     ])
   })
 
-  it('reports current only for a Svelte File with a matching stored Artifact', async () => {
+  it('reports one shared deployment status for a Svelte File', async () => {
     mocks.readAll.mockResolvedValue([{
       id: 2,
       path: '/page/application',
@@ -91,7 +91,7 @@ describe('markdown batch API reads and deletes', () => {
       sourceHash: 'svelte-source-hash',
       revision: 3,
     }])
-    mocks.readCurrentRenderArtifact.mockResolvedValue({ fileId: 2, sourceHash: 'svelte-source-hash' })
+    mocks.readDeploymentSummary.mockResolvedValue({ status: 'deployed' })
 
     const response = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=page', {
       headers: { Authorization: 'Bearer token' },
@@ -99,7 +99,7 @@ describe('markdown batch API reads and deletes', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject([
-      { path: '/page/application', renderer: 'svelte', artifactStatus: 'current' },
+      { path: '/page/application', renderer: 'svelte', artifactStatus: 'deployed' },
     ])
   })
 
@@ -338,14 +338,14 @@ describe('markdown batch API Svelte Source writes', () => {
         title: 'application',
         renderer: 'svelte',
         sourceHash: 'svelte-source-hash',
-        artifactStatus: 'rebuild_required',
+        artifactStatus: 'not_deployed',
         revision: 5,
       }],
     })
   })
 
-  it('reports a current Artifact when the saved Svelte Source still matches it', async () => {
-    mocks.readCurrentRenderArtifact.mockResolvedValue({ fileId: 2, sourceHash: 'svelte-source-hash' })
+  it('reports deployed when the saved Svelte Source still matches its Artifact', async () => {
+    mocks.readDeploymentSummary.mockResolvedValue({ status: 'deployed' })
     mocks.saveSyncedFile.mockResolvedValue({
       status: 'saved',
       file: {
@@ -373,7 +373,7 @@ describe('markdown batch API Svelte Source writes', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
-      results: [{ path: '/page/application', artifactStatus: 'current' }],
+      results: [{ path: '/page/application', artifactStatus: 'deployed' }],
     })
   })
 })

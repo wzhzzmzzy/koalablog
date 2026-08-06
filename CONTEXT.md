@@ -105,11 +105,11 @@ A self-contained file whose content is trusted, executable Svelte source owned b
 _Avoid_: Svelte snippet, untrusted component
 
 **Renderer Mode**:
-The persisted file metadata that selects whether content is interpreted as Markdown or Svelte. It belongs to the source file, remains meaningful without a render artifact, and changes only when the file is saved.
+The persisted file metadata that selects whether content is interpreted as Markdown or Svelte. It belongs to the source file and remains meaningful without a Render Artifact; choosing the other mode performs Renderer Replacement rather than changing the existing File in place.
 _Avoid_: Renderer directive, file extension, content detection, artifact renderer
 
 **Source Hash**:
-A deterministic fingerprint of the Renderer Mode and content saved in a File. A Render Artifact is current only when it names the File's current Source Hash; this is distinct from the optimistic File revision and the Artifact Hash.
+A deterministic fingerprint of the Renderer Mode and content saved in a File. Comparing it with the Deployed Render Artifact's Source Hash reveals whether saved Source has undeployed changes; it is distinct from the optimistic File revision and the Artifact Hash.
 _Avoid_: File revision, Artifact Hash, security signature
 
 **Renderer**:
@@ -125,16 +125,20 @@ The saved, script-free HTML representation of a Svelte File's initial body. It c
 _Avoid_: Server rendering, cache, screenshot
 
 **Render Artifact**:
-The versioned compiled browser bundle, component and generated utility styles, and SEO snapshot derived entirely in the client from one saved Source Hash of a Svelte File. It identifies its artifact schema, Svelte and style-toolchain versions, and Source Hash, but its presence or validity never determines whether the Source File exists or can be saved. A synchronized Svelte Source without a Current Render Artifact is `rebuild_required`, not a failed synchronization.
+The versioned compiled browser bundle, component and generated utility styles, and SEO snapshot derived entirely in the client from one saved Source Hash of a Svelte File. It identifies its artifact schema, Svelte and style-toolchain versions, and Source Hash, but its presence or validity never determines whether the Source File exists or can be saved.
 _Avoid_: Source file, generated file, publication state
 
 **Local Svelte Preview**:
 A temporary localhost-only Vite runtime that compiles and displays one Local Workspace Svelte Source. It neither uploads Source nor creates a Render Artifact; Dashboard Build remains the only way to attach an online Artifact.
 _Avoid_: Dashboard Build, artifact compiler, online preview
 
-**Current Render Artifact**:
-A Render Artifact whose Renderer Mode and Source Hash match the current Svelte File. File revision, Path, and visibility are not currentness inputs, so an exact Source reversion may make a preserved Artifact current again; a missing or stale Artifact makes the File unrenderable without changing or hiding its Source.
-_Avoid_: Published version, current file, draft
+**Deployed Render Artifact**:
+The last Render Artifact explicitly deployed for a Svelte File and served by its public page. It remains deployed when newer Svelte Source is saved and is replaced only after another explicit Deploy succeeds.
+_Avoid_: Current Render Artifact, current Source, draft
+
+**Deployment Drift**:
+The condition where a Svelte File's saved Source Hash differs from its Deployed Render Artifact's Source Hash. It means the saved Source has not been deployed; it does not make the already deployed Artifact invalid or unavailable.
+_Avoid_: Stale Artifact, failed build, unsaved changes
 
 **Site Stylesheet**:
 The style payload for shared static UI — the Page Shell, public pages, and reusable Editor UI.
@@ -149,7 +153,7 @@ The style payload persisted and delivered as part of a Render Artifact.
 _Avoid_: Artifact CSS, Worker UnoCSS output
 
 **Disk Representation**:
-The extension-bearing path used when exchanging source files with a local directory or ZIP archive. Markdown uses `.md` and Svelte uses `.svelte`; import removes that renderer extension to recover the extensionless absolute file path.
+The extension-bearing path used when exchanging source files with a local directory or ZIP archive. Markdown uses `.md` and Svelte uses `.svelte`; exactly one active representation maps to an extensionless absolute File Path at a time.
 _Avoid_: File path, public URL, render artifact
 
 **Attachment**:
@@ -176,12 +180,16 @@ _Avoid_: Local database, D1 mirror, vault database
 The File Creation caused by discovering a Local Workspace Source without a corresponding online File. It initializes the new File as private regardless of its File Path; the File's persisted Source is otherwise assigned by the ordinary creation rule.
 _Avoid_: Dashboard creation, path-derived visibility, public local default
 
+**Renderer Replacement**:
+The lifecycle transition that creates a new active File in the other Renderer Mode at the same Path and moves its predecessor to the recycle bin. The replacement receives a new File identity and no inherited Render Artifact, while the predecessor retains its Source and Artifact for recovery.
+_Avoid_: Renderer switch, in-place Renderer edit, Source conversion
+
 **Local Rename**:
 The move or rename of a Local Workspace Source that is recognized as the same local filesystem object. It updates the corresponding online File Path while retaining File identity and persisted metadata; an unrecognizable cross-filesystem copy instead becomes Local Workspace Creation plus File Removal.
 _Avoid_: Delete and recreate, path-derived metadata reset, implicit reference rewrite
 
 **Sync State**:
-The minimal, generated baseline held under a Local Workspace's hidden `.koala/` directory. It records only the last confirmed File identity, remote revision, and Source Hash needed to detect a concurrent change; it stores no File history, source copy, or local database.
+The minimal, generated baseline held under a Local Workspace's hidden `.koala/` directory. It records only the last confirmed File identity, Renderer Mode, remote revision, and Source Hash needed to detect a concurrent change or Renderer Replacement; it stores no File history, source copy, or local database.
 _Avoid_: Version history, local metadata database, D1 replica
 
 **Sync Conflict**:

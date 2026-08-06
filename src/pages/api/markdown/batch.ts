@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
 import { batchTrashByPaths, FileInputError, readAll, saveSyncedFile } from '@/db/markdown'
-import { readCurrentRenderArtifact } from '@/db/render-artifact'
+import { readDeploymentSummary } from '@/db/render-artifact'
 import { authInterceptor } from '@/lib/auth'
 import { isRendererMode, RENDERER_MODE, type RendererMode } from '@/lib/files/types'
 
@@ -22,11 +22,8 @@ function requestedSource(value: string | null) {
 }
 
 async function artifactStatus(env: Env | undefined, file: { id: number, renderer: RendererMode }) {
-  if (file.renderer === RENDERER_MODE.Markdown)
-    return 'not_applicable' as const
-  return await readCurrentRenderArtifact(env ?? {} as Env, file.id)
-    ? 'current' as const
-    : 'rebuild_required' as const
+  const summary = await readDeploymentSummary(env ?? {} as Env, file.id)
+  return summary?.status ?? (file.renderer === RENDERER_MODE.Markdown ? 'not_applicable' : 'not_deployed')
 }
 
 async function serializedFile(env: Env | undefined, file: {

@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { purge, restore, saveFile, trash } from '@/db/markdown'
-import { readCurrentRenderArtifact, readRenderArtifact, replaceCurrentRenderArtifact, replaceRenderArtifact } from '@/db/render-artifact'
-import { defineRenderArtifactContract } from '@/tests/shared/render-artifact-contract'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { purge, restore, saveFile, trash } from '@/db/markdown'
+import { readDeployedRenderArtifact, readDeploymentSummary, readRenderArtifact, replaceDeployedRenderArtifact, replaceRenderArtifact } from '@/db/render-artifact'
+import { defineRenderArtifactContract } from '@/tests/shared/render-artifact-contract'
 
 const env = {} as Env
 
@@ -112,14 +112,14 @@ describe('render Artifact persistence', () => {
 
     await replaceRenderArtifact(env, first)
     expect(await readRenderArtifact(env, file.id)).toMatchObject(first)
-    expect(await readCurrentRenderArtifact(env, file.id)).toMatchObject(first)
+    expect(await readDeployedRenderArtifact(env, file.id)).toMatchObject(first)
 
     await replaceRenderArtifact(env, second)
     expect(await readRenderArtifact(env, file.id)).toMatchObject(second)
-    expect(await readCurrentRenderArtifact(env, file.id)).toMatchObject(second)
+    expect(await readDeployedRenderArtifact(env, file.id)).toMatchObject(second)
   })
 
-  it('preserves an Artifact through Source and Renderer changes, and makes it Current only for exact active Svelte Source', async () => {
+  it('keeps the deployed Artifact with the recycled predecessor across Renderer replacements', async () => {
     const original = await createSvelteFile()
     const stored = artifact(original.id, original.sourceHash)
     await replaceRenderArtifact(env, stored)
@@ -135,7 +135,12 @@ describe('render Artifact persistence', () => {
     if (changed.status !== 'saved')
       throw new Error('Expected Source change to succeed')
     expect(await readRenderArtifact(env, original.id)).toMatchObject(stored)
-    expect(await readCurrentRenderArtifact(env, original.id)).toBeUndefined()
+    expect(await readDeployedRenderArtifact(env, original.id)).toMatchObject(stored)
+    expect(await readDeploymentSummary(env, original.id)).toMatchObject({
+      status: 'deployment_drift',
+      deployedSourceHash: original.sourceHash,
+      artifactHash: stored.artifactHash,
+    })
 
     const markdown = await saveFile(env, {
       id: original.id,
@@ -147,10 +152,13 @@ describe('render Artifact persistence', () => {
     })
     if (markdown.status !== 'saved')
       throw new Error('Expected Renderer switch to succeed')
-    expect(await readCurrentRenderArtifact(env, original.id)).toBeUndefined()
+    expect(markdown.file.id).not.toBe(original.id)
+    expect(await readDeployedRenderArtifact(env, original.id)).toBeUndefined()
+    expect(await readRenderArtifact(env, original.id)).toMatchObject(stored)
+    expect(await readRenderArtifact(env, markdown.file.id)).toBeUndefined()
 
     const reverted = await saveFile(env, {
-      id: original.id,
+      id: markdown.file.id,
       path: '/page/render-artifact-renamed',
       renderer: 'svelte',
       content: original.content,
@@ -159,8 +167,15 @@ describe('render Artifact persistence', () => {
     })
     if (reverted.status !== 'saved')
       throw new Error('Expected exact Svelte Source reversion to succeed')
+    expect(reverted.file.id).not.toBe(markdown.file.id)
     expect(reverted.file.sourceHash).toBe(original.sourceHash)
-    expect(await readCurrentRenderArtifact(env, original.id)).toMatchObject(stored)
+    expect(await readRenderArtifact(env, original.id)).toMatchObject(stored)
+    expect(await readRenderArtifact(env, reverted.file.id)).toBeUndefined()
+    expect(await readDeploymentSummary(env, reverted.file.id)).toEqual({
+      status: 'not_deployed',
+      deployedSourceHash: null,
+      artifactHash: null,
+    })
   })
 
   it('does not replace the existing Artifact when Source changes before the conditional attach', async () => {
@@ -178,7 +193,7 @@ describe('render Artifact persistence', () => {
     if (changed.status !== 'saved')
       throw new Error('Expected Source change to succeed')
 
-    const attached = await replaceCurrentRenderArtifact(env, artifact(original.id, original.sourceHash, 'export const version = "B"'))
+    const attached = await replaceDeployedRenderArtifact(env, artifact(original.id, original.sourceHash, 'export const version = "B"'))
     expect(attached).toBeUndefined()
     expect(await readRenderArtifact(env, original.id)).toEqual(before)
   })
@@ -188,10 +203,10 @@ describe('render Artifact persistence', () => {
     const first = artifact(file.id, file.sourceHash, 'export const version = "A"')
     await replaceRenderArtifact(env, first)
     const second = artifact(file.id, file.sourceHash, 'export const version = "B"')
-    expect(await replaceCurrentRenderArtifact(env, second, first.artifactHash)).toEqual(second)
+    expect(await replaceDeployedRenderArtifact(env, second, first.artifactHash)).toEqual(second)
     const beforeStaleConfirmation = await readRenderArtifact(env, file.id)
 
-    const stale = await replaceCurrentRenderArtifact(env, artifact(file.id, file.sourceHash, 'export const version = "C"'), first.artifactHash)
+    const stale = await replaceDeployedRenderArtifact(env, artifact(file.id, file.sourceHash, 'export const version = "C"'), first.artifactHash)
     expect(stale).toBeUndefined()
     expect(await readRenderArtifact(env, file.id)).toEqual(beforeStaleConfirmation)
   })
@@ -226,7 +241,7 @@ describe('render Artifact persistence', () => {
       throw new Error('Expected exact Source reversion to succeed')
 
     expect(await readRenderArtifact(env, original.id)).toMatchObject(replacement)
-    expect(await readCurrentRenderArtifact(env, original.id)).toBeUndefined()
+    expect(await readDeployedRenderArtifact(env, original.id)).toMatchObject(replacement)
   })
 
   it('preserves an Artifact in trash, restores its currentness, and cascades it away on purge', async () => {
@@ -236,10 +251,10 @@ describe('render Artifact persistence', () => {
 
     expect(await trash(env, file.id)).toMatchObject({ status: 'trashed' })
     expect(await readRenderArtifact(env, file.id)).toMatchObject(stored)
-    expect(await readCurrentRenderArtifact(env, file.id)).toBeUndefined()
+    expect(await readDeployedRenderArtifact(env, file.id)).toBeUndefined()
 
     expect(await restore(env, file.id)).toMatchObject({ status: 'restored' })
-    expect(await readCurrentRenderArtifact(env, file.id)).toMatchObject(stored)
+    expect(await readDeployedRenderArtifact(env, file.id)).toMatchObject(stored)
 
     expect(await trash(env, file.id)).toMatchObject({ status: 'trashed' })
     expect(await purge(env, file.id)).toEqual({ status: 'purged' })

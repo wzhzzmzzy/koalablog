@@ -17,14 +17,12 @@ export const editorStore = $state<{
   currentFile: FileRecord | null
   loading: boolean
   hasAttemptedLoad: boolean
-  history: string[]
   showSidebar: boolean
 }>({
   items: [],
   currentFile: null,
   loading: false,
   hasAttemptedLoad: false,
-  history: [],
   showSidebar: getStoredSidebar(),
 })
 
@@ -119,24 +117,14 @@ export function setCurrentFile(file: FileRecord | null) {
   editorStore.currentFile = file
 }
 
-export function pushHistory(path: string) {
-  const last = editorStore.history[editorStore.history.length - 1]
-  if (last !== path) {
-    editorStore.history.push(path)
-  }
-}
-
-export function popHistory() {
-  return editorStore.history.pop()
-}
-
-export function updateLastHistory(path: string) {
-  if (editorStore.history.length > 0) {
-    editorStore.history[editorStore.history.length - 1] = path
-  }
-}
-
 export function upsertItem(item: FileRecord) {
+  if (!item.deletedAt) {
+    for (const existing of editorStore.items) {
+      if (existing.id !== item.id && !existing.deletedAt && existing.path === item.path)
+        removeEditBuffer(existing.id)
+    }
+    editorStore.items = editorStore.items.filter(existing => existing.id === item.id || existing.deletedAt || existing.path !== item.path)
+  }
   const index = editorStore.items.findIndex(i => i.id === item.id)
   if (index >= 0) {
     editorStore.items[index] = item

@@ -145,6 +145,8 @@ body:has(.editor-workspace) {
 }
 
 .editor-toolbar {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: auto minmax(10rem, 1fr) auto auto;
   align-items: center;
@@ -160,7 +162,7 @@ body:has(.editor-workspace) {
 
 .editor-toolbar__navigation,
 .editor-toolbar__actions,
-.editor-toolbar__renderer {
+.editor-toolbar__view {
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -183,10 +185,6 @@ body:has(.editor-workspace) {
   transition: border-color 160ms ease, background-color 160ms ease;
 }
 
-.editor-toolbar__context:focus-within {
-  background: var(--editor-panel-raised);
-}
-
 .editor-toolbar__context-mark {
   display: grid;
   width: 1.25rem;
@@ -197,26 +195,45 @@ body:has(.editor-workspace) {
   background: color-mix(in srgb, var(--koala-catppuccin-mauve) 13%, transparent);
 }
 
-.editor-path-input {
+.editor-path-display {
   width: 100%;
   height: 2.25rem;
   min-width: 0;
-  border: 0;
-  outline: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
   color: var(--editor-text);
   background: transparent;
   font-family: var(--koala-font-mono);
   font-size: 0.8rem;
   letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.editor-path-input::placeholder {
+.editor-toolbar__view {
+  padding: 0.2rem;
+  border: 1px solid var(--editor-border);
+  border-radius: 0.72rem;
+  background: color-mix(in srgb, var(--editor-panel-raised) 76%, transparent);
+}
+
+.editor-view-button {
+  min-height: 2rem;
+  padding: 0.25rem 0.45rem;
+  border: 0;
+  border-radius: 0.48rem;
   color: var(--editor-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-transform: capitalize;
 }
 
-.editor-workspace .editor-path-input:focus-visible {
-  outline: none;
-  outline-offset: 0;
+.editor-view-button[aria-pressed="true"] {
+  color: var(--editor-text);
+  background: var(--editor-hover);
 }
 
 .editor-tool-button {
@@ -307,6 +324,280 @@ body:has(.editor-workspace) {
   font-size: 0.78rem;
   font-weight: 650;
   letter-spacing: 0.01em;
+}
+
+.editor-toolbar__actions > #save,
+.editor-more > .editor-tool-button {
+  width: auto;
+  min-width: 4.75rem;
+}
+
+.editor-more {
+  position: relative;
+}
+
+.editor-more__menu {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  display: none;
+  width: min(18rem, calc(100vw - 2rem));
+  max-height: min(34rem, calc(100dvh - 2rem));
+  padding: 0.35rem;
+  overflow: auto;
+  border: 1px solid var(--editor-border-strong);
+  border-radius: 0.85rem;
+  color: var(--editor-text);
+  background: var(--editor-panel-raised);
+  box-shadow: 0 1.5rem 3rem -1.5rem var(--editor-shadow);
+}
+
+.editor-more__menu--open {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.editor-more__item {
+  display: flex;
+  width: 100%;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-radius: 0.58rem;
+  color: var(--editor-text);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.editor-more__item:hover:not(:disabled),
+.editor-more__item:focus-visible,
+.editor-more__item[aria-checked="true"] {
+  background: var(--editor-hover);
+}
+
+.editor-more__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.editor-more__section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.12rem;
+  padding: 0.25rem 0;
+}
+
+.editor-more__section p {
+  grid-column: 1 / -1;
+  margin: 0.25rem 0.6rem 0.1rem;
+  color: var(--editor-muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.editor-more__section .editor-more__item {
+  min-width: 0;
+}
+
+.editor-more__separator {
+  height: 1px;
+  margin: 0.3rem 0;
+  background: var(--editor-border);
+}
+
+.editor-more__lifecycle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.editor-more__lifecycle .editor-tool-button--danger {
+  color: var(--koala-catppuccin-red);
+}
+
+.editor-rename-move-dialog {
+  width: min(31rem, calc(100vw - 2rem));
+}
+
+.editor-rename-move-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.editor-rename-move-dialog__field {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  color: var(--editor-muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.editor-rename-move-dialog__field input {
+  width: 100%;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--editor-border-strong);
+  border-radius: 0.6rem;
+  color: var(--editor-text);
+  background: var(--editor-code-surface);
+  font-family: var(--koala-font-mono);
+  font-size: 0.82rem;
+}
+
+.editor-rename-move-dialog__error {
+  color: var(--koala-catppuccin-red) !important;
+}
+
+.editor-file-finder {
+  width: min(38rem, calc(100vw - 2rem));
+  max-height: min(38rem, calc(100dvh - 2rem));
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--editor-border-strong);
+  border-radius: 1rem;
+  color: var(--editor-text);
+  background: var(--editor-panel-raised);
+  box-shadow: 0 1.5rem 4rem -1.5rem var(--editor-shadow);
+}
+
+.editor-file-finder::backdrop {
+  background: color-mix(in srgb, var(--koala-catppuccin-crust) 62%, transparent);
+  backdrop-filter: blur(5px);
+}
+
+.editor-file-finder__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.65rem;
+}
+
+.editor-file-finder__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.025em;
+}
+
+.editor-file-finder__header p {
+  margin: 0.2rem 0 0;
+  color: var(--editor-muted);
+  font-size: 0.76rem;
+}
+
+.editor-file-finder__input {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 1rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--editor-border-strong);
+  border-radius: 0.7rem;
+  color: var(--editor-muted);
+  background: var(--editor-code-surface);
+}
+
+.editor-file-finder__input input {
+  width: 100%;
+  min-height: 2.65rem;
+  border: 0;
+  outline: 0;
+  color: var(--editor-text);
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.editor-file-finder__results {
+  max-height: min(26rem, calc(100dvh - 12rem));
+  margin-top: 0.75rem;
+  padding: 0 0.5rem 0.65rem;
+  overflow: auto;
+}
+
+.editor-file-finder__group + .editor-file-finder__group {
+  margin-top: 0.5rem;
+}
+
+.editor-file-finder__group h3 {
+  margin: 0.65rem 0.5rem 0.25rem;
+  color: var(--editor-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.editor-file-finder__result {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15rem 0.75rem;
+  padding: 0.6rem 0.7rem;
+  border: 0;
+  border-radius: 0.65rem;
+  color: var(--editor-text);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.editor-file-finder__result:hover,
+.editor-file-finder__result[aria-selected="true"] {
+  background: var(--editor-hover);
+}
+
+.editor-file-finder__result-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-file-finder__result-path {
+  grid-column: 1;
+  overflow: hidden;
+  color: var(--editor-muted);
+  font-family: var(--koala-font-mono);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-file-finder__result-kind {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--editor-muted);
+  font-family: var(--koala-font-mono);
+  font-size: 0.64rem;
+  text-transform: capitalize;
+}
+
+.editor-file-finder__empty {
+  margin: 1.75rem 0.75rem;
+  color: var(--editor-muted);
+  font-size: 0.8rem;
+  text-align: center;
 }
 
 .editor-renderer-toggle {
@@ -509,6 +800,65 @@ body:has(.editor-workspace) {
   flex: 1;
   overflow: hidden;
   background: var(--editor-code-surface);
+}
+
+.editor-canvas--hidden {
+  display: none;
+}
+
+.editor-view-layout {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  background: var(--editor-code-surface);
+}
+
+.editor-view-layout--split .editor-canvas {
+  width: calc(var(--editor-split-ratio) * 100%);
+  min-width: 20rem;
+  flex: 0 1 auto;
+}
+
+.editor-view-layout--split .editor-markdown-preview {
+  min-width: 20rem;
+  flex: 1 1 auto;
+}
+
+.editor-view-layout--preview .editor-markdown-preview {
+  flex: 1;
+}
+
+.editor-split-separator {
+  position: relative;
+  width: 0.7rem;
+  min-width: 0.7rem;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--editor-border);
+  border-left: 1px solid var(--editor-border);
+  outline-offset: -3px;
+  background: var(--editor-panel);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.editor-split-separator::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.2rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  content: "";
+  background: var(--editor-border-strong);
+  transform: translate(-50%, -50%);
+}
+
+.editor-split-separator:hover,
+.editor-split-separator:focus-visible {
+  background: var(--editor-hover);
 }
 
 .editor-preview-overlay {
@@ -1460,6 +1810,10 @@ body:has(.editor-workspace) {
   backdrop-filter: blur(4px);
 }
 
+.editor-modal.editor-dependency-drift-dialog {
+  width: min(42rem, calc(100vw - 2rem));
+}
+
 .editor-modal h3 {
   margin: 0;
   font-size: 1.05rem;
@@ -1524,31 +1878,60 @@ body:has(.editor-workspace) {
   }
 
   .editor-toolbar {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
     gap: 0.5rem;
     padding: 0.45rem;
     border-radius: 0.9rem;
   }
 
   .editor-toolbar__navigation {
+    grid-column: 1;
+    grid-row: 1;
     min-width: 0;
   }
 
   .editor-toolbar__context {
-    grid-column: 1 / -1;
-    grid-row: 2;
+    grid-column: 2;
+    grid-row: 1;
     min-width: 0;
+    padding: 0 0.4rem;
   }
 
-  .editor-toolbar__renderer {
-    justify-content: flex-end;
+  .editor-toolbar__view {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    justify-self: stretch;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .editor-toolbar__view .editor-view-button:nth-child(2) {
+    display: none;
   }
 
   .editor-toolbar__actions {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.28rem;
+    display: contents;
+  }
+
+  .editor-toolbar__actions > #save {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .editor-toolbar__actions > .editor-tool-button--deploy {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .editor-toolbar__actions > #preview {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .editor-toolbar__actions > .editor-more {
+    grid-column: 3;
+    grid-row: 1;
   }
 
   .editor-tool-button {
@@ -1557,17 +1940,21 @@ body:has(.editor-workspace) {
     padding: 0;
   }
 
-  .editor-tool-button--primary {
+  .editor-toolbar__actions > #save,
+  .editor-more > .editor-tool-button {
     min-width: 0;
-    color: var(--koala-catppuccin-base);
   }
 
-  .editor-tool-button__label {
-    display: none;
+  .editor-toolbar__actions .editor-tool-button__label {
+    display: inline;
+    font-size: 0.66rem;
   }
 
-  .editor-toolbar__actions:has(.editor-tool-button:nth-child(7)) {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  .editor-more__menu {
+    position: fixed;
+    top: auto;
+    right: 0.6rem;
+    bottom: calc(env(safe-area-inset-bottom) + 0.6rem);
   }
 
   .editor-content {
@@ -1641,6 +2028,14 @@ body:has(.editor-workspace) {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* iOS Safari zooms focused editable controls below 16px. Keep this scoped to
+ * touch workspaces so desktop typography remains intentionally compact. */
+@media (hover: none) and (pointer: coarse) {
+  .editor-workspace :is(input, textarea, select, [contenteditable="true"], .cm-content) {
+    font-size: 16px !important;
   }
 }
 

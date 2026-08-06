@@ -24,6 +24,22 @@ async function expectEditorText(source: Locator, expected: string) {
   await expect.poll(() => editorText(source)).toBe(expected)
 }
 
+async function editorSelectionStart(source: Locator) {
+  return source.evaluate((element) => {
+    const selection = document.getSelection()
+    if (!selection?.anchorNode || !element.contains(selection.anchorNode))
+      return -1
+    const beforeSelection = document.createRange()
+    beforeSelection.selectNodeContents(element)
+    beforeSelection.setEnd(selection.anchorNode, selection.anchorOffset)
+    return beforeSelection.toString().length
+  })
+}
+
+async function expectEditorSelectionStart(source: Locator, expected: number) {
+  await expect.poll(() => editorSelectionStart(source)).toBe(expected)
+}
+
 async function dispatchImageTransfer(
   source: Locator,
   type: 'paste' | 'drop',
@@ -90,6 +106,49 @@ async function gateUpload(page: Page) {
   return release
 }
 
+async function chooseMoreAction(page: Page, name: string) {
+  await page.getByRole('button', { name: 'More File actions' }).click()
+  await page.getByRole('menuitem', { name }).click()
+}
+
+async function chooseRenderer(page: Page, renderer: 'Markdown' | 'Svelte') {
+  await page.getByRole('button', { name: 'More File actions' }).click()
+  await page.getByRole('menuitemradio', { name: renderer }).click()
+}
+
+async function expectRenderer(page: Page, renderer: 'Markdown' | 'Svelte') {
+  await page.getByRole('button', { name: 'More File actions' }).click()
+  await expect(page.getByRole('menuitemradio', { name: renderer })).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('Escape')
+}
+
+async function chooseUpload(page: Page) {
+  await chooseMoreAction(page, 'Upload Image')
+}
+
+async function setBufferPath(page: Page, path: string) {
+  await chooseMoreAction(page, 'Rename / Move')
+  const dialog = page.getByRole('dialog', { name: 'Rename / Move File' })
+  await dialog.getByRole('textbox', { name: 'Absolute File Path' }).fill(path)
+  await dialog.getByRole('button', { name: 'Use Path' }).click()
+}
+
+test('Rename / Move Escape closes the dialog and returns focus to More', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const more = page.getByRole('button', { name: 'More File actions' })
+  await more.click()
+  await page.getByRole('menuitem', { name: 'Rename / Move' }).click()
+
+  const dialog = page.getByRole('dialog', { name: 'Rename / Move File' })
+  await expect(dialog).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await expect(dialog).toBeHidden()
+  await expect(more).toBeFocused()
+})
+
 test('File Source exposes the stable editor contract', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
@@ -128,9 +187,9 @@ test('typing [[ completes a File Reference into its canonical Source form', asyn
   await expectEditorText(source, 'See [[/second]]')
 
   await page.getByRole('button', { name: 'Save File' }).click()
-  await expect(page.getByText('Saved Success')).toBeVisible()
+  await expect(page.getByText('Source saved.')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Preview File' }).click()
+  await page.getByRole('button', { name: 'preview' }).click()
   const reference = page.locator('#preview-md a.outgoing-link', { hasText: '/second' })
   await expect(reference).toHaveAttribute('href', '/second')
 })
@@ -163,7 +222,7 @@ test('dirty File keeps the Save icon alongside its label', async ({ page }) => {
   await source.fill('Unsaved Source')
 
   await expect(page.getByText('Unsaved changes')).toBeVisible()
-  await expect(saveButton).toHaveClass(/editor-tool-button--changed/)
+  await expect(saveButton).toHaveClass(/editor-tool-button--primary/)
   await expect.poll(async () => (await saveButton.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(76)
   await expect(saveButton.locator('svg')).toBeVisible()
 })
@@ -174,22 +233,20 @@ test('Renderer Mode changes only the Edit Buffer and survives File switching and
 
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   const originalSource = await editorText(source)
-  const markdown = page.getByRole('radio', { name: 'Markdown' })
-  const svelte = page.getByRole('radio', { name: 'Svelte' })
-  await expect(markdown).toBeChecked()
+  await expectRenderer(page, 'Markdown')
 
-  await svelte.check()
-  await expect(svelte).toBeChecked()
+  await chooseRenderer(page, 'Svelte')
+  await expectRenderer(page, 'Svelte')
   await expectEditorText(source, originalSource)
 
   await page.getByRole('button', { name: 'second', exact: true }).click()
   await page.getByRole('button', { name: 'phase-two', exact: true }).click()
-  await expect(svelte).toBeChecked()
+  await expectRenderer(page, 'Svelte')
   await expectEditorText(source, originalSource)
 
   await page.reload()
   await page.waitForLoadState('networkidle')
-  await expect(page.getByRole('radio', { name: 'Svelte' })).toBeChecked()
+  await expectRenderer(page, 'Svelte')
   await expectEditorText(page.getByRole('textbox', { name: 'File Source for /phase-two' }), originalSource)
 })
 
@@ -207,7 +264,7 @@ test('Markdown startup lazy-loads the Svelte language only after Renderer switch
   await expectEditorText(source, 'ordinary Markdown edit')
   expect(svelteLanguageRequests).toHaveLength(0)
 
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseRenderer(page, 'Svelte')
   await expect.poll(() => svelteLanguageRequests.length).toBeGreaterThan(0)
 })
 
@@ -217,7 +274,7 @@ test('Svelte diagnostics are debounced, mapped, and cannot leak into a switched 
   await page.waitForLoadState('networkidle')
 
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseRenderer(page, 'Svelte')
   await source.fill('<svelte:head><title>Unsupported</title></svelte:head>')
   await expect.poll(() => page.locator('.cm-lint-marker-error').count(), { timeout: 60_000 }).toBeGreaterThan(0)
 
@@ -270,35 +327,44 @@ test('FileEditor saves the selected Renderer exactly once while preserving focus
       svelteWorkerRequests.push(request.url())
   })
 
-  try {
-    await page.goto('/dashboard/edit?path=/phase-two')
-    await page.waitForLoadState('networkidle')
-    const path = page.getByRole('textbox', { name: 'Absolute File Path' })
-    const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
 
-    await path.focus()
-    await page.keyboard.press('Control+s')
-    await expect(page.getByText('Saved Success')).toBeVisible()
-    await expect(path).toBeFocused()
-    expect(savePayloads).toHaveLength(1)
+  await source.focus()
+  await page.keyboard.press('Control+s')
+  expect(savePayloads).toHaveLength(0)
 
-    await page.getByRole('radio', { name: 'Svelte' }).check()
-    await source.focus()
-    const saveResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/_actions/form.save'))
-    await page.keyboard.press('Meta+s')
-    const saveResponseBody = await (await saveResponse).text()
-    const flattenedSaveResponse = JSON.parse(saveResponseBody) as unknown[]
-    const savedFileReference = flattenedSaveResponse[0] as { sourceHash: number }
-    await expect.poll(() => savePayloads.length).toBe(2)
-    await expect(source).toBeFocused()
-    expect(savePayloads[1]).toMatch(/name="renderer"\r?\n\r?\nsvelte/)
-    expect(savePayloads[1]).toMatch(/name="content"\r?\n\r?\nFirst line\r?\nSecond line/)
-    expect(flattenedSaveResponse[savedFileReference.sourceHash]).toEqual(expect.stringMatching(/^[0-9a-f]{64}$/))
-    await expect.poll(() => svelteWorkerRequests.length, { timeout: 20_000 }).toBeGreaterThan(0)
-  }
-  finally {
-    await replaceServerRendererAndSourceState(1, 'First line\nSecond line', 'markdown')
-  }
+  await source.fill('First line\nSecond line')
+  await chooseRenderer(page, 'Svelte')
+  await source.focus()
+  const saveResponse = page.waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/_actions/form.save'))
+  await page.keyboard.press('Meta+s')
+  const saveResponseBody = await (await saveResponse).text()
+  const flattenedSaveResponse = JSON.parse(saveResponseBody) as unknown[]
+  const savedFileReference = flattenedSaveResponse[0] as { sourceHash: number }
+  await expect.poll(() => savePayloads.length).toBe(1)
+  await expect(source).toBeFocused()
+  expect(savePayloads[0]).toMatch(/name="renderer"\r?\n\r?\nsvelte/)
+  expect(savePayloads[0]).toMatch(/name="content"\r?\n\r?\nFirst line\r?\nSecond line/)
+  expect(flattenedSaveResponse[savedFileReference.sourceHash]).toEqual(expect.stringMatching(/^[0-9a-f]{64}$/))
+  await expect.poll(() => svelteWorkerRequests.length, { timeout: 20_000 }).toBeGreaterThan(0)
+})
+
+test('Renderer Replacement immediately exposes the retired File in Recycle Bin', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await chooseRenderer(page, 'Svelte')
+  await source.fill('<h1>Replacement Source</h1>')
+  await page.getByRole('button', { name: 'Save File' }).click()
+  await expect(page.getByText('Source saved.')).toBeVisible()
+
+  const recycleBin = page.locator('.editor-recycle-bin')
+  await expect(recycleBin).toBeVisible()
+  await recycleBin.getByRole('button', { name: /Recycle Bin/ }).click()
+  await expect(recycleBin.getByRole('button', { name: /phase-two/ })).toBeVisible()
 })
 
 test('a recycled File exposes a read-only Source editor', async ({ page }) => {
@@ -308,10 +374,12 @@ test('a recycled File exposes a read-only Source editor', async ({ page }) => {
   const source = page.getByRole('textbox', { name: 'File Source for /trashed' })
   await expectEditorText(source, 'Read-only Source')
   await expect(source).not.toBeEditable()
-  const svelteRenderer = page.getByRole('radio', { name: 'Svelte' })
+  await page.getByRole('button', { name: 'More File actions' }).click()
+  const svelteRenderer = page.getByRole('menuitemradio', { name: 'Svelte' })
   await expect(svelteRenderer).toBeVisible()
   await expect(svelteRenderer).toBeDisabled()
-  await expect(svelteRenderer).toHaveAttribute('title', 'Renderer cannot be changed for a recycled File')
+  await page.keyboard.press('Escape')
+  await source.focus()
   await source.pressSequentially(' changed')
   await expectEditorText(source, 'Read-only Source')
 })
@@ -324,23 +392,28 @@ test('switching Files restores Source, selection, and undo by File ID', async ({
   await source.fill('abc')
   await source.press('ArrowLeft')
   await source.press('ArrowLeft')
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await expectEditorSelectionStart(source, 1)
+  await chooseRenderer(page, 'Svelte')
+  await source.focus()
+  await expectEditorSelectionStart(source, 1)
 
   const secondButton = page.getByRole('button', { name: 'second', exact: true })
   await secondButton.click()
-  await expect(secondButton).toBeFocused()
-  await expect(page.getByRole('radio', { name: 'Markdown' })).toBeChecked()
+  await expect(page.getByRole('textbox', { name: 'File Source for /second' })).toBeFocused()
+  await expectRenderer(page, 'Markdown')
   await expect(page.getByRole('textbox', { name: 'File Source for /second' })).toBeVisible()
   const phaseTwoButton = page.getByRole('button', { name: 'phase-two', exact: true })
   await phaseTwoButton.click()
-  await expect(phaseTwoButton).toBeFocused()
-  await expect(page.getByRole('radio', { name: 'Svelte' })).toBeChecked()
+  await expect(page.getByRole('textbox', { name: 'File Source for /phase-two' })).toBeFocused()
+  await expectRenderer(page, 'Svelte')
 
   source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await expectEditorSelectionStart(source, 1)
   await page.getByRole('button', { name: 'Preview File' }).click()
   await expect(page.getByTestId('editor-preview-overlay')).toBeVisible()
   await page.getByRole('button', { name: 'Edit Source' }).click()
   await expect(source).toBeFocused()
+  await expectEditorSelectionStart(source, 1)
   await source.pressSequentially('X')
   await expectEditorText(source, 'aXbc')
 
@@ -356,7 +429,7 @@ test('toolbar inserts a multi-image batch as one undoable action', async ({ page
   await source.fill('before')
 
   const chooserPromise = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: 'Upload image' }).click()
+  await chooseUpload(page)
   const chooser = await chooserPromise
   expect(chooser.isMultiple()).toBe(true)
   await chooser.setFiles([
@@ -387,17 +460,17 @@ test('an image upload keeps its originating Svelte Renderer through a later togg
 
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await source.fill('before')
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseRenderer(page, 'Svelte')
   const responsePromise = page.waitForResponse(response => response.url().includes('/_actions/oss.upload'))
   const chooserPromise = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: 'Upload image' }).click()
+  await chooseUpload(page)
   await (await chooserPromise).setFiles({ name: 'svelte.png', mimeType: 'image/png', buffer: onePixelPng })
 
   await expect.poll(() => editorText(source))
     .toContain('<img src="koala-upload:')
   await expect.poll(() => editorText(source))
     .toContain('alt="Uploading svelte.png…" />')
-  await page.getByRole('radio', { name: 'Markdown' }).check()
+  await chooseRenderer(page, 'Markdown')
 
   releaseUpload()
   await responsePromise
@@ -422,7 +495,7 @@ test('undo during upload discards the late result', async ({ page }) => {
   await source.fill('before')
   const responsePromise = page.waitForResponse(response => response.url().includes('/_actions/oss.upload'))
   const chooserPromise = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: 'Upload image' }).click()
+  await chooseUpload(page)
   await (await chooserPromise).setFiles({ name: 'late.png', mimeType: 'image/png', buffer: onePixelPng })
 
   await expect.poll(() => editorText(source)).toContain('Uploading late.png')
@@ -444,7 +517,7 @@ test('redo during upload waits for final Markdown without restoring a placeholde
   await source.fill('before')
   const responsePromise = page.waitForResponse(response => response.url().includes('/_actions/oss.upload'))
   const chooserPromise = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: 'Upload image' }).click()
+  await chooseUpload(page)
   await (await chooserPromise).setFiles({ name: 'redo-pending.png', mimeType: 'image/png', buffer: onePixelPng })
 
   await expect.poll(() => editorText(source)).toContain('Uploading redo-pending.png')
@@ -469,7 +542,7 @@ test('a new edit branch discards the previous image redo batch', async ({ page }
   await source.fill('base')
 
   let chooserPromise = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: 'Upload image' }).click()
+  await chooseUpload(page)
   await (await chooserPromise).setFiles({ name: 'first-branch.png', mimeType: 'image/png', buffer: onePixelPng })
   await expect.poll(async () => (await editorText(source)).includes('![](/api/oss/')).toBe(true)
   await source.press('Meta+z')
@@ -477,7 +550,7 @@ test('a new edit branch discards the previous image redo batch', async ({ page }
 
   await source.pressSequentially(' branch')
   chooserPromise = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: 'Upload image' }).click()
+  await chooseUpload(page)
   await (await chooserPromise).setFiles({ name: 'second-branch.png', mimeType: 'image/png', buffer: onePixelPng })
   await expect.poll(async () => (await editorText(source)).includes('![](/api/oss/')).toBe(true)
   const secondBranch = await editorText(source)
@@ -496,7 +569,7 @@ test('removing a placeholder discards its late upload result', async ({ page }) 
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   const responsePromise = page.waitForResponse(response => response.url().includes('/_actions/oss.upload'))
   const chooserPromise = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: 'Upload image' }).click()
+  await chooseUpload(page)
   await (await chooserPromise).setFiles({ name: 'removed.png', mimeType: 'image/png', buffer: onePixelPng })
 
   await expect.poll(() => editorText(source)).toContain('Uploading removed.png')
@@ -516,7 +589,7 @@ test('failed image upload removes only its placeholder', async ({ page }) => {
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await source.fill('before')
   const chooserPromise = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: 'Upload image' }).click()
+  await chooseUpload(page)
   await (await chooserPromise).setFiles({ name: 'failed.png', mimeType: 'image/png', buffer: onePixelPng })
 
   await expectEditorText(source, 'before')
@@ -611,10 +684,10 @@ test('folds, line numbers, and the active line restore by File ID', async ({ pag
   await expect(page.locator('[title="Unfold line"]:visible').first()).toBeVisible()
 
   await page.getByRole('button', { name: 'second', exact: true }).click()
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseRenderer(page, 'Svelte')
   await page.getByRole('button', { name: 'phase-two', exact: true }).click()
 
-  await expect(page.getByRole('radio', { name: 'Markdown' })).toBeChecked()
+  await expectRenderer(page, 'Markdown')
   await expect(page.locator('[title="Unfold line"]:visible').first()).toBeVisible()
   await page.locator('[title="Unfold line"]:visible').first().click()
   await expect.poll(async () => (await editorText(source)).replace(/\n{2,}/g, '\n'))
@@ -689,10 +762,10 @@ test('desktop Source scroll restores independently from selection by File ID', a
   const savedScrollTop = await scroller.evaluate(element => element.scrollTop)
 
   await page.getByRole('button', { name: 'second', exact: true }).click()
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseRenderer(page, 'Svelte')
   await page.getByRole('button', { name: 'phase-two', exact: true }).click()
 
-  await expect(page.getByRole('radio', { name: 'Markdown' })).toBeChecked()
+  await expectRenderer(page, 'Markdown')
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(savedScrollTop / 2)
 })
 
@@ -703,7 +776,7 @@ test('same-ID accepted Source replacement clears stale undo history', async ({ p
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await source.fill('locally saved Source')
   await page.getByRole('button', { name: 'Save File' }).click()
-  await expect(page.getByText('Saved Success')).toBeVisible()
+  await expect(page.getByText('Source saved.')).toBeVisible()
 
   await replaceServerRendererAndSourceState(1, 'accepted server Source')
   await page.getByRole('button', { name: 'phase-two', exact: true }).click()
@@ -782,7 +855,6 @@ test('renaming a File preserves Source selection, scroll, folds, and undo', asyn
   await page.waitForLoadState('networkidle')
 
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
-  await page.getByRole('radio', { name: 'Markdown' }).check()
   const originalSource = await editorText(source)
   const lines = ['# Folded', 'hidden', '', '# Long section', ...Array.from({ length: 100 }, (_, index) => `line ${index + 1}`)]
   await source.fill(lines.join('\n'))
@@ -796,10 +868,10 @@ test('renaming a File preserves Source selection, scroll, folds, and undo', asyn
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
   const savedScrollTop = await scroller.evaluate(element => element.scrollTop)
 
-  const path = page.getByRole('textbox', { name: 'Absolute File Path' })
-  await path.fill('/phase-two-renamed')
+  await setBufferPath(page, '/phase-two-renamed')
   await page.getByRole('button', { name: 'Save File' }).click()
-  await expect(page.getByText('Saved Success')).toBeVisible()
+  await expect(page.getByText('Source saved.')).toBeVisible()
+  await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Fphase-two-renamed$/)
 
   const renamedSource = page.getByRole('textbox', { name: 'File Source for /phase-two-renamed' })
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(savedScrollTop / 2)
@@ -821,7 +893,7 @@ test('permanently deleting the current File selects an active fallback', async (
   await page.goto('/dashboard/edit?id=2')
   await page.waitForLoadState('networkidle')
 
-  await page.getByRole('button', { name: 'Permanently delete' }).click()
+  await chooseMoreAction(page, 'Permanently delete')
   const dialog = page.getByRole('dialog', { name: 'Permanently delete?' })
   await dialog.getByRole('button', { name: 'Permanently delete' }).click()
 
@@ -841,16 +913,15 @@ test('emptying the recycle bin discards every trashed File and selects a fallbac
   await expect(page.getByRole('button', { name: 'Empty recycle bin' })).toHaveCount(0)
 })
 
-test('creating a File focuses its Path without focusing Source', async ({ page }) => {
+test('creating a File focuses Source because Path changes now use Rename / Move', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
 
   await page.getByRole('button', { name: 'Create new file in memo' }).click()
 
-  const path = page.getByRole('textbox', { name: 'Absolute File Path' })
-  await expect(path).toBeFocused()
-  await expect(path).toHaveValue(/^\/memo\//)
-  await expect(page.getByRole('textbox', { name: /^File Source for \/memo\// })).not.toBeFocused()
+  const source = page.getByRole('textbox', { name: /^File Source for \/memo\// })
+  await expect(source).toBeFocused()
+  await expect(page.getByRole('textbox', { name: 'Absolute File Path' })).toHaveCount(0)
 })
 
 test('an empty Editor keeps its complete toolbar available', async ({ page }) => {
@@ -860,12 +931,12 @@ test('an empty Editor keeps its complete toolbar available', async ({ page }) =>
   const toolbar = page.getByTestId('editor-toolbar')
   await expect(toolbar).toBeVisible()
   await expect(toolbar.getByRole('button', { name: 'Toggle sidebar' })).toBeVisible()
-  await expect(toolbar.getByRole('button', { name: 'Back to dashboard' })).toBeVisible()
-  await expect(toolbar.getByRole('textbox', { name: 'Absolute File Path' })).toBeDisabled()
-  await expect(toolbar.getByRole('radio', { name: 'Markdown' })).toBeDisabled()
+  await expect(toolbar.getByRole('button', { name: 'Back to previous File' })).toBeDisabled()
+  await expect(toolbar.getByText('Select a File from File Explorer')).toBeVisible()
   await expect(toolbar.getByRole('button', { name: 'Save File' })).toBeDisabled()
-  await expect(toolbar.getByRole('button', { name: 'Move to recycle bin' })).toBeDisabled()
-  await expect(toolbar.getByRole('button', { name: 'Copy File link' })).toBeDisabled()
+  await toolbar.getByRole('button', { name: 'More File actions' }).click()
+  await expect(page.getByRole('menuitemradio', { name: 'Markdown' })).toBeDisabled()
+  await expect(page.getByRole('menuitem', { name: 'Copy public link' })).toBeDisabled()
 })
 
 test('automatic sidebar close does not follow a user back to desktop', async ({ page }) => {
