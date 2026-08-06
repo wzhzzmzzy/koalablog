@@ -13,7 +13,7 @@
     counter.svelte
 ```
 
-The workspace belongs to exactly one Owner. `.koala/` is generated state, not Source and not an import/export payload. It records only the last confirmed File identity, remote revision, Source Hash, and the local filesystem identity needed to recognize an in-filesystem rename. It has no Source history, local database, credential, or copy of D1 data.
+The workspace belongs to exactly one Owner. `.koala/` is generated state, not Source and not an import/export payload. It records only the last confirmed File identity, Renderer Mode, remote revision, Source Hash, and the local filesystem identity needed to recognize an in-filesystem rename or Renderer Replacement. It has no Source history, local database, credential, or copy of D1 data.
 
 Every other `.md` and `.svelte` file maps to an extensionless File Path: `notes/plan.md` maps to `/notes/plan`; `widgets/counter.svelte` maps to `/widgets/counter`. The extension selects the renderer. Empty directories are local-only and have no online representation. `attachments/` is the only binary root and maps to `/attachments/...` references.
 
@@ -44,7 +44,11 @@ The cycle is deliberately not a transactional workspace snapshot: successful Fil
 
 ### Concurrent File change
 
-If both peers changed a File since their last confirmed state, choose the later edit time. Local time is filesystem `mtime`; remote time is D1 `updatedAt`; an equal time chooses the remote Source. Overwrite the earlier Source without conflict copies, merge attempts, or a paused state.
+If both peers changed a File since their last confirmed state and their Source Hashes differ, report a Sync Conflict. Leave both Sources and the prior Sync State unchanged, perform no merge or last-writer selection, and exit nonzero until a person makes the Sources identical.
+
+### Renderer replacement
+
+Replacing a tracked `.md` Source with `.svelte`, or the reverse, moves the prior online File to the recycle bin and creates a new File at the same extensionless Path. The replacement receives a new File ID and revision `1`, preserves the requested Source, Owner, and Visibility, and inherits no Render Artifact. Remove the obsolete local extension only after the online replacement succeeds; if both extensions exist without a tracked predecessor, report a conflict rather than choosing one.
 
 ### Removal and Attachment paths
 

@@ -12,6 +12,8 @@ koala sync --once --json
 
 The token stays outside the workspace; do not put it in `.koala/`, Source, archives, or shell output. `sync --once` returns a nonzero status when any individual item fails or a File appears in the JSON result's `conflicted` list. A Sync Conflict leaves both Sources and its prior Sync State unchanged; resolve it by making the chosen Source identical on both sides, then run another Sync Cycle. Successful items are retained and the next scheduled call retries only what remains unconfirmed.
 
+Changing `notes/example.md` to `notes/example.svelte`, or creating the alternate extension beside the tracked Source, performs Renderer Replacement. The prior online File moves to the recycle bin, the replacement receives a new File ID and revision `1`, and the obsolete local extension is removed only after the replacement succeeds. If both extensions exist without a tracked predecessor that identifies which one is new, synchronization reports a conflict instead of choosing one.
+
 ## Schedule every ten minutes
 
 On macOS, use a user LaunchAgent that calls the installed CLI. Store credentials in a permissions-restricted environment file and source it from a small wrapper script; do not put the token in the plist.

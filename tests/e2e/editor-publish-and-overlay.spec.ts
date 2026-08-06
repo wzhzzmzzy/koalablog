@@ -5,9 +5,20 @@ async function openEditor(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle')
 }
 
+async function chooseRenderer(page: import('@playwright/test').Page, renderer: 'Markdown' | 'Svelte') {
+  await page.getByRole('button', { name: 'More File actions' }).click()
+  await page.getByRole('menuitemradio', { name: renderer }).click()
+}
+
+async function chooseMoreAction(page: import('@playwright/test').Page, name: string) {
+  await page.getByRole('button', { name: 'More File actions' }).click()
+  await page.getByRole('menuitem', { name }).click()
+}
+
 test('Preview occupies the viewport and returns to Source editing', async ({ page }) => {
   await openEditor(page)
 
+  await chooseRenderer(page, 'Svelte')
   await page.getByRole('button', { name: 'Preview File' }).click()
 
   const preview = page.getByTestId('editor-preview-overlay')
@@ -42,7 +53,7 @@ test('Preview occupies the viewport and returns to Source editing', async ({ pag
 test('File deletion uses a native viewport backdrop', async ({ page }) => {
   await openEditor(page)
 
-  await page.getByRole('button', { name: 'Move to recycle bin' }).click()
+  await chooseMoreAction(page, 'Move to recycle bin')
 
   const dialog = page.getByRole('dialog', { name: 'Move to recycle bin?' })
   await expect(dialog).toHaveAttribute('open', '')
@@ -64,49 +75,51 @@ test('File deletion uses a native viewport backdrop', async ({ page }) => {
   })
 })
 
-test('Path focus stays visually quiet and Svelte files use Svelte icons', async ({ page }) => {
+test('File identity stays read-only and Svelte Files use Svelte icons', async ({ page }) => {
   await openEditor(page)
 
-  const path = page.getByRole('textbox', { name: 'Absolute File Path' })
-  const context = path.locator('..')
-  const borderBeforeFocus = await context.evaluate(element => getComputedStyle(element).borderColor)
-  await path.focus()
-  await expect(path).toBeFocused()
-  expect(await path.evaluate(element => getComputedStyle(element).outlineStyle)).toBe('none')
-  expect(await context.evaluate(element => getComputedStyle(element).borderColor)).toBe(borderBeforeFocus)
+  await expect(page.getByRole('textbox', { name: 'Absolute File Path' })).toHaveCount(0)
+  await expect(page.getByTestId('editor-toolbar').getByText('/phase-two', { exact: true })).toHaveAttribute('class', /editor-path-display/)
 
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseRenderer(page, 'Svelte')
   await expect(page.getByTestId('editor-path-file-icon')).toHaveAttribute('data-renderer', 'svelte')
   await expect(page.getByTestId('editor-title-file-icon')).toHaveAttribute('data-renderer', 'svelte')
 })
 
-test('saving a Svelte File deploys its current Artifact to the public site', async ({ page }) => {
+test('saving Svelte Source requires an explicit Deploy before it reaches the public site', async ({ page }) => {
   test.setTimeout(180_000)
   await openEditor(page)
 
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseRenderer(page, 'Svelte')
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await source.fill('<h1>Published immediately</h1>')
   await page.getByRole('button', { name: 'Save File' }).click()
 
-  await expect(page.getByText('Saved and deployed to the site.')).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByText('Source saved.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Deploy' })).toBeVisible()
+  const unavailable = await page.goto('/phase-two')
+  expect(unavailable?.status()).toBe(503)
+
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Deploy' }).click()
+  await expect(page.getByText('Svelte File deployed to the site.')).toBeVisible({ timeout: 120_000 })
   await page.goto('/phase-two')
   await expect(page.getByRole('heading', { name: 'Published immediately' })).toBeVisible()
 })
 
-test('saving a Svelte File resumes automatic deployment after a page reload', async ({ page }) => {
-  test.setTimeout(180_000)
+test('reloading saved Svelte Source does not resume deployment automatically', async ({ page }) => {
   await openEditor(page)
 
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseRenderer(page, 'Svelte')
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await source.fill('<h1>Recovered deployment</h1>')
   await page.getByRole('button', { name: 'Save File' }).click()
-  await expect(page.getByText('Source saved. Deploying to the site…')).toBeVisible()
+  await expect(page.getByText('Source saved.')).toBeVisible()
 
   await page.reload()
   await page.waitForLoadState('networkidle')
-  await expect(page.getByText('Saved and deployed to the site.')).toBeVisible({ timeout: 120_000 })
+  await expect(page.getByRole('button', { name: 'Deploy' })).toBeVisible()
   await page.goto('/phase-two')
-  await expect(page.getByRole('heading', { name: 'Recovered deployment' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Recovered deployment' })).toHaveCount(0)
 })

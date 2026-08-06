@@ -2,14 +2,15 @@ import { expect, test } from './fixture'
 
 async function startDeployment(page: import('@playwright/test').Page) {
   // The first browser Worker import can make Vite optimize Worker dependencies and
-  // reload the dev page. Production bundles do not perform that optimization.
+  // reload the dev page several seconds after the click. Production bundles do
+  // not perform that optimization.
   const workerLoadReloadedPage = page.waitForEvent('framenavigated', {
     predicate: frame => frame === page.mainFrame(),
   }).then(() => true)
   await page.getByRole('button', { name: 'Start deployment' }).click()
   const reloaded = await Promise.race([
     workerLoadReloadedPage,
-    page.waitForTimeout(5_000).then(() => false),
+    page.waitForTimeout(15_000).then(() => false),
   ])
   if (!reloaded)
     return

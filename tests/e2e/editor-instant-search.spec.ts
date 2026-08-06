@@ -5,93 +5,132 @@ async function openEditor(page: import('@playwright/test').Page) {
   await page.waitForLoadState('networkidle')
 }
 
-function instantSearch(page: import('@playwright/test').Page) {
-  return page.getByRole('searchbox', { name: 'Search Files' })
+function fileFinder(page: import('@playwright/test').Page) {
+  return page.getByRole('combobox', { name: 'Find a File' })
 }
 
-test('Cmd+K opens File Explorer, focuses Instant Search, and restores the tree after Escape', async ({ page }) => {
-  await openEditor(page)
-
-  await page.getByRole('button', { name: 'Toggle sidebar' }).click()
-  await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-0\b/)
-
+async function openFileFinder(page: import('@playwright/test').Page) {
   await page.keyboard.press('Meta+k')
-  const search = instantSearch(page)
-  await expect(search).toBeFocused()
-  await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-64\b/)
+  await expect(page.getByRole('dialog', { name: 'Find a File' })).toBeVisible()
+  const finder = fileFinder(page)
+  await expect(finder).toBeFocused()
+  return finder
+}
 
-  await search.fill('path-findable')
-  const result = page.locator('.editor-search-result').filter({ hasText: 'path-findable' })
-  await expect(result).toBeVisible()
-  await expect(result).toContainText('Path')
-  await expect(page.getByRole('button', { name: 'second', exact: true })).toBeHidden()
+async function renameInBuffer(page: import('@playwright/test').Page, path: string) {
+  await page.getByRole('button', { name: 'More File actions' }).click()
+  await page.getByRole('menuitem', { name: 'Rename / Move' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Rename / Move File' })
+  await dialog.getByRole('textbox', { name: 'Absolute File Path' }).fill(path)
+  await dialog.getByRole('button', { name: 'Use Path' }).click()
+}
 
-  await result.click()
-  await expect(page.getByRole('textbox', { name: 'File Source for /search/path-findable' })).toBeVisible()
-  await expect(search).toHaveValue('path-findable')
-  await expect(result).toBeVisible()
+async function chooseRenderer(page: import('@playwright/test').Page, renderer: 'Markdown' | 'Svelte') {
+  await page.getByRole('button', { name: 'More File actions' }).click()
+  await page.getByRole('menuitemradio', { name: renderer }).click()
+}
 
-  await search.press('Escape')
-  await expect(search).toHaveValue('')
-  await expect(page.getByRole('button', { name: 'second', exact: true })).toBeVisible()
-})
-
-test('Instant Search ranks Path, Tag, and Source, excludes frontmatter and trash, and searches Svelte Source', async ({ page }) => {
-  await openEditor(page)
-  const search = instantSearch(page)
-
-  await search.fill('findable')
-  const results = page.locator('.editor-search-result')
-  await expect(results).toHaveCount(3)
-  await expect(results.nth(0)).toContainText('path-findable')
-  await expect(results.nth(0)).toContainText('Path')
-  await expect(results.nth(1)).toContainText('tag-only')
-  await expect(results.nth(1)).toContainText('Tag')
-  await expect(results.nth(1)).toContainText('#findable-tag')
-  await expect(results.nth(2)).toContainText('source-only')
-  await expect(results.nth(2)).toContainText('Source')
-  await expect(results.nth(2)).toContainText('2 matches')
-
-  await search.fill('Read-only Source')
-  await expect(page.getByText('No matching active Files')).toBeVisible()
-
-  await search.fill('Hidden Search Meta')
-  await expect(page.getByText('No matching active Files')).toBeVisible()
-  await search.fill('Visible frontmatter-free body')
-  await expect(page.locator('.editor-search-result').filter({ hasText: 'meta-hidden' })).toBeVisible()
-
-  await search.fill('svelteSearchNeedle')
-  const svelte = page.locator('.editor-search-result').filter({ hasText: 'svelte-source' })
-  await expect(svelte).toBeVisible()
-  await expect(svelte).toContainText('Source')
-})
-
-test('Instant Search immediately reflects dirty Path, Tag, and Source edits', async ({ page }) => {
+test('Cmd+K opens the File Finder, supports keyboard selection, and restores focus after Escape', async ({ page }) => {
   await openEditor(page)
 
   const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
-  const path = page.getByRole('textbox', { name: 'Absolute File Path' })
+  await source.focus()
+  await page.getByRole('button', { name: 'Toggle sidebar' }).click()
+  await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-0\b/)
+
+  const finder = await openFileFinder(page)
+  await expect(page.getByTestId('editor-sidebar')).toHaveClass(/\bw-0\b/)
+  await expect(page.getByRole('heading', { name: 'Recent' })).toBeVisible()
+  await expect(page.getByRole('option', { name: /phase-two/ })).toBeVisible()
+  await expect(page.getByRole('searchbox', { name: 'Search Files' })).toHaveCount(0)
+
+  await finder.fill('path-findable')
+  const result = page.getByRole('option', { name: /path-findable/ })
+  await expect(result).toBeVisible()
+  await expect(result).toContainText('path')
+  await finder.press('Enter')
+
+  await expect(page.getByRole('dialog', { name: 'Find a File' })).toBeHidden()
+  await expect(page.getByRole('textbox', { name: 'File Source for /search/path-findable' })).toBeFocused()
+
+  const openedSource = page.getByRole('textbox', { name: 'File Source for /search/path-findable' })
+  await openedSource.focus()
+  const reopenedFinder = await openFileFinder(page)
+  await reopenedFinder.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Find a File' })).toBeHidden()
+  await expect(openedSource).toBeFocused()
+})
+
+test('opening another File from Svelte Preview exits the old full-screen preview', async ({ page }) => {
+  await openEditor(page)
+  await chooseRenderer(page, 'Svelte')
+  await page.getByRole('button', { name: 'Preview File' }).click()
+  await expect(page.getByTestId('editor-preview-overlay')).toBeVisible()
+
+  const finder = await openFileFinder(page)
+  await finder.fill('second')
+  await expect(page.getByRole('option', { name: /second/ })).toBeVisible()
+  await finder.press('Enter')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /second' })
+  await expect(page.getByTestId('editor-preview-overlay')).toBeHidden()
+  await expect(source).toBeVisible()
+  await expect(source).toBeFocused()
+})
+
+test('File Finder ranks literal Path, Tag, and Source results while excluding frontmatter and recycled Files', async ({ page }) => {
+  await openEditor(page)
+  const finder = await openFileFinder(page)
+
+  await finder.fill('findable')
+  const results = page.getByRole('option')
+  await expect(results).toHaveCount(3)
+  await expect(results.nth(0)).toContainText('path-findable')
+  await expect(results.nth(0)).toContainText('path')
+  await expect(results.nth(1)).toContainText('tag-only')
+  await expect(results.nth(1)).toContainText('tag')
+  await expect(results.nth(2)).toContainText('source-only')
+  await expect(results.nth(2)).toContainText('source')
+
+  await finder.press('ArrowDown')
+  await expect(results.nth(1)).toHaveAttribute('aria-selected', 'true')
+  await finder.fill('FINDABLE')
+  await expect(results.nth(0)).toHaveAttribute('aria-selected', 'true')
+
+  await finder.fill('Read-only Source')
+  await expect(page.getByText('No matching active Files')).toBeVisible()
+
+  await finder.fill('Hidden Search Meta')
+  await expect(page.getByText('No matching active Files')).toBeVisible()
+  await finder.fill('Visible frontmatter-free body')
+  await expect(page.getByRole('option', { name: /meta-hidden/ })).toBeVisible()
+
+  await finder.fill('svelteSearchNeedle')
+  const svelte = page.getByRole('option', { name: /svelte-source/ })
+  await expect(svelte).toBeVisible()
+  await expect(svelte).toContainText('source')
+})
+
+test('File Finder reflects dirty Path, Tag, and Source edits and prioritizes Local changes', async ({ page }) => {
+  await openEditor(page)
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
   await source.fill('#instant-find-tag\nUnsaved search body')
-  await path.fill('/search/dirty-path')
+  await renameInBuffer(page, '/search/dirty-path')
 
-  await page.keyboard.press('Meta+k')
-  const search = instantSearch(page)
-  await expect(search).toBeFocused()
+  const finder = await openFileFinder(page)
+  await expect(page.getByRole('heading', { name: 'Local changes' })).toBeVisible()
+  await expect(page.getByRole('option', { name: /dirty-path/ }).locator('.editor-file-tree__dirty')).toBeVisible()
 
-  await search.fill('dirty-path')
-  let result = page.locator('.editor-search-result').filter({ hasText: 'dirty-path' })
-  await expect(result).toBeVisible()
-  await expect(result).toContainText('Path')
-  await expect(result.locator('.editor-file-tree__dirty')).toBeVisible()
+  await finder.fill('dirty-path')
+  let result = page.getByRole('option', { name: /dirty-path/ })
+  await expect(result).toContainText('path')
 
-  await search.fill('instant-find-tag')
-  result = page.locator('.editor-search-result').filter({ hasText: 'instant-find-tag' })
-  await expect(result).toBeVisible()
-  await expect(result).toContainText('Tag')
-  await expect(result).toContainText('Source')
+  await finder.fill('instant-find-tag')
+  result = page.getByRole('option', { name: /dirty-path/ })
+  await expect(result).toContainText('tag')
 
-  await search.fill('Unsaved search body')
-  result = page.locator('.editor-search-result').filter({ hasText: 'dirty-path' })
-  await expect(result).toContainText('Unsaved search body')
-  await expect(result).toContainText('Source')
+  await finder.fill('Unsaved search body')
+  result = page.getByRole('option', { name: /dirty-path/ })
+  await expect(result).toContainText('source')
 })

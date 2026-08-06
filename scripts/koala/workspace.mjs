@@ -202,6 +202,7 @@ export function stateEntry(file, remote) {
   return {
     id: remote.id,
     revision: remote.revision,
+    renderer: remote.renderer,
     sourceHash: remote.sourceHash,
     mtimeMs: file.mtimeMs,
     size: file.size,

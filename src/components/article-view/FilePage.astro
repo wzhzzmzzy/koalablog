@@ -12,25 +12,26 @@ import SvelteArtifactView from './SvelteArtifactView.astro'
 interface Props {
   article: FileRecord
   title?: string
+  artifactAccess?: Awaited<ReturnType<typeof readArtifactAccess>>
 }
 
-const { article, title = article.title } = Astro.props
+const { article, title = article.title, artifactAccess } = Astro.props
 const env = Astro.locals.runtime?.env || {}
 let artifact: Awaited<ReturnType<typeof readArtifactAccess>>['artifact']
 
 if (article.renderer === 'svelte') {
-  const result = await readArtifactAccess(env, {
-    sessionUserId: Astro.locals.session?.userId,
-    fileId: article.id,
-    representation: 'page',
-  })
+  const result = artifactAccess ?? await readArtifactAccess(env, {
+      sessionUserId: Astro.locals.session?.userId,
+      fileId: article.id,
+      representation: 'page',
+    })
 
   if (result.decision.type === 'allowed' && result.artifact) {
     artifact = result.artifact
     Astro.response.headers.set('Cache-Control', result.decision.cacheControl)
   }
   else {
-    Astro.response.status = 503
+    Astro.response.status = result.decision.status
     Astro.response.headers.set('Cache-Control', 'no-store')
   }
 }
@@ -44,7 +45,7 @@ let renderLangSet = new Set<string>()
 if (article.renderer === 'markdown') {
   const pageConfig = Astro.locals.config.pageConfig
   isBigArticle = article.content.length > 1000
-  activePaths = await readActivePaths(Astro.locals.runtime?.env, Astro.locals.session?.userId)
+  activePaths = await readActivePaths(Astro.locals.runtime?.env, Astro.locals.session?.userId ?? undefined)
   const rendered = await renderIt(isBigArticle, article, pageConfig.theme, activePaths)
   content = rendered.content
   renderLangSet = rendered.renderLangSet ?? new Set<string>()
@@ -58,8 +59,8 @@ if (article.renderer === 'markdown') {
       ? (
           <Layout title={article.title} desc={snapshotDescription(artifact.snapshotHtml)}>
             <SvelteArtifactView
-              cssUrl={`/api/render-artifacts/${article.id}/${article.sourceHash}/styles.css`}
-              moduleUrl={`/api/render-artifacts/${article.id}/${article.sourceHash}/module.js`}
+              cssUrl={`/api/render-artifacts/${article.id}/${artifact.sourceHash}/styles.css`}
+              moduleUrl={`/api/render-artifacts/${article.id}/${artifact.sourceHash}/module.js`}
               snapshotHtml={artifact.snapshotHtml}
             />
           </Layout>

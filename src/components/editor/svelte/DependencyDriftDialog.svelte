@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DependencyDiff } from '@/lib/svelte/dependency-diff'
+  import { onMount, tick } from 'svelte'
 
   interface Props {
     currentArtifactHash: string
@@ -10,12 +11,39 @@
   }
 
   let { currentArtifactHash, diff, proposedArtifactHash, onApprove, onCancel }: Props = $props()
+  let dialog: HTMLDialogElement | undefined = $state()
+  let cancelButton: HTMLButtonElement | undefined = $state()
+
+  function cancel() {
+    dialog?.close()
+    onCancel()
+  }
+
+  function approve() {
+    dialog?.close()
+    onApprove()
+  }
+
+  onMount(() => {
+    dialog?.showModal()
+    void tick().then(() => cancelButton?.focus())
+    return () => {
+      if (dialog?.open)
+        dialog.close()
+    }
+  })
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation">
-  <section class="w-full max-w-2xl rounded bg-[color:var(--koala-bg)] p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="dependency-drift-title">
+<dialog
+  bind:this={dialog}
+  class="editor-modal editor-dependency-drift-dialog"
+  aria-labelledby="dependency-drift-title"
+  aria-describedby="dependency-drift-description"
+  oncancel={(event) => { event.preventDefault(); cancel(); }}
+  onclick={(event) => { if (event.target === dialog) cancel(); }}
+>
     <h2 id="dependency-drift-title" class="m-0 text-lg">Review Svelte dependency changes</h2>
-    <p class="mt-2 text-sm">Replacing this Artifact changes its pinned browser dependencies. Confirm only after reviewing each entry.</p>
+    <p id="dependency-drift-description" class="mt-2 text-sm">Replacing this Artifact changes its pinned browser dependencies. Confirm only after reviewing each entry.</p>
     <dl class="mt-3 break-all text-xs">
       <dt>Current Artifact Hash</dt><dd class="m-0">{currentArtifactHash}</dd>
       <dt class="mt-2">Proposed Artifact Hash</dt><dd class="m-0">{proposedArtifactHash}</dd>
@@ -31,8 +59,7 @@
     </ul>
     {#if diff.truncated}<p class="text-sm text-[color:var(--koala-warning-text)]">Additional dependency changes are omitted from this bounded review.</p>{/if}
     <div class="mt-5 flex justify-end gap-2">
-      <button type="button" class="btn" onclick={onCancel}>Cancel</button>
-      <button type="button" class="btn" onclick={onApprove}>Approve replacement</button>
+      <button bind:this={cancelButton} type="button" class="btn" onclick={cancel}>Cancel</button>
+      <button type="button" class="btn" onclick={approve}>Approve replacement</button>
     </div>
-  </section>
-</div>
+</dialog>

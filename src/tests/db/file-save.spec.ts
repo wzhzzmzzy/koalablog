@@ -74,6 +74,56 @@ describe('file Source Save derivation', () => {
     })
   })
 
+  it('creates a new active File and moves the prior Renderer File to the recycle bin', async () => {
+    const markdownFile = await saveFile(env, {
+      id: 0,
+      path: '/page/application',
+      renderer: 'markdown',
+      content: 'old Markdown Source',
+      private: true,
+      baseRevision: 0,
+      userId: 7,
+    })
+    if (markdownFile.status !== 'saved')
+      throw new Error('Expected Markdown fixture creation to succeed')
+
+    const result = await saveFile(env, {
+      id: markdownFile.file.id,
+      path: markdownFile.file.path,
+      renderer: 'svelte',
+      content: '<h1>new Svelte Source</h1>',
+      private: markdownFile.file.private,
+      baseRevision: markdownFile.file.revision,
+      userId: 7,
+    })
+
+    expect(result).toMatchObject({
+      status: 'saved',
+      file: {
+        path: '/page/application',
+        renderer: 'svelte',
+        content: '<h1>new Svelte Source</h1>',
+        private: true,
+        revision: 1,
+        userId: 7,
+      },
+    })
+    if (result.status !== 'saved')
+      throw new Error('Expected Renderer replacement to succeed')
+    expect(result.file.id).not.toBe(markdownFile.file.id)
+    expect(await readAnyById(env, markdownFile.file.id)).toMatchObject({
+      id: markdownFile.file.id,
+      renderer: 'markdown',
+      content: 'old Markdown Source',
+      revision: 2,
+      deletedAt: expect.any(Date),
+    })
+    expect(await readByPath(env, '/page/application')).toMatchObject({
+      id: result.file.id,
+      renderer: 'svelte',
+    })
+  })
+
   it('derives File metadata from absolute Path and Markdown Source', async () => {
     const result = await saveFile(env, {
       id: 0,

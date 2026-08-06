@@ -1,5 +1,5 @@
-import { type ArtifactAccessInput, decideArtifactAccess } from '@/lib/svelte/artifact-access'
 import { describe, expect, it } from 'vitest'
+import { type ArtifactAccessInput, decideArtifactAccess } from '@/lib/svelte/artifact-access'
 
 const activeFile = {
   id: 7,
@@ -38,6 +38,25 @@ describe('svelte Artifact access decisions', () => {
   it('maps missing or stale Artifacts to an uncached Page 503 and an uncached resource 404', () => {
     expect(decide({ artifactSourceHash: undefined, representation: 'page' })).toEqual({ cacheControl: 'no-store', status: 503, type: 'artifact_unavailable' })
     expect(decide({ artifactSourceHash: 'b'.repeat(64), representation: 'resource' })).toEqual({ cacheControl: 'no-store', status: 404, type: 'not_found' })
+  })
+
+  it('serves the deployed Artifact during Deployment Drift and validates resource URLs against it', () => {
+    const deployedSourceHash = 'b'.repeat(64)
+    expect(decide({ artifactSourceHash: deployedSourceHash, requestedSourceHash: deployedSourceHash })).toEqual({
+      cacheControl: 'public, no-cache',
+      status: 200,
+      type: 'allowed',
+    })
+    expect(decide({ artifactSourceHash: deployedSourceHash, requestedSourceHash: activeFile.sourceHash })).toEqual({
+      cacheControl: 'no-store',
+      status: 404,
+      type: 'not_found',
+    })
+    expect(decide({ artifactSourceHash: deployedSourceHash, representation: 'page', requestedSourceHash: undefined })).toEqual({
+      cacheControl: 'public, no-cache',
+      status: 200,
+      type: 'allowed',
+    })
   })
 
   it('allows only current Artifacts with the representation cache contract', () => {

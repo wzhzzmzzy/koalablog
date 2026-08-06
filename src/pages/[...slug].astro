@@ -3,6 +3,7 @@ import type { FileRecord } from '@/db/types'
 import FilePage from '@/components/article-view/FilePage.astro'
 import PathPrefixPage from '@/components/path-prefix/PathPrefixPage.astro'
 import { readByPath, readVisiblePathPrefix } from '@/db/markdown'
+import { readArtifactAccess } from '@/db/render-artifact'
 import { getDisplayTitle } from '@/lib/files/display-title'
 import { parseAbsolutePathPrefix } from '@/lib/files/path'
 import { retriveRss } from '@/lib/utils/rss'
@@ -41,9 +42,21 @@ if (!maybePage && !isPrefixRequest) {
 }
 
 const displayTitle = maybePage ? getDisplayTitle(maybePage) : undefined
+const artifactAccess = maybePage?.renderer === 'svelte'
+  ? await readArtifactAccess(Astro.locals.runtime?.env || {}, {
+      sessionUserId: Astro.locals.session?.userId,
+      fileId: maybePage.id,
+      representation: 'page',
+    })
+  : undefined
+
+if (artifactAccess) {
+  Astro.response.status = artifactAccess.decision.status
+  Astro.response.headers.set('Cache-Control', artifactAccess.decision.cacheControl)
+}
 ---
 {
   maybePage
-    ? <FilePage article={maybePage} title={displayTitle} />
+    ? <FilePage article={maybePage} title={displayTitle} {artifactAccess} />
     : <PathPrefixPage prefix={prefix!} listing={listing!} />
 }

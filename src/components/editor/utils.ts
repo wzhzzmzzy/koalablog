@@ -83,8 +83,3 @@ export function formatFileSaveError(error: { code?: string, message: string }) {
     return `Another active File already uses ${conflict.path}.`
   return formatActionError(error.message)
 }
-
-export function findPreviousActiveFile(history: string[], files: FileRecord[]) {
-  const previousPath = history.at(-2)
-  return files.find(file => !file.deletedAt && file.path === previousPath)
-}

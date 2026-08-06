@@ -56,10 +56,12 @@ function contentType(path) {
   })[extension] ?? 'application/octet-stream'
 }
 
-async function writeRemoteFile(root, remote) {
+async function writeRemoteFile(root, remote, previousLocal) {
   const target = diskPathForSource(root, remote.path, remote.renderer)
   await mkdir(dirname(target), { recursive: true })
   await writeFile(target, remote.content)
+  if (previousLocal && previousLocal.renderer !== remote.renderer && previousLocal.absolutePath !== target)
+    await unlink(previousLocal.absolutePath)
   return statSource(root, remote.path, remote.renderer)
 }
 
@@ -127,14 +129,55 @@ function markRebuild(summary, file) {
     summary.rebuildRequired.push(file.path)
 }
 
+function selectLocalFiles(files, state) {
+  const candidatesByPath = new Map()
+  for (const file of files) {
+    const candidates = candidatesByPath.get(file.path) ?? []
+    candidates.push(file)
+    candidatesByPath.set(file.path, candidates)
+  }
+
+  const selected = []
+  const supersededByPath = new Map()
+  const conflicted = []
+  for (const [path, candidates] of candidatesByPath) {
+    if (candidates.length === 1) {
+      selected.push(candidates[0])
+      continue
+    }
+    const previous = state.files[path]
+    const priorFile = previous?.renderer
+      ? candidates.find(file => file.renderer === previous.renderer)
+      : candidates.find(file => file.identity === previous?.identity)
+    const replacements = priorFile ? candidates.filter(file => file !== priorFile) : []
+    if (!priorFile || replacements.length !== 1) {
+      conflicted.push(path)
+      continue
+    }
+    selected.push(replacements[0])
+    supersededByPath.set(path, [priorFile])
+  }
+  return { files: selected, supersededByPath, conflicted }
+}
+
+async function removeSupersededLocalFiles(supersededByPath, path) {
+  for (const file of supersededByPath.get(path) ?? [])
+    await unlink(file.absolutePath)
+}
+
 /**
  * Reconcile a local workspace once. Each successful item advances only its own
  * state entry; callers can safely retry a partial failure in the next cycle.
  */
 export async function synchronizeOnce(root, client) {
-  const [state, local, manifest] = await Promise.all([readSyncState(root), scanWorkspace(root), client.manifest()])
+  const [state, scannedLocal, manifest] = await Promise.all([readSyncState(root), scanWorkspace(root), client.manifest()])
   const nextState = { version: 1, files: { ...state.files }, attachments: { ...state.attachments } }
   const summary = emptySummary()
+  const selection = selectLocalFiles(scannedLocal.files, state)
+  const local = { ...scannedLocal, files: selection.files }
+  const conflictedLocalPaths = new Set(selection.conflicted)
+  for (const path of selection.conflicted)
+    recordConflict(summary, path)
   const remoteByPath = new Map(manifest.files.map(file => [file.path, file]))
   const localByPath = new Map(local.files.map(file => [file.path, file]))
   const localAttachmentByPath = new Map(local.attachments.map(file => [file.path, file]))
@@ -217,19 +260,24 @@ export async function synchronizeOnce(root, client) {
       const localChange = await localSourceChange(previous, file)
       const remoteChanged = remoteSourceChanged(previous, remote)
       if (!localChange.changed && !remoteChanged) {
+        await removeSupersededLocalFiles(selection.supersededByPath, file.path)
         nextState.files[file.path] = stateEntry(file, remote)
         continue
       }
       if (localChange.changed && remoteChanged) {
-        if (localChange.hash === remote.sourceHash)
+        if (localChange.hash === remote.sourceHash) {
+          await removeSupersededLocalFiles(selection.supersededByPath, file.path)
           nextState.files[file.path] = stateEntry(file, remote)
-        else
+        }
+        else {
           recordConflict(summary, file.path)
+        }
         continue
       }
       if (remoteChanged) {
         const source = await client.getFile(remote.id)
-        const refreshed = await writeRemoteFile(root, source)
+        const refreshed = await writeRemoteFile(root, source, file)
+        await removeSupersededLocalFiles(selection.supersededByPath, file.path)
         nextState.files[file.path] = stateEntry(refreshed, remote)
         recordFile(summary, 'pulled', file.path)
         markRebuild(summary, source)
@@ -241,6 +289,7 @@ export async function synchronizeOnce(root, client) {
         content: localChange.content,
         baseRevision: remote.revision,
       })
+      await removeSupersededLocalFiles(selection.supersededByPath, file.path)
       nextState.files[file.path] = stateEntry(file, saved)
       recordFile(summary, 'updated', file.path)
       markRebuild(summary, saved)
@@ -252,7 +301,7 @@ export async function synchronizeOnce(root, client) {
 
   // A locally removed tracked File is an explicit online trash operation.
   for (const [path, previous] of Object.entries(state.files)) {
-    if (localByPath.has(path) || renamedStatePaths.has(path))
+    if (localByPath.has(path) || conflictedLocalPaths.has(path) || renamedStatePaths.has(path))
       continue
     const remote = remoteByPath.get(path)
     try {
@@ -272,7 +321,7 @@ export async function synchronizeOnce(root, client) {
   // Remote Files first seen in this cycle are pulled after local deletion has
   // been handled, preventing them from being mistaken for local removals.
   for (const remote of manifest.files) {
-    if (handledRemoteFiles.has(remote.path) || localByPath.has(remote.path))
+    if (handledRemoteFiles.has(remote.path) || localByPath.has(remote.path) || conflictedLocalPaths.has(remote.path))
       continue
     try {
       const source = await client.getFile(remote.id)

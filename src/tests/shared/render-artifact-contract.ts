@@ -1,8 +1,8 @@
 import type { SvelteDependencyManifestEntry } from '@/lib/svelte/contracts'
-import { purge, restore, saveFile, trash } from '@/db/markdown'
-import { readCurrentRenderArtifact, readRenderArtifact, replaceCurrentRenderArtifact, replaceRenderArtifact } from '@/db/render-artifact'
-import { artifactByteLengths, artifactLimitViolation, SVELTE_ARTIFACT_LIMITS } from '@/lib/svelte/artifact-limits'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { purge, restore, saveFile, trash } from '@/db/markdown'
+import { readDeployedRenderArtifact, readRenderArtifact, replaceDeployedRenderArtifact, replaceRenderArtifact } from '@/db/render-artifact'
+import { artifactByteLengths, artifactLimitViolation, SVELTE_ARTIFACT_LIMITS } from '@/lib/svelte/artifact-limits'
 
 interface RenderArtifactContractHarness {
   cleanup?: () => Promise<void>
@@ -98,12 +98,12 @@ export function defineRenderArtifactContract(harness: RenderArtifactContractHarn
       const second = artifact(file.id, file.sourceHash, { artifactHash: '2'.repeat(64) })
       await replaceRenderArtifact(harness.env, first)
       await replaceRenderArtifact(harness.env, second)
-      expect(await readCurrentRenderArtifact(harness.env, file.id)).toMatchObject(second)
+      expect(await readDeployedRenderArtifact(harness.env, file.id)).toMatchObject(second)
 
       await trash(harness.env, file.id)
       expect(await readRenderArtifact(harness.env, file.id)).toMatchObject(second)
       await restore(harness.env, file.id)
-      expect(await readCurrentRenderArtifact(harness.env, file.id)).toMatchObject(second)
+      expect(await readDeployedRenderArtifact(harness.env, file.id)).toMatchObject(second)
       await trash(harness.env, file.id)
       await purge(harness.env, file.id)
       expect(await readRenderArtifact(harness.env, file.id)).toBeUndefined()
@@ -125,7 +125,7 @@ export function defineRenderArtifactContract(harness: RenderArtifactContractHarn
       })
       if (changed.status !== 'saved')
         throw new Error('Expected Source change to succeed')
-      await expect(replaceCurrentRenderArtifact(harness.env, artifact(file.id, file.sourceHash))).resolves.toBeUndefined()
+      await expect(replaceDeployedRenderArtifact(harness.env, artifact(file.id, file.sourceHash))).resolves.toBeUndefined()
       expect(await readRenderArtifact(harness.env, file.id)).toEqual(before)
     })
   })

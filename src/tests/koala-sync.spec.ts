@@ -105,6 +105,56 @@ describe('one-shot local workspace synchronization', () => {
     expect(await readFile(path, 'utf8')).toBe('remote revision')
   })
 
+  it('replaces a tracked Markdown File with a new Svelte File and removes the old disk representation', async () => {
+    const root = await workspace()
+    const markdownPath = join(root, 'note.md')
+    const sveltePath = join(root, 'note.svelte')
+    await writeFile(markdownPath, 'old Markdown Source')
+    const initial = sourceFile('/note', 'old Markdown Source')
+    const remoteClient = client({})
+    remoteClient.createFile.mockResolvedValue(initial)
+    await synchronizeOnce(root, remoteClient)
+
+    await writeFile(sveltePath, '<h1>new Svelte Source</h1>')
+    remoteClient.manifest.mockResolvedValue({ files: [initial], attachments: [] })
+    const replacement = sourceFile('/note', '<h1>new Svelte Source</h1>', 1, { id: 2, renderer: 'svelte' })
+    remoteClient.updateFile.mockResolvedValue(replacement)
+
+    const result = await synchronizeOnce(root, remoteClient)
+
+    expect(result.updated).toEqual(['/note'])
+    expect(remoteClient.updateFile).toHaveBeenCalledWith(initial.id, expect.objectContaining({
+      renderer: 'svelte',
+      content: '<h1>new Svelte Source</h1>',
+      baseRevision: initial.revision,
+    }))
+    await expect(access(markdownPath)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(await readFile(sveltePath, 'utf8')).toBe('<h1>new Svelte Source</h1>')
+    expect((await readSyncState(root)).files['/note']).toMatchObject({ id: 2, renderer: 'svelte', revision: 1 })
+  })
+
+  it('removes the obsolete local extension when an online Renderer replacement is pulled', async () => {
+    const root = await workspace()
+    const markdownPath = join(root, 'note.md')
+    const sveltePath = join(root, 'note.svelte')
+    await writeFile(markdownPath, 'old Markdown Source')
+    const initial = sourceFile('/note', 'old Markdown Source')
+    const remoteClient = client({})
+    remoteClient.createFile.mockResolvedValue(initial)
+    await synchronizeOnce(root, remoteClient)
+
+    const replacement = sourceFile('/note', '<h1>online Svelte Source</h1>', 1, { id: 2, renderer: 'svelte' })
+    remoteClient.manifest.mockResolvedValue({ files: [replacement], attachments: [] })
+    remoteClient.getFile.mockResolvedValue(replacement)
+
+    const result = await synchronizeOnce(root, remoteClient)
+
+    expect(result.pulled).toEqual(['/note'])
+    await expect(access(markdownPath)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(await readFile(sveltePath, 'utf8')).toBe('<h1>online Svelte Source</h1>')
+    expect((await readSyncState(root)).files['/note']).toMatchObject({ id: 2, renderer: 'svelte' })
+  })
+
   it('reports a Sync Conflict without overwriting either divergent Source', async () => {
     const root = await workspace()
     const path = join(root, 'note.md')

@@ -1,6 +1,7 @@
 import type { SvelteArtifactHashes, SvelteArtifactInputV1 } from '@/lib/svelte/contracts'
-import { type ArtifactAccessInput, decideArtifactAccess } from '@/lib/svelte/artifact-access'
 import { eq, sql } from 'drizzle-orm'
+import { type ArtifactAccessInput, decideArtifactAccess } from '@/lib/svelte/artifact-access'
+import { deploymentSummary, type DeploymentSummary } from '@/lib/svelte/deployment-status'
 import { connectDB } from '.'
 import { markdown, markdownRender } from './schema'
 
@@ -43,15 +44,15 @@ export async function readArtifactAccess(env: Env, input: Omit<ArtifactAccessInp
   return decision.type === 'allowed' && artifact ? { artifact, decision } : { decision }
 }
 
-export async function replaceCurrentRenderArtifact(env: Env, artifact: StoredRenderArtifact, expectedCurrentArtifactHash: string | null = null) {
+export async function replaceDeployedRenderArtifact(env: Env, artifact: StoredRenderArtifact, expectedDeployedArtifactHash: string | null = null) {
   const now = Math.floor(Date.now() / 1000)
   const dependencies = JSON.stringify(artifact.dependencies)
-  const expectedCurrent = expectedCurrentArtifactHash
+  const expectedDeployed = expectedDeployedArtifactHash
     ? sql`EXISTS (
       SELECT 1 FROM markdown_render
       WHERE fileId = ${artifact.fileId}
         AND sourceHash = ${artifact.sourceHash}
-        AND artifactHash = ${expectedCurrentArtifactHash}
+        AND artifactHash = ${expectedDeployedArtifactHash}
     )`
     : sql`NOT EXISTS (
       SELECT 1 FROM markdown_render
@@ -76,7 +77,7 @@ export async function replaceCurrentRenderArtifact(env: Env, artifact: StoredRen
         AND sourceHash = ${artifact.sourceHash}
         AND deletedAt IS NULL
     )
-      AND ${expectedCurrent}
+      AND ${expectedDeployed}
     ON CONFLICT(fileId) DO UPDATE SET
       schemaVersion = excluded.schemaVersion,
       renderer = excluded.renderer,
@@ -96,7 +97,7 @@ export async function replaceCurrentRenderArtifact(env: Env, artifact: StoredRen
   return affectedRows(result) === 1 ? artifact : undefined
 }
 
-export async function readCurrentRenderArtifact(env: Env, fileId: number) {
+export async function readDeployedRenderArtifact(env: Env, fileId: number) {
   const [file, artifact] = await Promise.all([
     connectDB(env).query.markdown.findFirst({ where: eq(markdown.id, fileId) }),
     readRenderArtifact(env, fileId),
@@ -104,7 +105,16 @@ export async function readCurrentRenderArtifact(env: Env, fileId: number) {
   return file?.renderer === 'svelte'
     && !file.deletedAt
     && artifact?.renderer === 'svelte'
-    && artifact.sourceHash === file.sourceHash
     ? artifact
     : undefined
+}
+
+export async function readDeploymentSummary(env: Env, fileId: number, ownerId?: number): Promise<DeploymentSummary | undefined> {
+  const [file, artifact] = await Promise.all([
+    connectDB(env).query.markdown.findFirst({ where: eq(markdown.id, fileId) }),
+    readRenderArtifact(env, fileId),
+  ])
+  if (!file || file.deletedAt || (ownerId !== undefined && file.userId !== ownerId))
+    return undefined
+  return deploymentSummary(file, artifact)
 }

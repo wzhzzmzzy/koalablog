@@ -39,6 +39,17 @@ rebuild_required: /widgets/counter
 
 Use the local preview only to inspect Source. Open Dashboard and run Build to attach an online Render Artifact after synchronization.
 
+## Replace a Renderer
+
+```text
+$ mv notes/example.md notes/example.svelte
+$ koala sync --once
+updated: /notes/example
+rebuild_required: /notes/example
+```
+
+The prior Markdown File is recoverable from the online recycle bin, while the active Svelte replacement has a new File identity and no inherited Render Artifact. The reverse `.svelte` to `.md` replacement uses the same lifecycle.
+
 ## Recover a partial cycle
 
 ```text

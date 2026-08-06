@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getSourceFromPath, getMarkdownSourceKey } from '@/db'
+  import { getSourceFromPath } from '@/db'
   import type { FileRecord } from '@/db/types';
   import { onMount, tick } from 'svelte';
   import { md } from '@/lib/markdown';
@@ -10,29 +10,33 @@
   import { pickFileWithFileInput } from '@/lib/services/file-reader';
   import EditorContent from './EditorContent.svelte';
   import EditorToolbar from './EditorToolbar.svelte';
+  import { createMarkdownViewState } from './markdown-view-state.svelte';
   import { SvelteBuildController } from './svelte/build-controller.svelte';
   import DependencyDriftDialog from './svelte/DependencyDriftDialog.svelte';
   import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain';
   import type { SvelteBuildSuccess } from '@/lib/svelte/contracts';
   import type { DependencyDiff } from '@/lib/svelte/dependency-diff';
-  import { findPreviousActiveFile, formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
+  import type { DeploymentSummary } from '@/lib/svelte/deployment-status';
+  import { formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
   import type { TextEditorHandle } from './TextEditor.svelte';
   import { toFileReferenceCandidates } from './text-editor/file-reference-completion';
   import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
-  import { editorStore, upsertItem, popHistory, setCurrentFile, notify } from './store.svelte';
+  import { editorStore, upsertItem, notify } from './store.svelte';
   interface Props {
 			file: FileRecord;
 	    onSave?: (file: FileRecord) => void;
 	    onUpdate?: (file: FileRecord) => void;
 	    onPurge?: (id: number) => void;
+	    onBack?: () => void;
 			}
-  let { file, onSave, onUpdate, onPurge }: Props = $props()
+  let { file, onSave, onUpdate, onPurge, onBack }: Props = $props()
   const initialBuffer = editBuffers.get(file.id)
   let rendererValue = $state(initialBuffer?.renderer ?? file.renderer)
   let sourceValue = $state(initialBuffer?.content ?? file.content ?? '')
   let privateValue = $state(initialBuffer?.private ?? file.private ?? false)
   let previewHtml = $state('')
   let pathValue = $state(initialBuffer?.path ?? file.path ?? '')
+  let localValuesFileId = $state(file.id)
   let baseRevisionValue = $state(initialBuffer?.baseRevision ?? file.revision)
   let conflict = $state<EditBufferServerValues | null>(initialBuffer?.conflict?.server ?? null)
   let titleValue = $derived(pathValue.split('/').filter(Boolean).at(-1) ?? '')
@@ -42,77 +46,56 @@
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
   let referenceCandidates = $derived(toFileReferenceCandidates(editorStore.items))
   let editorContent: TextEditorHandle | undefined = $state()
+  let showPreview = $state(false)
+  let previewFileId = $state<number | null>(null)
+
+  export function focus() {
+    editorContent?.focus()
+  }
+
+  const editorContentValues = $derived.by(() => {
+    if (localValuesFileId === file.id) {
+      return {
+        path: pathValue,
+        renderer: rendererValue,
+        source: sourceValue,
+      }
+    }
+
+    const buffer = editBuffers.get(file.id)
+    return {
+      path: buffer?.path ?? file.path,
+      renderer: buffer?.renderer ?? file.renderer,
+      source: buffer?.content ?? file.content ?? '',
+    }
+  })
+  const editorContentTitle = $derived(editorContentValues.path.split('/').filter(Boolean).at(-1) ?? '')
   const svelteBuildController = new SvelteBuildController()
-  const pendingSvelteDeploymentStorageKey = 'koala-editor-pending-svelte-deployment-v1'
+  const markdownViewState = createMarkdownViewState()
+  const markdownPreviewActive = $derived(rendererValue === RENDERER_MODE.Markdown && markdownViewState.requestedMode === 'preview')
 
-  interface PendingSvelteDeployment {
-    fileId: number
-    sourceHash: string
-  }
-
-  function isPendingSvelteDeployment(value: unknown): value is PendingSvelteDeployment {
-    if (!value || typeof value !== 'object')
-      return false
-    const candidate = value as Record<string, unknown>
-    return Number.isInteger(candidate.fileId) && typeof candidate.sourceHash === 'string' && candidate.sourceHash.length > 0
-  }
-
-  function readPendingSvelteDeployment() {
-    if (typeof sessionStorage === 'undefined')
-      return null
-    try {
-      const raw = sessionStorage.getItem(pendingSvelteDeploymentStorageKey)
-      if (!raw)
-        return null
-      const pending = JSON.parse(raw) as unknown
-      if (isPendingSvelteDeployment(pending))
-        return pending
-      sessionStorage.removeItem(pendingSvelteDeploymentStorageKey)
+  function initialDeploymentSummary(current: Pick<FileRecord, 'renderer'>): DeploymentSummary {
+    return {
+      status: current.renderer === RENDERER_MODE.Svelte ? 'not_deployed' : 'not_applicable',
+      deployedSourceHash: null,
+      artifactHash: null,
     }
-    catch {
-      // Session storage is best-effort. Saving and deploying still work normally without it.
-    }
-    return null
   }
 
-  function rememberPendingSvelteDeployment(savedFile: FileRecord) {
-    if (typeof sessionStorage === 'undefined')
+  let deploymentSummary = $state<DeploymentSummary>(initialDeploymentSummary(file))
+  let deploymentSummaryRequest = 0
+
+  async function refreshDeploymentSummary(current: FileRecord) {
+    const request = ++deploymentSummaryRequest
+    if (current.deletedAt || current.renderer !== RENDERER_MODE.Svelte) {
+      deploymentSummary = initialDeploymentSummary(current)
       return
-    try {
-      sessionStorage.setItem(pendingSvelteDeploymentStorageKey, JSON.stringify({
-        fileId: savedFile.id,
-        sourceHash: savedFile.sourceHash,
-      } satisfies PendingSvelteDeployment))
     }
-    catch {
-      // Session storage is best-effort. Saving and deploying still work normally without it.
-    }
-  }
-
-  function clearPendingSvelteDeployment(savedFile: Pick<FileRecord, 'id' | 'sourceHash'>) {
-    const pending = readPendingSvelteDeployment()
-    if (!pending || pending.fileId !== savedFile.id || pending.sourceHash !== savedFile.sourceHash)
+    const result = await actions.db.renderArtifact.status({ fileId: current.id })
+    if (request !== deploymentSummaryRequest || current.id !== file.id || current.sourceHash !== file.sourceHash)
       return
-    try {
-      sessionStorage.removeItem(pendingSvelteDeploymentStorageKey)
-    }
-    catch {
-      // Session storage is best-effort. Saving and deploying still work normally without it.
-    }
+    deploymentSummary = result.data ?? initialDeploymentSummary(current)
   }
-
-  function discardPendingSvelteDeploymentForFile(fileId: number) {
-    const pending = readPendingSvelteDeployment()
-    if (!pending || pending.fileId !== fileId)
-      return
-    try {
-      sessionStorage.removeItem(pendingSvelteDeploymentStorageKey)
-    }
-    catch {
-      // Session storage is best-effort. Saving and deploying still work normally without it.
-    }
-  }
-
   function isDirtyAgainst(server: FileRecord) {
     return isEditBufferDirty({
       path: pathValue,
@@ -153,16 +136,32 @@
   $effect.pre(() => {
     const data = file
     const buffer = editBuffers.get(data.id)
+    if (previewFileId !== null && previewFileId !== data.id) {
+      showPreview = false
+      previewFileId = null
+    }
     rendererValue = buffer?.renderer ?? data.renderer;
     sourceValue = buffer?.content ?? data.content ?? '';
     privateValue = buffer?.private ?? data.private ?? false;
     pathValue = buffer?.path ?? data.path ?? '';
+    localValuesFileId = data.id;
     baseRevisionValue = buffer?.baseRevision ?? data.revision;
     conflict = buffer?.conflict?.server ?? null;
   });
 
   $effect(() => {
-     refreshPreview()
+    void refreshDeploymentSummary(file)
+  })
+
+  $effect(() => {
+    const sourceForPreview = sourceValue
+    const titleForPreview = displayTitleValue
+    const rendererForPreview = rendererValue
+    const timer = window.setTimeout(() => {
+      if (sourceForPreview === sourceValue && titleForPreview === displayTitleValue && rendererForPreview === rendererValue)
+        void refreshPreview()
+    }, 150)
+    return () => window.clearTimeout(timer)
   })
 
   $effect(() => {
@@ -180,7 +179,6 @@
 
   let mdInstance: MarkdownIt | null = null
   onMount(async () => {
-    void resumePendingSvelteDeployment()
     mdInstance = await md({ allFilePaths: editorStore.items.filter(item => !item.deletedAt).map(item => item.path) })
     refreshPreview()
     const handleKeydown = (e: KeyboardEvent) => {
@@ -245,7 +243,7 @@
     }
   }
 
-  let showPreview = $state(false)
+  const toolbarPreviewActive = $derived(showPreview || markdownPreviewActive)
   let previewBuildKey = ''
   let previewBuildActive = false
   let svelteArtifact = $derived(svelteBuildController.build?.type === 'build-success'
@@ -258,6 +256,10 @@
   let pendingBuildFile = $state<FileRecord | null>(null)
   let pendingDependencyReview = $state<{ currentArtifactHash: string, proposedArtifactHash: string, diff: DependencyDiff } | null>(null)
   let deploying = $state(false)
+  let deploymentFailed = $state(false)
+  let saving = $state(false)
+  let savedAcknowledgement = $state(false)
+  let savedAcknowledgementTimer: ReturnType<typeof window.setTimeout> | undefined
   let activeDeployments = 0
   let deployGeneration = 0
 
@@ -277,21 +279,25 @@
     pendingDependencyReview = null
   }
 
-  async function resumePendingSvelteDeployment() {
-    const pending = readPendingSvelteDeployment()
-    if (!pending || pending.fileId !== file.id)
-      return
-    if (file.renderer !== RENDERER_MODE.Svelte || file.deletedAt || pending.sourceHash !== file.sourceHash) {
-      discardPendingSvelteDeploymentForFile(file.id)
-      return
-    }
-    await tick()
-    if (file.renderer !== RENDERER_MODE.Svelte || file.deletedAt || pending.sourceHash !== file.sourceHash)
-      return
-    clearPendingDeploymentReview()
-    notify('info', 'Resuming deployment after reload…', 5000)
-    void deploySavedSvelteFile(file, 'automatic')
+  function acknowledgeSave() {
+    savedAcknowledgement = true
+    if (savedAcknowledgementTimer)
+      window.clearTimeout(savedAcknowledgementTimer)
+    savedAcknowledgementTimer = window.setTimeout(() => {
+      savedAcknowledgement = false
+      savedAcknowledgementTimer = undefined
+    }, 1200)
   }
+
+  $effect(() => {
+    if (changed)
+      savedAcknowledgement = false
+  })
+
+  onMount(() => () => {
+    if (savedAcknowledgementTimer)
+      window.clearTimeout(savedAcknowledgementTimer)
+  })
 
   async function currentSavedBuild(savedFile: FileRecord) {
     const buffer = {
@@ -347,8 +353,9 @@
     })
   }
 
-  async function deploySavedSvelteFile(savedFile: FileRecord, origin: 'automatic' | 'manual') {
+  async function deploySavedSvelteFile(savedFile: FileRecord) {
     const generation = ++deployGeneration
+    deploymentFailed = false
     startDeployment()
     try {
       const build = await currentSavedBuild(savedFile)
@@ -358,32 +365,32 @@
       const result = await attachSavedBuild(savedFile, build)
       if (generation !== deployGeneration)
         return
-      if (!result.error) {
-        clearPendingSvelteDeployment(savedFile)
-        notify('success', origin === 'automatic' ? 'Saved and deployed to the site.' : 'Svelte File deployed to the site.', 3000)
+      if (!result.error && result.data) {
+        deploymentSummary = {
+          status: 'deployed',
+          deployedSourceHash: savedFile.sourceHash,
+          artifactHash: result.data.artifactHash,
+        }
+        notify('success', 'Svelte File deployed to the site.', 3000)
         return
       }
-      const review = dependencyReview(result.error)
+      const review = result.error ? dependencyReview(result.error) : undefined
       if (!review) {
-        clearPendingSvelteDeployment(savedFile)
-        const message = formatFileSaveError(result.error)
-        notify('error', origin === 'automatic' ? `Source saved. Deployment failed: ${message}` : `Deployment failed: ${message}`)
+        deploymentFailed = true
+        notify('error', `Deployment failed: ${result.error ? formatFileSaveError(result.error) : 'Artifact attachment returned no result'}`)
         return
       }
-      clearPendingSvelteDeployment(savedFile)
       pendingBuild = build
       pendingBuildFile = savedFile
       pendingDependencyReview = review as { currentArtifactHash: string, proposedArtifactHash: string, diff: DependencyDiff }
-      notify('warning', origin === 'automatic'
-        ? 'Source saved. Review dependency changes before deploying.'
-        : 'Review dependency changes before deploying.', 5000)
+      notify('warning', 'Review dependency changes before deploying.', 5000)
     }
     catch (error) {
       if (generation !== deployGeneration)
         return
-      clearPendingSvelteDeployment(savedFile)
+      deploymentFailed = true
       const message = error instanceof Error ? error.message : 'Svelte Artifact deployment failed'
-      notify('error', origin === 'automatic' ? `Source saved. Deployment failed: ${message}` : `Deployment failed: ${message}`)
+      notify('error', `Deployment failed: ${message}`)
     }
     finally {
       finishDeployment()
@@ -398,7 +405,7 @@
       notify('warning', 'Save Source before deploying it.', 4000)
       return
     }
-    await deploySavedSvelteFile(file, 'manual')
+    await deploySavedSvelteFile(file)
   }
 
   async function approveDependencyReplacement() {
@@ -411,12 +418,22 @@
     startDeployment()
     try {
       const confirmed = await attachSavedBuild(savedFile, build, review)
-      if (confirmed.error)
-        notify('error', `Deployment failed: ${formatFileSaveError(confirmed.error)}`)
-      else
+      if (confirmed.error || !confirmed.data) {
+        deploymentFailed = true
+        notify('error', `Deployment failed: ${confirmed.error ? formatFileSaveError(confirmed.error) : 'Artifact attachment returned no result'}`)
+      }
+      else {
+        deploymentFailed = false
+        deploymentSummary = {
+          status: 'deployed',
+          deployedSourceHash: savedFile.sourceHash,
+          artifactHash: confirmed.data.artifactHash,
+        }
         notify('success', 'Svelte File deployed after dependency review.', 3000)
+      }
     }
     catch (error) {
+      deploymentFailed = true
       notify('error', error instanceof Error ? error.message : 'Dependency confirmation failed')
     }
     finally {
@@ -451,20 +468,32 @@
   })
 
   async function closePreview() {
+    if (rendererValue === RENDERER_MODE.Markdown && markdownViewState.requestedMode === 'preview') {
+      markdownViewState.setRequestedMode('source')
+      await tick()
+      editorContent?.focus()
+      return
+    }
     if (!showPreview)
       return
     showPreview = false
+    previewFileId = null
     await tick()
     editorContent?.focus()
   }
 
   async function preview(e: Event) {
     e.preventDefault()
+    if (rendererValue === RENDERER_MODE.Markdown) {
+      markdownViewState.setRequestedMode(markdownViewState.requestedMode === 'preview' ? 'source' : 'preview')
+      return
+    }
     if (showPreview) {
       await closePreview()
       return
     }
     showPreview = true
+    previewFileId = file.id
     await tick()
     editorContent?.focusPreview()
   }
@@ -484,26 +513,20 @@
     }
   }
 
+  function copyFileReference() {
+    if (!navigator.clipboard)
+      return
+    navigator.clipboard.writeText(`[[${pathValue}]]`).then(() => {
+      notify('success', 'Copied File Reference', 2000)
+    }).catch(() => {
+      notify('error', 'Could not copy File Reference')
+    })
+  }
+
   function backToDashboard(e: Event) {
     e.preventDefault()
 
     window.location.href = '/dashboard'
-  }
-
-  function back(e: Event) {
-    e.preventDefault()
-    
-    if (editorStore.history.length > 1) {
-      const prevItem = findPreviousActiveFile(editorStore.history, editorStore.items);
-        if (prevItem) {
-            popHistory(); // Confirm pop
-            setCurrentFile(prevItem);
-            return;
-        }
-    }
-
-    const target = `/dashboard/${getMarkdownSourceKey(source)}`
-    window.location.href = target
   }
 
   function useServerVersion() {
@@ -514,7 +537,6 @@
     conflict = null;
     file = server;
     onUpdate?.(server);
-    setCurrentFile(server);
   }
 
   function changeRenderer(renderer: RendererMode) {
@@ -538,7 +560,6 @@
       conflict = null
       file = server
       onUpdate?.(server)
-      setCurrentFile(server)
       notify('info', 'Loaded the newer server File.', 3000)
       return false
     }
@@ -599,7 +620,6 @@
           upsertItem(updated)
           file = updated
           onUpdate?.(updated)
-          setCurrentFile(updated)
           syncEditBuffer(updated)
         }
       }
@@ -608,12 +628,13 @@
 
   async function save(e: Event) {
     e.preventDefault()
-    if (trashed) return
+    if (trashed || saving || !changed) return
     if (conflict) {
       notify('warning', 'Resolve the Source conflict before saving again.', 4000);
       return;
     }
 
+    const savedFromFileId = file.id
     const formData = new FormData()
     formData.append('id', file.id.toString())
     formData.append('path', pathValue)
@@ -622,29 +643,32 @@
     formData.append('private', String(privateValue));
     formData.append('baseRevision', baseRevisionValue.toString())
 
-    const result = await actions.form.save(formData)
+    saving = true
+    try {
+      const result = await actions.form.save(formData)
 
-    if (result.error) {
-      handleFileMutationError(result.error)
-    } else if (result.data) {
+      if (result.error) {
+        handleFileMutationError(result.error)
+      } else if (result.data) {
         const savedFile = result.data
         file = savedFile
         baseRevisionValue = file.revision;
         conflict = null
-        removeEditBuffer(file.id)
+        removeEditBuffer(savedFromFileId)
         onSave?.(file)
         upsertItem(file)
-        if (file.renderer === RENDERER_MODE.Svelte) {
-          clearPendingDeploymentReview()
-          rememberPendingSvelteDeployment(savedFile)
-          notify('info', 'Source saved. Deploying to the site…', 5000)
-          void deploySavedSvelteFile(savedFile, 'automatic')
-        } else {
-          discardPendingSvelteDeploymentForFile(savedFile.id)
-          notify('success', 'Saved Success', 3000)
-        }
-    } else {
-      notify('success', 'Saved Success', 3000)
+        clearPendingDeploymentReview()
+        deploymentFailed = false
+        deploymentSummary = initialDeploymentSummary(savedFile)
+        void refreshDeploymentSummary(savedFile)
+        acknowledgeSave()
+        notify('success', 'Source saved.', 3000)
+      } else {
+        acknowledgeSave()
+      notify('success', 'Source saved.', 3000)
+      }
+    } finally {
+      saving = false
     }
   }
 </script>
@@ -654,17 +678,22 @@
     {#if !showPreview}
       <EditorToolbar
         {file}
-        bind:pathValue
+        {pathValue}
         {rendererValue}
         {privateValue}
         {changed}
+        {saving}
+        {savedAcknowledgement}
         {conflict}
-        {showPreview}
+        showPreview={toolbarPreviewActive}
         {copyBtnText}
         {trashed}
         {deploying}
+        {deploymentSummary}
+        {deploymentFailed}
+        markdownViewMode={markdownViewState.requestedMode}
         onBackToDashboard={backToDashboard}
-        onBack={back}
+        onBack={() => onBack?.()}
         onTogglePrivate={togglePrivate}
         onRendererChange={changeRenderer}
         onSave={save}
@@ -672,20 +701,25 @@
         onPreview={preview}
         onDeploy={deploy}
         onCopyLink={copyLink}
+        onCopyReference={copyFileReference}
+        onPathChange={(path) => { pathValue = path }}
+        onMarkdownViewChange={(mode) => markdownViewState.setRequestedMode(mode)}
         {onUpdate}
         {onPurge}
       />
     {/if}
     <EditorContent
       bind:this={editorContent}
-      title={titleValue}
+      title={editorContentTitle}
       fileId={file.id}
-      filePath={pathValue}
-      renderer={rendererValue}
+      filePath={editorContentValues.path}
+      renderer={editorContentValues.renderer}
       diagnostics={svelteBuildController.diagnostics}
-      value={sourceValue}
+      value={editorContentValues.source}
       {referenceCandidates}
       {showPreview}
+      markdownRequestedMode={markdownViewState.requestedMode}
+      markdownSplitRatio={markdownViewState.splitRatio}
       {previewHtml}
       {svelteArtifact}
       {svelteBuildError}
@@ -693,10 +727,13 @@
       {changed}
       {privateValue}
       {conflict}
+      {deploymentSummary}
+      {deploying}
       baseRevision={baseRevisionValue}
       onUseServer={useServerVersion}
       onRebase={retryLocalAgainstCurrentRevision}
       onClosePreview={closePreview}
+      onMarkdownSplitRatio={(ratio, contentWidth) => markdownViewState.setSplitRatio(ratio, contentWidth)}
       onChange={(value) => { sourceValue = value; }}
       {uploadImage}
     />

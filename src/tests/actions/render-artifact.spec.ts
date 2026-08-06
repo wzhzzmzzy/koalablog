@@ -1,20 +1,22 @@
-import { attach } from '@/actions/db/render-artifact'
-import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { attach, status } from '@/actions/db/render-artifact'
+import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 
 const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),
   calculateArtifactHashes: vi.fn(),
   readById: vi.fn(),
-  readCurrentRenderArtifact: vi.fn(),
-  replaceCurrentRenderArtifact: vi.fn(),
+  readDeployedRenderArtifact: vi.fn(),
+  readDeploymentSummary: vi.fn(),
+  replaceDeployedRenderArtifact: vi.fn(),
 }))
 
 vi.mock('@/actions/utils/auth', () => ({ loginGuard: mocks.authGuard }))
 vi.mock('@/db/markdown', () => ({ readById: mocks.readById }))
 vi.mock('@/db/render-artifact', () => ({
-  readCurrentRenderArtifact: mocks.readCurrentRenderArtifact,
-  replaceCurrentRenderArtifact: mocks.replaceCurrentRenderArtifact,
+  readDeployedRenderArtifact: mocks.readDeployedRenderArtifact,
+  readDeploymentSummary: mocks.readDeploymentSummary,
+  replaceDeployedRenderArtifact: mocks.replaceDeployedRenderArtifact,
 }))
 vi.mock('@/lib/svelte/artifact-hash', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/svelte/artifact-hash')>()
@@ -49,6 +51,7 @@ function currentArtifact(overrides: Record<string, unknown> = {}) {
   return {
     artifactHash: 'e'.repeat(64),
     dependencies: [{ url: 'https://example.test/module.js', bytes: 1, sha256: 'f'.repeat(64) }],
+    sourceHash,
     ...overrides,
   }
 }
@@ -57,13 +60,13 @@ describe('render Artifact attach action', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.readById.mockResolvedValue(currentFile())
-    mocks.readCurrentRenderArtifact.mockResolvedValue(undefined)
+    mocks.readDeployedRenderArtifact.mockResolvedValue(undefined)
     mocks.calculateArtifactHashes.mockResolvedValue({
       artifactHash: 'b'.repeat(64),
       javascriptResourceHash: 'c'.repeat(64),
       cssResourceHash: 'd'.repeat(64),
     })
-    mocks.replaceCurrentRenderArtifact.mockImplementation(async (_env, artifact) => artifact)
+    mocks.replaceDeployedRenderArtifact.mockImplementation(async (_env, artifact) => artifact)
   })
 
   it('authenticates, validates, calculates server-owned hashes, and attaches the Artifact', async () => {
@@ -72,7 +75,7 @@ describe('render Artifact attach action', () => {
     expect(mocks.authGuard).toHaveBeenCalledOnce()
     expect(mocks.readById).toHaveBeenCalledWith({ DB: 'db' }, 7)
     expect(mocks.calculateArtifactHashes).toHaveBeenCalledWith(input())
-    expect(mocks.replaceCurrentRenderArtifact).toHaveBeenCalledWith(
+    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenCalledWith(
       { DB: 'db' },
       expect.objectContaining({
         artifactHash: 'b'.repeat(64),
@@ -89,7 +92,7 @@ describe('render Artifact attach action', () => {
 
     await expect(attach.orThrow.call(context, input())).rejects.toThrow('Unauthorized')
     expect(mocks.readById).not.toHaveBeenCalled()
-    expect(mocks.replaceCurrentRenderArtifact).not.toHaveBeenCalled()
+    expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
   })
 
   it('rejects missing, non-Svelte, and changed-Source Files without replacing the prior Artifact', async () => {
@@ -109,7 +112,7 @@ describe('render Artifact attach action', () => {
       status: 409,
       message: JSON.stringify({ code: 'source_hash_mismatch' }),
     })
-    expect(mocks.replaceCurrentRenderArtifact).not.toHaveBeenCalled()
+    expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
   })
 
   it('rejects unsupported toolchains, non-canonical manifests, and executable Snapshots before replacement', async () => {
@@ -131,21 +134,21 @@ describe('render Artifact attach action', () => {
       status: 422,
       message: JSON.stringify({ code: 'invalid_snapshot' }),
     })
-    expect(mocks.replaceCurrentRenderArtifact).not.toHaveBeenCalled()
+    expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
   })
 
   it('rejects oversize Artifacts and client-supplied hash fields without replacing the prior Artifact', async () => {
     await expect(attach.orThrow.call(context, input({ css: 'x'.repeat(200_001) }))).rejects.toMatchObject({
-      code: 'PAYLOAD_TOO_LARGE',
+      code: 'CONTENT_TOO_LARGE',
       status: 413,
       message: JSON.stringify({ code: 'artifact_too_large', field: 'css' }),
     })
     await expect(attach.orThrow.call(context, input({ artifactHash: 'f'.repeat(64) }))).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 400 })
-    expect(mocks.replaceCurrentRenderArtifact).not.toHaveBeenCalled()
+    expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
   })
 
   it('reports a Source race without replacing the prior Artifact', async () => {
-    mocks.replaceCurrentRenderArtifact.mockResolvedValueOnce(undefined)
+    mocks.replaceDeployedRenderArtifact.mockResolvedValueOnce(undefined)
 
     await expect(attach.orThrow.call(context, input())).rejects.toMatchObject({
       code: 'CONFLICT',
@@ -154,8 +157,20 @@ describe('render Artifact attach action', () => {
     })
   })
 
+  it('replaces a prior deployed Source without requiring dependency confirmation', async () => {
+    mocks.readDeployedRenderArtifact.mockResolvedValueOnce(currentArtifact({
+      dependencies: [{ url: 'https://example.test/old.js', bytes: 1, sha256: 'd'.repeat(64) }],
+      sourceHash: 'f'.repeat(64),
+    }))
+
+    await expect(attach.orThrow.call(context, input({
+      dependencies: [{ url: 'https://example.test/new.js', bytes: 1, sha256: 'e'.repeat(64) }],
+    }))).resolves.toMatchObject({ artifactHash: 'b'.repeat(64) })
+    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenCalledWith(expect.anything(), expect.anything(), null)
+  })
+
   it('returns a bounded dependency review instead of replacing a Current Artifact', async () => {
-    mocks.readCurrentRenderArtifact.mockResolvedValueOnce(currentArtifact())
+    mocks.readDeployedRenderArtifact.mockResolvedValueOnce(currentArtifact())
 
     const error = await attach.orThrow.call(context, input({ dependencies: [
       { url: 'https://example.test/added.js', bytes: 3, sha256: 'b'.repeat(64) },
@@ -179,17 +194,17 @@ describe('render Artifact attach action', () => {
         truncated: false,
       },
     })
-    expect(mocks.replaceCurrentRenderArtifact).not.toHaveBeenCalled()
+    expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
   })
 
   it('replaces only while an exact dependency confirmation still matches', async () => {
-    mocks.readCurrentRenderArtifact.mockResolvedValueOnce(currentArtifact())
+    mocks.readDeployedRenderArtifact.mockResolvedValueOnce(currentArtifact())
 
     await expect(attach.orThrow.call(context, input({
       dependencies: [{ url: 'https://example.test/module.js', bytes: 2, sha256: 'a'.repeat(64) }],
       confirmation: { currentArtifactHash: 'e'.repeat(64), proposedArtifactHash: 'b'.repeat(64) },
     }))).resolves.toMatchObject({ artifactHash: 'b'.repeat(64) })
-    expect(mocks.replaceCurrentRenderArtifact).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'e'.repeat(64))
+    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'e'.repeat(64))
   })
 
   it('rejects stale dependency confirmation after Source, current Artifact, or proposed Artifact changes', async () => {
@@ -201,14 +216,14 @@ describe('render Artifact attach action', () => {
       message: JSON.stringify({ code: 'dependency_confirmation_stale' }),
     })
 
-    mocks.readCurrentRenderArtifact.mockResolvedValue(currentArtifact({ artifactHash: 'd'.repeat(64) }))
+    mocks.readDeployedRenderArtifact.mockResolvedValue(currentArtifact({ artifactHash: 'd'.repeat(64) }))
     await expect(attach.orThrow.call(context, input({ confirmation }))).rejects.toMatchObject({
       code: 'CONFLICT',
       status: 409,
       message: JSON.stringify({ code: 'dependency_confirmation_stale' }),
     })
 
-    mocks.readCurrentRenderArtifact.mockResolvedValue(currentArtifact({ dependencies: [] }))
+    mocks.readDeployedRenderArtifact.mockResolvedValue(currentArtifact({ dependencies: [] }))
     mocks.calculateArtifactHashes.mockResolvedValue({
       artifactHash: 'c'.repeat(64),
       javascriptResourceHash: 'c'.repeat(64),
@@ -219,6 +234,21 @@ describe('render Artifact attach action', () => {
       status: 409,
       message: JSON.stringify({ code: 'dependency_confirmation_stale' }),
     })
-    expect(mocks.replaceCurrentRenderArtifact).not.toHaveBeenCalled()
+    expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
+  })
+
+  it('returns only the owner-authorized deployment summary', async () => {
+    const summary = {
+      status: 'deployment_drift' as const,
+      deployedSourceHash: 'b'.repeat(64),
+      artifactHash: 'c'.repeat(64),
+    }
+    mocks.readDeploymentSummary.mockResolvedValueOnce(summary)
+
+    await expect(status.orThrow.call(context, { fileId: 7 })).resolves.toEqual(summary)
+    expect(mocks.readDeploymentSummary).toHaveBeenCalledWith({ DB: 'db' }, 7, 1)
+
+    mocks.readDeploymentSummary.mockResolvedValueOnce(undefined)
+    await expect(status.orThrow.call(context, { fileId: 7 })).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 })
   })
 })
