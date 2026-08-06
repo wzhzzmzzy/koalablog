@@ -12,6 +12,8 @@ const url = Astro.request.url
 const { title = siteTitle, desc, keywords, image } = Astro.props
 
 const fontConfig = Astro.locals.config.font
+
+/* eslint-disable astro/no-unused-define-vars-in-style -- define:vars emits these runtime font declarations in the page head. */
 ---
 <title>{title}</title>
 { desc ? <meta name="description" content={desc} /> : null }
@@ -24,7 +26,8 @@ const fontConfig = Astro.locals.config.font
   'koala-font-sans': fontConfig?.sans,
   'koala-font-serif': fontConfig?.serif,
   'koala-font-mono': fontConfig?.mono,
-}}>
+}}
+>
 </style>
 
 <link rel="canonical" href={url} />
@@ -42,4 +45,3 @@ const fontConfig = Astro.locals.config.font
 { desc ? <meta property="twitter:description" content={desc} /> : null }
 { image ? <meta property="twitter:image" content={image} /> : null }
 { image ? <meta property="twitter:card" content={image} /> : null }
-

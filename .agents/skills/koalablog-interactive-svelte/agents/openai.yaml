@@ -1,4 +1,4 @@
 interface:
-  display_name: "Koalablog Stateful Svelte"
-  short_description: "Build private, persistent Svelte File pages"
-  default_prompt: "Use $koalablog-interactive-svelte to build a private stateful Svelte File page for Koalablog."
+  display_name: Koalablog Stateful Svelte
+  short_description: 'Build private, persistent Svelte File pages'
+  default_prompt: Use $koalablog-interactive-svelte to build a private stateful Svelte File page for Koalablog.

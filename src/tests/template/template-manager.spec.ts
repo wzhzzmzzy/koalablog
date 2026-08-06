@@ -1,6 +1,6 @@
 import type { CreationTemplateV2 } from '@/lib/files/types'
-import { duplicateTemplateIds, duplicateTemplatePrefixes, normalizedTemplatePrefix, previewTemplateCatalog } from '@/components/template/template-manager-model'
 import { describe, expect, it } from 'vitest'
+import { duplicateTemplateIds, duplicateTemplatePrefixes, normalizedTemplatePrefix, previewTemplateCatalog } from '@/components/template/template-manager-model'
 
 const template: CreationTemplateV2 = {
   id: 'memo',

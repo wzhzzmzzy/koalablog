@@ -1,7 +1,7 @@
-import { CatppuccinTheme } from '@/lib/const/config'
-import { updateGlobalConfig } from '@/lib/kv'
 import { defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
+import { CatppuccinTheme } from '@/lib/const/config'
+import { updateGlobalConfig } from '@/lib/kv'
 import { authGuard } from '../utils/auth'
 
 export const settings = defineAction({

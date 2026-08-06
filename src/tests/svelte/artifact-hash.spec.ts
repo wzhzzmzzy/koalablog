@@ -1,5 +1,5 @@
-import { calculateArtifactHashes, canonicalDependencies, serializeArtifactPayload, serializeJavascriptResource } from '@/lib/svelte/artifact-hash'
 import { describe, expect, it } from 'vitest'
+import { calculateArtifactHashes, canonicalDependencies, serializeArtifactPayload, serializeJavascriptResource } from '@/lib/svelte/artifact-hash'
 
 const artifact = {
   css: '.koala { color: rebeccapurple; }',

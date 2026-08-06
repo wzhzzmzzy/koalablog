@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types'
   import type { RendererMode } from '@/lib/files/types'
-  import { parseAbsoluteFilePath } from '@/lib/files/path'
-  import { Code2, Copy, Ellipsis, FileText, FolderPen, House, Link, Lock, LockOpen, Upload, X } from '@lucide/svelte'
+  import { Code2, Copy, Ellipsis, FileText, House, Link, Lock, LockOpen, Upload } from '@lucide/svelte'
   import { tick } from 'svelte'
   import FileLifecycle from './FileLifecycle.svelte'
 
@@ -11,7 +10,6 @@
 
   interface Props {
     file: FileRecord | null
-    pathValue: string
     rendererValue: RendererMode
     privateValue: boolean
     trashed: boolean
@@ -21,14 +19,12 @@
     onUpload?: ClickHandler
     onCopyLink: () => void
     onCopyReference: () => void
-    onPathChange: (path: string) => void
     onUpdate?: (file: FileRecord) => void
     onPurge?: (id: number) => void
   }
 
   let {
     file,
-    pathValue,
     rendererValue,
     privateValue,
     trashed,
@@ -38,17 +34,13 @@
     onUpload = noopClick,
     onCopyLink,
     onCopyReference,
-    onPathChange,
     onUpdate,
     onPurge,
   }: Props = $props()
 
   let open = $state(false)
-  let renamePath = $state('')
-  let renameError = $state('')
   let menu: HTMLDivElement | undefined = $state()
   let trigger: HTMLButtonElement | undefined = $state()
-  let renameDialog: HTMLDialogElement | undefined = $state()
 
   const hasPersistedFile = $derived((file?.id ?? 0) > 0)
   const unavailableTitle = 'Select a File from File Explorer first'
@@ -96,33 +88,6 @@
     if (!trashed && renderer !== rendererValue)
       onRendererChange(renderer)
     closeMenu()
-  }
-
-  async function openRenameMove() {
-    if (!hasPersistedFile || trashed)
-      return
-    renamePath = pathValue
-    renameError = ''
-    open = false
-    await tick()
-    renameDialog?.showModal()
-    renameDialog?.querySelector<HTMLInputElement>('input')?.select()
-  }
-
-  function closeRenameMove() {
-    if (renameDialog?.open)
-      renameDialog.close()
-    trigger?.focus()
-  }
-
-  function applyRenameMove() {
-    const parsed = parseAbsoluteFilePath(renamePath)
-    if (!parsed.ok) {
-      renameError = 'Enter an absolute Path without an extension or empty segments.'
-      return
-    }
-    onPathChange(parsed.value)
-    closeRenameMove()
   }
 
   function act(handler: () => void) {
@@ -211,10 +176,6 @@
         <Copy size={16} />
         <span>Copy File Reference</span>
       </button>
-      <button type="button" role="menuitem" class="editor-more__item" disabled={!hasPersistedFile} onclick={() => void openRenameMove()}>
-        <FolderPen size={16} />
-        <span>Rename / Move</span>
-      </button>
     {/if}
 
     {#if file && hasPersistedFile}
@@ -225,26 +186,3 @@
     {/if}
   </div>
 </div>
-
-<dialog
-  bind:this={renameDialog}
-  class="editor-modal editor-rename-move-dialog"
-  aria-labelledby="rename-move-title"
-  oncancel={(event) => { event.preventDefault(); closeRenameMove(); }}
-  onclick={(event) => { if (event.target === renameDialog) closeRenameMove(); }}
->
-  <header class="editor-rename-move-dialog__header">
-    <h3 id="rename-move-title">Rename / Move File</h3>
-    <button type="button" class="editor-tool-button" aria-label="Close Rename / Move" onclick={closeRenameMove}><X size={18} /></button>
-  </header>
-  <p>This changes the saved File Path when you next save Source.</p>
-  <label class="editor-rename-move-dialog__field">
-    <span>Absolute File Path</span>
-    <input bind:value={renamePath} aria-invalid={Boolean(renameError)} aria-describedby={renameError ? 'rename-move-error' : undefined} />
-  </label>
-  {#if renameError}<p id="rename-move-error" class="editor-rename-move-dialog__error" role="alert">{renameError}</p>{/if}
-  <div class="editor-modal__actions">
-    <button type="button" class="editor-tool-button" onclick={closeRenameMove}>Cancel</button>
-    <button type="button" class="editor-tool-button editor-tool-button--primary" onclick={applyRenameMove}>Use Path</button>
-  </div>
-</dialog>

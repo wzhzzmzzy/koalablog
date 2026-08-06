@@ -1,5 +1,5 @@
-import { compileSvelteSource } from '@/workers/svelte/compiler'
 import { describe, expect, it } from 'vitest'
+import { compileSvelteSource } from '@/workers/svelte/compiler'
 
 describe('svelte Worker compiler', () => {
   it('compiles ordinary Svelte, plain CSS, and erasable TypeScript', async () => {

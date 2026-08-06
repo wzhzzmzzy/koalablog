@@ -1,8 +1,8 @@
 import type { SvelteWorkerPort } from '@/components/editor/svelte/worker-client'
 import type { SvelteWorkerResponse } from '@/lib/svelte/contracts'
+import { describe, expect, it } from 'vitest'
 import { SvelteWorkerClient } from '@/components/editor/svelte/worker-client'
 import { createDependencyFetchLifecycle } from '@/workers/svelte/dependency-lifecycle'
-import { describe, expect, it } from 'vitest'
 
 class FakeWorker implements SvelteWorkerPort {
   messages: unknown[] = []

@@ -1,5 +1,5 @@
-import { mountPublicArtifact } from '@/lib/svelte/public-mount'
 import { describe, expect, it, vi } from 'vitest'
+import { mountPublicArtifact } from '@/lib/svelte/public-mount'
 
 function fixture() {
   const root = new EventTarget() as EventTarget & { dataset: Record<string, string> }

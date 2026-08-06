@@ -1,7 +1,7 @@
 import { stripMetaBlock } from '@/lib/services/markdown-parser'
 
-const FENCE_PATTERN = /^(```|~~~)/
-const HR_PATTERN = /^\s*([-*_])(?:\s*\1){2,}\s*$/
+const FENCE_PATTERN = /^(?:```|~~~)/
+const HR_PATTERN = /^\s*(?:-(?:\s*-){2,}|\*(?:\s*\*){2,}|_(?:\s*_){2,})\s*$/
 const REFERENCE_LINK_PATTERN = /^\s*\[[^\]]+\]:\s+\S+/
 
 function unwrapMarkdown(line: string, pattern: RegExp) {
@@ -30,7 +30,7 @@ function stripMarkdownLine(line: string, inFence: boolean) {
         .replace(/^\s{0,3}#{1,6}\s+/, '')
         .replace(/^\s*>+\s?/, '')
         .replace(/^\s*(?:[-+*]|\d+\.)\s+/, '')
-        .replace(/^\s*\[(?: |x|X)\]\s+/, '')
+        .replace(/^\s*\[[ x]\]\s+/i, '')
     }
 
     text = text

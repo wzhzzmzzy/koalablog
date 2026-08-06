@@ -202,6 +202,8 @@ body:has(.editor-workspace) {
   display: flex;
   align-items: center;
   overflow: hidden;
+  padding: 0;
+  border: 0;
   color: var(--editor-text);
   background: transparent;
   font-family: var(--koala-font-mono);
@@ -209,6 +211,46 @@ body:has(.editor-workspace) {
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.editor-path-display:is(button) {
+  cursor: pointer;
+}
+
+.editor-path-display:is(button):hover {
+  color: var(--koala-catppuccin-mauve);
+}
+
+.editor-path-edit {
+  width: 100%;
+  min-width: 0;
+}
+
+.editor-path-input {
+  width: 100%;
+  height: 2.25rem;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  color: var(--editor-text);
+  background: transparent;
+  font-family: var(--koala-font-mono);
+  font-size: 0.8rem;
+  letter-spacing: -0.01em;
+}
+
+.editor-path-input:focus-visible,
+.editor-file-finder__input input:focus-visible {
+  outline: 0;
+}
+
+.editor-path-input[aria-invalid="true"] {
+  box-shadow: inset 0 -2px var(--koala-catppuccin-red);
+}
+
+.editor-toolbar__context--editing {
+  border-color: var(--editor-focus);
 }
 
 .editor-toolbar__view {
@@ -423,43 +465,6 @@ body:has(.editor-workspace) {
 
 .editor-more__lifecycle .editor-tool-button--danger {
   color: var(--koala-catppuccin-red);
-}
-
-.editor-rename-move-dialog {
-  width: min(31rem, calc(100vw - 2rem));
-}
-
-.editor-rename-move-dialog__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.editor-rename-move-dialog__field {
-  display: grid;
-  gap: 0.35rem;
-  margin-top: 1rem;
-  color: var(--editor-muted);
-  font-size: 0.76rem;
-  font-weight: 650;
-}
-
-.editor-rename-move-dialog__field input {
-  width: 100%;
-  min-height: 2.5rem;
-  box-sizing: border-box;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--editor-border-strong);
-  border-radius: 0.6rem;
-  color: var(--editor-text);
-  background: var(--editor-code-surface);
-  font-family: var(--koala-font-mono);
-  font-size: 0.82rem;
-}
-
-.editor-rename-move-dialog__error {
-  color: var(--koala-catppuccin-red) !important;
 }
 
 .editor-file-finder {
@@ -1896,6 +1901,10 @@ body:has(.editor-workspace) {
     grid-row: 1;
     min-width: 0;
     padding: 0 0.4rem;
+  }
+
+  .editor-path-input {
+    font-size: 1rem;
   }
 
   .editor-toolbar__view {

@@ -1,4 +1,3 @@
-import type { MarkdownSource } from '@/db'
 import type {
   AbsoluteFilePath,
   AbsolutePathPrefix,
@@ -6,6 +5,7 @@ import type {
   PathErrorCode,
   Result,
 } from './types'
+import type { MarkdownSource } from '@/db'
 import { getSourceFromPath } from '@/db'
 
 const FILE_EXTENSION = /\.[^/]+$/

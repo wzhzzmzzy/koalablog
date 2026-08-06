@@ -1,4 +1,5 @@
 import type { CreationTemplateV1 } from '@/lib/files/types'
+import { describe, expect, it } from 'vitest'
 import { parseAbsolutePathPrefix } from '@/lib/files/path'
 import {
   DEFAULT_MEMO_TEMPLATE_V2,
@@ -9,7 +10,6 @@ import {
   validateTemplateV1,
   validateTemplateV2,
 } from '@/lib/files/template'
-import { describe, expect, it } from 'vitest'
 
 const memoTemplate: CreationTemplateV1 = {
   id: 'memo-default',

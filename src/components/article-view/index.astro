@@ -1,9 +1,9 @@
 ---
 import type { FileRecord } from '@/db/types'
+import { formatDate } from 'date-fns'
 import { MarkdownSource } from '@/db'
 import { getDisplayTitle } from '@/lib/files/display-title'
 import { addHeadingIds, extractHeadings } from '@/lib/utils/heading-id'
-import { formatDate } from 'date-fns'
 import Outline from './outline.svelte'
 
 interface Props {

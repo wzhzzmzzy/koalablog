@@ -1,6 +1,6 @@
 import type { SvelteWorkerClientListener, SvelteWorkerClientState } from '@/components/editor/svelte/worker-client'
-import { SvelteBuildController, type SvelteBuildWorker } from '@/components/editor/svelte/build-controller.svelte'
 import { describe, expect, it, vi } from 'vitest'
+import { SvelteBuildController, type SvelteBuildWorker } from '@/components/editor/svelte/build-controller.svelte'
 
 class FakeDiagnosticWorker implements SvelteBuildWorker {
   buildRequests: Array<{ requestId: number, source: string }> = []

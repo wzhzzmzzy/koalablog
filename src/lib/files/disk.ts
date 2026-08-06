@@ -1,5 +1,5 @@
-import type { FileRecord } from '@/db/types'
 import type { AbsoluteFilePath, RendererMode } from './types'
+import type { FileRecord } from '@/db/types'
 import { parseAbsoluteFilePath } from './path'
 import { RENDERER_MODE } from './types'
 

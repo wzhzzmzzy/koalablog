@@ -8,6 +8,7 @@ import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import { readToday } from '@/db/ossAccess'
 import { listApiTokens, listUsers } from '@/db/user'
 import DashboardShell from '@/layouts/dashboard-shell.astro'
+import { CatppuccinTheme } from '@/lib/const/config'
 import { globalConfig } from '@/lib/kv'
 
 const saveResult = Astro.getActionResult(actions.form.settings)
@@ -31,8 +32,8 @@ const fontConfig = Astro.locals.config.font
 
 const title = pageConfig.title ?? ''
 const avatar = pageConfig.avatar ?? ''
-const lightTheme = pageConfig.theme?.light ?? 'latte'
-const darkTheme = pageConfig.theme?.dark ?? 'mocha'
+const lightTheme = pageConfig.theme?.light ?? CatppuccinTheme.Latte
+const darkTheme = pageConfig.theme?.dark ?? CatppuccinTheme.Mocha
 const ossConfig = Astro.locals.config.oss
 const ossAccess = isAdmin ? await readToday(Astro.locals.runtime?.env) : null
 

@@ -1,4 +1,4 @@
 interface:
-  display_name: "Koalablog Workspace"
-  short_description: "Maintain a local Koalablog File workspace safely."
-  default_prompt: "Use $koalablog-workspace to search, update, and sync a local Koalablog workspace."
+  display_name: Koalablog Workspace
+  short_description: Maintain a local Koalablog File workspace safely.
+  default_prompt: 'Use $koalablog-workspace to search, update, and sync a local Koalablog workspace.'

@@ -3,6 +3,8 @@ import { init, parse } from 'es-module-lexer'
 import { SVELTE_DEPENDENCY_LIMITS, SVELTE_USER_MODULE_SPECIFIERS } from '../../lib/svelte/toolchain'
 import { canonicalDependencyManifest, dependencyManifestEntry } from './dependency-manifest'
 
+type SvelteTimeout = number | ReturnType<typeof globalThis.setTimeout>
+
 const javascriptMimeTypes = new Set([
   'application/ecmascript',
   'application/javascript',
@@ -21,10 +23,10 @@ export interface SvelteDependencyFetchResponse {
 }
 
 export interface SvelteDependencyResolverOptions {
-  clearTimeout?: (timeout: ReturnType<typeof setTimeout>) => void
+  clearTimeout?: (timeout: SvelteTimeout) => void
   fetch?: (url: string, init: RequestInit) => Promise<SvelteDependencyFetchResponse>
   now?: () => number
-  setTimeout?: (callback: () => void, delay: number) => ReturnType<typeof setTimeout>
+  setTimeout?: (callback: () => void, delay: number) => SvelteTimeout
   signal?: AbortSignal
 }
 
@@ -109,14 +111,22 @@ function isDiagnostic(value: string[] | SvelteDiagnostic): value is SvelteDiagno
   return !Array.isArray(value)
 }
 
+function defaultSetTimeout(callback: () => void, delay: number): SvelteTimeout {
+  return globalThis.setTimeout(callback, delay)
+}
+
+function defaultClearTimeout(timeout: SvelteTimeout) {
+  globalThis.clearTimeout(timeout)
+}
+
 export async function resolveHttpsModuleGraph(
   entryUrls: string[],
   options: SvelteDependencyResolverOptions = {},
 ): Promise<SvelteDependencyResolutionResult> {
   const fetcher = options.fetch ?? globalThis.fetch.bind(globalThis)
   const now = options.now ?? Date.now
-  const createTimeout = options.setTimeout ?? setTimeout
-  const clear = options.clearTimeout ?? clearTimeout
+  const createTimeout = options.setTimeout ?? defaultSetTimeout
+  const clear = options.clearTimeout ?? defaultClearTimeout
   const startedAt = now()
   const queue: PendingModule[] = []
   const queued = new Set<string>()

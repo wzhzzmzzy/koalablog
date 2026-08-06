@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto'
+import { describe, expect, it } from 'vitest'
 import { UNOCSS_CONFIG_HASH, UNOCSS_CONFIG_SERIALIZATION } from '@/lib/svelte/unocss-profile'
 import { compileSvelteSource } from '@/workers/svelte/compiler'
 import {
   extractUnoCssTokens,
   generateUnoCss,
 } from '@/workers/svelte/unocss'
-import { describe, expect, it } from 'vitest'
 
 describe('svelte Artifact UnoCSS', () => {
   it('extracts only static class segments and class directives from the Svelte template AST', async () => {

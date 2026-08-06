@@ -1,7 +1,7 @@
-import { verifyUserCredentials } from '@/db/user'
-import { clearSessionCookie, createSession, deleteSession, SESSION_COOKIE_NAME, setSessionCookie } from '@/lib/auth/session'
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
+import { verifyUserCredentials } from '@/db/user'
+import { clearSessionCookie, createSession, deleteSession, SESSION_COOKIE_NAME, setSessionCookie } from '@/lib/auth/session'
 
 export const login = defineAction({
   accept: 'json',

@@ -1,6 +1,6 @@
+import type { SvelteWorkerClientListener, SvelteWorkerClientState } from './worker-client'
 import type { RendererMode } from '@/lib/files/types'
 import type { SvelteBuildError, SvelteBuildSuccess } from '@/lib/svelte/contracts'
-import type { SvelteWorkerClientListener, SvelteWorkerClientState } from './worker-client'
 import { calculateSourceHash } from '@/lib/files/source-hash'
 import { mapSvelteDiagnostics, type TextEditorDiagnosticUpdate } from '../text-editor/diagnostics'
 import { SvelteWorkerClient } from './worker-client'

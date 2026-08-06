@@ -1,4 +1,5 @@
 import type { CreationTemplateV2, TemplateCatalogV2 } from '@/lib/files/types'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { connectDB } from '@/db'
 import { creationTemplateCatalog } from '@/db/schema'
 import {
@@ -8,7 +9,6 @@ import {
   upgradeStoredTemplateCatalog,
 } from '@/db/template-catalog'
 import { DEFAULT_MEMO_TEMPLATE_V1 } from '@/lib/files/template'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 interface TemplateCatalogContractHarness {
   name: string

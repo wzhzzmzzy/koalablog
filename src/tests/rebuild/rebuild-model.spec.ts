@@ -1,4 +1,5 @@
 import type { FileRecord } from '@/db/types'
+import { describe, expect, it } from 'vitest'
 import {
   completeRebuild,
   createRebuildState,
@@ -10,7 +11,6 @@ import {
   startRebuild,
 } from '@/components/rebuild/rebuild-model'
 import { MarkdownSource } from '@/db'
-import { describe, expect, it } from 'vitest'
 
 function file(overrides: Partial<FileRecord> = {}): FileRecord {
   return {

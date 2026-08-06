@@ -15,7 +15,7 @@ const officialThemes = {
 function emittedStyleRules(extension: ReturnType<typeof catppuccinEditorTheme>) {
   return EditorState.create({ extensions: [extension] })
     .facet(EditorView.styleModule)
-    .flatMap(module => module.rules)
+    .flatMap(module => module.getRules().split('\n'))
     .map(rule => rule.replace(/\.ͼ[\w-]+/gu, '.__cm_style__'))
 }
 

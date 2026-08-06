@@ -2,10 +2,10 @@
   "name": "koalablog",
   "type": "module",
   "version": "0.0.1",
+  "packageManager": "pnpm@10.14.0",
   "bin": {
     "koala": "./bin/koala.mjs"
   },
-  "packageManager": "pnpm@10.14.0",
   "scripts": {
     "dev:d1": "pnpm run svelte:toolchain:prepare && pnpm run db:clean && wrangler types && cross-env CF_PAGES=1 astro dev",
     "dev:sqlite": "pnpm run svelte:toolchain:prepare && pnpm run sqlite:init && astro dev",

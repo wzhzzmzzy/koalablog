@@ -1,8 +1,8 @@
+import { env } from 'cloudflare:test'
+import { sql } from 'drizzle-orm'
 import { connectD1 } from '@/db'
 import { updateGlobalConfig } from '@/lib/kv'
 import { defineTemplateCatalogContract } from '@/tests/shared/template-catalog-contract'
-import { env } from 'cloudflare:test'
-import { sql } from 'drizzle-orm'
 
 import initSql from '../../migrations/0000_init.sql?raw'
 

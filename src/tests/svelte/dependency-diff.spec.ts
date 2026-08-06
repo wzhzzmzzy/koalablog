@@ -1,5 +1,5 @@
-import { DEPENDENCY_DIFF_LIMIT, dependencyDiff, sameDependencies } from '@/lib/svelte/dependency-diff'
 import { describe, expect, it } from 'vitest'
+import { DEPENDENCY_DIFF_LIMIT, dependencyDiff, sameDependencies } from '@/lib/svelte/dependency-diff'
 
 function dependency(url: string, suffix: string) {
   return { url, bytes: suffix.length, sha256: suffix.repeat(64).slice(0, 64) }

@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'vitest'
 import { MarkdownSource } from '@/db'
 import { parseIndexListParams } from '@/lib/utils/list-params'
-import { describe, expect, it } from 'vitest'
 
 describe('parseIndexListParams', () => {
   it('defaults to the posts list without filters', () => {

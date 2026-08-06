@@ -1,10 +1,10 @@
+import { describe, expect, it, vi } from 'vitest'
 import {
   InDocumentPreviewRuntime,
   type PreviewArtifact,
   PreviewCommandSupersededError,
   type PreviewRuntimeEventTarget,
 } from '@/components/editor/svelte/preview-runtime'
-import { describe, expect, it, vi } from 'vitest'
 
 class FakeEventTarget implements PreviewRuntimeEventTarget {
   #listeners = new Map<string, EventListener>()

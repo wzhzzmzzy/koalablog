@@ -1,7 +1,7 @@
 import type { CreationTemplateV1, CreationTemplateV2, TemplateCatalogV1, TemplateCatalogV2 } from '@/lib/files/types'
+import { and, eq } from 'drizzle-orm'
 import { connectDB } from '@/db'
 import { DEFAULT_MEMO_TEMPLATE_V2, upgradeTemplateCatalogV1, validateTemplateV1, validateTemplateV2 } from '@/lib/files/template'
-import { and, eq } from 'drizzle-orm'
 import { creationTemplateCatalog } from './schema'
 
 export const CREATION_TEMPLATE_CATALOG_KEY = 'koala:creation-templates'

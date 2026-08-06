@@ -1,7 +1,7 @@
+import { describe, expect, it } from 'vitest'
 import { calculateSourceHash } from '@/lib/files/source-hash'
 import { RENDERER_MODE } from '@/lib/files/types'
 import { SOURCE_HASH_FIXTURES } from '@/tests/fixtures/source-hash'
-import { describe, expect, it } from 'vitest'
 
 describe('canonical File Source Hash', () => {
   it.each(SOURCE_HASH_FIXTURES)('hashes $name from the versioned canonical payload', async (fixture) => {

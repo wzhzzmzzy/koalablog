@@ -1,5 +1,5 @@
-import type { RendererMode } from '@/lib/files/types'
 import type { EditorState, StateEffect } from '@codemirror/state'
+import type { RendererMode } from '@/lib/files/types'
 import { createEditorStateRegistry } from './state-registry'
 
 export interface CachedCodeMirrorState {

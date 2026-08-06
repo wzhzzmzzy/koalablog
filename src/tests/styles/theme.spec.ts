@@ -1,5 +1,5 @@
-import { CatppuccinColorKeys, generateThemeCSS, Themes } from '@/styles/theme'
 import { describe, expect, it } from 'vitest'
+import { CatppuccinColorKeys, generateThemeCSS, Themes } from '@/styles/theme'
 
 describe('catppuccin theme generation', () => {
   it.each(Object.entries(Themes))('%s includes every palette color in generated CSS', (flavor, palette) => {

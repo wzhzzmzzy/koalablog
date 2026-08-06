@@ -21,7 +21,7 @@ export const wrapperlessFenceRule: RenderRule = (tokens, idx, options, _env, _sl
   if (options.highlight) {
     highlighted
       = options.highlight(token.content, langName, langAttrs)
-      || escapeHtml(token.content)
+        || escapeHtml(token.content)
   }
   else {
     highlighted = escapeHtml(token.content)

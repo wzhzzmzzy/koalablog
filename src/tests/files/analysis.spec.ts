@@ -1,5 +1,5 @@
-import { analyzeMarkdownSource } from '@/lib/files/analysis'
 import { describe, expect, it } from 'vitest'
+import { analyzeMarkdownSource } from '@/lib/files/analysis'
 
 describe('markdown Source analysis', () => {
   it('collects canonical absolute File References and tags in first-seen order', () => {

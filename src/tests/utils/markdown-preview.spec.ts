@@ -1,5 +1,5 @@
-import { getMarkdownPreviewLines, getMarkdownPreviewText } from '@/lib/utils/markdown-preview'
 import { describe, expect, it } from 'vitest'
+import { getMarkdownPreviewLines, getMarkdownPreviewText } from '@/lib/utils/markdown-preview'
 
 describe('getMarkdownPreviewLines', () => {
   it('returns the first three plain-text lines from markdown', () => {

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest'
 import { MarkdownSource } from '@/db'
 import {
   classifySource,
@@ -6,7 +7,6 @@ import {
   parseAbsoluteFilePath,
   parseAbsolutePathPrefix,
 } from '@/lib/files/path'
-import { describe, expect, it } from 'vitest'
 
 describe('file path', () => {
   it('normalizes an absolute File Path without inventing a leading slash', () => {

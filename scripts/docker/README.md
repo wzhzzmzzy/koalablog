@@ -7,7 +7,7 @@ All Docker-related files have been organized into the `scripts/docker/` director
 ```
 scripts/docker/
 ├── Dockerfile              # Production build
-├── Dockerfile.dev          # Development build  
+├── Dockerfile.dev          # Development build
 ├── docker-compose.yml      # Production compose
 ├── docker-compose.dev.yml  # Development compose
 ├── DOCKER.md               # Detailed documentation
@@ -28,7 +28,7 @@ All commands should be run from the **project root** directory:
 pnpm run docker:build
 pnpm run compose:up
 
-# Development mode  
+# Development mode
 pnpm run compose:dev
 
 # Production with Nginx

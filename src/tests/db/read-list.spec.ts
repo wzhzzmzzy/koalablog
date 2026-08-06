@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { MarkdownSource } from '@/db'
-import { batchAdd, readList } from '@/db/markdown'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MarkdownSource } from '@/db'
+import { batchAdd, readList } from '@/db/markdown'
 
 const env = {} as Env
 
