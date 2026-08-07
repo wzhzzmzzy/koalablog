@@ -1,6 +1,6 @@
-import type { FileRecord } from '@/db/types'
 import type { CatppuccinTheme } from '../const/config'
 import type { DoubleLinkPluginOptions } from './double-link-plugin'
+import type { FileRecord } from '@/db/types'
 import { md, rawMd } from '.'
 
 export async function renderIt(

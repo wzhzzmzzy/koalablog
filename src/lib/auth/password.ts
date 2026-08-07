@@ -28,6 +28,12 @@ function fromHex(hex: string): Uint8Array {
   return bytes
 }
 
+function copyToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(buffer).set(bytes)
+  return buffer
+}
+
 function timingSafeEqual(left: string, right: string): boolean {
   if (left.length !== right.length)
     return false
@@ -38,9 +44,10 @@ function timingSafeEqual(left: string, right: string): boolean {
 }
 
 async function derivePasswordHash(password: string, salt: Uint8Array, iterations: number): Promise<string> {
-  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
+  const passwordBytes = new TextEncoder().encode(password)
+  const material = await crypto.subtle.importKey('raw', copyToArrayBuffer(passwordBytes), 'PBKDF2', false, ['deriveBits'])
   const derived = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt, iterations },
+    { name: 'PBKDF2', hash: 'SHA-256', salt: copyToArrayBuffer(salt), iterations },
     material,
     KEY_BITS,
   )

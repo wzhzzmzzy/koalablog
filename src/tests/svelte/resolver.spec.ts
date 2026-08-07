@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'vitest'
 import { SVELTE_DEPENDENCY_LIMITS } from '@/lib/svelte/toolchain'
 import { resolveHttpsModuleGraph, type SvelteDependencyFetchResponse } from '@/workers/svelte/resolver'
-import { describe, expect, it } from 'vitest'
 
 interface FakeResponseOptions {
   contentType?: string
@@ -146,7 +146,7 @@ describe('bounded HTTPS dependency resolver', () => {
       },
       setTimeout: (callback) => {
         callback()
-        return 0 as unknown as ReturnType<typeof setTimeout>
+        return 0
       },
     })
     const elapsed = [0, 20_001]
@@ -165,7 +165,7 @@ describe('bounded HTTPS dependency resolver', () => {
       now: () => elapsedDuringFetch.shift() ?? 20_001,
       setTimeout: (callback) => {
         callback()
-        return 0 as unknown as ReturnType<typeof setTimeout>
+        return 0
       },
     })
 

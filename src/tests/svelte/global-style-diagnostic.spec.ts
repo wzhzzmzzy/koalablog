@@ -1,5 +1,5 @@
-import { globalStyleEscapeDiagnostics } from '@/workers/svelte/global-style-diagnostic'
 import { describe, expect, it } from 'vitest'
+import { globalStyleEscapeDiagnostics } from '@/workers/svelte/global-style-diagnostic'
 
 describe('svelte global style diagnostics', () => {
   it('warns for unanchored explicit global selectors', async () => {

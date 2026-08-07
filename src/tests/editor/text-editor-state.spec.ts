@@ -1,7 +1,7 @@
+import { describe, expect, it, vi } from 'vitest'
 import { reconcileTextEditorDiagnostics } from '@/components/editor/text-editor/diagnostics'
 import { isCurrentTextEditorLanguageRequest, planTextEditorLanguageRequest } from '@/components/editor/text-editor/language-state'
 import { createEditorStateRegistry, reconcileEditorInput } from '@/components/editor/text-editor/state-registry'
-import { describe, expect, it, vi } from 'vitest'
 
 interface FakeEditorState {
   doc: string

@@ -1,9 +1,9 @@
 import type { TemplateCatalogV1, TemplateCatalogV2 } from '@/lib/files/types'
+import { ActionError, defineAction } from 'astro:actions'
+import { z } from 'astro:schema'
 import { readTemplateCatalog, replaceTemplateCatalog } from '@/db/template-catalog'
 import { upgradeTemplateCatalogV1 } from '@/lib/files/template'
 import { RENDERER_MODE } from '@/lib/files/types'
-import { ActionError, defineAction } from 'astro:actions'
-import { z } from 'astro:schema'
 import { authGuard } from '../utils/auth'
 
 const templateSchema = z.object({

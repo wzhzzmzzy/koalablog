@@ -96,7 +96,7 @@ export function rawMd(opt: {
     useTagPlugin(md)
     useTodoPlugin(md)
 
-    const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, env, self) {
+    const defaultFence = md.renderer.rules.fence || function (tokens, idx, options, _env, self) {
       return self.renderToken(tokens, idx, options)
     }
 

@@ -1,7 +1,7 @@
+import { type ActionAPIContext, ActionError } from 'astro:actions'
 import { readAnyById } from '@/db/markdown'
 import { incrementToday } from '@/db/ossAccess'
 import { authInterceptor } from '@/lib/auth'
-import { type ActionAPIContext, ActionError } from 'astro:actions'
 
 export async function authGuard(ctx: ActionAPIContext) {
   await authInterceptor(ctx)

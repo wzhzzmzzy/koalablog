@@ -1,6 +1,6 @@
 import type { DiskSourceFile } from '@/lib/files/disk'
-import { FileDiskError, fileFromDiskPath } from '@/lib/files/disk'
 import { actions } from 'astro:actions'
+import { FileDiskError, fileFromDiskPath } from '@/lib/files/disk'
 
 export function supportFSApi(): boolean {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window

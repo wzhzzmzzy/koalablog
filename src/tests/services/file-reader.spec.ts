@@ -1,5 +1,5 @@
-import { pickDirectoryWithFilePicker, supportFSApi } from '@/lib/services/file-reader'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { pickDirectoryWithFilePicker, supportFSApi } from '@/lib/services/file-reader'
 
 afterEach(() => vi.unstubAllGlobals())
 

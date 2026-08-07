@@ -159,4 +159,3 @@ Two-layer verification was performed.
 - Other UnoCSS-specific pseudo/direction variants: 0 findings beyond the single `lt-sm:` site.
 - Replacements generate identically under the project's current UnoCSS pipeline (verified via the live `__uno.css` virtual module on port 4444) and under Tailwind v4.3.3 (verified via the `compile()`/`build()` API).
 - No diagnostics regression.
-

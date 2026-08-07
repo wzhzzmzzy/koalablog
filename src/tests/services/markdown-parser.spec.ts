@@ -1,5 +1,5 @@
-import { parseMarkdownContent } from '@/lib/services/markdown-parser'
 import { describe, expect, it } from 'vitest'
+import { parseMarkdownContent } from '@/lib/services/markdown-parser'
 
 describe('markdown-parser', () => {
   it('should parse markdown with meta frontmatter', async () => {

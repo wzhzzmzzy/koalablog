@@ -1,7 +1,7 @@
-import { md, rawMd } from '@/lib/markdown'
-import { parseFrontmatter, useMetaPlugin } from '@/lib/markdown/meta-plugin'
 import MarkdownIt from 'markdown-it'
 import { describe, expect, it } from 'vitest'
+import { md, rawMd } from '@/lib/markdown'
+import { parseFrontmatter, useMetaPlugin } from '@/lib/markdown/meta-plugin'
 
 describe('meta-plugin', () => {
   it('parses frontmatter into metadata and renderable content', () => {

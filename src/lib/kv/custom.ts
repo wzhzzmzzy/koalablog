@@ -8,7 +8,7 @@ export async function getConfig(env: Env | undefined, key: string): Promise<stri
     return env.KOALA.get(key)
   }
   // #if !CF_PAGES
-  else {
+  if (!env?.CF_PAGES) {
     const value = await storage.get(key)
     return typeof value === 'string' ? value : null
   }

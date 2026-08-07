@@ -2,9 +2,9 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
 import { globalConfig, putGlobalConfig, updateGlobalConfig } from '@/lib/kv'
 import { createKvStore } from '@/lib/kv/local'
-import { afterEach, describe, expect, it } from 'vitest'
 
 const temporaryFiles: string[] = []
 

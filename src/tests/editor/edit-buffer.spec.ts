@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   EDIT_BUFFERS_STORAGE_KEY,
   editBuffers,
@@ -14,7 +15,6 @@ import {
   setItems,
 } from '@/components/editor/store.svelte'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
-import { afterEach, describe, expect, it } from 'vitest'
 
 class MemoryStorage {
   private values = new Map<string, string>()

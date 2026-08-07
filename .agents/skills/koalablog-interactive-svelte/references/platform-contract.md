@@ -76,7 +76,7 @@ For reference, these are the calls encapsulated by the virtual runtime:
 const response = await fetch('/_actions/db.markdown.byPrefix', {
   method: 'POST',
   credentials: 'same-origin',
-  headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+  headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
   body: JSON.stringify({ prefix: '/area' }),
 })
 ~~~

@@ -1,8 +1,8 @@
+import { env } from 'cloudflare:test'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { createFile } from '@/db/file-create'
 import { resetD1ForOnboarding } from '@/db/onboarding'
 import { ensureTemplateCatalogInitialized, replaceTemplateCatalog } from '@/db/template-catalog'
-import { env } from 'cloudflare:test'
-import { beforeEach, describe, expect, it } from 'vitest'
 import initSql from '../../migrations/0000_init.sql?raw'
 import userSchemaSql from '../../migrations/0002_user.sql?raw'
 

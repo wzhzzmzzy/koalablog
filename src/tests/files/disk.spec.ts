@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'vitest'
 import { fileExportEntries, fileFromDiskPath } from '@/lib/files/disk'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
-import { describe, expect, it } from 'vitest'
 
 describe('file disk representation', () => {
   it('exports Source at the extension-bearing form of each absolute File Path', () => {

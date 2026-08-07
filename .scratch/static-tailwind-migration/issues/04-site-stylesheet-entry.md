@@ -111,4 +111,3 @@ $ pnpm tsx scripts/visual-baseline/compare.ts
 - The `dashboardTailwindPlugins` wrapper in `astro.config.ts` is still required during this slice — UnoCSS's virtual `__uno.css` module is still being served. Slice 05 (remove static UnoCSS) should remove the wrapper entirely, leaving the plain `tailwindcss()` plugin chain so both `site.css` and `dashboard-ui.css` go through Tailwind's standard Vite transform.
 - The CSSOM probe added to `tests/e2e/cascade-contract.spec.ts` is the layering-half proof; the cascade-contract computed-style test (slice 01) is the behavior-half proof. Slice 05's acceptance is the conjunction of both, after UnoCSS removal.
 - `scripts/visual-baseline/compare.ts` is the slice-06 acceptance harness; its public API (CLI flags `--archive` and `--out`, exit code 0/1) should remain stable.
-

@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'vitest'
 import { findImageRemoval, findImageReplacement, imageMarkup, prepareImageBatch } from '@/components/editor/text-editor/images'
 import { RENDERER_MODE } from '@/lib/files/types'
-import { describe, expect, it } from 'vitest'
 
 function image(name: string, type = 'image/png') {
   return { name, type } as File

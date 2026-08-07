@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'vitest'
 import { MarkdownSource } from '@/db'
 import { getDisplayTitle } from '@/lib/files/display-title'
-import { describe, expect, it } from 'vitest'
 
 describe('getDisplayTitle', () => {
   it('uses a Post frontmatter title without changing the File Title', () => {

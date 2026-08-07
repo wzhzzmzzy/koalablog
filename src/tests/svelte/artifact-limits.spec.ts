@@ -1,5 +1,5 @@
-import { artifactByteLengths, artifactLimitViolation, SVELTE_ARTIFACT_LIMITS } from '@/lib/svelte/artifact-limits'
 import { describe, expect, it } from 'vitest'
+import { artifactByteLengths, artifactLimitViolation, SVELTE_ARTIFACT_LIMITS } from '@/lib/svelte/artifact-limits'
 
 function artifact(overrides: Partial<{ css: string, javascript: string, snapshotHtml: string }> = {}) {
   return {

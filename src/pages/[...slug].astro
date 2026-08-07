@@ -6,14 +6,9 @@ import { readByPath, readVisiblePathPrefix } from '@/db/markdown'
 import { readArtifactAccess } from '@/db/render-artifact'
 import { getDisplayTitle } from '@/lib/files/display-title'
 import { parseAbsolutePathPrefix } from '@/lib/files/path'
-import { retriveRss } from '@/lib/utils/rss'
 
 const { slug } = Astro.params
 const isPrefixRequest = Astro.url.pathname.endsWith('/')
-
-if (slug === 'rss.xml' && !isPrefixRequest) {
-  return retriveRss(Astro)
-}
 
 const path = `/${slug || ''}`
 const maybePage: FileRecord | undefined = isPrefixRequest

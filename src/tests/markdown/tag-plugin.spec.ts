@@ -1,8 +1,6 @@
-import fs from 'node:fs/promises'
-import path from 'node:path'
-import { useTagPlugin } from '@/lib/markdown/tag-plugin'
 import MarkdownIt from 'markdown-it'
 import { describe, expect, it } from 'vitest'
+import { useTagPlugin } from '@/lib/markdown/tag-plugin'
 
 describe('tag-plugin', () => {
   const createMd = (options?: { className?: string }) => {

@@ -102,7 +102,7 @@ services:
   koalablog:
     build: .
     ports:
-      - "4321:4321"
+      - '4321:4321'
     volumes:
       - koalablog-data:/app/data
       - koalablog-uploads:/app/uploads
@@ -321,7 +321,7 @@ docker run --security-opt no-new-privileges koalablog:latest
 
 ```yaml
 healthcheck:
-  test: ["CMD", "curl", "-f", "http://localhost:4321/api/health"]
+  test: [CMD, curl, -f, 'http://localhost:4321/api/health']
   interval: 30s
   timeout: 10s
   retries: 3

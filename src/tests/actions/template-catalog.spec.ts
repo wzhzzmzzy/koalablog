@@ -1,5 +1,5 @@
-import { read, replace } from '@/actions/db/templates'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { read, replace } from '@/actions/db/templates'
 
 const mocks = vi.hoisted(() => ({
   authGuard: vi.fn(),

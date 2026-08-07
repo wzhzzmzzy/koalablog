@@ -1,8 +1,8 @@
 import type { APIContext } from 'astro'
+import rss from '@astrojs/rss'
 import { readActivePaths, readAllPublic } from '@/db/markdown'
 import { getDisplayTitle } from '@/lib/files/display-title'
 import { rawMd } from '@/lib/markdown'
-import rss from '@astrojs/rss'
 
 export async function retriveRss(ctx: APIContext) {
   const rssConfig = ctx.locals.config.rss || { enable: true }

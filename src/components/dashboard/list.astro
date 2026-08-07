@@ -1,9 +1,9 @@
 ---
+import { format, isSameYear } from 'date-fns'
 import { MarkdownSource } from '@/db'
 import { readList } from '@/db/markdown'
 import { getDisplayTitle } from '@/lib/files/display-title'
 import { getMarkdownPreviewText } from '@/lib/utils/markdown-preview'
-import { format, isSameYear } from 'date-fns'
 
 interface Props {
   source: MarkdownSource

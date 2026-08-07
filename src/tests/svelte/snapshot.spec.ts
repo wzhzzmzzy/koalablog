@@ -1,5 +1,5 @@
-import { canonicalizeSnapshotHtml, isCanonicalSnapshotHtml, snapshotDescription } from '@/lib/svelte/snapshot'
 import { describe, expect, it } from 'vitest'
+import { canonicalizeSnapshotHtml, isCanonicalSnapshotHtml, snapshotDescription } from '@/lib/svelte/snapshot'
 import { canonicalSnapshotFixture, snapshotFixture } from './snapshot-fixture'
 
 describe('svelte Snapshot serialization', () => {

@@ -1,7 +1,7 @@
 import type { FileRecord } from '@/db/types'
 import type { RendererMode } from '@/lib/files/types'
-import { isRendererMode } from '@/lib/files/types'
 import { SvelteMap } from 'svelte/reactivity'
+import { isRendererMode } from '@/lib/files/types'
 
 export const LEGACY_DRAFTS_STORAGE_KEY = 'koala-editor-drafts'
 export const EDIT_BUFFERS_STORAGE_KEY = 'koala-editor-edit-buffers'

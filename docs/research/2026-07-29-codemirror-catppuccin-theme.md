@@ -27,8 +27,8 @@ border 修复（黑色 2px 改为 `overlay0` 1px），所以“100% 一样”必
 
 ```ts
 import {
-  catppuccinLatte,
   catppuccinFrappe,
+  catppuccinLatte,
   catppuccinMacchiato,
   catppuccinMocha,
 } from '@catppuccin/codemirror'

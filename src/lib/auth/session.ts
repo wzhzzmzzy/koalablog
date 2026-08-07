@@ -50,20 +50,22 @@ function resolveSessionKv(env?: Env): SessionKv {
   if (env?.CF_PAGES && env.KOALA)
     return cloudflareSessionKv(env)
   // #if !CF_PAGES
-  return {
-    get: key => storage.get(key),
-    set: async (key, value) => {
-      await storage.set(key, value)
-      await storage.sync()
-    },
-    delete: async (key) => {
-      await storage.delete(key)
-      await storage.sync()
-    },
-    list: async (prefix) => {
-      await storage.init()
-      return Object.keys(storage.storage).filter(key => key.startsWith(prefix))
-    },
+  if (!env?.CF_PAGES) {
+    return {
+      get: key => storage.get(key),
+      set: async (key, value) => {
+        await storage.set(key, value)
+        await storage.sync()
+      },
+      delete: async (key) => {
+        await storage.delete(key)
+        await storage.sync()
+      },
+      list: async (prefix) => {
+        await storage.init()
+        return Object.keys(storage.storage).filter(key => key.startsWith(prefix))
+      },
+    }
   }
   // #endif
   throw new Error('Session KV is not available')

@@ -16,7 +16,7 @@ describe('svelte page runtime', () => {
     vi.stubGlobal('fetch', async () => new Response('[[]]', { status: 200 }))
 
     const error = await runtime.readOwnedMarkdown({ path: '/data/consume-list-catalog', prefix: '/data' })
-      .then(() => null, error => error)
+      .then(() => null, (error: unknown) => error)
 
     expect(error).toBeInstanceOf(runtime.CompanionFileError)
     expect(error.message).toContain('/data/consume-list-catalog')

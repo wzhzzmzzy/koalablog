@@ -1,3 +1,5 @@
+import { ActionError, defineAction } from 'astro:actions'
+import { z } from 'astro:schema'
 import {
   deleteApiToken,
   findUserById,
@@ -9,8 +11,6 @@ import {
 import { hashApiToken } from '@/lib/auth/api-token'
 import { hashPassword, verifyPassword } from '@/lib/auth/password'
 import { deleteSessionsForUser, SESSION_COOKIE_NAME } from '@/lib/auth/session'
-import { ActionError, defineAction } from 'astro:actions'
-import { z } from 'astro:schema'
 import { authGuard, loginGuard } from '../utils/auth'
 
 export const changePassword = defineAction({

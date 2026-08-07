@@ -1,7 +1,7 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { serializeJavascriptResource } from '@/lib/svelte/artifact-hash'
 import { GET as getModule } from '@/pages/api/render-artifacts/[fileId]/[sourceHash]/module.js'
 import { GET as getStyles } from '@/pages/api/render-artifacts/[fileId]/[sourceHash]/styles.css'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   readArtifactAccess: vi.fn(),

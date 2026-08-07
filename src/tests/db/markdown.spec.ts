@@ -1,5 +1,5 @@
-import { getSourceFromPath, MarkdownSource } from '@/db/index'
 import { describe, expect, it } from 'vitest'
+import { getSourceFromPath, MarkdownSource } from '@/db/index'
 
 describe('getSourceFromPath', () => {
   it('classifies only /post/ as Post and everything else as Memo', () => {

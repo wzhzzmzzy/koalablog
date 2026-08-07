@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'vitest'
 import { decodeFileSaveConflict, formatFileSaveError, sourceConflictFromActionError } from '@/components/editor/utils'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
-import { describe, expect, it } from 'vitest'
 
 describe('editor File Save error decoding', () => {
   it('decodes one source-conflict payload for all consumers', () => {

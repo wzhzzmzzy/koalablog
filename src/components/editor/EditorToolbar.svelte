@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types'
   import type { RendererMode } from '@/lib/files/types'
+  import { parseAbsoluteFilePath } from '@/lib/files/path'
   import type { DeploymentSummary } from '@/lib/svelte/deployment-status'
   import { ArrowLeft, Eye, FileText, Menu, RotateCw, Save, SquarePen } from '@lucide/svelte'
   import type { EditBufferServerValues } from './edit-buffer.svelte'
@@ -8,6 +9,7 @@
   import EditorMoreMenu from './EditorMoreMenu.svelte'
   import type { MarkdownViewMode } from './markdown-view-state.svelte'
   import SvelteIcon from './SvelteIcon.svelte'
+  import { tick } from 'svelte'
   import { toggleSidebar } from './store.svelte'
 
   type ClickHandler = (event: MouseEvent) => void | Promise<void>
@@ -90,6 +92,48 @@
   const saveLabel = $derived(saving ? 'Saving…' : (savedAcknowledgement ? 'Saved' : (changed ? 'Save changes' : 'Save')))
   const saveDisabled = $derived(!hasFile || !changed || Boolean(conflict) || saving || savedAcknowledgement)
   const savePrimary = $derived(changed && !conflict && !saving && !savedAcknowledgement)
+  let editingPath = $state(false)
+  let pathDraft = $state('')
+  let pathError = $state('')
+  let pathInput: HTMLInputElement | undefined = $state()
+  let pathTrigger: HTMLButtonElement | undefined = $state()
+
+  async function beginPathEdit() {
+    if (!hasPersistedFile || trashed)
+      return
+    pathDraft = pathValue
+    pathError = ''
+    editingPath = true
+    await tick()
+    pathInput?.focus()
+    pathInput?.select()
+  }
+
+  function cancelPathEdit() {
+    editingPath = false
+    pathError = ''
+    void tick().then(() => pathTrigger?.focus())
+  }
+
+  function applyPathEdit() {
+    const parsed = parseAbsoluteFilePath(pathDraft)
+    if (!parsed.ok) {
+      pathError = 'Enter an absolute Path without an extension or empty segments.'
+      pathInput?.focus()
+      return
+    }
+    onPathChange(parsed.value)
+    editingPath = false
+    pathError = ''
+    void tick().then(() => pathTrigger?.focus())
+  }
+
+  function handlePathKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      cancelPathEdit()
+    }
+  }
 </script>
 
 <div data-testid="editor-toolbar" class="editor-toolbar">
@@ -115,7 +159,7 @@
     </button>
   </div>
 
-  <div class="editor-toolbar__context" title={pathValue || unavailableTitle} aria-label={hasFile ? `File Path ${pathValue}` : unavailableTitle}>
+  <div class="editor-toolbar__context" class:editor-toolbar__context--editing={editingPath} title={pathValue || unavailableTitle} aria-label={hasFile ? `File Path ${pathValue}` : unavailableTitle}>
     <span class="editor-toolbar__context-mark" data-testid="editor-path-file-icon" data-renderer={rendererValue} aria-hidden="true">
       {#if rendererValue === 'svelte'}
         <SvelteIcon size={14} />
@@ -123,7 +167,34 @@
         <FileText size={14} />
       {/if}
     </span>
-    <span class="editor-path-display">{pathValue || 'Select a File from File Explorer'}</span>
+    {#if hasPersistedFile && !trashed}
+      {#if editingPath}
+        <form class="editor-path-edit" onsubmit={(event) => { event.preventDefault(); applyPathEdit() }}>
+          <input
+            bind:this={pathInput}
+            bind:value={pathDraft}
+            class="editor-path-input"
+            aria-label="File Path"
+            aria-invalid={Boolean(pathError)}
+            aria-description="Press Enter to apply the Path or Escape to cancel."
+            title={pathError || 'Press Enter to apply or Escape to cancel'}
+            onkeydown={handlePathKeydown}
+          />
+        </form>
+      {:else}
+        <button
+          bind:this={pathTrigger}
+          type="button"
+          data-testid="editor-path-edit"
+          class="editor-path-display"
+          aria-label={`Edit File Path ${pathValue}`}
+          title="Edit File Path"
+          onclick={() => void beginPathEdit()}
+        >{pathValue}</button>
+      {/if}
+    {:else}
+      <span class="editor-path-display">{pathValue || 'Select a File from File Explorer'}</span>
+    {/if}
   </div>
 
   {#if hasFile && rendererValue === 'markdown'}
@@ -187,7 +258,6 @@
     {/if}
     <EditorMoreMenu
       {file}
-      {pathValue}
       {rendererValue}
       {privateValue}
       {trashed}
@@ -197,7 +267,6 @@
       {onUpload}
       {onCopyLink}
       {onCopyReference}
-      {onPathChange}
       {onUpdate}
       {onPurge}
     />

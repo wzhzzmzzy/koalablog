@@ -1,8 +1,8 @@
 import type { Token } from 'markdown-it/index.js'
 import type { AbsoluteFilePath } from './types'
+import MarkdownIt from 'markdown-it'
 import { useDoubleLink } from '@/lib/markdown/double-link-plugin'
 import { useTagPlugin } from '@/lib/markdown/tag-plugin'
-import MarkdownIt from 'markdown-it'
 import { parseAbsoluteFilePath } from './path'
 
 export interface MarkdownSourceAnalysis {

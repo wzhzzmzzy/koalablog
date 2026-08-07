@@ -1,5 +1,5 @@
-import type { RendererMode } from '@/lib/files/types'
 import type { MarkdownSource } from '.'
+import type { RendererMode } from '@/lib/files/types'
 
 export interface FileRecord {
   id: number

@@ -1,5 +1,5 @@
-import { svelteResolverPolicyDiagnostics } from '@/workers/svelte/resolver-policy'
 import { describe, expect, it } from 'vitest'
+import { svelteResolverPolicyDiagnostics } from '@/workers/svelte/resolver-policy'
 
 describe('svelte static asset policy', () => {
   it('accepts slash-leading and absolute HTTPS markup, srcset, and CSS assets', async () => {

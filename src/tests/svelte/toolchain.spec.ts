@@ -1,6 +1,6 @@
+import { describe, expect, it } from 'vitest'
 import { SVELTE_RUNTIME_REGISTRY } from '@/lib/svelte/runtime-registry.generated'
 import { SVELTE_TOOLCHAIN_VERSIONS } from '@/lib/svelte/toolchain'
-import { describe, expect, it } from 'vitest'
 
 describe('svelte browser toolchain', () => {
   it('publishes the exact supported toolchain versions', () => {
