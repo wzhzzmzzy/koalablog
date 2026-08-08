@@ -194,6 +194,7 @@
           onUpdate={handleUpdate}
           onPurge={handlePurge}
           onBack={() => workspaceNavigation.back()}
+          onOpenReference={file => workspaceNavigation.open(file)}
         />
       {:else}
         <div class="editor-empty-layout">

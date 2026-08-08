@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { FileRecord } from '@/db/types';
   import type { RendererMode } from '@/lib/files/types';
   import type { DeploymentSummary } from '@/lib/svelte/deployment-status';
   import { FileText, SquarePen } from '@lucide/svelte';
@@ -8,6 +9,7 @@
   import type { EditBufferServerValues } from './edit-buffer.svelte';
   import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
   import type { FileReferenceCandidate } from './text-editor/file-reference-completion';
+  import FileReferencePeek, { type FileReferencePeekTarget } from './FileReferencePeek.svelte';
   import SvelteIcon from './SvelteIcon.svelte';
   import SveltePreview from './svelte/SveltePreview.svelte';
   import TextEditor, { type TextEditorHandle } from './TextEditor.svelte';
@@ -20,6 +22,7 @@
     diagnostics?: TextEditorDiagnosticUpdate | null;
     value: string;
     referenceCandidates: readonly FileReferenceCandidate[];
+    referenceTargets: readonly FileReferencePeekTarget[];
     showPreview: boolean;
     markdownRequestedMode: MarkdownViewMode;
     markdownSplitRatio: number;
@@ -37,6 +40,7 @@
     onRebase: () => void;
     onClosePreview: () => void;
     onMarkdownSplitRatio: (ratio: number, contentWidth: number) => void;
+    onOpenReference: (file: FileRecord) => void;
     onChange: (value: string) => void;
     uploadImage: (file: File) => Promise<{ url: string }>;
   }
@@ -49,6 +53,7 @@
     diagnostics = null,
     value,
     referenceCandidates,
+    referenceTargets,
     showPreview,
     markdownRequestedMode,
     markdownSplitRatio,
@@ -66,6 +71,7 @@
     onRebase,
     onClosePreview,
     onMarkdownSplitRatio,
+    onOpenReference,
     onChange,
     uploadImage,
   }: Props = $props();
@@ -79,6 +85,10 @@
   let contentWidth = $state(0);
   let touchViewport = $state(false);
   let draggingSplit = $state(false);
+  let activeReferenceAnchor = $state<HTMLAnchorElement | null>(null);
+  let activeReferencePath = $state<string | null>(null);
+  let referencePeekPosition = $state({ left: 0, top: 0 });
+  let missingReferencePath = $state<string | null>(null);
   const lineCount = $derived(value.length === 0 ? 1 : value.split('\n').length);
   const effectiveMarkdownMode = $derived(effectiveMarkdownViewMode({
     requestedMode: markdownRequestedMode,
@@ -109,6 +119,9 @@
       return 'Artifact · deployment drift'
     return 'Artifact · deployed'
   });
+  const referenceTargetsByPath = $derived(new Map(referenceTargets.map(target => [target.file.path, target])));
+  const activeReferenceTarget = $derived(activeReferencePath ? referenceTargetsByPath.get(activeReferencePath) ?? null : null);
+  const showReferencePeek = $derived(!touchViewport && activeReferenceAnchor !== null && activeReferenceTarget !== null);
 
   export function focus() {
     textEditor?.focus();
@@ -173,20 +186,129 @@
     onMarkdownSplitRatio(clampSplitRatio(next, contentWidth), contentWidth)
   }
 
+  function referenceAnchor(target: EventTarget | null) {
+    return target instanceof Element
+      ? target.closest<HTMLAnchorElement>('a[data-file-reference]')
+      : null
+  }
+
+  function clearReferencePeek() {
+    activeReferenceAnchor?.removeAttribute('aria-describedby')
+    activeReferenceAnchor = null
+    activeReferencePath = null
+  }
+
+  function showPeekFor(anchor: HTMLAnchorElement) {
+    const path = anchor.dataset.fileReference
+    if (touchViewport || !path || !referenceTargetsByPath.has(path)) {
+      clearReferencePeek()
+      return
+    }
+
+    const bounds = anchor.getBoundingClientRect()
+    const peekWidth = Math.min(352, window.innerWidth - 16)
+    referencePeekPosition = {
+      left: Math.max(8, Math.min(bounds.left, window.innerWidth - peekWidth - 8)),
+      top: Math.max(8, Math.min(bounds.bottom + 10, window.innerHeight - 220)),
+    }
+    activeReferenceAnchor?.removeAttribute('aria-describedby')
+    activeReferenceAnchor = anchor
+    activeReferencePath = path
+    anchor.setAttribute('aria-describedby', 'editor-file-reference-peek')
+  }
+
+  function keepReferencePeek(anchor: HTMLAnchorElement) {
+    return document.activeElement === anchor || anchor.matches(':hover')
+  }
+
+  function handleReferenceClick(event: MouseEvent) {
+    const anchor = referenceAnchor(event.target)
+    const path = anchor?.dataset.fileReference
+    if (!anchor || !path)
+      return
+
+    event.preventDefault()
+    const target = referenceTargetsByPath.get(path)
+    if (!target) {
+      missingReferencePath = path
+      clearReferencePeek()
+      return
+    }
+
+    missingReferencePath = null
+    clearReferencePeek()
+    onOpenReference(target.file)
+  }
+
+  function handleReferenceMouseOver(event: MouseEvent) {
+    const anchor = referenceAnchor(event.target)
+    if (anchor)
+      showPeekFor(anchor)
+  }
+
+  function handleReferenceMouseOut(event: MouseEvent) {
+    const anchor = referenceAnchor(event.target)
+    if (anchor && !keepReferencePeek(anchor))
+      clearReferencePeek()
+  }
+
+  function handleReferenceFocusIn(event: FocusEvent) {
+    const anchor = referenceAnchor(event.target)
+    if (anchor)
+      showPeekFor(anchor)
+  }
+
+  function handleReferenceFocusOut(event: FocusEvent) {
+    const anchor = referenceAnchor(event.target)
+    if (anchor && !keepReferencePeek(anchor))
+      clearReferencePeek()
+  }
+
+  function repositionReferencePeek() {
+    if (activeReferenceAnchor)
+      showPeekFor(activeReferenceAnchor)
+  }
+
   onMount(() => {
     if (!viewContainer)
       return
     const updateTouchViewport = () => {
       touchViewport = window.matchMedia('(hover: none) and (pointer: coarse)').matches
+      if (touchViewport)
+        clearReferencePeek()
     }
     const observer = new ResizeObserver(entries => setContentWidth(entries[0]?.contentRect.width ?? 0))
     observer.observe(viewContainer)
     updateTouchViewport()
     const media = window.matchMedia('(hover: none) and (pointer: coarse)')
     media.addEventListener('change', updateTouchViewport)
+    window.addEventListener('resize', repositionReferencePeek)
     return () => {
       observer.disconnect()
       media.removeEventListener('change', updateTouchViewport)
+      window.removeEventListener('resize', repositionReferencePeek)
+    }
+  })
+
+  $effect(() => {
+    const preview = markdownPreview
+    if (!preview)
+      return
+
+    preview.addEventListener('click', handleReferenceClick)
+    preview.addEventListener('mouseover', handleReferenceMouseOver)
+    preview.addEventListener('mouseout', handleReferenceMouseOut)
+    preview.addEventListener('focusin', handleReferenceFocusIn)
+    preview.addEventListener('focusout', handleReferenceFocusOut)
+    preview.addEventListener('scroll', repositionReferencePeek)
+    return () => {
+      preview.removeEventListener('click', handleReferenceClick)
+      preview.removeEventListener('mouseover', handleReferenceMouseOver)
+      preview.removeEventListener('mouseout', handleReferenceMouseOut)
+      preview.removeEventListener('focusin', handleReferenceFocusIn)
+      preview.removeEventListener('focusout', handleReferenceFocusOut)
+      preview.removeEventListener('scroll', repositionReferencePeek)
+      clearReferencePeek()
     }
   })
 
@@ -291,6 +413,20 @@
       </article>
     {/if}
   </div>
+
+  {#if missingReferencePath}
+    <p class="editor-file-reference-status" role="status" data-testid="missing-file-reference">
+      Missing File <code>{missingReferencePath}</code>
+    </p>
+  {/if}
+
+  {#if showReferencePeek && activeReferenceTarget}
+    <FileReferencePeek
+      target={activeReferenceTarget}
+      left={referencePeekPosition.left}
+      top={referencePeekPosition.top}
+    />
+  {/if}
 
   {#if showPreview}
     <section class="editor-preview-overlay" data-testid="editor-preview-overlay" aria-label="File preview">

@@ -15,6 +15,8 @@ describe('double-link-plugin', () => {
 
     expect(result).toContain('href="/post/existing-post"')
     expect(result).toContain('data-path="/post/existing-post"')
+    expect(result).toContain('data-file-reference="/post/existing-post"')
+    expect(result).toContain('target="_blank"')
     expect(result).toContain('>/post/existing-post</a>')
   })
 
@@ -37,6 +39,7 @@ describe('double-link-plugin', () => {
 
     expect(result).not.toContain('href=')
     expect(result).not.toContain('data-path=')
+    expect(result).toContain('data-file-reference="/missing"')
     expect(result).toContain('>/missing</a>')
   })
 

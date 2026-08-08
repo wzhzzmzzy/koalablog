@@ -85,6 +85,22 @@ test('selecting the current File closes the mobile File Explorer without adding 
   await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Fphase-two$/)
 })
 
+test('mobile File References navigate in the workspace without exposing the desktop Peek', async ({ page }) => {
+  await openEditor(page)
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('Open [[/second]]')
+  await page.getByRole('button', { name: 'preview' }).click()
+
+  const reference = page.locator('#preview-md a[data-file-reference="/second"]')
+  await reference.focus()
+  await expect(page.getByTestId('file-reference-peek')).toHaveCount(0)
+  await reference.click()
+
+  await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Fsecond$/)
+  await expect(page.getByRole('textbox', { name: 'File Source for /second' })).toBeFocused()
+})
+
 test('touch editable surfaces keep a 16px font size, including File Finder and inline File Path', async ({ page }) => {
   await openEditor(page)
   await page.setViewportSize({ width: 393, height: 727 })
