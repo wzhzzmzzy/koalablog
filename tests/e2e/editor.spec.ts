@@ -141,6 +141,7 @@ test('File Path Escape cancels inline editing and restores the path trigger focu
   await path.click()
   const input = page.getByRole('textbox', { name: 'File Path' })
   await expect(input).toHaveValue('/phase-two')
+  await expect(input).toHaveCSS('outline-style', 'none')
   await input.fill('/discarded-path')
   await input.press('Escape')
 

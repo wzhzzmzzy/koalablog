@@ -69,6 +69,7 @@ function doubleLinkPlugin(md: MarkdownIt, options: DoubleLinkPluginOptions = {})
       ['class', opts.className],
       ['target', opts.target],
       ['data-path', href],
+      ['data-file-reference', path],
     ]
 
     // 构建属性字符串

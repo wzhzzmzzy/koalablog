@@ -3,107 +3,662 @@ import Layout from '@/layouts/layout.astro'
 
 const redirectTo = Astro.url.searchParams.get('from') || '/'
 ---
+
 <Layout>
-  <login-form data-redirect-to={redirectTo}>
-    <form id="login-form" method="POST" class="max-w-md mx-auto mt-10">
-      <div class="mb-6">
-        <label for="username" class="block mb-2 text-sm font-medium">Username</label>
-        <input
-          type="text"
-          id="username"
-          name="username"
-          class="input w-full! box-border h-12"
-          placeholder="Input username"
-          required
-        />
-      </div>
-      <div class="mb-6">
-        <label for="password" class="block mb-2 text-sm font-medium">Password</label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          class="input w-full! box-border h-12"
-          placeholder="Input password"
-          required
-        />
+  <main class="login-page">
+    <section class="login-intro" aria-labelledby="login-intro-title">
+      <a class="login-brand" href="/" aria-label="Koalablog home">
+        <span class="login-brand__mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+        <span>Koalablog</span>
+      </a>
+
+      <div class="login-intro__copy">
+        <p class="login-intro__eyebrow">Your private writing space</p>
+        <h1 id="login-intro-title">Keep every small thought close.</h1>
+        <p class="login-intro__description">
+          A calm place to collect notes, shape ideas, and return to the work that matters.
+        </p>
       </div>
 
-      <button
-        id="login-btn"
-        type="submit"
-        class="w-full! font-medium text-sm text-center btn"
-      >
-        Login, then redirect to {redirectTo}
-      </button>
-    </form>
-  </login-form>
+      <div class="login-intro__scene" aria-hidden="true">
+        <div class="login-intro__halo"></div>
+        <div class="login-note login-note--back">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="login-note login-note--front">
+          <span class="login-note__dot"></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="login-intro__leaf login-intro__leaf--left"></div>
+        <div class="login-intro__leaf login-intro__leaf--right"></div>
+      </div>
+    </section>
+
+    <section class="login-panel" aria-labelledby="login-title">
+      <div class="login-panel__content">
+        <p class="login-panel__kicker">Welcome back</p>
+        <h2 id="login-title">Sign in to continue.</h2>
+        <p class="login-panel__description">Your workspace is ready when you are.</p>
+
+        <login-form data-redirect-to={redirectTo}>
+          <form id="login-form" method="POST" class="login-form">
+            <p id="login-error" class="login-form__error" role="alert" hidden></p>
+
+            <div class="login-form__field">
+              <label for="username">Username</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                autocomplete="username"
+                placeholder="Enter your username"
+                required
+                aria-describedby="login-error"
+              />
+            </div>
+
+            <div class="login-form__field">
+              <div class="login-form__label-row">
+                <label for="password">Password</label>
+                <button id="password-toggle" class="login-form__toggle" type="button" aria-controls="password" aria-pressed="false">
+                  Show
+                </button>
+              </div>
+              <div class="login-form__password-wrap">
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  autocomplete="current-password"
+                  placeholder="Enter your password"
+                  required
+                  aria-describedby="login-error"
+                />
+              </div>
+            </div>
+
+            <button id="login-btn" type="submit" class="login-form__submit">
+              <span data-submit-label>Login</span>
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
+                <path d="M4 10h11m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+            </button>
+
+            <p class="login-form__hint">
+              After you log in, we’ll take you back to where you left off.
+            </p>
+          </form>
+        </login-form>
+      </div>
+    </section>
+  </main>
 </Layout>
-
 
 <script>
 import { actions } from 'astro:actions'
 
 class LoginForm extends HTMLElement {
-  loginBtn: HTMLElement | null = null
+  loginBtn: HTMLButtonElement | null = null
+  submitLabel: HTMLElement | null = null
   usernameInput: HTMLInputElement | null = null
   passwordInput: HTMLInputElement | null = null
+  passwordToggle: HTMLButtonElement | null = null
   formEl: HTMLFormElement | null = null
   errorEl: HTMLParagraphElement | null = null
 
   connectedCallback() {
     this.loginBtn = this.querySelector('#login-btn')
+    this.submitLabel = this.querySelector('[data-submit-label]')
     this.usernameInput = this.querySelector('#username')
     this.passwordInput = this.querySelector('#password')
+    this.passwordToggle = this.querySelector('#password-toggle')
     this.formEl = this.querySelector('#login-form')
-    this.loginBtn?.addEventListener('click', (e) => {
-      this.login(e)
+    this.errorEl = this.querySelector('#login-error')
+
+    this.formEl?.addEventListener('submit', event => {
+      void this.login(event)
     })
+    this.passwordToggle?.addEventListener('click', () => this.togglePassword())
+    this.usernameInput?.addEventListener('input', () => this.clearErrorMessage())
+    this.passwordInput?.addEventListener('input', () => this.clearErrorMessage())
   }
 
-  showErrorMessage(message: string = '') {
-    if (!this.formEl) {
-      return
-    }
-
-    if (!message) {
-      this.errorEl?.remove()
-    }
-
-    if (!this.errorEl) {
-      this.errorEl = document.createElement('p')
-      this.errorEl.classList.add('error')
-      this.errorEl.textContent = message
-      this.formEl.insertAdjacentElement('beforeend', this.errorEl)
-    }
-    else {
-      this.errorEl.textContent = message
-    }
+  setBusy(isBusy: boolean) {
+    if (this.loginBtn)
+      this.loginBtn.disabled = isBusy
+    if (this.submitLabel)
+      this.submitLabel.textContent = isBusy ? 'Signing in…' : 'Login'
+    this.formEl?.setAttribute('aria-busy', String(isBusy))
   }
 
-  async login(e: Event) {
-    e.preventDefault()
-
-    const { error } = await actions.form.login({
-      username: this.usernameInput?.value || '',
-      password: this.passwordInput?.value || '',
-    })
-
-    if (error) {
-      if (error.code === 'UNAUTHORIZED') {
-        this.showErrorMessage('Wrong username or password')
-      }
-      else {
-        this.showErrorMessage(error.message)
-      }
+  showErrorMessage(message: string) {
+    if (!this.errorEl)
       return
-    }
 
-    const searchParams = new URLSearchParams(window.location.search)
-    const redirectTo = searchParams.get('from') || '/'
-    window.location.href = redirectTo
+    this.errorEl.textContent = message
+    this.errorEl.hidden = false
+  }
+
+  clearErrorMessage() {
+    if (!this.errorEl)
+      return
+
+    this.errorEl.textContent = ''
+    this.errorEl.hidden = true
+  }
+
+  togglePassword() {
+    if (!this.passwordInput || !this.passwordToggle)
+      return
+
+    const isVisible = this.passwordInput.type === 'text'
+    this.passwordInput.type = isVisible ? 'password' : 'text'
+    this.passwordToggle.textContent = isVisible ? 'Show' : 'Hide'
+    this.passwordToggle.setAttribute('aria-pressed', String(!isVisible))
+  }
+
+  async login(event: SubmitEvent) {
+    event.preventDefault()
+    if (this.loginBtn?.disabled)
+      return
+
+    this.clearErrorMessage()
+    this.setBusy(true)
+
+    try {
+      const { error } = await actions.form.login({
+        username: this.usernameInput?.value || '',
+        password: this.passwordInput?.value || '',
+      })
+
+      if (error) {
+        this.showErrorMessage(error.code === 'UNAUTHORIZED'
+          ? 'Wrong username or password. Please try again.'
+          : error.message)
+        return
+      }
+
+      const redirectTo = this.dataset.redirectTo || '/'
+      window.location.href = redirectTo
+    }
+    catch {
+      this.showErrorMessage('Unable to sign in right now. Please try again.')
+    }
+    finally {
+      this.setBusy(false)
+    }
   }
 }
 
 customElements.define('login-form', LoginForm)
 </script>
+
+<style>
+:global(body:has(.login-page)) {
+  background: var(--koala-catppuccin-base);
+}
+
+:global(body:has(.login-page) #page) {
+  display: block;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.login-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(24rem, 0.88fr);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.login-intro {
+  position: relative;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: clamp(2rem, 5vw, 4.75rem);
+  color: var(--koala-catppuccin-crust);
+  background:
+    radial-gradient(circle at 76% 17%, color-mix(in srgb, var(--koala-catppuccin-lavender) 40%, transparent), transparent 26rem),
+    radial-gradient(circle at 10% 88%, color-mix(in srgb, var(--koala-catppuccin-teal) 40%, transparent), transparent 23rem),
+    var(--koala-catppuccin-mantle);
+}
+
+.login-brand {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.75rem;
+  color: inherit;
+  font-size: 1.15rem;
+  font-weight: 720;
+  letter-spacing: -0.04em;
+}
+
+.login-brand:hover {
+  color: var(--koala-catppuccin-mauve);
+}
+
+.login-brand:focus-visible,
+.login-form__toggle:focus-visible,
+.login-form__submit:focus-visible,
+.login-form input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--koala-catppuccin-mauve) 58%, transparent);
+  outline-offset: 3px;
+}
+
+.login-brand__mark {
+  position: relative;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.72rem 0.72rem 0.72rem 0.2rem;
+  background: var(--koala-catppuccin-mauve);
+  box-shadow: 0 0.5rem 1.25rem color-mix(in srgb, var(--koala-catppuccin-mauve) 34%, transparent);
+}
+
+.login-brand__mark span {
+  position: absolute;
+  width: 0.22rem;
+  border-radius: 999px;
+  background: var(--koala-catppuccin-base);
+}
+
+.login-brand__mark span:nth-child(1) {
+  height: 0.68rem;
+  transform: translateX(-0.34rem) rotate(-20deg);
+}
+
+.login-brand__mark span:nth-child(2) {
+  height: 1.08rem;
+}
+
+.login-brand__mark span:nth-child(3) {
+  height: 0.55rem;
+  transform: translateX(0.34rem) rotate(20deg);
+}
+
+.login-intro__copy {
+  position: relative;
+  z-index: 1;
+  max-width: 38rem;
+  margin: auto 0;
+  padding: clamp(4.5rem, 12vh, 9.5rem) 0 clamp(2.5rem, 6vh, 4.75rem);
+}
+
+.login-intro__eyebrow,
+.login-panel__kicker {
+  margin: 0 0 1rem;
+  color: var(--koala-catppuccin-teal);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.login-intro h1 {
+  max-width: 32rem;
+  margin: 0;
+  color: var(--koala-catppuccin-text);
+  font-size: clamp(3rem, 5.5vw, 5.9rem);
+  font-weight: 720;
+  letter-spacing: -0.075em;
+  line-height: 0.94;
+}
+
+.login-intro__description {
+  max-width: 29rem;
+  margin: 1.6rem 0 0;
+  color: var(--koala-catppuccin-subtext-0);
+  font-size: clamp(1rem, 1.25vw, 1.14rem);
+  line-height: 1.7;
+}
+
+.login-intro__scene {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 29rem);
+  height: 10.5rem;
+  margin-top: auto;
+}
+
+.login-intro__halo {
+  position: absolute;
+  right: 0.5rem;
+  bottom: -5.75rem;
+  width: 16rem;
+  height: 16rem;
+  border: 1px solid color-mix(in srgb, var(--koala-catppuccin-teal) 42%, transparent);
+  border-radius: 50%;
+}
+
+.login-note {
+  position: absolute;
+  display: grid;
+  gap: 0.62rem;
+  width: 14.5rem;
+  padding: 1.6rem;
+  border: 1px solid color-mix(in srgb, var(--koala-catppuccin-text) 10%, transparent);
+  border-radius: 0.95rem;
+  background: color-mix(in srgb, var(--koala-catppuccin-base) 80%, transparent);
+  box-shadow: 0 1.4rem 3.5rem color-mix(in srgb, var(--koala-catppuccin-crust) 13%, transparent);
+  backdrop-filter: blur(0.6rem);
+}
+
+.login-note span:not(.login-note__dot) {
+  display: block;
+  height: 0.48rem;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--koala-catppuccin-subtext-0) 36%, transparent);
+}
+
+.login-note span:nth-child(3) {
+  width: 78%;
+}
+
+.login-note--back {
+  top: 1.4rem;
+  right: 1.25rem;
+  opacity: 0.64;
+  transform: rotate(8deg);
+}
+
+.login-note--front {
+  bottom: 0.25rem;
+  left: 0.75rem;
+  transform: rotate(-4deg);
+}
+
+.login-note--front span:nth-child(3) {
+  width: 66%;
+}
+
+.login-note__dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-bottom: 0.08rem;
+  border-radius: 50%;
+  background: var(--koala-catppuccin-teal);
+}
+
+.login-intro__leaf {
+  position: absolute;
+  width: 5rem;
+  height: 2.1rem;
+  border: 1px solid color-mix(in srgb, var(--koala-catppuccin-teal) 54%, transparent);
+  border-radius: 100% 0 100% 0;
+}
+
+.login-intro__leaf--left {
+  bottom: 0.8rem;
+  left: -0.4rem;
+  transform: rotate(-19deg);
+}
+
+.login-intro__leaf--right {
+  top: 1.7rem;
+  right: 3.5rem;
+  transform: rotate(153deg) scale(0.76);
+}
+
+.login-panel {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  padding: clamp(2rem, 7vw, 6rem);
+  background: var(--koala-catppuccin-base);
+}
+
+.login-panel__content {
+  width: min(100%, 25.5rem);
+}
+
+.login-panel__kicker {
+  color: var(--koala-catppuccin-mauve);
+}
+
+.login-panel h2 {
+  margin: 0;
+  color: var(--koala-catppuccin-text);
+  font-size: clamp(2.35rem, 3.4vw, 3.45rem);
+  font-weight: 710;
+  letter-spacing: -0.065em;
+  line-height: 1;
+}
+
+.login-panel__description {
+  margin: 1rem 0 0;
+  color: var(--koala-catppuccin-subtext-0);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.login-form {
+  display: grid;
+  gap: 1.35rem;
+  margin-top: 3rem;
+}
+
+.login-form__error {
+  margin: -0.15rem 0 0;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid var(--koala-catppuccin-red);
+  color: var(--koala-catppuccin-red);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  background: color-mix(in srgb, var(--koala-catppuccin-red) 9%, transparent);
+}
+
+.login-form__field {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.login-form__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.login-form label {
+  color: var(--koala-catppuccin-text);
+  font-size: 0.88rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.login-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 3.35rem;
+  padding: 0.75rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--koala-catppuccin-surface-1);
+  border-radius: 0;
+  color: var(--koala-catppuccin-text);
+  font: inherit;
+  font-size: 1rem;
+  background: transparent;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.login-form input::placeholder {
+  color: var(--koala-catppuccin-overlay-1);
+}
+
+.login-form input:hover {
+  border-color: var(--koala-catppuccin-overlay-1);
+}
+
+.login-form input:focus {
+  border-color: var(--koala-catppuccin-mauve);
+  box-shadow: 0 2px 0 var(--koala-catppuccin-mauve);
+  outline: none;
+}
+
+.login-form__toggle {
+  padding: 0;
+  border: 0;
+  color: var(--koala-catppuccin-teal);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 680;
+  cursor: pointer;
+  background: transparent;
+}
+
+.login-form__toggle:hover {
+  color: var(--koala-catppuccin-mauve);
+}
+
+.login-form__submit {
+  display: inline-flex;
+  min-height: 3.45rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  border: 0;
+  border-radius: 0.7rem;
+  color: var(--koala-catppuccin-base);
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  background: var(--koala-catppuccin-mauve);
+  box-shadow: 0 0.85rem 1.65rem color-mix(in srgb, var(--koala-catppuccin-mauve) 24%, transparent);
+  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.login-form__submit svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  transition: transform 160ms ease;
+}
+
+.login-form__submit:hover:not(:disabled) {
+  background: var(--koala-catppuccin-lavender);
+  box-shadow: 0 1.1rem 1.9rem color-mix(in srgb, var(--koala-catppuccin-mauve) 34%, transparent);
+  transform: translateY(-2px);
+}
+
+.login-form__submit:hover:not(:disabled) svg {
+  transform: translateX(0.18rem);
+}
+
+.login-form__submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.login-form__submit:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.login-form__hint {
+  margin: 0.1rem 0 0;
+  color: var(--koala-catppuccin-subtext-0);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 860px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+
+  .login-intro {
+    min-height: 22rem;
+    padding: 2rem clamp(1.5rem, 6vw, 3rem);
+  }
+
+  .login-intro__copy {
+    margin: auto 0 0;
+    padding: 4rem 0 0;
+  }
+
+  .login-intro h1 {
+    max-width: 28rem;
+    font-size: clamp(2.8rem, 10vw, 4.6rem);
+  }
+
+  .login-intro__description {
+    max-width: 31rem;
+  }
+
+  .login-intro__scene {
+    position: absolute;
+    right: -2.5rem;
+    bottom: -1.5rem;
+    width: 20rem;
+    opacity: 0.58;
+    transform: scale(0.75);
+    transform-origin: bottom right;
+  }
+
+  .login-panel {
+    min-height: auto;
+    padding: 3.75rem clamp(1.5rem, 10vw, 5rem) 4.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-intro {
+    min-height: 18.75rem;
+  }
+
+  .login-intro__eyebrow {
+    margin-bottom: 0.75rem;
+  }
+
+  .login-intro h1 {
+    max-width: 21rem;
+    font-size: clamp(2.55rem, 13vw, 3.4rem);
+  }
+
+  .login-intro__description {
+    max-width: 21rem;
+    margin-top: 1rem;
+    font-size: 0.94rem;
+  }
+
+  .login-intro__scene {
+    display: none;
+  }
+
+  .login-panel {
+    padding-top: 3.25rem;
+  }
+
+  .login-form {
+    margin-top: 2.35rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-form input,
+  .login-form__submit,
+  .login-form__submit svg {
+    transition: none;
+  }
+}
+</style>

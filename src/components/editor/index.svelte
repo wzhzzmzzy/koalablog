@@ -20,6 +20,7 @@
   import { formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
   import type { TextEditorHandle } from './TextEditor.svelte';
   import { toFileReferenceCandidates } from './text-editor/file-reference-completion';
+  import type { FileReferencePeekTarget } from './FileReferencePeek.svelte';
   import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
   import { editorStore, upsertItem, notify } from './store.svelte';
   interface Props {
@@ -28,8 +29,9 @@
 	    onUpdate?: (file: FileRecord) => void;
 	    onPurge?: (id: number) => void;
 	    onBack?: () => void;
+	    onOpenReference?: (file: FileRecord) => void;
 			}
-  let { file, onSave, onUpdate, onPurge, onBack }: Props = $props()
+  let { file, onSave, onUpdate, onPurge, onBack, onOpenReference }: Props = $props()
   const initialBuffer = editBuffers.get(file.id)
   let rendererValue = $state(initialBuffer?.renderer ?? file.renderer)
   let sourceValue = $state(initialBuffer?.content ?? file.content ?? '')
@@ -45,6 +47,16 @@
   let trashed = $derived(Boolean(file.deletedAt))
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
   let referenceCandidates = $derived(toFileReferenceCandidates(editorStore.items))
+  let referenceTargets = $derived.by((): FileReferencePeekTarget[] => editorStore.items
+    .filter(item => !item.deletedAt)
+    .map((item) => {
+      const buffer = editBuffers.get(item.id)
+      return {
+        file: item,
+        content: buffer?.content ?? item.content ?? '',
+        dirty: Boolean(buffer?.dirty),
+      }
+    }))
   let editorContent: TextEditorHandle | undefined = $state()
   let showPreview = $state(false)
   let previewFileId = $state<number | null>(null)
@@ -717,6 +729,7 @@
       diagnostics={svelteBuildController.diagnostics}
       value={editorContentValues.source}
       {referenceCandidates}
+      {referenceTargets}
       {showPreview}
       markdownRequestedMode={markdownViewState.requestedMode}
       markdownSplitRatio={markdownViewState.splitRatio}
@@ -734,6 +747,7 @@
       onRebase={retryLocalAgainstCurrentRevision}
       onClosePreview={closePreview}
       onMarkdownSplitRatio={(ratio, contentWidth) => markdownViewState.setSplitRatio(ratio, contentWidth)}
+      onOpenReference={(target) => onOpenReference?.(target)}
       onChange={(value) => { sourceValue = value; }}
       {uploadImage}
     />

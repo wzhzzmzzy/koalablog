@@ -66,8 +66,7 @@ body:has(.editor-workspace) {
   font: inherit;
 }
 
-.editor-workspace button:focus-visible,
-.editor-workspace input:focus-visible {
+.editor-workspace button:focus-visible {
   outline: 2px solid var(--editor-focus);
   outline-offset: 2px;
 }
@@ -240,17 +239,8 @@ body:has(.editor-workspace) {
   letter-spacing: -0.01em;
 }
 
-.editor-path-input:focus-visible,
-.editor-file-finder__input input:focus-visible {
-  outline: 0;
-}
-
 .editor-path-input[aria-invalid="true"] {
   box-shadow: inset 0 -2px var(--koala-catppuccin-red);
-}
-
-.editor-toolbar__context--editing {
-  border-color: var(--editor-focus);
 }
 
 .editor-toolbar__view {
@@ -1023,6 +1013,106 @@ body:has(.editor-workspace) {
   line-height: 1.75;
 }
 
+.editor-markdown-preview a[data-file-reference] {
+  border-radius: 0.25rem;
+  color: var(--koala-catppuccin-mauve);
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--koala-catppuccin-mauve) 55%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+}
+
+.editor-markdown-preview a[data-file-reference]:hover {
+  color: var(--koala-catppuccin-lavender);
+  text-decoration-color: currentcolor;
+}
+
+.editor-file-reference-peek {
+  position: fixed;
+  z-index: 90;
+  width: min(22rem, calc(100vw - 1rem));
+  box-sizing: border-box;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--editor-focus) 42%, var(--editor-border));
+  border-radius: 0.8rem;
+  color: var(--editor-text);
+  background: color-mix(in srgb, var(--editor-panel-raised) 96%, var(--editor-code-surface));
+  box-shadow: 0 1.1rem 2.5rem -1.6rem var(--editor-shadow);
+  pointer-events: none;
+}
+
+.editor-file-reference-peek__heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--editor-text);
+  font-family: var(--editor-font-ui);
+  font-size: 0.8rem;
+}
+
+.editor-file-reference-peek__heading svg {
+  flex: 0 0 auto;
+  color: var(--koala-catppuccin-mauve);
+}
+
+.editor-file-reference-peek__heading strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-file-reference-peek__heading span {
+  margin-left: auto;
+  padding: 0.12rem 0.3rem;
+  border-radius: 999px;
+  color: var(--koala-catppuccin-yellow);
+  background: color-mix(in srgb, var(--koala-catppuccin-yellow) 13%, transparent);
+  font-family: var(--koala-font-mono);
+  font-size: 0.61rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.editor-file-reference-peek code {
+  display: block;
+  margin-top: 0.45rem;
+  overflow: hidden;
+  color: var(--editor-muted);
+  font-family: var(--koala-font-mono);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-file-reference-peek p {
+  display: -webkit-box;
+  margin: 0.55rem 0 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--editor-text) 86%, var(--editor-muted));
+  font-size: 0.74rem;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.editor-file-reference-status {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--koala-catppuccin-yellow) 38%, var(--editor-border));
+  color: var(--koala-catppuccin-yellow);
+  background: color-mix(in srgb, var(--koala-catppuccin-yellow) 8%, var(--editor-code-surface));
+  font-family: var(--koala-font-mono);
+  font-size: 0.7rem;
+}
+
+.editor-file-reference-status code {
+  color: var(--editor-text);
+}
+
 .editor-markdown-preview :where(blockquote) {
   margin: 1.5rem auto;
   padding: 0.75rem 1rem;
@@ -1180,12 +1270,6 @@ body:has(.editor-workspace) {
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
-.editor-sidebar__search:focus-within {
-  border-color: color-mix(in srgb, var(--editor-focus) 58%, var(--editor-border));
-  background: var(--editor-panel-raised);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--editor-focus) 12%, transparent), inset 0 1px 0 color-mix(in srgb, var(--koala-catppuccin-text) 7%, transparent);
-}
-
 .editor-sidebar__search input {
   width: 100%;
   min-width: 0;
@@ -1200,10 +1284,6 @@ body:has(.editor-workspace) {
 
 .editor-sidebar__search input::placeholder {
   color: var(--editor-muted);
-}
-
-.editor-workspace .editor-sidebar__search input:focus-visible {
-  outline: none;
 }
 
 .editor-sidebar__search-clear {
