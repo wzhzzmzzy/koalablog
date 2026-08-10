@@ -25,10 +25,11 @@ test('mobile workspace keeps compact identity, Source/Preview actions, and inlin
 
     await toolbar.getByRole('button', { name: 'More File actions' }).click()
     const menu = page.getByRole('menu', { name: 'More File actions' })
+    await expect(menu.getByRole('menuitem', { name: 'Back to Dashboard' })).toBeInViewport({ ratio: 1 })
     await expect(menu.getByRole('menuitem', { name: 'Upload Image' })).toBeVisible()
     await expect(menu.getByRole('menuitem', { name: 'Copy File Reference' })).toBeVisible()
     await expect(menu.getByRole('menuitem', { name: 'Rename / Move' })).toHaveCount(0)
-    await expect(menu.getByRole('menuitem', { name: 'Move to recycle bin' })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Move to recycle bin' })).toBeInViewport({ ratio: 1 })
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
   }
@@ -62,6 +63,26 @@ test('touch scrolling stays inside the Source editor on a narrow screen', async 
 
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
   await expect(page.locator('.cm-gutters')).toBeHidden()
+})
+
+test('leaving Source editing restores a root viewport panned by the iOS keyboard', async ({ page }) => {
+  await openEditor(page)
+  await page.setViewportSize({ width: 393, height: 727 })
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.focus()
+  const pannedBy = await page.evaluate(() => {
+    document.documentElement.style.minHeight = 'calc(100% + 96px)'
+    window.scrollTo(0, 96)
+    return window.scrollY
+  })
+  expect(pannedBy).toBeGreaterThan(0)
+
+  await source.evaluate(element => (element as HTMLElement).blur())
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+  await page.evaluate(() => {
+    document.documentElement.style.minHeight = ''
+  })
 })
 
 test('an explicit File Explorer preference remains open on mobile startup', async ({ page }) => {
