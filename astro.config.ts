@@ -18,6 +18,8 @@ export default defineConfig({
   output: 'server',
   security: {
     checkOrigin: false,
+    // One 20 MiB image plus multipart boundaries and the source/name fields.
+    actionBodySizeLimit: 21 * 1024 * 1024,
   },
   build: {
     inlineStylesheets: 'always',
