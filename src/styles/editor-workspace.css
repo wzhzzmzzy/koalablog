@@ -2040,10 +2040,11 @@ body:has(.editor-workspace) {
   }
 
   .editor-more__menu {
-    position: fixed;
-    top: auto;
-    right: 0.6rem;
-    bottom: calc(env(safe-area-inset-bottom) + 0.6rem);
+    position: absolute;
+    top: calc(100% + 0.45rem);
+    right: 0;
+    bottom: auto;
+    max-height: min(34rem, calc(100dvh - 5.5rem));
   }
 
   .editor-content {

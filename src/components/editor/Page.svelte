@@ -68,6 +68,21 @@
   const recentFiles = $derived(editorRecentFiles.resolve(editorStore.items));
 
   onMount(() => {
+    const visualViewport = window.visualViewport;
+    let previousVisualViewportHeight = visualViewport?.height ?? window.innerHeight;
+    let viewportSettleTimer: number | undefined;
+
+    const resetRootViewport = () => {
+      if (window.scrollX !== 0 || window.scrollY !== 0)
+        window.scrollTo(0, 0);
+    };
+
+    const settleRootViewport = () => {
+      window.requestAnimationFrame(resetRootViewport);
+      window.clearTimeout(viewportSettleTimer);
+      viewportSettleTimer = window.setTimeout(resetRootViewport, 300);
+    };
+
     const handleKeydown = (event: KeyboardEvent) => {
       if (event.repeat || event.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k')
         return;
@@ -75,8 +90,38 @@
       finderOpen = true;
     };
 
+    const handleFocusOut = (event: FocusEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('.cm-content'))
+        settleRootViewport();
+    };
+
+    const handleVisualViewportResize = () => {
+      if (!visualViewport)
+        return;
+      const nextHeight = visualViewport.height;
+      if (nextHeight >= previousVisualViewportHeight)
+        settleRootViewport();
+      previousVisualViewportHeight = nextHeight;
+    };
+
+    const handleVisualViewportScroll = () => {
+      const activeElement = document.activeElement;
+      if (!(activeElement instanceof Element) || !activeElement.closest('.cm-content'))
+        settleRootViewport();
+    };
+
     window.addEventListener('keydown', handleKeydown, true);
-    return () => window.removeEventListener('keydown', handleKeydown, true);
+    document.addEventListener('focusout', handleFocusOut);
+    visualViewport?.addEventListener('resize', handleVisualViewportResize);
+    visualViewport?.addEventListener('scroll', handleVisualViewportScroll);
+    return () => {
+      window.removeEventListener('keydown', handleKeydown, true);
+      document.removeEventListener('focusout', handleFocusOut);
+      visualViewport?.removeEventListener('resize', handleVisualViewportResize);
+      visualViewport?.removeEventListener('scroll', handleVisualViewportScroll);
+      window.clearTimeout(viewportSettleTimer);
+    };
   });
 
   function handleSelect(m: FileRecord) {
