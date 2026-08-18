@@ -164,6 +164,41 @@ test('File Source exposes the stable editor contract', async ({ page }) => {
   await expectEditorText(source, 'First line\nSecond line updated')
 })
 
+test('typing while Save is in flight keeps the newer Source, cursor, and saved revision', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/_actions/form.save/**', async (route) => {
+    await gate
+    await route.continue()
+  })
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('submitted Source')
+  await page.getByRole('button', { name: 'Save File' }).click()
+  await expect(page.getByRole('button', { name: 'Save File' })).toBeDisabled()
+
+  await source.pressSequentially('\nnewer typing')
+  const expectedSource = 'submitted Source\nnewer typing'
+  await expectEditorText(source, expectedSource)
+  const selectionBeforeResponse = await editorSelectionStart(source)
+  release()
+
+  await expect(page.getByText('Source saved.')).toBeVisible()
+  await expectEditorText(source, expectedSource)
+  await expect(source).toBeFocused()
+  await expectEditorSelectionStart(source, selectionBeforeResponse)
+  await expect(page.getByText('Unsaved changes')).toBeVisible()
+
+  await expect(page.getByRole('button', { name: 'Save File' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Save File' }).click()
+  await expect(page.getByText('Unsaved changes')).toBeHidden()
+})
+
 test('typing [[ completes a File Reference into its canonical Source form', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')

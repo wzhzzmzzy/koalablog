@@ -646,14 +646,21 @@
       return;
     }
 
-    const savedFromFileId = file.id
+    const snapshot = {
+      fileId: file.id,
+      path: pathValue,
+      renderer: rendererValue,
+      content: sourceValue,
+      private: privateValue,
+      baseRevision: baseRevisionValue,
+    }
     const formData = new FormData()
-    formData.append('id', file.id.toString())
-    formData.append('path', pathValue)
-    formData.append('renderer', rendererValue)
-    formData.append('content', sourceValue)
-    formData.append('private', String(privateValue));
-    formData.append('baseRevision', baseRevisionValue.toString())
+    formData.append('id', snapshot.fileId.toString())
+    formData.append('path', snapshot.path)
+    formData.append('renderer', snapshot.renderer)
+    formData.append('content', snapshot.content)
+    formData.append('private', String(snapshot.private));
+    formData.append('baseRevision', snapshot.baseRevision.toString())
 
     saving = true
     try {
@@ -663,12 +670,39 @@
         handleFileMutationError(result.error)
       } else if (result.data) {
         const savedFile = result.data
-        file = savedFile
-        baseRevisionValue = file.revision;
-        conflict = null
-        removeEditBuffer(savedFromFileId)
-        onSave?.(file)
-        upsertItem(file)
+        const editorStillOwnsSnapshot = localValuesFileId === snapshot.fileId
+        const localStillSubmitted = editorStillOwnsSnapshot
+          && pathValue === snapshot.path
+          && rendererValue === snapshot.renderer
+          && sourceValue === snapshot.content
+          && privateValue === snapshot.private
+        if (editorStillOwnsSnapshot) {
+          if (localStillSubmitted) {
+            removeEditBuffer(snapshot.fileId)
+            if (savedFile.id !== snapshot.fileId)
+              removeEditBuffer(savedFile.id)
+          }
+          else {
+            if (savedFile.id !== snapshot.fileId)
+              removeEditBuffer(snapshot.fileId)
+            setEditBuffer({
+              fileId: savedFile.id,
+              path: pathValue,
+              renderer: rendererValue,
+              content: sourceValue,
+              private: privateValue,
+              baseRevision: savedFile.revision,
+              dirty: isDirtyAgainst(savedFile),
+              conflict: null,
+            })
+          }
+          file = savedFile
+          localValuesFileId = savedFile.id
+          baseRevisionValue = savedFile.revision;
+          conflict = null
+          onSave?.(savedFile)
+        }
+        upsertItem(savedFile)
         clearPendingDeploymentReview()
         deploymentFailed = false
         deploymentSummary = initialDeploymentSummary(savedFile)
