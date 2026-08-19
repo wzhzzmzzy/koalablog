@@ -3,6 +3,7 @@
   import type { FileRecord } from '@/db/types';
   import { onMount, tick } from 'svelte';
   import { md } from '@/lib/markdown';
+  import { prepareMarkdownSource } from '@/lib/files/analysis';
   import { getDisplayTitle } from '@/lib/files/display-title';
   import { RENDERER_MODE, type RendererMode } from '@/lib/files/types';
   import type MarkdownIt from 'markdown-it';
@@ -20,6 +21,8 @@
   import { formatFileSaveError, sourceConflictFromActionError, uploadEditorImage } from './utils';
   import type { TextEditorHandle } from './TextEditor.svelte';
   import { toFileReferenceCandidates } from './text-editor/file-reference-completion';
+  import { decodeStoredTags } from '@/lib/files/stored-tags';
+  import { toTagCompletionCandidates } from './text-editor/tag-completion';
   import type { FileReferencePeekTarget } from './FileReferencePeek.svelte';
   import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
   import { editorStore, upsertItem, notify } from './store.svelte';
@@ -47,6 +50,13 @@
   let trashed = $derived(Boolean(file.deletedAt))
   let changed = $derived(!trashed && Boolean(editBuffers.get(file.id)?.dirty))
   let referenceCandidates = $derived(toFileReferenceCandidates(editorStore.items))
+  let tagCandidates = $derived(toTagCompletionCandidates(editorStore.items
+    .filter(item => item.renderer === RENDERER_MODE.Markdown)
+    .map(item => ({
+      tags: decodeStoredTags(item.tags),
+      updatedAt: item.updatedAt,
+      deletedAt: item.deletedAt,
+    }))))
   let referenceTargets = $derived.by((): FileReferencePeekTarget[] => editorStore.items
     .filter(item => !item.deletedAt)
     .map((item) => {
@@ -646,11 +656,19 @@
       return;
     }
 
+    const preparedSource = rendererValue === RENDERER_MODE.Markdown
+      ? prepareMarkdownSource(sourceValue).content
+      : sourceValue
+    if (preparedSource !== sourceValue) {
+      editorContent?.applySavePreparation(preparedSource)
+      sourceValue = preparedSource
+    }
+
     const snapshot = {
       fileId: file.id,
       path: pathValue,
       renderer: rendererValue,
-      content: sourceValue,
+      content: preparedSource,
       private: privateValue,
       baseRevision: baseRevisionValue,
     }
@@ -676,6 +694,10 @@
           && rendererValue === snapshot.renderer
           && sourceValue === snapshot.content
           && privateValue === snapshot.private
+        if (localStillSubmitted && savedFile.content !== sourceValue) {
+          editorContent?.acknowledgeSavedSource(savedFile.content)
+          sourceValue = savedFile.content
+        }
         if (editorStillOwnsSnapshot) {
           if (localStillSubmitted) {
             removeEditBuffer(snapshot.fileId)
@@ -709,6 +731,8 @@
         void refreshDeploymentSummary(savedFile)
         acknowledgeSave()
         notify('success', 'Source saved.', 3000)
+        for (const warning of (savedFile.sourceWarnings ?? []).slice(0, 3))
+          notify('warning', warning.message, 5000)
       } else {
         acknowledgeSave()
       notify('success', 'Source saved.', 3000)
@@ -763,6 +787,7 @@
       diagnostics={svelteBuildController.diagnostics}
       value={editorContentValues.source}
       {referenceCandidates}
+      {tagCandidates}
       {referenceTargets}
       {showPreview}
       markdownRequestedMode={markdownViewState.requestedMode}

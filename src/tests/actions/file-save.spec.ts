@@ -65,7 +65,7 @@ describe('file Save action', () => {
     const savedFile = { id: 7, sourceHash: 'ab'.repeat(32) }
     mocks.saveFile.mockResolvedValue({ status: 'saved', file: savedFile })
 
-    await expect(save.orThrow.call(context, form)).resolves.toEqual(savedFile)
+    await expect(save.orThrow.call(context, form)).resolves.toEqual({ ...savedFile, sourceWarnings: [] })
 
     expect(mocks.saveFile).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       renderer: 'svelte',

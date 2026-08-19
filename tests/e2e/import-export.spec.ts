@@ -58,7 +58,7 @@ test('browser import and export preserve mixed nested Renderer files', async ({ 
     await expect(importDialog.getByText('/post/phase-three/note', { exact: true })).toBeVisible()
     await expect(importDialog.getByText('/page/phase-three/widget', { exact: true })).toBeVisible()
     await importDialog.getByRole('button', { name: 'Save', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Import Files' })).toBeHidden({ timeout: 90_000 })
+    await expect(importDialog.locator('[data-import-rebuild-required="/page/phase-three/widget"]')).toBeVisible()
 
     await expect.poll(async () => {
       const rows = await database.select({ path: markdown.path, renderer: markdown.renderer, content: markdown.content })
@@ -69,6 +69,9 @@ test('browser import and export preserve mixed nested Renderer files', async ({ 
       { path: '/page/phase-three/widget', renderer: 'svelte', content: svelteSource },
       { path: '/post/phase-three/note', renderer: 'markdown', content: markdownSource },
     ])
+
+    await importDialog.getByRole('button', { name: 'Close import dialog' }).click()
+    await expect(importDialog).toBeHidden()
 
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download Zip' }).click()

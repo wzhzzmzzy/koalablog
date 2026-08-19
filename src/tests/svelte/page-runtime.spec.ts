@@ -29,4 +29,40 @@ describe('svelte page runtime', () => {
     expect(runtime.isOwnerAccessError(new runtime.ActionError({ code: 'UNAUTHORIZED', status: 401 }))).toBe(true)
     expect(runtime.isOwnerAccessError(new runtime.ActionError({ code: 'NOT_FOUND', status: 404 }))).toBe(false)
   })
+
+  it('adopts canonical content and revision returned by companion Markdown Save', async () => {
+    const runtime = await import(runtimeModuleUrl())
+    let submitted: FormData | null = null
+    vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+      submitted = init?.body as FormData
+      return new Response(JSON.stringify([
+        { id: 1, path: 2, renderer: 3, private: 4, deletedAt: -1, revision: 5, content: 6 },
+        7,
+        '/data/tags',
+        'markdown',
+        true,
+        3,
+        '---\ntags: ["body"]\n---\n\n#body',
+      ]), { status: 200 })
+    })
+
+    const saved = await runtime.saveOwnedMarkdown({
+      id: 7,
+      path: '/data/tags',
+      renderer: 'markdown',
+      private: true,
+      deletedAt: null,
+      revision: 2,
+      content: '#old',
+    }, '#body')
+
+    expect(submitted).toBeInstanceOf(FormData)
+    const submittedForm = submitted as FormData | null
+    expect(submittedForm?.get('content')).toBe('#body')
+    expect(submittedForm?.get('baseRevision')).toBe('2')
+    expect(saved).toMatchObject({
+      revision: 3,
+      content: '---\ntags: ["body"]\n---\n\n#body',
+    })
+  })
 })

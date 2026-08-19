@@ -17,6 +17,12 @@ describe('getDisplayTitle', () => {
       title: 'fallback',
       content: '---\ntitle: true\n---\n\nBody',
     })).toBe('fallback')
+
+    expect(getDisplayTitle({
+      source: MarkdownSource.Post,
+      title: 'malformed',
+      content: '---\ntitle: [unterminated\n---\n\nBody',
+    })).toBe('malformed')
   })
 
   it('does not treat frontmatter title as a display override for non-Post Files', () => {

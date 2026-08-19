@@ -1,9 +1,7 @@
-import type { EditorState, Extension } from '@codemirror/state'
+import type { Completion, CompletionContext, CompletionResult, CompletionSource } from '@codemirror/autocomplete'
+import type { EditorState } from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'
-import { acceptCompletion, autocompletion, type Completion, type CompletionContext, type CompletionResult, type CompletionSource } from '@codemirror/autocomplete'
 import { syntaxTree } from '@codemirror/language'
-import { Prec } from '@codemirror/state'
-import { keymap } from '@codemirror/view'
 
 /**
  * A lightweight File Reference completion candidate. Derived from File
@@ -204,12 +202,4 @@ export function fileReferenceCompletionSource(options: FileReferenceCompletionOp
       filter: false,
     }
   }
-}
-
-// Tab needs Prec.high to accept a completion before indentWithTab runs.
-export function fileReferenceCompletion(options: FileReferenceCompletionOptions): Extension {
-  return [
-    autocompletion({ override: [fileReferenceCompletionSource(options)] }),
-    Prec.high(keymap.of([{ key: 'Tab', run: acceptCompletion }])),
-  ]
 }

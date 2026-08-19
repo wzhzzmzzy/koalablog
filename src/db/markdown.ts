@@ -1,8 +1,9 @@
 import type { AbsoluteFilePath, AbsolutePathPrefix, RendererMode } from '@/lib/files/types'
-import { and, asc, desc, eq, inArray, isNotNull, isNull, like, or, sql } from 'drizzle-orm'
-import { analyzeMarkdownSource } from '@/lib/files/analysis'
+import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import { prepareMarkdownSource } from '@/lib/files/analysis'
 import { classifySource, deriveTitle, parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { calculateSourceHash } from '@/lib/files/source-hash'
+import { encodeStoredTags } from '@/lib/files/stored-tags'
 import { RENDERER_MODE } from '@/lib/files/types'
 import { connectDB, MarkdownSource } from '.'
 import { markdown } from './schema'
@@ -39,7 +40,7 @@ export interface PathPrefixListing {
 }
 
 export type SaveFileResult =
-  | { status: 'saved', file: typeof markdown.$inferSelect }
+  | { status: 'saved', file: typeof markdown.$inferSelect, warnings: ReturnType<typeof prepareMarkdownSource>['warnings'] }
   | { status: 'conflict', current: typeof markdown.$inferSelect }
   | { status: 'path_conflict', path: AbsoluteFilePath }
   | { status: 'not_found' }
@@ -62,24 +63,28 @@ function requiredPath(input: string): AbsoluteFilePath {
 }
 
 async function baseValues(path: AbsoluteFilePath, renderer: RendererMode, content: string) {
-  const analysis = renderer === RENDERER_MODE.Markdown
-    ? analyzeMarkdownSource(content)
-    : { tags: [], outgoingPaths: [] }
+  const prepared = renderer === RENDERER_MODE.Markdown
+    ? prepareMarkdownSource(content)
+    : { content, tags: [], outgoingPaths: [], warnings: [] }
   return {
-    path,
-    title: deriveTitle(path),
-    renderer,
-    content,
-    sourceHash: await calculateSourceHash(renderer, content),
-    tags: analysis.tags.join(','),
-    outgoing_links: JSON.stringify(analysis.outgoingPaths),
+    values: {
+      path,
+      title: deriveTitle(path),
+      renderer,
+      content: prepared.content,
+      sourceHash: await calculateSourceHash(renderer, prepared.content),
+      tags: encodeStoredTags(prepared.tags),
+      outgoing_links: JSON.stringify(prepared.outgoingPaths),
+    },
+    warnings: prepared.warnings,
   }
 }
 
 async function insertValues(input: BatchFileInput) {
   const path = requiredPath(input.path)
+  const prepared = await baseValues(path, input.renderer, input.content)
   return {
-    ...await baseValues(path, input.renderer, input.content),
+    ...prepared.values,
     source: classifySource(path),
     private: input.private ?? false,
     createdAt: input.createdAt,
@@ -92,7 +97,8 @@ async function insertValues(input: BatchFileInput) {
 async function replaceRendererFile(
   env: Env,
   input: SaveFileInput,
-  values: Awaited<ReturnType<typeof baseValues>> & { private: boolean, updatedAt: Date },
+  values: Awaited<ReturnType<typeof baseValues>>['values'] & { private: boolean, updatedAt: Date },
+  warnings: ReturnType<typeof prepareMarkdownSource>['warnings'],
   ownerScoped: boolean,
 ): Promise<SaveFileResult> {
   const replacedAt = new Date()
@@ -127,7 +133,7 @@ async function replaceRendererFile(
     const [trashed, created] = await db.batch([trashPrevious, createReplacement])
     const file = created[0]
     if (trashed.length > 0 && file)
-      return { status: 'saved', file }
+      return { status: 'saved', file, warnings }
   }
   catch (error) {
     if (isActivePathConstraintError(error))
@@ -153,8 +159,9 @@ export async function batchAdd(env: Env, files: BatchFileInput[]) {
 
 async function saveSourceFile(env: Env, input: SaveFileInput, ownerScoped: boolean): Promise<SaveFileResult> {
   const path = requiredPath(input.path)
+  const prepared = await baseValues(path, input.renderer, input.content)
   const values = {
-    ...await baseValues(path, input.renderer, input.content),
+    ...prepared.values,
     private: input.private,
     updatedAt: new Date(),
   }
@@ -165,7 +172,7 @@ async function saveSourceFile(env: Env, input: SaveFileInput, ownerScoped: boole
       return { status: 'not_found' }
     try {
       const [file] = await db.insert(markdown).values({ ...values, source: classifySource(path), userId: input.userId }).returning()
-      return { status: 'saved', file }
+      return { status: 'saved', file, warnings: prepared.warnings }
     }
     catch (error) {
       if (isActivePathConstraintError(error))
@@ -180,7 +187,7 @@ async function saveSourceFile(env: Env, input: SaveFileInput, ownerScoped: boole
   if (currentBeforeSave.revision !== input.baseRevision || currentBeforeSave.deletedAt)
     return { status: 'conflict', current: currentBeforeSave }
   if (currentBeforeSave.renderer !== input.renderer)
-    return replaceRendererFile(env, input, values, ownerScoped)
+    return replaceRendererFile(env, input, values, prepared.warnings, ownerScoped)
 
   let file: typeof markdown.$inferSelect | undefined
   try {
@@ -201,7 +208,7 @@ async function saveSourceFile(env: Env, input: SaveFileInput, ownerScoped: boole
     throw error
   }
   if (file)
-    return { status: 'saved', file }
+    return { status: 'saved', file, warnings: prepared.warnings }
 
   const current = await readAnyById(env, input.id)
   if (ownerScoped && input.userId !== undefined && current?.userId !== input.userId)
@@ -233,7 +240,7 @@ export async function updatePrivate(
     isNull(markdown.deletedAt),
   )).returning()
   if (file)
-    return { status: 'saved', file }
+    return { status: 'saved', file, warnings: [] }
 
   const current = await readAnyById(env, id)
   return current ? { status: 'conflict', current } : { status: 'not_found' }
@@ -398,7 +405,16 @@ export function readList(
   const filters = [
     eq(markdown.source, source),
     isNull(markdown.deletedAt),
-    tag ? like(markdown.tags, `%${tag}%`) : null,
+    tag
+      ? sql`(
+          (json_valid(${markdown.tags}) = 1 AND json_type(${markdown.tags}) = 'array'
+            AND EXISTS (SELECT 1 FROM json_each(${markdown.tags}) WHERE json_each.value = ${tag}))
+          OR
+          (json_valid(${markdown.tags}) = 0
+            AND substr(ltrim(coalesce(${markdown.tags}, '')), 1, 1) NOT IN ('[', '{', '"')
+            AND instr(',' || replace(coalesce(${markdown.tags}, ''), ', ', ',') || ',', ',' || ${tag} || ',') > 0)
+        )`
+      : null,
     ownerId
       ? or(eq(markdown.private, false), eq(markdown.userId, ownerId))
       : eq(markdown.private, false),
@@ -478,7 +494,7 @@ export async function trashByIdForOwner(env: Env, id: number, userId: number, ba
     isNull(markdown.deletedAt),
   )).returning()
   if (file)
-    return { status: 'saved', file }
+    return { status: 'saved', file, warnings: [] }
 
   const current = await readAnyById(env, id)
   if (!current || current.userId !== userId)

@@ -1,5 +1,6 @@
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import process from 'node:process'
 import {
   attachmentHash,
   attachmentStateEntry,
@@ -59,7 +60,15 @@ function contentType(path) {
 async function writeRemoteFile(root, remote, previousLocal) {
   const target = diskPathForSource(root, remote.path, remote.renderer)
   await mkdir(dirname(target), { recursive: true })
-  await writeFile(target, remote.content)
+  const temporary = `${target}.koala-${process.pid}-${Date.now()}.tmp`
+  try {
+    await writeFile(temporary, remote.content)
+    await rename(temporary, target)
+  }
+  catch (error) {
+    await unlink(temporary).catch(() => undefined)
+    throw error
+  }
   if (previousLocal && previousLocal.renderer !== remote.renderer && previousLocal.absolutePath !== target)
     await unlink(previousLocal.absolutePath)
   return statSource(root, remote.path, remote.renderer)
@@ -221,8 +230,8 @@ export async function synchronizeOnce(root, client) {
         content,
         baseRevision: remote.revision,
       })
-      if (content !== await readSource(file))
-        await writeRemoteFile(root, { ...saved, content })
+      if (typeof saved.content === 'string' && saved.content !== await readSource(file))
+        await writeRemoteFile(root, saved, file)
       const refreshed = await statSource(root, file.path, file.renderer)
       nextState.files[file.path] = stateEntry(refreshed, saved)
       delete nextState.files[oldPath]
@@ -250,8 +259,12 @@ export async function synchronizeOnce(root, client) {
           recordFile(summary, 'removed', file.path)
           continue
         }
-        const created = await client.createFile({ path: file.path, renderer: file.renderer, content: await readSource(file) })
-        nextState.files[file.path] = stateEntry(file, created)
+        const uploadedContent = await readSource(file)
+        const created = await client.createFile({ path: file.path, renderer: file.renderer, content: uploadedContent })
+        const refreshed = typeof created.content !== 'string' || created.content === uploadedContent
+          ? file
+          : await writeRemoteFile(root, created, file)
+        nextState.files[file.path] = stateEntry(refreshed, created)
         recordFile(summary, 'created', file.path)
         markRebuild(summary, created)
         continue
@@ -289,8 +302,11 @@ export async function synchronizeOnce(root, client) {
         content: localChange.content,
         baseRevision: remote.revision,
       })
+      const refreshed = typeof saved.content !== 'string' || saved.content === localChange.content
+        ? file
+        : await writeRemoteFile(root, saved, file)
       await removeSupersededLocalFiles(selection.supersededByPath, file.path)
-      nextState.files[file.path] = stateEntry(file, saved)
+      nextState.files[file.path] = stateEntry(refreshed, saved)
       recordFile(summary, 'updated', file.path)
       markRebuild(summary, saved)
     }

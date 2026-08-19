@@ -27,7 +27,7 @@ function handleSaveResult(result: Awaited<ReturnType<typeof saveFile>>) {
   }
   if (result.status === 'not_found')
     return notFound()
-  return result.file
+  return { ...result.file, sourceWarnings: result.warnings ?? [] }
 }
 
 export const save = defineAction({

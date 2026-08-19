@@ -54,7 +54,7 @@ describe('sync File API', () => {
   })
 
   it('creates a private File for the Bearer Token Owner without accepting Visibility', async () => {
-    mocks.saveSyncedFile.mockResolvedValue({ status: 'saved', file: { ...current, path: '/notes/new', private: true, revision: 1 } })
+    mocks.saveSyncedFile.mockResolvedValue({ status: 'saved', file: { ...current, path: '/notes/new', private: true, revision: 1 }, warnings: [] })
     const response = await POST(context(new Request('https://koala.test/api/sync/files', {
       method: 'POST',
       headers: { Authorization: 'Bearer owner-token' },
@@ -70,6 +70,7 @@ describe('sync File API', () => {
       baseRevision: 0,
       userId: 7,
     })
+    expect(await response.json()).toMatchObject({ file: { content: 'server source' }, warnings: [] })
   })
 
   it('reads and updates only a File owned by the Bearer Token Owner', async () => {
@@ -79,7 +80,7 @@ describe('sync File API', () => {
     expect(await get.json()).toMatchObject({ file: { id: 3, content: 'server source' } })
     expect(mocks.readActiveByIdForOwner).toHaveBeenCalledWith({ DB: 'db' }, 3, 7)
 
-    mocks.saveSyncedFile.mockResolvedValue({ status: 'saved', file: { ...current, content: 'local source', revision: 5 } })
+    mocks.saveSyncedFile.mockResolvedValue({ status: 'saved', file: { ...current, content: 'canonical source', revision: 5 }, warnings: [] })
     const put = await PUT(context(new Request('https://koala.test/api/sync/files/3', {
       method: 'PUT',
       headers: { Authorization: 'Bearer owner-token' },
@@ -95,6 +96,7 @@ describe('sync File API', () => {
       baseRevision: 4,
       userId: 7,
     })
+    expect(await put.json()).toMatchObject({ file: { content: 'canonical source' }, warnings: [] })
   })
 
   it('does not expose or trash another Owner File', async () => {

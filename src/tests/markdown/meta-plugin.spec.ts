@@ -29,6 +29,15 @@ describe('meta-plugin', () => {
     expect(result).not.toContain('Post title')
   })
 
+  it('strips delimiter-bounded invalid frontmatter without exposing metadata', () => {
+    const renderer = rawMd()
+    const result = renderer.render('---\ntitle: [invalid\n---\n\n# Body')
+
+    expect((renderer as any).meta).toBeUndefined()
+    expect(result).toContain('<h1>Body</h1>')
+    expect(result).not.toContain('invalid')
+  })
+
   it('should parse basic frontmatter with string values', () => {
     const md = MarkdownIt()
     useMetaPlugin(md)

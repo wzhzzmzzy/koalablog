@@ -9,6 +9,7 @@
   import type { EditBufferServerValues } from './edit-buffer.svelte';
   import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
   import type { FileReferenceCandidate } from './text-editor/file-reference-completion';
+  import type { TagCompletionCandidate } from './text-editor/tag-completion';
   import FileReferencePeek, { type FileReferencePeekTarget } from './FileReferencePeek.svelte';
   import SvelteIcon from './SvelteIcon.svelte';
   import SveltePreview from './svelte/SveltePreview.svelte';
@@ -22,6 +23,7 @@
     diagnostics?: TextEditorDiagnosticUpdate | null;
     value: string;
     referenceCandidates: readonly FileReferenceCandidate[];
+    tagCandidates: readonly TagCompletionCandidate[];
     referenceTargets: readonly FileReferencePeekTarget[];
     showPreview: boolean;
     markdownRequestedMode: MarkdownViewMode;
@@ -53,6 +55,7 @@
     diagnostics = null,
     value,
     referenceCandidates,
+    tagCandidates,
     referenceTargets,
     showPreview,
     markdownRequestedMode,
@@ -129,6 +132,14 @@
 
   export async function insertImages(files: File[]) {
     await textEditor?.insertImages(files);
+  }
+
+  export function applySavePreparation(content: string) {
+    textEditor?.applySavePreparation(content)
+  }
+
+  export function acknowledgeSavedSource(content: string) {
+    textEditor?.acknowledgeSavedSource(content)
   }
 
   export async function snapshotSvelteArtifact(artifact: PreviewArtifact) {
@@ -379,6 +390,7 @@
         {value}
         readonly={trashed}
         {referenceCandidates}
+        {tagCandidates}
         {onChange}
         {uploadImage}
       />
