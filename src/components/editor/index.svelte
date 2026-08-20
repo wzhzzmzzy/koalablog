@@ -566,6 +566,13 @@
       rendererValue = renderer;
   }
 
+  async function changePath(path: string) {
+    if (trashed || path === pathValue)
+      return
+    pathValue = path
+    await save()
+  }
+
   function retryLocalAgainstCurrentRevision() {
     if (!conflict || !window.confirm(`Keep the local Edit Buffer and retry against server revision ${conflict.revision}?`)) return;
     baseRevisionValue = conflict.revision;
@@ -648,9 +655,9 @@
     }
   }
 
-  async function save(e: Event) {
-    e.preventDefault()
-    if (trashed || saving || !changed) return
+  async function save(e?: Event) {
+    e?.preventDefault()
+    if (trashed || saving || !isDirtyAgainst(file)) return
     if (conflict) {
       notify('warning', 'Resolve the Source conflict before saving again.', 4000);
       return;
@@ -772,7 +779,7 @@
         onDeploy={deploy}
         onCopyLink={copyLink}
         onCopyReference={copyFileReference}
-        onPathChange={(path) => { pathValue = path }}
+        onPathChange={changePath}
         onMarkdownViewChange={(mode) => markdownViewState.setRequestedMode(mode)}
         {onUpdate}
         {onPurge}
