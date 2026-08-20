@@ -54,6 +54,39 @@ describe('editor instant search', () => {
     })
   })
 
+  it('matches frontmatter-only Effective Tags without leaking them into Source snippets', () => {
+    const file = makeFileRecord({
+      content: '---\ntags: ["front-only"]\n---\n\nVisible Source',
+      tags: '["front-only"]',
+    })
+
+    const result = searchFiles([file], 'front-only', buffers()).results[0]
+    expect(result).toMatchObject({
+      primaryMatch: SEARCH_MATCH_KIND.Tag,
+      matchedTags: ['front-only'],
+      sourceSnippet: null,
+    })
+  })
+
+  it('reads both JSON and legacy CSV stored tags', () => {
+    const json = makeFileRecord({ id: 1, path: '/json', tags: '["comma,tag"]' })
+    const legacy = makeFileRecord({ id: 2, path: '/legacy', tags: 'legacy, old' })
+
+    expect(searchFiles([json, legacy], 'comma,tag', buffers()).results[0].file.id).toBe(1)
+    expect(searchFiles([json, legacy], 'legacy', buffers()).results[0].file.id).toBe(2)
+  })
+
+  it('invalidates a saved tag cache entry when that File Source Hash changes', () => {
+    const first = makeFileRecord({ id: 30, sourceHash: 'hash-one', tags: '["first-tag"]' })
+    const changed = makeFileRecord({ id: 30, sourceHash: 'hash-two', tags: '["second-tag"]' })
+    const unrelated = makeFileRecord({ id: 31, sourceHash: 'other-hash', tags: '["other-tag"]' })
+
+    expect(searchFiles([first, unrelated], 'first-tag', buffers()).total).toBe(1)
+    expect(searchFiles([changed, unrelated], 'first-tag', buffers()).total).toBe(0)
+    expect(searchFiles([changed, unrelated], 'second-tag', buffers()).total).toBe(1)
+    expect(searchFiles([changed, unrelated], 'other-tag', buffers()).total).toBe(1)
+  })
+
   it('searches complete Svelte Source without Markdown frontmatter stripping', () => {
     const file = makeFileRecord({
       renderer: 'svelte',
@@ -78,7 +111,7 @@ describe('editor instant search', () => {
     const dirty = buffers([[file.id, {
       path: '/edited-path',
       renderer: 'markdown',
-      content: '#edited-tag\nEdited body',
+      content: '---\ntags: ["front-tag"]\n---\n\n#edited-tag\nEdited body',
       dirty: true,
     }]])
 
@@ -94,6 +127,7 @@ describe('editor instant search', () => {
       dirty: true,
     })
     expect(searchFiles([file], 'edited body', dirty).results[0].sourceSnippet).toContain('Edited body')
+    expect(searchFiles([file], 'front-tag', dirty).results[0]).toMatchObject({ matchedTags: ['front-tag'] })
   })
 
   it('excludes trashed Files and limits rendered results after counting all matches', () => {

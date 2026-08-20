@@ -64,6 +64,22 @@ _Avoid_: Display title, subject, metadata title
 The reader-facing title of a Markdown Post, resolved from a non-empty string `title` in its leading YAML frontmatter and otherwise falling back to the derived File Title. It affects the Post header, browser/SEO title, post lists, RSS, and editor preview. It is not persisted as independent File metadata, does not affect paths or references, and is preserved as ordinary Source during import, export, and sync.
 _Avoid_: File Title, subject, a second database title
 
+**Frontmatter Tag**:
+A tag explicitly retained in the `tags` field of a Markdown File's leading YAML frontmatter.
+_Avoid_: Metadata label, saved tag
+
+**Body Tag**:
+A tag recognized from `#tag` syntax in a Markdown File body.
+_Avoid_: Hashtag, inline label
+
+**Effective Tags**:
+The ordered, exact union of a Markdown File's Frontmatter Tags followed by its Body Tags. Tag identity is case-sensitive.
+_Avoid_: Stored tags, merged labels
+
+**Tag Reconciliation**:
+The Save preparation that retains Frontmatter Tags and adds newly recognized Body Tags to leading frontmatter, producing the Effective Tags represented by the Markdown Source.
+_Avoid_: Tag synchronization, tag extraction
+
 **File Reference**:
 An explicit, literal reference to another file by its absolute file path, such as `[[/project/foo]]`. Titles are never resolved as shorthand references, and moving or renaming the target does not rewrite referring files.
 _Avoid_: Title link, ambiguous link, implicit file

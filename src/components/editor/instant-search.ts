@@ -1,5 +1,6 @@
 import type { FileRecord } from '@/db/types'
-import { analyzeMarkdownSource } from '@/lib/files/analysis'
+import { prepareMarkdownSource } from '@/lib/files/analysis'
+import { decodeStoredTags } from '@/lib/files/stored-tags'
 import { RENDERER_MODE, type RendererMode } from '@/lib/files/types'
 import { stripMetaBlock } from '@/lib/services/markdown-parser'
 
@@ -53,6 +54,22 @@ const matchPriority: Record<SearchMatchKind, number> = {
   [SEARCH_MATCH_KIND.Source]: 2,
 }
 
+const savedTagCache = new Map<number, {
+  sourceHash: string | null
+  storedTags: string | null
+  tags: string[]
+}>()
+
+function savedTags(file: FileRecord) {
+  const cached = savedTagCache.get(file.id)
+  const storedTags = file.tags ?? null
+  if (cached?.sourceHash === file.sourceHash && cached.storedTags === storedTags)
+    return cached.tags
+  const tags = decodeStoredTags(storedTags)
+  savedTagCache.set(file.id, { sourceHash: file.sourceHash, storedTags, tags })
+  return tags
+}
+
 function normalize(value: string) {
   return value.toLowerCase()
 }
@@ -79,10 +96,6 @@ function titleFromPath(path: string) {
   return path.split('/').filter(Boolean).at(-1) ?? ''
 }
 
-function storedTags(tags: FileRecord['tags']) {
-  return tags?.split(',').map(tag => tag.trim()).filter(Boolean) ?? []
-}
-
 function sourceForSearch(renderer: RendererMode, content: string) {
   return renderer === RENDERER_MODE.Markdown ? stripMetaBlock(content) : content
 }
@@ -103,7 +116,7 @@ function effectiveValues(file: FileRecord, buffers: InstantSearchEditBufferLooku
   const renderer = dirty ? buffer!.renderer : file.renderer
   const content = dirty ? buffer!.content : file.content
   const tags = renderer === RENDERER_MODE.Markdown
-    ? (dirty ? analyzeMarkdownSource(content).tags : storedTags(file.tags))
+    ? (dirty ? prepareMarkdownSource(content).tags : savedTags(file))
     : []
 
   return { path, renderer, content, tags, dirty }

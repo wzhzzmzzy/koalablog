@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { RendererMode } from '@/lib/files/types';
   import { RENDERER_MODE } from '@/lib/files/types';
-  import { Compartment, EditorState, type Extension } from '@codemirror/state';
+  import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
   import { isolateHistory } from '@codemirror/commands';
   import { diagnosticCount, setDiagnostics, type Diagnostic } from '@codemirror/lint';
   import { EditorView } from '@codemirror/view';
@@ -9,12 +9,15 @@
   import { restoreCodeMirrorState, saveCodeMirrorState } from './codemirror-state';
   import { catppuccinEditorTheme, resolveEditorCatppuccinTheme } from './catppuccin-theme';
   import { reconcileTextEditorDiagnostics, type TextEditorDiagnosticUpdate } from './diagnostics';
-  import { fileReferenceCompletion, type FileReferenceCandidate } from './file-reference-completion';
+  import type { FileReferenceCandidate } from './file-reference-completion';
+  import { markdownCompletion } from './markdown-completion';
+  import type { TagCompletionCandidate } from './tag-completion';
   import { createImageHistoryController } from './image-history';
   import { imagesFromClipboard, imagesFromDrop, prepareImageBatch, type PendingImage } from './images';
   import { isCurrentTextEditorLanguageRequest, planTextEditorLanguageRequest } from './language-state';
   import { markdownLanguageExtension, textEditorExtensions } from './markdown-language';
   import { reconcileEditorInput } from './state-registry';
+  import { sourceReconciliationChange } from './source-reconciliation';
 
   interface Props {
     fileId: number;
@@ -24,11 +27,12 @@
     value: string;
     readonly: boolean;
     referenceCandidates: readonly FileReferenceCandidate[];
+    tagCandidates: readonly TagCompletionCandidate[];
     onChange: (value: string) => void;
     uploadImage: (file: File) => Promise<{ url: string }>;
   }
 
-  let { fileId, filePath, renderer, diagnostics, value, readonly, referenceCandidates, onChange, uploadImage }: Props = $props();
+  let { fileId, filePath, renderer, diagnostics, value, readonly, referenceCandidates, tagCandidates, onChange, uploadImage }: Props = $props();
   let container: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined = $state();
   let activeFileId = fileId;
@@ -46,16 +50,16 @@
   const accessCompartment = new Compartment();
   const labelCompartment = new Compartment();
   const languageCompartment = new Compartment();
-  const referenceCompletionCompartment = new Compartment();
+  const markdownCompletionCompartment = new Compartment();
   const themeCompartment = new Compartment();
 
   function initialLanguageExtension(initialRenderer: RendererMode): Extension {
     return initialRenderer === RENDERER_MODE.Markdown ? markdownLanguageExtension() : [];
   }
 
-  function referenceCompletionExtension(nextRenderer: RendererMode, nextReadonly: boolean, nextCandidates: readonly FileReferenceCandidate[], nextFileId: number): Extension {
+  function markdownCompletionExtension(nextRenderer: RendererMode, nextReadonly: boolean, nextReferences: readonly FileReferenceCandidate[], nextTags: readonly TagCompletionCandidate[], nextFileId: number): Extension {
     return nextRenderer === RENDERER_MODE.Markdown && !nextReadonly
-      ? fileReferenceCompletion({ candidates: nextCandidates, excludeId: nextFileId })
+      ? markdownCompletion({ references: nextReferences, tags: nextTags, excludeFileId: nextFileId })
       : [];
   }
 
@@ -92,7 +96,7 @@
         languageCompartment.of(initialLanguageExtension(initialRenderer)),
         accessCompartment.of(accessExtension(readonly)),
         labelCompartment.of(labelExtension(filePath, fileId)),
-        referenceCompletionCompartment.of(referenceCompletionExtension(initialRenderer, readonly, referenceCandidates, fileId)),
+        markdownCompletionCompartment.of(markdownCompletionExtension(initialRenderer, readonly, referenceCandidates, tagCandidates, fileId)),
         EditorView.domEventHandlers({
           paste(event) {
             const files = imagesFromClipboard(event);
@@ -194,30 +198,33 @@
 
   // The $effect below runs on every keystroke, so reconfigure only when an
   // actual input changed; a redundant reconfigure would reset the open tooltip.
-  let appliedReferenceCompletion: {
+  let appliedMarkdownCompletion: {
     renderer: RendererMode;
     readonly: boolean;
     candidates: readonly FileReferenceCandidate[];
+    tags: readonly TagCompletionCandidate[];
     fileId: number;
   } | null = null;
 
-  function applyReferenceCompletion(nextRenderer: RendererMode, nextReadonly: boolean, nextCandidates: readonly FileReferenceCandidate[], nextFileId: number) {
+  function applyMarkdownCompletion(nextRenderer: RendererMode, nextReadonly: boolean, nextCandidates: readonly FileReferenceCandidate[], nextTags: readonly TagCompletionCandidate[], nextFileId: number) {
     if (!view) return;
-    const last = appliedReferenceCompletion;
+    const last = appliedMarkdownCompletion;
     if (last
       && last.renderer === nextRenderer
       && last.readonly === nextReadonly
       && last.candidates === nextCandidates
+      && last.tags === nextTags
       && last.fileId === nextFileId) return;
-    appliedReferenceCompletion = {
+    appliedMarkdownCompletion = {
       renderer: nextRenderer,
       readonly: nextReadonly,
       candidates: nextCandidates,
+      tags: nextTags,
       fileId: nextFileId,
     };
     view.dispatch({
-      effects: referenceCompletionCompartment.reconfigure(
-        referenceCompletionExtension(nextRenderer, nextReadonly, nextCandidates, nextFileId),
+      effects: markdownCompletionCompartment.reconfigure(
+        markdownCompletionExtension(nextRenderer, nextReadonly, nextCandidates, nextTags, nextFileId),
       ),
     });
   }
@@ -284,6 +291,24 @@
     return Promise.resolve();
   }
 
+  function applySource(content: string, addToHistory: boolean) {
+    if (!view) return;
+    const change = sourceReconciliationChange(view.state.doc.toString(), content);
+    if (!change) return;
+    view.dispatch({
+      changes: change,
+      annotations: addToHistory ? undefined : Transaction.addToHistory.of(false),
+    });
+  }
+
+  export function applySavePreparation(content: string) {
+    applySource(content, true);
+  }
+
+  export function acknowledgeSavedSource(content: string) {
+    applySource(content, false);
+  }
+
   onMount(() => {
     if (!container) return;
     const restored = restoreState(fileId, value, renderer);
@@ -295,7 +320,7 @@
       parent: container,
     });
     applyDynamicConfiguration(readonly, filePath, fileId);
-    applyReferenceCompletion(renderer, readonly, referenceCandidates, fileId);
+    applyMarkdownCompletion(renderer, readonly, referenceCandidates, tagCandidates, fileId);
     void applyLanguage(renderer);
     applyDiagnostics(diagnostics);
 
@@ -336,7 +361,7 @@
       applyRestoredState(nextFileId, acceptedValue, nextRenderer);
     }
     applyDynamicConfiguration(nextReadonly, nextPath, nextFileId);
-    applyReferenceCompletion(nextRenderer, nextReadonly, referenceCandidates, nextFileId);
+    applyMarkdownCompletion(nextRenderer, nextReadonly, referenceCandidates, tagCandidates, nextFileId);
     const stateWasReplaced = action === 'switch' || action === 'replace';
     void applyLanguage(nextRenderer, stateWasReplaced);
     applyDiagnostics(nextDiagnostics, stateWasReplaced);

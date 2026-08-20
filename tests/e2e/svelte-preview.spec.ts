@@ -22,6 +22,11 @@ async function openEditor(page: Page) {
   await page.waitForLoadState('networkidle')
 }
 
+async function chooseSvelteRenderer(page: Page) {
+  await page.getByRole('button', { name: 'More File actions' }).click()
+  await page.getByRole('menuitemradio', { name: 'Svelte' }).click()
+}
+
 async function installPreviewFixture(page: Page) {
   await page.evaluate(async () => {
     const runtimeModulePath = '/src/components/editor/svelte/preview-runtime.ts'
@@ -249,7 +254,7 @@ test('shared Snapshot canonicalizer preserves safe no-script navigation and form
 
 test('editor builds a visible Svelte Preview only after Preview opens', async ({ page }) => {
   await openEditor(page)
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseSvelteRenderer(page)
   await expect(page.locator('[data-koala-svelte-preview]:visible')).toHaveCount(0)
 
   const workerLoadReloadedEditor = page.waitForEvent('framenavigated', {
@@ -263,7 +268,7 @@ test('editor builds a visible Svelte Preview only after Preview opens', async ({
 
   if (reloadedEditor) {
     await page.waitForLoadState('networkidle')
-    await page.getByRole('radio', { name: 'Svelte' }).check()
+    await chooseSvelteRenderer(page)
     await page.getByRole('button', { name: 'Preview File' }).click()
   }
   const preview = page.locator('.editor-preview-overlay [data-koala-svelte-preview]')
@@ -277,7 +282,7 @@ test('editor Preview gives Svelte output the active dark-theme text color', asyn
   await page.locator('html').evaluate((element) => {
     element.setAttribute('data-theme', 'dark')
   })
-  await page.getByRole('radio', { name: 'Svelte' }).check()
+  await chooseSvelteRenderer(page)
 
   const workerLoadReloadedEditor = page.waitForEvent('framenavigated', {
     predicate: frame => frame === page.mainFrame(),
@@ -292,7 +297,7 @@ test('editor Preview gives Svelte output the active dark-theme text color', asyn
     await page.locator('html').evaluate((element) => {
       element.setAttribute('data-theme', 'dark')
     })
-    await page.getByRole('radio', { name: 'Svelte' }).check()
+    await chooseSvelteRenderer(page)
     await page.getByRole('button', { name: 'Preview File' }).click()
   }
 

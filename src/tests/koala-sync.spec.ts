@@ -67,6 +67,51 @@ describe('one-shot local workspace synchronization', () => {
     expect((await readSyncState(root)).files['/note']).toMatchObject({ id: 1, revision: 1, sourceHash: remote.sourceHash })
   })
 
+  it('writes canonical Source returned by create before advancing Sync State', async () => {
+    const root = await workspace()
+    const localPath = join(root, 'tagged.md')
+    await writeFile(localPath, '#local')
+    const canonical = '---\ntags: ["local"]\n---\n\n#local'
+    const remote = sourceFile('/tagged', canonical)
+    const remoteClient = client({})
+    remoteClient.createFile.mockResolvedValue(remote)
+
+    const first = await synchronizeOnce(root, remoteClient)
+    expect(first.created).toEqual(['/tagged'])
+    expect(await readFile(localPath, 'utf8')).toBe(canonical)
+    expect((await readSyncState(root)).files['/tagged'].sourceHash).toBe(remote.sourceHash)
+
+    remoteClient.manifest.mockResolvedValue({ files: [remote], attachments: [] })
+    remoteClient.createFile.mockClear()
+    const second = await synchronizeOnce(root, remoteClient)
+    expect(second.created).toEqual([])
+    expect(second.updated).toEqual([])
+    expect(second.pulled).toEqual([])
+    expect(remoteClient.createFile).not.toHaveBeenCalled()
+    expect(remoteClient.updateFile).not.toHaveBeenCalled()
+  })
+
+  it('writes canonical Source returned by update before advancing Sync State', async () => {
+    const root = await workspace()
+    const localPath = join(root, 'tagged.md')
+    await writeFile(localPath, 'initial')
+    const initial = sourceFile('/tagged', 'initial')
+    const remoteClient = client({})
+    remoteClient.createFile.mockResolvedValue(initial)
+    await synchronizeOnce(root, remoteClient)
+
+    await writeFile(localPath, '#changed')
+    remoteClient.manifest.mockResolvedValue({ files: [initial], attachments: [] })
+    const canonical = '---\ntags: ["changed"]\n---\n\n#changed'
+    const saved = sourceFile('/tagged', canonical, 2)
+    remoteClient.updateFile.mockResolvedValue(saved)
+
+    const result = await synchronizeOnce(root, remoteClient)
+    expect(result.updated).toEqual(['/tagged'])
+    expect(await readFile(localPath, 'utf8')).toBe(canonical)
+    expect((await readSyncState(root)).files['/tagged'].sourceHash).toBe(saved.sourceHash)
+  })
+
   it('pulls an unknown remote File without interpreting it as a local deletion', async () => {
     const root = await workspace()
     const remote = file('/from-dashboard', 4, { renderer: 'svelte', sourceHash: hash('dashboard') })
@@ -237,6 +282,40 @@ describe('one-shot local workspace synchronization', () => {
     expect(remoteClient.updateFile).toHaveBeenCalledWith(1, expect.objectContaining({ path: '/renamed', baseRevision: 1 }))
     expect((await readSyncState(root)).files).toEqual(expect.objectContaining({ '/renamed': expect.objectContaining({ id: 1, revision: 2 }) }))
     expect((await readSyncState(root)).files['/old']).toBeUndefined()
+  })
+
+  it('writes canonical Source returned by rename before state and makes the next cycle a no-op', async () => {
+    const root = await workspace()
+    const oldPath = join(root, 'old.md')
+    const renamedPath = join(root, 'renamed.md')
+    await writeFile(oldPath, '#tagged')
+    const initial = sourceFile('/old', '#tagged')
+    const remoteClient = client({})
+    remoteClient.createFile.mockResolvedValue(initial)
+    await synchronizeOnce(root, remoteClient)
+
+    await rename(oldPath, renamedPath)
+    remoteClient.manifest.mockResolvedValue({ files: [initial], attachments: [] })
+    const canonical = '---\ntags: ["tagged"]\n---\n\n#tagged'
+    const saved = sourceFile('/renamed', canonical, 2)
+    remoteClient.updateFile.mockResolvedValue(saved)
+
+    const renamed = await synchronizeOnce(root, remoteClient)
+    expect(renamed.renamed).toEqual(['/old -> /renamed'])
+    expect(await readFile(renamedPath, 'utf8')).toBe(canonical)
+    expect((await readSyncState(root)).files['/renamed']).toMatchObject({
+      revision: 2,
+      sourceHash: saved.sourceHash,
+    })
+
+    remoteClient.manifest.mockResolvedValue({ files: [saved], attachments: [] })
+    remoteClient.updateFile.mockClear()
+    const unchanged = await synchronizeOnce(root, remoteClient)
+    expect(unchanged.renamed).toEqual([])
+    expect(unchanged.updated).toEqual([])
+    expect(unchanged.pulled).toEqual([])
+    expect(unchanged.conflicted).toEqual([])
+    expect(remoteClient.updateFile).not.toHaveBeenCalled()
   })
 
   it('uploads, downloads, and deletes Attachments independently from Source', async () => {

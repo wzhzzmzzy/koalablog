@@ -37,7 +37,10 @@ export const POST: APIRoute = async (ctx) => {
       return syncJson({ error: 'path_conflict', path: result.path }, 409)
     if (result.status !== 'saved')
       return syncJson({ error: result.status }, 404)
-    return syncJson({ file: syncFileManifest(result.file) }, 201)
+    return syncJson({
+      file: { ...syncFileManifest(result.file), content: result.file.content },
+      warnings: result.warnings,
+    }, 201)
   }
   catch (error) {
     if (error instanceof FileInputError)

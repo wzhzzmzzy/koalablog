@@ -2,6 +2,7 @@ import type { APIContext } from 'astro'
 import rss from '@astrojs/rss'
 import { readActivePaths, readAllPublic } from '@/db/markdown'
 import { getDisplayTitle } from '@/lib/files/display-title'
+import { decodeStoredTags } from '@/lib/files/stored-tags'
 import { rawMd } from '@/lib/markdown'
 
 export async function retriveRss(ctx: APIContext) {
@@ -30,7 +31,7 @@ export async function retriveRss(ctx: APIContext) {
       return {
         title: getDisplayTitle(post),
         link: post.path,
-        categories: (post.tags || '')?.split(','),
+        categories: decodeStoredTags(post.tags),
         pubDate: post.createdAt,
         description: firstParagraph?.[1] || '',
         content,

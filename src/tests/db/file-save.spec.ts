@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readAnyById, readById, readByPath, restore, saveFile, saveSyncedFile, trash, updatePrivate } from '@/db/markdown'
+import { calculateSourceHash } from '@/lib/files/source-hash'
 
 const env = {} as Env
 
@@ -67,7 +68,7 @@ describe('file Source Save derivation', () => {
         renderer: 'svelte',
         content: '#not-a-tag\n\n[[/wiki/nope]]',
         sourceHash: 'a74c58bcc1e0946a2759529d36237a4095b9610904506f29742ecde8655dfd23',
-        tags: '',
+        tags: '[]',
         outgoing_links: '[]',
         revision: 1,
       },
@@ -141,8 +142,8 @@ describe('file Source Save derivation', () => {
         path: '/memo/项目笔记',
         title: '项目笔记',
         renderer: 'markdown',
-        sourceHash: '6f23a9df475cd1ba928a1ccf24d91eb7a750f318540e7c7f59f5542ca8175d3f',
-        tags: '项目',
+        sourceHash: '1abe52474cb0eca4d3c002bc9e6d99254cf24f677f1eeb6672d8260c429e4301',
+        tags: '["项目"]',
         outgoing_links: '["/wiki/术语"]',
         private: true,
         revision: 1,
@@ -399,6 +400,48 @@ describe('file Source persistence', () => {
     expect(created).toMatchObject({ status: 'saved', file: { userId: 7 } })
     expect(saved).toMatchObject({ status: 'saved', file: { userId: 7 } })
     expect(await readById(env, created.file.id)).toMatchObject({ userId: 7 })
+  })
+
+  it('stores canonical Markdown Source, hashes it, and writes JSON Effective Tags', async () => {
+    const submitted = '---\ntags: [front]\n---\n\n#body'
+    const canonical = '---\ntags: ["front", "body"]\n---\n\n#body'
+    const result = await saveFile(env, {
+      id: 0,
+      path: '/post/tagged',
+      renderer: 'markdown',
+      content: submitted,
+      private: false,
+      baseRevision: 0,
+    })
+
+    expect(result).toMatchObject({
+      status: 'saved',
+      warnings: [],
+      file: {
+        content: canonical,
+        tags: '["front","body"]',
+      },
+    })
+    if (result.status === 'saved')
+      expect(result.file.sourceHash).toBe(await calculateSourceHash('markdown', canonical))
+  })
+
+  it('preserves invalid frontmatter while returning a bounded warning', async () => {
+    const content = '---\ntags: [one, 2]\n---\n\n#body'
+    const result = await saveFile(env, {
+      id: 0,
+      path: '/post/invalid-tags',
+      renderer: 'markdown',
+      content,
+      private: false,
+      baseRevision: 0,
+    })
+
+    expect(result).toMatchObject({
+      status: 'saved',
+      warnings: [{ code: 'unsupported-tags' }],
+      file: { content, tags: '["body"]' },
+    })
   })
 
   it('keeps Source when a Save moves the File across the /post/ boundary', async () => {

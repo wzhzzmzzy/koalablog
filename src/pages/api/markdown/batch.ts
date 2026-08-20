@@ -33,7 +33,8 @@ async function serializedFile(env: Env | undefined, file: {
   renderer: RendererMode
   sourceHash: string
   revision: number
-}) {
+  content?: string
+}, includeContent = false) {
   return {
     id: file.id,
     path: file.path,
@@ -42,6 +43,7 @@ async function serializedFile(env: Env | undefined, file: {
     sourceHash: file.sourceHash,
     artifactStatus: await artifactStatus(env, file),
     revision: file.revision,
+    ...(includeContent ? { content: file.content ?? '' } : {}),
   }
 }
 
@@ -121,7 +123,7 @@ export const POST: APIRoute = async (ctx) => {
     return json({
       success: true,
       count: files.length,
-      results: await Promise.all(files.map(file => serializedFile(ctx.locals.runtime?.env, file))),
+      results: await Promise.all(files.map(file => serializedFile(ctx.locals.runtime?.env, file, true))),
     })
   }
   catch (error) {

@@ -251,6 +251,7 @@ describe('markdown batch API optimistic Source writes', () => {
         path: '/wiki/architecture',
         title: 'architecture',
         renderer: 'markdown',
+        content: 'canonical Source',
         sourceHash: 'f22a36807e299b6fba30270ddf4a78edc542b12146be91c0e639a3bbd7a4042d',
         revision: 4,
       },
@@ -288,6 +289,7 @@ describe('markdown batch API optimistic Source writes', () => {
         sourceHash: 'f22a36807e299b6fba30270ddf4a78edc542b12146be91c0e639a3bbd7a4042d',
         artifactStatus: 'not_applicable',
         revision: 4,
+        content: 'canonical Source',
       }],
     })
   })
@@ -302,6 +304,7 @@ describe('markdown batch API Svelte Source writes', () => {
         path: '/page/application',
         title: 'application',
         renderer: 'svelte',
+        content: '<h1>Application</h1>',
         sourceHash: 'svelte-source-hash',
         revision: 5,
       },
@@ -340,6 +343,7 @@ describe('markdown batch API Svelte Source writes', () => {
         sourceHash: 'svelte-source-hash',
         artifactStatus: 'not_deployed',
         revision: 5,
+        content: '<h1>Application</h1>',
       }],
     })
   })

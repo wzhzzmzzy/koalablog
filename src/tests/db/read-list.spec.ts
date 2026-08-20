@@ -76,4 +76,30 @@ describe('readList filters', () => {
     expect((await readList(env, MarkdownSource.Memo, undefined, { ownerId: 1, year: 2026 })).map(file => file.path))
       .toEqual(['/memo/e'])
   })
+
+  it('matches exact tags across JSON and legacy CSV rows', async () => {
+    const [java, javascript, comma, unicode] = await batchAdd(env, [
+      { path: '/post/java', renderer: 'markdown', content: '#java', userId: 1 },
+      { path: '/post/javascript', renderer: 'markdown', content: '#javascript', userId: 1 },
+      { path: '/post/comma', renderer: 'markdown', content: '---\ntags: ["comma,tag"]\n---\n', userId: 1 },
+      { path: '/post/unicode', renderer: 'markdown', content: '#测试', userId: 1 },
+    ])
+    const client = createClient({ url: process.env.SQLITE_URL! })
+    await client.execute({
+      sql: 'UPDATE markdown SET tags = ? WHERE id = ?',
+      args: ['legacy, spaced', java.id],
+    })
+    await client.execute({
+      sql: 'UPDATE markdown SET tags = ? WHERE id = ?',
+      args: ['not-json[', javascript.id],
+    })
+    client.close()
+
+    expect((await readList(env, MarkdownSource.Post, 'legacy')).map(file => file.path)).toEqual(['/post/java'])
+    expect((await readList(env, MarkdownSource.Post, 'spaced')).map(file => file.path)).toEqual(['/post/java'])
+    expect((await readList(env, MarkdownSource.Post, 'java')).map(file => file.path)).toEqual([])
+    expect((await readList(env, MarkdownSource.Post, 'javascript')).map(file => file.path)).toEqual([])
+    expect((await readList(env, MarkdownSource.Post, 'comma,tag')).map(file => file.path)).toEqual([comma.path])
+    expect((await readList(env, MarkdownSource.Post, '测试')).map(file => file.path)).toEqual([unicode.path])
+  })
 })

@@ -55,8 +55,12 @@ export const PUT: APIRoute = async (ctx) => {
       baseRevision: parsed.value.baseRevision,
       userId: authorization.userId,
     })
-    if (result.status === 'saved')
-      return syncJson({ file: syncFileManifest(result.file) })
+    if (result.status === 'saved') {
+      return syncJson({
+        file: { ...syncFileManifest(result.file), content: result.file.content },
+        warnings: result.warnings,
+      })
+    }
     if (result.status === 'conflict')
       return syncJson({ error: 'source_conflict', file: syncFileManifest(result.current) }, 409)
     if (result.status === 'path_conflict')

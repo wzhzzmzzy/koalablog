@@ -150,6 +150,26 @@ test('File Path Escape cancels inline editing and restores the path trigger focu
   await expect(path).toBeFocused()
 })
 
+test('applying a File Path derives the new Title and saves the rename immediately', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const saveResponse = page.waitForResponse(response =>
+    response.request().method() === 'POST' && response.url().includes('/_actions/form.save'),
+  )
+  await setBufferPath(page, '/renamed-from-path')
+  await saveResponse
+
+  await expect(page.getByRole('button', { name: 'renamed-from-path', exact: true })).toBeVisible()
+  await expect(page.getByText('Unsaved changes')).toBeHidden()
+  await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Frenamed-from-path$/)
+
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByTestId('editor-path-edit')).toHaveText('/renamed-from-path')
+  await expect(page.getByRole('button', { name: 'renamed-from-path', exact: true })).toBeVisible()
+})
+
 test('File Source exposes the stable editor contract', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
@@ -162,6 +182,41 @@ test('File Source exposes the stable editor contract', async ({ page }) => {
   await source.fill('First line\nSecond line updated')
 
   await expectEditorText(source, 'First line\nSecond line updated')
+})
+
+test('typing while Save is in flight keeps the newer Source, cursor, and saved revision', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/_actions/form.save/**', async (route) => {
+    await gate
+    await route.continue()
+  })
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('submitted Source')
+  await page.getByRole('button', { name: 'Save File' }).click()
+  await expect(page.getByRole('button', { name: 'Save File' })).toBeDisabled()
+
+  await source.pressSequentially('\nnewer typing')
+  const expectedSource = 'submitted Source\nnewer typing'
+  await expectEditorText(source, expectedSource)
+  const selectionBeforeResponse = await editorSelectionStart(source)
+  release()
+
+  await expect(page.getByText('Source saved.')).toBeVisible()
+  await expectEditorText(source, expectedSource)
+  await expect(source).toBeFocused()
+  await expectEditorSelectionStart(source, selectionBeforeResponse)
+  await expect(page.getByText('Unsaved changes')).toBeVisible()
+
+  await expect(page.getByRole('button', { name: 'Save File' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Save File' }).click()
+  await expect(page.getByText('Unsaved changes')).toBeHidden()
 })
 
 test('typing [[ completes a File Reference into its canonical Source form', async ({ page }) => {
@@ -869,8 +924,11 @@ test('renaming a File preserves Source selection, scroll, folds, and undo', asyn
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
   const savedScrollTop = await scroller.evaluate(element => element.scrollTop)
 
+  const saveResponse = page.waitForResponse(response =>
+    response.request().method() === 'POST' && response.url().includes('/_actions/form.save'),
+  )
   await setBufferPath(page, '/phase-two-renamed')
-  await page.getByRole('button', { name: 'Save File' }).click()
+  await saveResponse
   await expect(page.getByText('Source saved.')).toBeVisible()
   await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Fphase-two-renamed$/)
 
