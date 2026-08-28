@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer'
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, gt, inArray, sql } from 'drizzle-orm'
 import { connectDB } from '../../db'
 import { blobStorage } from '../../db/schema'
 
@@ -143,9 +143,15 @@ export class SQLiteBlobStorage {
     cursor?: string
   }> {
     const db = connectDB(this.env)
-    const limit = options?.limit || 1000
+    const limit = Math.min(1000, Math.max(1, options?.limit ?? 1000))
 
     const query = db.query.blobStorage.findMany({
+      where: and(
+        options?.prefix
+          ? sql`substr(${blobStorage.key}, 1, ${options.prefix.length}) = ${options.prefix}`
+          : undefined,
+        options?.cursor ? gt(blobStorage.key, options.cursor) : undefined,
+      ),
       limit: limit + 1, // Get one extra to check if truncated
       orderBy: (blobStorage, { asc }) => [asc(blobStorage.key)],
     })

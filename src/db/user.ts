@@ -107,3 +107,24 @@ export function listUsers(env: Env) {
     orderBy: asc(user.username),
   })
 }
+
+export function listUsersWithFileStats(env: Env) {
+  return connectDB(env).all<{
+    id: number
+    username: string
+    role: UserRole
+    publicFileCount: number
+    privateFileCount: number
+  }>(sql`
+    SELECT
+      u."id" AS "id",
+      u."username" AS "username",
+      u."role" AS "role",
+      coalesce(sum(case when m."id" is not null and m."private" = 0 then 1 else 0 end), 0) AS "publicFileCount",
+      coalesce(sum(case when m."id" is not null and m."private" = 1 then 1 else 0 end), 0) AS "privateFileCount"
+    FROM "user" u
+    LEFT JOIN "markdown" m ON m."userId" = u."id" AND m."deletedAt" IS NULL
+    GROUP BY u."id", u."username", u."role"
+    ORDER BY u."username" ASC
+  `)
+}

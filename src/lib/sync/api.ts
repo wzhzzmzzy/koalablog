@@ -25,8 +25,10 @@ export function attachmentPath(input: string | undefined) {
   return input
 }
 
+export const SYNC_ATTACHMENT_ROOT = 'sync-attachments/'
+
 export function syncAttachmentPrefix(userId: number) {
-  return `sync-attachments/${userId}/`
+  return `${SYNC_ATTACHMENT_ROOT}${userId}/`
 }
 
 export function syncAttachmentKey(userId: number, path: string) {
