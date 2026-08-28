@@ -6,7 +6,7 @@ import ImportFile from '@/components/io/import-file.svelte'
 import RssEnableSwitch from '@/components/settings/RssEnableSwitch.svelte'
 import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import { readToday } from '@/db/ossAccess'
-import { listApiTokens, listUsers } from '@/db/user'
+import { listApiTokens, listUsersWithFileStats } from '@/db/user'
 import DashboardShell from '@/layouts/dashboard-shell.astro'
 import { CatppuccinTheme } from '@/lib/const/config'
 import { globalConfig } from '@/lib/kv'
@@ -24,7 +24,7 @@ const isAdmin = session.role === 'admin'
 const env = Astro.locals.runtime?.env || {}
 
 const apiTokens = session.userId ? await listApiTokens(env, session.userId) : []
-const users = isAdmin ? await listUsers(env) : []
+const users = isAdmin ? await listUsersWithFileStats(env) : []
 
 const pageConfig = Astro.locals.config.pageConfig
 const rssConfig = Astro.locals.config.rss
@@ -130,24 +130,43 @@ const secondaryButtonClass = 'inline-flex h-8 items-center justify-center rounde
         <div class="settings-section-grid">
           <header class="settings-section-heading">
             <h2 id="users-settings-title">Users</h2>
-            <p>Create accounts and reset their passwords.</p>
+            <p>Review active File visibility and owner-scoped Attachment usage, create accounts, and reset passwords.</p>
           </header>
 
           <div class="settings-section-content">
             <ul class="settings-user-list">
-              {users.map(user => (
-                <li>
-                  <div class="settings-user-identity">
-                    <span>{user.username}</span>
-                    <span>{user.role}</span>
-                  </div>
-                  <form data-account-action="resetPassword" data-user-id={user.id} method="post" class="settings-inline-form">
-                    <label class="sr-only" for={`reset-password-${user.id}`}>New password for {user.username}</label>
-                    <input class={inputClass} id={`reset-password-${user.id}`} type="password" name="password" placeholder="New password" autocomplete="off" required />
-                    <button class={secondaryButtonClass}>Reset</button>
-                  </form>
-                </li>
-              ))}
+              {users.map((user) => {
+                return (
+                  <li data-user-row={user.username} data-user-id={user.id}>
+                    <div class="settings-user-identity">
+                      <span>{user.username}</span>
+                      <span>{user.role}</span>
+                    </div>
+                    <dl class="settings-user-stats" aria-label={`Usage for ${user.username}`}>
+                      <div>
+                        <dt>Public Files</dt>
+                        <dd data-user-stat="public">{user.publicFileCount}</dd>
+                      </div>
+                      <div>
+                        <dt>Private Files</dt>
+                        <dd data-user-stat="private">{user.privateFileCount}</dd>
+                      </div>
+                      <div>
+                        <dt>Attachments</dt>
+                        <dd data-user-stat="attachments" aria-busy="true">
+                          <span data-attachment-count>Loading…</span>
+                          <span data-attachment-size></span>
+                        </dd>
+                      </div>
+                    </dl>
+                    <form data-account-action="resetPassword" data-user-id={user.id} method="post" class="settings-inline-form">
+                      <label class="sr-only" for={`reset-password-${user.id}`}>New password for {user.username}</label>
+                      <input class={inputClass} id={`reset-password-${user.id}`} type="password" name="password" placeholder="New password" autocomplete="off" required />
+                      <button class={secondaryButtonClass}>Reset</button>
+                    </form>
+                  </li>
+                )
+              })}
             </ul>
 
             <div class="settings-subsection">
@@ -389,6 +408,52 @@ class AccountSettings extends HTMLElement {
       button.addEventListener('click', () => this.revoke(button))
     })
     this.querySelector('[data-copy-token]')?.addEventListener('click', () => this.copyToken())
+    if (this.querySelector('[data-user-row]'))
+      void this.loadOwnerAttachmentUsage()
+  }
+
+  async loadOwnerAttachmentUsage() {
+    const rows = this.querySelectorAll<HTMLElement>('[data-user-row]')
+    const { data, error } = await actions.oss.ownerAttachmentUsage()
+    if (error || !data) {
+      rows.forEach(row => this.renderAttachmentUsage(row, null))
+      return
+    }
+
+    const usageByUser = new Map(data.users.map(usage => [usage.userId, usage]))
+    rows.forEach((row) => {
+      const userId = Number(row.dataset.userId)
+      this.renderAttachmentUsage(row, usageByUser.get(userId) ?? {
+        userId,
+        attachmentCount: 0,
+        bytes: 0,
+        formattedBytes: '0 B',
+      }, data.generatedAt)
+    })
+  }
+
+  renderAttachmentUsage(
+    row: HTMLElement,
+    usage: { attachmentCount: number, formattedBytes: string } | null,
+    generatedAt?: string,
+  ) {
+    const stat = row.querySelector<HTMLElement>('[data-user-stat="attachments"]')
+    const count = row.querySelector<HTMLElement>('[data-attachment-count]')
+    const size = row.querySelector<HTMLElement>('[data-attachment-size]')
+    if (!stat || !count || !size)
+      return
+
+    stat.setAttribute('aria-busy', 'false')
+    if (!usage) {
+      count.textContent = 'Unavailable'
+      size.textContent = ''
+      return
+    }
+
+    count.textContent = `${usage.attachmentCount} ${usage.attachmentCount === 1 ? 'attachment' : 'attachments'}`
+    size.textContent = usage.formattedBytes
+    if (generatedAt)
+      stat.title = `Usage updated ${new Date(generatedAt).toLocaleString()}`
   }
 
   showError(form: HTMLFormElement, message: string) {

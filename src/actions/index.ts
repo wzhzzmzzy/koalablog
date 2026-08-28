@@ -7,12 +7,14 @@ import { save, setPrivate } from './form/markdown'
 import { onboarding } from './form/onboarding'
 import { settings } from './form/settings'
 import { list, remove as removeResource, upload } from './oss/operate'
+import { ownerAttachmentUsage } from './oss/owner-attachment-usage'
 
 export const server = {
   oss: {
     upload,
     remove: removeResource,
     list,
+    ownerAttachmentUsage,
   },
   form: {
     setPrivate,
