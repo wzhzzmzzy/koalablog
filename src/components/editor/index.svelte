@@ -520,6 +520,12 @@
     editorContent?.focusPreview()
   }
 
+  function openReference(target: FileRecord) {
+    if (rendererValue === RENDERER_MODE.Markdown)
+      markdownViewState.setRequestedMode('source')
+    onOpenReference?.(target)
+  }
+
   let copyBtnText = $state('Link')
   function copyLink() {  
     const supportClipboard = navigator && 'clipboard' in navigator
@@ -806,7 +812,7 @@
       onRebase={retryLocalAgainstCurrentRevision}
       onClosePreview={closePreview}
       onMarkdownSplitRatio={(ratio, contentWidth) => markdownViewState.setSplitRatio(ratio, contentWidth)}
-      onOpenReference={(target) => onOpenReference?.(target)}
+      onOpenReference={openReference}
       onChange={(value) => { sourceValue = value; }}
       {uploadImage}
     />

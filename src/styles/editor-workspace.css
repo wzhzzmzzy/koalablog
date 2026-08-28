@@ -181,7 +181,12 @@ body:has(.editor-workspace) {
   border: 1px solid transparent;
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--editor-panel-raised) 76%, transparent);
-  transition: border-color 160ms ease, background-color 160ms ease;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.editor-toolbar__context:focus-within {
+  border-color: var(--editor-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--editor-focus) 24%, transparent);
 }
 
 .editor-toolbar__context-mark {
@@ -237,6 +242,7 @@ body:has(.editor-workspace) {
   font-family: var(--koala-font-mono);
   font-size: 0.8rem;
   letter-spacing: -0.01em;
+  outline: none;
 }
 
 .editor-path-input[aria-invalid="true"] {

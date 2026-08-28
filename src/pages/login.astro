@@ -124,7 +124,7 @@ class LoginForm extends HTMLElement {
     this.formEl = this.querySelector('#login-form')
     this.errorEl = this.querySelector('#login-error')
 
-    this.formEl?.addEventListener('submit', event => {
+    this.formEl?.addEventListener('submit', (event) => {
       void this.login(event)
     })
     this.passwordToggle?.addEventListener('click', () => this.togglePassword())
