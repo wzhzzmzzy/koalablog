@@ -535,6 +535,9 @@ test('undo during upload discards the late result', async ({ page }) => {
   await (await chooserPromise).setFiles({ name: 'late.png', mimeType: 'image/png', buffer: onePixelPng })
 
   await expect.poll(() => editorText(source)).toContain('Uploading late.png')
+  await expect(page.getByRole('region', { name: 'Image uploads' })).toContainText('late.png')
+  await expect(page.getByRole('region', { name: 'Image uploads' })).toContainText(/Uploading|Processing/)
+  await expect(page.getByRole('button', { name: 'Save File' })).toBeDisabled()
   await source.press('Meta+z')
   await expectEditorText(source, 'before')
 
@@ -617,8 +620,16 @@ test('removing a placeholder discards its late upload result', async ({ page }) 
   await expectEditorText(source, 'user kept this text')
 })
 
-test('failed image upload removes only its placeholder', async ({ page }) => {
-  await page.route('**/_actions/oss.upload/', route => route.abort('failed'))
+test('failed image upload retains a retryable placeholder and can recover', async ({ page }) => {
+  let failUpload = true
+  await page.route('**/_actions/oss.upload/', async (route) => {
+    if (failUpload) {
+      failUpload = false
+      await route.abort('failed')
+      return
+    }
+    await route.continue()
+  })
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')
 
@@ -628,7 +639,94 @@ test('failed image upload removes only its placeholder', async ({ page }) => {
   await chooseUpload(page)
   await (await chooserPromise).setFiles({ name: 'failed.png', mimeType: 'image/png', buffer: onePixelPng })
 
+  await expect.poll(() => editorText(source))
+    .toMatch(/^before!\[Upload failed: failed\.png\]\(koala-upload-failed:[^)]+\)$/)
+  const uploadRegion = page.getByRole('region', { name: 'Image uploads' })
+  await expect(uploadRegion).toContainText('Upload failed')
+  await expect(uploadRegion.getByRole('button', { name: 'Retry failed.png' })).toBeVisible()
+  await expect(uploadRegion.getByRole('button', { name: 'Remove failed.png' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Save File' })).toBeDisabled()
+
+  await uploadRegion.getByRole('button', { name: 'Retry failed.png' }).click()
+  await expect.poll(() => editorText(source))
+    .toMatch(/^before!\[\]\(\/api\/oss\/[^)]+\)$/)
+  await expect(uploadRegion).toHaveCount(0)
+})
+
+test('editing a pending placeholder keeps Save blocked after upload success', async ({ page }) => {
+  const releaseUpload = await gateUpload(page)
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('before')
+  const responsePromise = page.waitForResponse(response => response.url().includes('/_actions/oss.upload'))
+  const chooserPromise = page.waitForEvent('filechooser')
+  await chooseUpload(page)
+  await (await chooserPromise).setFiles({ name: 'edited.png', mimeType: 'image/png', buffer: onePixelPng })
+
+  await expect.poll(() => editorText(source)).toContain('koala-upload:')
+  await source.fill((await editorText(source)).replace('Uploading edited.png…', 'Edited pending image'))
+  releaseUpload()
+  await responsePromise
+
+  await expect.poll(() => editorText(source)).toContain('koala-upload:')
+  const uploadRegion = page.getByRole('region', { name: 'Image uploads' })
+  await expect(uploadRegion).toContainText('Upload failed')
+  await expect(uploadRegion).toContainText('placeholder was changed')
+  const saveButton = page.getByRole('button', { name: 'Save File' })
+  await expect(saveButton).toHaveAttribute('aria-disabled', 'true')
+  await expect(saveButton).toHaveAttribute('aria-describedby', 'editor-save-blocked-reason')
+  await expect(page.locator('#editor-save-blocked-reason')).toContainText('image upload')
+
+  await uploadRegion.getByRole('button', { name: 'Remove edited.png' }).click()
+  await expect(uploadRegion).toContainText('Remove the temporary image markup manually')
+  await expect.poll(() => editorText(source)).toContain('koala-upload:')
+  await expect(saveButton).toHaveAttribute('aria-disabled', 'true')
+})
+
+test('removing an undone failed upload prevents redo from restoring its marker', async ({ page }) => {
+  await page.route('**/_actions/oss.upload/', route => route.abort('failed'))
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('before')
+  const chooserPromise = page.waitForEvent('filechooser')
+  await chooseUpload(page)
+  await (await chooserPromise).setFiles({ name: 'undone.png', mimeType: 'image/png', buffer: onePixelPng })
+
+  await expect.poll(() => editorText(source)).toContain('koala-upload-failed:')
+  await source.press('Meta+z')
   await expectEditorText(source, 'before')
+  const uploadRegion = page.getByRole('region', { name: 'Image uploads' })
+  await uploadRegion.getByRole('button', { name: 'Remove undone.png' }).click()
+  await expect(uploadRegion).toHaveCount(0)
+
+  await source.press('Meta+Shift+z')
+  await expectEditorText(source, 'before')
+  expect(await editorText(source)).not.toContain('koala-upload')
+})
+
+test('temporary image markup blocks Save even without an upload queue item', async ({ page }) => {
+  let saveRequests = 0
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().includes('/_actions/form.save'))
+      saveRequests++
+  })
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
+  await source.fill('![orphan](koala-upload:orphan-id)')
+  const saveButton = page.getByRole('button', { name: 'Save File' })
+  await expect(saveButton).toHaveAttribute('aria-disabled', 'true')
+  await expect(saveButton).toHaveAttribute('aria-describedby', 'editor-save-blocked-reason')
+  await saveButton.focus()
+  await expect(saveButton).toBeFocused()
+  await page.keyboard.press('Meta+s')
+  await expect(page.getByText('Finish, retry, or remove image uploads before saving.')).toBeVisible()
+  expect(saveRequests).toBe(0)
 })
 
 test('pasting an image inserts Markdown at the Source selection', async ({ page }) => {

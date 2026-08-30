@@ -23,6 +23,7 @@
     changed?: boolean
     saving?: boolean
     savedAcknowledgement?: boolean
+    saveBlocked?: boolean
     conflict?: EditBufferServerValues | null
     showPreview?: boolean
     copyBtnText?: string
@@ -55,6 +56,7 @@
     changed = false,
     saving = false,
     savedAcknowledgement = false,
+    saveBlocked = false,
     conflict = null,
     showPreview = false,
     copyBtnText = 'Link',
@@ -90,8 +92,9 @@
       })
     : null)
   const saveLabel = $derived(saving ? 'Saving…' : (savedAcknowledgement ? 'Saved' : (changed ? 'Save changes' : 'Save')))
-  const saveDisabled = $derived(!hasFile || !changed || Boolean(conflict) || saving || savedAcknowledgement)
-  const savePrimary = $derived(changed && !conflict && !saving && !savedAcknowledgement)
+  const saveUnavailable = $derived(!hasFile || !changed || Boolean(conflict) || saving || savedAcknowledgement)
+  const saveDisabled = $derived(saveUnavailable || saveBlocked)
+  const savePrimary = $derived(changed && !conflict && !saving && !savedAcknowledgement && !saveBlocked)
   let editingPath = $state(false)
   let pathDraft = $state('')
   let pathError = $state('')
@@ -215,20 +218,27 @@
       type="button"
       id="save"
       class="editor-tool-button {savePrimary ? 'editor-tool-button--primary' : ''}"
-      onclick={onSave}
-      disabled={saveDisabled}
+      onclick={(event) => saveDisabled ? event.preventDefault() : onSave(event)}
+      disabled={saveUnavailable}
+      aria-disabled={saveDisabled}
+      aria-describedby={saveBlocked ? 'editor-save-blocked-reason' : undefined}
       aria-label="Save File"
       title={!hasFile
         ? unavailableTitle
         : (conflict
             ? 'Resolve the Source conflict first'
-            : (saving
-                ? 'Saving Source'
-                : (savedAcknowledgement ? 'Source saved' : (changed ? 'Save changes' : 'No Source changes to save'))))}
+            : (saveBlocked
+                ? 'Finish, retry, or remove image uploads before saving'
+                : (saving
+                    ? 'Saving Source'
+                    : (savedAcknowledgement ? 'Source saved' : (changed ? 'Save changes' : 'No Source changes to save')))))}
     >
       <Save size={18} />
       <span class="editor-tool-button__label">{saveLabel}</span>
     </button>
+    {#if saveBlocked}
+      <span id="editor-save-blocked-reason" class="sr-only">Save is unavailable while image uploads are unresolved. Finish, retry, or remove each image upload before saving.</span>
+    {/if}
     {#if file && file.id > 0 && deployLabel}
       <button
         type="button"

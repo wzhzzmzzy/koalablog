@@ -1,5 +1,7 @@
 # Phase 2 CodeMirror 验证记录
 
+> 2026-08-31 补充：后续上传恢复设计已取代本记录中的“失败清理/不留 placeholder”行为。当前合同要求保留失败标记和 Retry/Remove，编辑过但仍含临时 token 的 Source 必须继续阻止 Save；本文件其余内容仍是 2026-07-22 Phase 2 验证快照。
+
 日期：2026-07-21（补充复核：2026-07-22）
 
 分支：`codex/editor-codemirror-phase-2`
@@ -41,7 +43,7 @@ Playwright 使用两项 Chromium project：
 - Ctrl+S/Cmd+S exactly once、Save 保持焦点、普通 File 切换不抢焦点、新建聚焦 Path；
 - Preview 保持挂载，返回 Edit 聚焦 Source；toolbar 图片完成后聚焦 Source；
 - Markdown search/replace、bracket closing、indentation、multiple selections、line numbers、active line；
-- paste、drop、toolbar multi-select、并发 placeholder、失败清理、提前删除、upload 中 undo/redo，以及新编辑分支丢弃旧图片 redo batch；
+- paste、drop、toolbar multi-select、并发 placeholder、失败恢复、提前删除、upload 中 undo/redo，以及新编辑分支丢弃旧图片 redo batch；
 - Chromium `Input.imeSetComposition` 候选字符串更新、中文提交、焦点保持和单次 undo；
 - 393px Pixel 5 与 320px 窄屏下 Path 和全部 File 操作可达、隐藏 gutter、键盘编辑、编辑器内部滚动，以及 touch-capable Chromium 的原生触控滚动。
 

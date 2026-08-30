@@ -23,6 +23,7 @@
   import { toFileReferenceCandidates } from './text-editor/file-reference-completion';
   import { decodeStoredTags } from '@/lib/files/stored-tags';
   import { toTagCompletionCandidates } from './text-editor/tag-completion';
+  import { hasTemporaryImageMarkup, type ImageUploadProgress } from './text-editor/images';
   import type { FileReferencePeekTarget } from './FileReferencePeek.svelte';
   import { editBuffers, editBufferServerValues, isEditBufferDirty, setEditBuffer, removeEditBuffer, type EditBufferServerValues } from './edit-buffer.svelte';
   import { editorStore, upsertItem, notify } from './store.svelte';
@@ -68,6 +69,8 @@
       }
     }))
   let editorContent: TextEditorHandle | undefined = $state()
+  let hasUnresolvedImageUploads = $state(false)
+  let saveBlockedByImageUploads = $derived(hasUnresolvedImageUploads || hasTemporaryImageMarkup(sourceValue))
   let showPreview = $state(false)
   let previewFileId = $state<number | null>(null)
 
@@ -244,9 +247,9 @@
     }
   }
 
-  async function uploadImage(file: File) {
+  async function uploadImage(file: File, onProgress: (progress: ImageUploadProgress) => void) {
     try {
-      const result = await uploadEditorImage(file)
+      const result = await uploadEditorImage(file, onProgress)
       notify('success', 'Uploaded Successfully', 3000)
       return result
     }
@@ -657,6 +660,10 @@
   async function save(e: Event) {
     e.preventDefault()
     if (trashed || saving || !changed) return
+    if (saveBlockedByImageUploads) {
+      notify('warning', 'Finish, retry, or remove image uploads before saving.', 4000)
+      return
+    }
     if (conflict) {
       notify('warning', 'Resolve the Source conflict before saving again.', 4000);
       return;
@@ -760,6 +767,7 @@
         {changed}
         {saving}
         {savedAcknowledgement}
+        saveBlocked={saveBlockedByImageUploads}
         {conflict}
         showPreview={toolbarPreviewActive}
         {copyBtnText}
@@ -815,6 +823,7 @@
       onOpenReference={openReference}
       onChange={(value) => { sourceValue = value; }}
       {uploadImage}
+      onUnresolvedImageUploadsChange={(hasUnresolved) => { hasUnresolvedImageUploads = hasUnresolved }}
     />
   </form>
 </div>

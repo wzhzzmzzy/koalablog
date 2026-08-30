@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { pickDirectoryWithFilePicker, supportFSApi } from '@/lib/services/file-reader'
+import { pickDirectoryWithFilePicker, supportFSApi, uploadFile } from '@/lib/services/file-reader'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -10,6 +10,37 @@ describe('directory import capability', () => {
 
     vi.stubGlobal('window', { showOpenFilePicker: () => undefined })
     expect(supportFSApi()).toBe(false)
+  })
+})
+
+describe('upload progress transport', () => {
+  it('rejects a malformed successful Action response instead of staying pending', async () => {
+    class MalformedResponseRequest {
+      status = 200
+      responseText = '<html>Sign in</html>'
+      upload = { addEventListener: vi.fn() }
+      private listeners = new Map<string, () => void>()
+
+      open() {}
+      setRequestHeader() {}
+
+      addEventListener(type: string, listener: () => void) {
+        this.listeners.set(type, listener)
+      }
+
+      send() {
+        queueMicrotask(() => this.listeners.get('load')?.())
+      }
+    }
+    vi.stubGlobal('XMLHttpRequest', MalformedResponseRequest)
+
+    const outcome = await Promise.race([
+      uploadFile('oss', new File(['image'], 'broken.png', { type: 'image/png' }), undefined, () => {})
+        .then(() => 'resolved', () => 'rejected'),
+      new Promise<'pending'>(resolve => setTimeout(() => resolve('pending'), 50)),
+    ])
+
+    expect(outcome).toBe('rejected')
   })
 })
 

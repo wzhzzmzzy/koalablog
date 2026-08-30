@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findImageRemoval, findImageReplacement, imageMarkup, prepareImageBatch } from '@/components/editor/text-editor/images'
+import { findImageFailure, findImageReplacement, hasTemporaryImageMarkup, imageMarkup, prepareImageBatch } from '@/components/editor/text-editor/images'
 import { RENDERER_MODE } from '@/lib/files/types'
 
 function image(name: string, type = 'image/png') {
@@ -51,7 +51,7 @@ describe('text Editor image batches', () => {
     )).toBe('<img src="/api/oss/hero.png" alt="" />')
   })
 
-  it('replaces and removes only the exact matching placeholder', () => {
+  it('replaces only the exact matching placeholder and retains a visible failure', () => {
     const [first, second] = prepareImageBatch([
       image('same.png'),
       image('same.png'),
@@ -64,8 +64,8 @@ describe('text Editor image batches', () => {
     const afterSuccess = applyChange(source, findImageReplacement(source, second, '/api/oss/second'))
     expect(afterSuccess).toBe(`${first.placeholder}\nkeep\n![](/api/oss/second)`)
 
-    const afterFailure = applyChange(afterSuccess, findImageRemoval(afterSuccess, first))
-    expect(afterFailure).toBe('\nkeep\n![](/api/oss/second)')
+    const afterFailure = applyChange(afterSuccess, findImageFailure(afterSuccess, first))
+    expect(afterFailure).toBe('![Upload failed: same.png](koala-upload-failed:id-1)\nkeep\n![](/api/oss/second)')
   })
 
   it('discards a late upload result after the user removes its placeholder', () => {
@@ -73,6 +73,13 @@ describe('text Editor image batches', () => {
     const source = 'user kept this text'
 
     expect(findImageReplacement(source, pending, '/api/oss/gone')).toBeNull()
-    expect(findImageRemoval(source, pending)).toBeNull()
+    expect(findImageFailure(source, pending)).toBeNull()
+  })
+
+  it('detects temporary upload URLs at the persistence boundary', () => {
+    expect(hasTemporaryImageMarkup('![Uploading](koala-upload:pending-id)')).toBe(true)
+    expect(hasTemporaryImageMarkup('<img src="koala-upload-failed:failed-id" alt="failed" />')).toBe(true)
+    expect(hasTemporaryImageMarkup('The text koala-upload is not an image URL.')).toBe(false)
+    expect(hasTemporaryImageMarkup('![](/api/oss/complete.png)')).toBe(false)
   })
 })

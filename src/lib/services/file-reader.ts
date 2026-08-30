@@ -1,5 +1,5 @@
 import type { DiskSourceFile } from '@/lib/files/disk'
-import { actions } from 'astro:actions'
+import { actions, deserializeActionResult, getActionPath } from 'astro:actions'
 import { FileDiskError, fileFromDiskPath } from '@/lib/files/disk'
 
 export function supportFSApi(): boolean {
@@ -12,7 +12,62 @@ interface ShowOpenFilePickerOptions {
 
 type showOpenFilePicker = (opt: ShowOpenFilePickerOptions) => Promise<Array<FileSystemFileHandle>>
 
-export function uploadFile(source: 'article' | 'oss', file: File | FileList | Blob, name?: string) {
+export interface FileUploadProgress {
+  loaded: number
+  total: number
+}
+
+function uploadActionWithProgress(
+  formData: FormData,
+  onProgress: (progress: FileUploadProgress) => void,
+): ReturnType<typeof actions.oss.upload> {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('POST', getActionPath(actions.oss.upload))
+    request.setRequestHeader('Accept', 'application/json')
+    request.upload.addEventListener('progress', (event) => {
+      onProgress({
+        loaded: event.loaded,
+        total: event.lengthComputable ? event.total : 0,
+      })
+    })
+    request.addEventListener('load', () => {
+      try {
+        if (request.status === 204) {
+          resolve(deserializeActionResult({ type: 'empty', status: 204 }))
+          return
+        }
+        const result = request.status >= 200 && request.status < 300
+          ? deserializeActionResult({
+              type: 'data',
+              body: request.responseText,
+              status: 200,
+              contentType: 'application/json+devalue',
+            })
+          : deserializeActionResult({
+              type: 'error',
+              body: request.responseText,
+              status: request.status,
+              contentType: 'application/json',
+            })
+        resolve(result)
+      }
+      catch (error) {
+        reject(error)
+      }
+    })
+    request.addEventListener('error', () => reject(new Error('Upload failed because the network request could not be completed.')))
+    request.addEventListener('abort', () => reject(new Error('Upload was cancelled.')))
+    request.send(formData)
+  })
+}
+
+export function uploadFile(
+  source: 'article' | 'oss',
+  file: File | FileList | Blob,
+  name?: string,
+  onProgress?: (progress: FileUploadProgress) => void,
+) {
   const formData = new FormData()
   if (file instanceof File) {
     formData.append('file', file)
@@ -29,7 +84,9 @@ export function uploadFile(source: 'article' | 'oss', file: File | FileList | Bl
   if (name) {
     formData.append('name', name)
   }
-  return actions.oss.upload(formData)
+  return onProgress
+    ? uploadActionWithProgress(formData, onProgress)
+    : actions.oss.upload(formData)
 }
 
 export function convertToWebP(file: File | string, quality = 0.8) {

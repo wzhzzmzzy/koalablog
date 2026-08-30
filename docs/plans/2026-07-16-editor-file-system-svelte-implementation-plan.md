@@ -641,7 +641,7 @@ Text Editor does not receive or interpret File revisions. FileEditor owns `baseR
 
 ## 2.4 Move Markdown image insertion behind the Interface
 
-Keep Phase 2 image-only and reject non-image Files from this flow. Paste, drop, and toolbar multi-select all call the same `insertImages(files)` command. Determine true drop coordinates with `posAtCoords` and insert the image batch as one undoable placeholder transaction. Upload success replacement and failure cleanup do not enter undo history; if the user removed a placeholder before completion, discard that result. One undo removes the original batch and never resurrects an upload placeholder. Emit Markdown image syntax only; Svelte `<img>` output is not part of Phase 2.
+Keep Phase 2 image-only and reject non-image Files from this flow. Paste, drop, and toolbar multi-select all call the same `insertImages(files)` command. Determine true drop coordinates with `posAtCoords` and insert the image batch as one undoable placeholder transaction. Upload success and failure-marker replacement do not enter undo history; failures remain visible with Retry/Remove recovery. If the user removed a placeholder before completion, discard that result. If it was edited while retaining a temporary upload token, keep it unresolved and block Save. One undo removes the original batch and never resurrects an upload placeholder; Remove of an undone item also neutralizes redo. Emit Markdown image syntax only; Svelte `<img>` output is not part of Phase 2.
 
 ## 2.5 Run production parity before deleting textarea
 
