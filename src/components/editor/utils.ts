@@ -1,11 +1,16 @@
+import type { ImageUploadProgress } from './text-editor/images'
 import type { FileRecord } from '@/db/types'
 import { convertToWebP, uploadFile } from '@/lib/services/file-reader'
 
-export async function uploadEditorImage(file: File) {
+export async function uploadEditorImage(file: File, onProgress?: (progress: ImageUploadProgress) => void) {
+  onProgress?.({ phase: 'preparing' })
   const blob = await convertToWebP(file)
   const extension = blob.type === 'image/webp' ? '.webp' : '.png'
   const fileName = file.name.replace(/\.[^/.]+$/, extension)
-  const result = await uploadFile('article', blob, fileName)
+  onProgress?.({ phase: 'uploading', loaded: 0, total: blob.size })
+  const result = await uploadFile('article', blob, fileName, ({ loaded, total }) => {
+    onProgress?.({ phase: 'uploading', loaded, total })
+  })
 
   if (result.error)
     throw new Error(result.error.message)

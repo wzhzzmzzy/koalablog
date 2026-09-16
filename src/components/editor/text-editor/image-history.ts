@@ -1,7 +1,7 @@
 import type { EditorView, KeyBinding } from '@codemirror/view'
 import { invertedEffects, redo, redoDepth, undo, undoDepth } from '@codemirror/commands'
 import { StateEffect, type StateEffectType, Transaction } from '@codemirror/state'
-import { findImageRemoval, findImageReplacement, type ImageBatch, imageMarkup, type PendingImage } from './images'
+import { findImageFailure, findImageReplacement, hasTemporaryImageId, type ImageBatch, imageFailureMarkup, imageMarkup, type PendingImage } from './images'
 
 interface TrackedImage {
   pending: PendingImage
@@ -11,6 +11,12 @@ interface TrackedImage {
   valid: boolean
   result?: string
 }
+
+type ImageUploadResult =
+  | { type: 'success', url: string }
+  | { type: 'failure' }
+
+export type ImageSettlementOutcome = 'settled' | 'discarded' | 'untracked'
 
 interface TrackedImageBatch {
   fileId: number
@@ -111,34 +117,92 @@ function settlePendingImage(
   batches: Set<TrackedImageBatch>,
   internalChange: ReturnType<typeof Transaction.addToHistory.of>,
   pending: PendingImage,
-  url?: string,
-) {
+  result: ImageUploadResult,
+): ImageSettlementOutcome {
   const batch = [...batches].find(candidate => candidate.items.some(item => item.pending === pending))
   const item = batch?.items.find(candidate => candidate.pending === pending)
   if (!batch || !item || !item.valid)
-    return
+    return hasTemporaryImageId(view.state.doc.toString(), pending.id) ? 'untracked' : 'discarded'
 
   const redoneWithoutPlaceholder = batch.active && item.text === '' && item.result === undefined
-  item.result = url ? imageMarkup(pending.renderer, url) : ''
+  item.result = result.type === 'success'
+    ? imageMarkup(pending.renderer, result.url)
+    : imageFailureMarkup(pending)
   if (!batch.active)
-    return
+    return 'settled'
   if (redoneWithoutPlaceholder) {
     applyChange(view, internalChange, item.from, item.to, item.result)
     item.to = item.from + item.result.length
     item.text = item.result
-    return
+    return 'settled'
   }
 
   const source = view.state.doc.toString()
-  const change = url ? findImageReplacement(source, pending, url) : findImageRemoval(source, pending)
+  const change = result.type === 'success'
+    ? findImageReplacement(source, pending, result.url)
+    : findImageFailure(source, pending)
   if (!change || change.from !== item.from || change.to !== item.to) {
     item.valid = false
-    return
+    return hasTemporaryImageId(source, pending.id) ? 'untracked' : 'discarded'
   }
   applyChange(view, internalChange, change.from, change.to, change.insert)
   item.from = change.from
   item.to = change.from + change.insert.length
   item.text = change.insert
+  return 'settled'
+}
+
+function replaceTrackedImage(
+  view: EditorView,
+  batches: Set<TrackedImageBatch>,
+  internalChange: ReturnType<typeof Transaction.addToHistory.of>,
+  pending: PendingImage,
+  insert: string,
+) {
+  const batch = [...batches].find(candidate => candidate.items.some(item => item.pending === pending))
+  const item = batch?.items.find(candidate => candidate.pending === pending)
+  if (!batch?.active || !item?.valid || view.state.doc.sliceString(item.from, item.to) !== item.text)
+    return false
+  applyChange(view, internalChange, item.from, item.to, insert)
+  item.to = item.from + insert.length
+  item.text = insert
+  item.result = insert
+  return true
+}
+
+function removeTrackedImage(
+  view: EditorView,
+  batches: Set<TrackedImageBatch>,
+  internalChange: ReturnType<typeof Transaction.addToHistory.of>,
+  pending: PendingImage,
+) {
+  const batch = [...batches].find(candidate => candidate.items.some(item => item.pending === pending))
+  const item = batch?.items.find(candidate => candidate.pending === pending)
+  const sourceHasToken = hasTemporaryImageId(view.state.doc.toString(), pending.id)
+  if (!batch || !item)
+    return !sourceHasToken
+
+  if (!batch.active) {
+    item.result = ''
+    item.valid = false
+    return !sourceHasToken
+  }
+
+  if (!item.valid) {
+    if (!sourceHasToken) {
+      item.result = ''
+      return true
+    }
+    return false
+  }
+
+  if (view.state.doc.sliceString(item.from, item.to) !== item.text) {
+    item.valid = false
+    item.result = ''
+    return !sourceHasToken
+  }
+
+  return replaceTrackedImage(view, batches, internalChange, pending, '')
 }
 
 function registerBatch(
@@ -270,10 +334,28 @@ export function createImageHistoryController(options: ImageHistoryOptions) {
       if (view)
         registerBatch(batches, fileId, batch, anchor, undoDepth(view.state))
     },
-    settle(pending: PendingImage, url?: string) {
+    settle(pending: PendingImage, result: ImageUploadResult) {
       const view = options.getView()
-      if (view)
-        settlePendingImage(view, batches, internalChange, pending, url)
+      return view
+        ? settlePendingImage(view, batches, internalChange, pending, result)
+        : 'untracked' as ImageSettlementOutcome
+    },
+    retry(pending: PendingImage) {
+      const view = options.getView()
+      if (!view)
+        return false
+      const restored = replaceTrackedImage(view, batches, internalChange, pending, pending.placeholder)
+      if (restored) {
+        const batch = [...batches].find(candidate => candidate.items.some(item => item.pending === pending))
+        const item = batch?.items.find(candidate => candidate.pending === pending)
+        if (item)
+          item.result = undefined
+      }
+      return restored
+    },
+    remove(pending: PendingImage) {
+      const view = options.getView()
+      return view ? removeTrackedImage(view, batches, internalChange, pending) : false
     },
     track(transactions: readonly Transaction[]) {
       trackImageBatches(batches, options.getActiveFileId(), marker, transactions)

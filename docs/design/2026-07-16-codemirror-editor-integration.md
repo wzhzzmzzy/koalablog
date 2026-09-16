@@ -58,7 +58,8 @@ interface TextEditorProps {
   value: string
   readonly: boolean
   onChange: (value: string) => void
-  uploadImage: (file: File) => Promise<{ url: string }>
+  uploadImage: (file: File, onProgress: (progress: ImageUploadProgress) => void) => Promise<{ url: string }>
+  onUnresolvedImageUploadsChange: (hasUnresolved: boolean) => void
 }
 
 interface TextEditorHandle {
@@ -70,6 +71,8 @@ declare function discardEditorState(fileId: number): void
 ```
 
 `focus()` and `insertImages()` act on the mounted editor and are exposed through its typed component handle. `discardEditorState(fileId)` is a module-level lifecycle command used after purge and empty-trash; it removes private cached editor state without exposing CodeMirror's registry to File orchestration.
+
+Image upload queue entries, progress, failure recovery, and placeholder IDs remain private to `TextEditor.svelte`. FileEditor receives only `hasUnresolved` so it can guard persistence; it never receives a queue entry or the `koala-upload[-failed]:<id>` protocol token.
 
 Phase 3 may add renderer and serializable diagnostic props, but it must not widen the Interface with CodeMirror types.
 
@@ -126,7 +129,7 @@ Phase 3 adds private Svelte language/diagnostic modules and the separate preview
 | Clipboard image upload | Insert a unique Markdown placeholder, then upload asynchronously. |
 | Drag image upload | Use true `posAtCoords()` rather than stale selection. |
 | Toolbar image upload | Allow multiple selection and route every selected image through `insertImages(files)`. |
-| Upload completion/failure | Replace or remove only the matching placeholder. |
+| Upload completion/failure | Replace only the matching placeholder on success; retain a visible failed marker with Retry/Remove recovery on failure. |
 | Read-only recycle-bin File | Combine read-only state and non-editable view. |
 | Local recovery | Use Edit Buffer storage owned outside CodeMirror. |
 | Dirty/conflict indication | Compare Edit Buffer values and `baseRevision` outside CodeMirror. |
@@ -184,9 +187,11 @@ Phase 2 supports images only. Non-image Files do not enter this flow. Paste, dro
 2. Insert one unique placeholder per image in one undoable transaction, so a multi-image user action is one undo step.
 3. Upload each image through the injected adapter.
 4. Replace only the matching placeholder on success without adding the asynchronous replacement to undo history.
-5. Remove only the matching placeholder on failure without adding the asynchronous cleanup to undo history.
-6. If the user removed a placeholder before completion, discard that upload result rather than reinserting the image.
-7. Undo removes the original image batch and never resurrects an `Uploading...` placeholder; coincident user text is never replaced.
+5. Replace only the matching placeholder with a visible `koala-upload-failed:<id>` marker on failure, without adding the asynchronous replacement to undo history. Keep the queue entry until Retry or Remove succeeds.
+6. If the user removed a placeholder before completion, discard that upload result rather than reinserting the image. If the placeholder was edited but still contains a temporary protocol token, keep the upload unresolved and keep Save blocked.
+7. Remove must clear the queue only after the tracked marker was deleted or an undone item was neutralized so redo cannot restore it.
+8. Undo removes the original image batch and never resurrects an `Uploading...` placeholder; coincident user text is never replaced.
+9. FileEditor rejects Save whenever Text Editor reports unresolved uploads or Source contains either `koala-upload:` or `koala-upload-failed:`. The Source-level check is the persistence invariant for stale or edited buffers.
 
 Phase 2 emits Markdown only:
 
@@ -226,10 +231,11 @@ Tests exercise the Interface and user behavior rather than CodeMirror internals:
 7. FileEditor's page-level `Mod-s` triggers one Save from both Path and Source focus without a Text Editor keymap.
 8. Paste, drop, and toolbar multi-select share one Markdown image transaction flow.
 9. Concurrent image uploads replace the correct placeholders.
-10. Upload failure leaves no placeholder, and a completion after user removal does not reinsert an image.
-11. One undo removes the original image batch before or after upload completion and never restores an upload placeholder.
-12. Selection, refresh, Preview hide/show without remounting, keyboard navigation, mobile scrolling, and the explicit focus rules work through Playwright in a real browser.
-13. Native Chinese IME candidate interaction and physical touch selection pass the final manual browser checklist.
+10. Upload failure retains a Retry/Remove marker; an edited marker remains unresolved; and a completion after user removal does not reinsert an image.
+11. Save remains blocked while the queue is unresolved or Source contains a temporary upload protocol token, with an accessible persistent reason associated with the Save control.
+12. One undo removes the original image batch before or after upload completion; Remove neutralizes an undone failure so redo cannot restore a temporary marker.
+13. Selection, refresh, Preview hide/show without remounting, keyboard navigation, mobile scrolling, and the explicit focus rules work through Playwright in a real browser.
+14. Native Chinese IME candidate interaction and physical touch selection pass the final manual browser checklist.
 
 ## Phase-2 migration sequence
 

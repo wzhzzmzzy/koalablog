@@ -10,6 +10,7 @@
   import type { TextEditorDiagnosticUpdate } from './text-editor/diagnostics';
   import type { FileReferenceCandidate } from './text-editor/file-reference-completion';
   import type { TagCompletionCandidate } from './text-editor/tag-completion';
+  import type { ImageUploadProgress } from './text-editor/images';
   import FileReferencePeek, { type FileReferencePeekTarget } from './FileReferencePeek.svelte';
   import SvelteIcon from './SvelteIcon.svelte';
   import SveltePreview from './svelte/SveltePreview.svelte';
@@ -44,7 +45,8 @@
     onMarkdownSplitRatio: (ratio: number, contentWidth: number) => void;
     onOpenReference: (file: FileRecord) => void;
     onChange: (value: string) => void;
-    uploadImage: (file: File) => Promise<{ url: string }>;
+    uploadImage: (file: File, onProgress: (progress: ImageUploadProgress) => void) => Promise<{ url: string }>;
+    onUnresolvedImageUploadsChange: (hasUnresolved: boolean) => void;
   }
 
   let {
@@ -77,6 +79,7 @@
     onOpenReference,
     onChange,
     uploadImage,
+    onUnresolvedImageUploadsChange,
   }: Props = $props();
 
   let textEditor: TextEditorHandle | undefined = $state();
@@ -393,6 +396,7 @@
         {tagCandidates}
         {onChange}
         {uploadImage}
+        {onUnresolvedImageUploadsChange}
       />
     </div>
     {#if showMarkdownPreview}

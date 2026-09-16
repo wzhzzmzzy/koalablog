@@ -12,8 +12,8 @@
   import type { FileReferenceCandidate } from './file-reference-completion';
   import { markdownCompletion } from './markdown-completion';
   import type { TagCompletionCandidate } from './tag-completion';
-  import { createImageHistoryController } from './image-history';
-  import { imagesFromClipboard, imagesFromDrop, prepareImageBatch, type PendingImage } from './images';
+  import { createImageHistoryController, type ImageSettlementOutcome } from './image-history';
+  import { imagesFromClipboard, imagesFromDrop, prepareImageBatch, type ImageUploadProgress, type ImageUploadStatus, type PendingImage } from './images';
   import { isCurrentTextEditorLanguageRequest, planTextEditorLanguageRequest } from './language-state';
   import { markdownLanguageExtension, textEditorExtensions } from './markdown-language';
   import { reconcileEditorInput } from './state-registry';
@@ -29,10 +29,11 @@
     referenceCandidates: readonly FileReferenceCandidate[];
     tagCandidates: readonly TagCompletionCandidate[];
     onChange: (value: string) => void;
-    uploadImage: (file: File) => Promise<{ url: string }>;
+    uploadImage: (file: File, onProgress: (progress: ImageUploadProgress) => void) => Promise<{ url: string }>;
+    onImageUploadsChange: (uploads: ImageUploadStatus[]) => void;
   }
 
-  let { fileId, filePath, renderer, diagnostics, value, readonly, referenceCandidates, tagCandidates, onChange, uploadImage }: Props = $props();
+  let { fileId, filePath, renderer, diagnostics, value, readonly, referenceCandidates, tagCandidates, onChange, uploadImage, onImageUploadsChange }: Props = $props();
   let container: HTMLDivElement | undefined = $state();
   let view: EditorView | undefined = $state();
   let activeFileId = fileId;
@@ -41,7 +42,14 @@
   let languageRequestId = 0;
   let appliedDiagnostics: TextEditorDiagnosticUpdate | null = null;
   let lastDiagnosticsInput: TextEditorDiagnosticUpdate | null | undefined;
-  const settledUploads = new Map<number, Array<{ pending: PendingImage; url?: string }>>();
+  type SettledUpload = { pending: PendingImage; result: { type: 'success'; url: string } | { type: 'failure' } };
+  interface TrackedUpload {
+    fileId: number;
+    pending: PendingImage;
+    status: ImageUploadStatus;
+  }
+  const settledUploads = new Map<number, SettledUpload[]>();
+  const uploads = new Map<string, TrackedUpload>();
   const imageHistory = createImageHistoryController({
     getView: () => view,
     getActiveFileId: () => activeFileId,
@@ -239,33 +247,136 @@
     view.setState(restored.state.state);
     if (restored.state.scrollTo) view.dispatch({ effects: restored.state.scrollTo });
     flushSettledUploads(nextFileId);
+    publishUploads();
+  }
+
+  function publishUploads() {
+    onImageUploadsChange([...uploads.values()]
+      .filter(upload => upload.fileId === activeFileId)
+      .map(upload => ({ ...upload.status })));
+  }
+
+  function setUploadStatus(targetFileId: number, pending: PendingImage, status: ImageUploadStatus) {
+    uploads.set(pending.id, { fileId: targetFileId, pending, status });
+    if (targetFileId === activeFileId)
+      publishUploads();
+  }
+
+  function clearUploadStatus(pending: PendingImage) {
+    const tracked = uploads.get(pending.id);
+    uploads.delete(pending.id);
+    if (tracked?.fileId === activeFileId)
+      publishUploads();
   }
 
   function flushSettledUploads(targetFileId: number) {
     const settled = settledUploads.get(targetFileId);
     if (!settled) return;
     settledUploads.delete(targetFileId);
-    for (const result of settled) imageHistory.settle(result.pending, result.url);
+    for (const settledUpload of settled) {
+      const outcome = imageHistory.settle(settledUpload.pending, settledUpload.result);
+      finishUploadSettlement(targetFileId, settledUpload.pending, settledUpload.result, outcome);
+    }
   }
 
-  function completeUpload(targetFileId: number, pending: PendingImage, url?: string) {
+  function completeUpload(targetFileId: number, pending: PendingImage, result: SettledUpload['result']) {
     if (view && activeFileId === targetFileId) {
-      imageHistory.settle(pending, url);
-      return;
+      return imageHistory.settle(pending, result);
     }
     const settled = settledUploads.get(targetFileId) ?? [];
-    settled.push({ pending, url });
+    settled.push({ pending, result });
     settledUploads.set(targetFileId, settled);
+    return null;
+  }
+
+  function finishUploadSettlement(targetFileId: number, pending: PendingImage, result: SettledUpload['result'], outcome: ImageSettlementOutcome) {
+    if (outcome === 'discarded') {
+      clearUploadStatus(pending);
+      return;
+    }
+    if (result.type === 'success' && outcome === 'settled') {
+      clearUploadStatus(pending);
+      return;
+    }
+    const tracked = uploads.get(pending.id);
+    setUploadStatus(targetFileId, pending, {
+      id: pending.id,
+      fileName: pending.file.name,
+      state: 'failed',
+      error: outcome === 'untracked'
+        ? 'The upload finished, but the placeholder was changed. Remove the temporary image markup and upload the image again.'
+        : tracked?.status.error || 'Upload failed. Try again or remove the placeholder.',
+    });
+  }
+
+  function progressStatus(pending: PendingImage, progress: ImageUploadProgress): ImageUploadStatus {
+    if (progress.phase === 'preparing')
+      return { id: pending.id, fileName: pending.file.name, state: 'preparing' };
+    if (progress.total > 0 && progress.loaded >= progress.total)
+      return { id: pending.id, fileName: pending.file.name, state: 'processing' };
+    const percentage = progress.total > 0
+      ? Math.max(0, Math.min(99, Math.round(progress.loaded / progress.total * 100)))
+      : undefined;
+    return { id: pending.id, fileName: pending.file.name, state: 'uploading', progress: percentage };
   }
 
   async function uploadPendingImage(targetFileId: number, pending: PendingImage) {
+    setUploadStatus(targetFileId, pending, {
+      id: pending.id,
+      fileName: pending.file.name,
+      state: 'preparing',
+    });
     try {
-      const { url } = await uploadImage(pending.file);
-      completeUpload(targetFileId, pending, url);
+      const { url } = await uploadImage(pending.file, (progress) => {
+        setUploadStatus(targetFileId, pending, progressStatus(pending, progress));
+      });
+      const result = { type: 'success', url } as const;
+      const outcome = completeUpload(targetFileId, pending, result);
+      if (outcome)
+        finishUploadSettlement(targetFileId, pending, result, outcome);
     }
-    catch {
-      completeUpload(targetFileId, pending);
+    catch (error) {
+      const message = error instanceof Error ? error.message : 'Upload failed';
+      setUploadStatus(targetFileId, pending, {
+        id: pending.id,
+        fileName: pending.file.name,
+        state: 'failed',
+        error: message,
+      });
+      const result = { type: 'failure' } as const;
+      const outcome = completeUpload(targetFileId, pending, result);
+      if (outcome)
+        finishUploadSettlement(targetFileId, pending, result, outcome);
     }
+  }
+
+  export function retryImageUpload(id: string) {
+    const tracked = uploads.get(id);
+    if (!tracked || tracked.fileId !== activeFileId || tracked.status.state !== 'failed')
+      return;
+    if (!imageHistory.retry(tracked.pending)) {
+      setUploadStatus(tracked.fileId, tracked.pending, {
+        ...tracked.status,
+        error: 'The failed placeholder was changed. Remove it and upload the image again.',
+      });
+      return;
+    }
+    void uploadPendingImage(tracked.fileId, tracked.pending);
+  }
+
+  export function removeImageUpload(id: string) {
+    const tracked = uploads.get(id);
+    if (!tracked || tracked.fileId !== activeFileId)
+      return;
+    if (imageHistory.remove(tracked.pending)) {
+      clearUploadStatus(tracked.pending);
+      return;
+    }
+    setUploadStatus(tracked.fileId, tracked.pending, {
+      ...tracked.status,
+      state: 'failed',
+      error: 'The failed placeholder was changed. Remove the temporary image markup manually before saving.',
+    });
   }
 
   export function focus() {
@@ -323,6 +434,7 @@
     applyMarkdownCompletion(renderer, readonly, referenceCandidates, tagCandidates, fileId);
     void applyLanguage(renderer);
     applyDiagnostics(diagnostics);
+    publishUploads();
 
     const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
     const refreshTheme = () => view?.dispatch({
@@ -335,6 +447,7 @@
       cacheCurrentState();
       view?.destroy();
       view = undefined;
+      onImageUploadsChange([]);
     };
   });
 
