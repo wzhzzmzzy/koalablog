@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { emptyTrash, trash } from '@/actions/db/markdown'
+import { byPrefix, emptyTrash, trash } from '@/actions/db/markdown'
 import { save, setPrivate } from '@/actions/form/markdown'
-import { saveFile, trash as trashFile } from '@/db/markdown'
+import { add, saveFile, trash as trashFile } from '@/db/markdown'
 
 vi.mock('@/lib/auth', () => ({
   authInterceptor: async (ctx: any) => {
@@ -108,13 +109,17 @@ describe('file mutation ownership', () => {
   it('lets only the Owner save an existing File', async () => {
     const file = await createOwnedFile(7)
 
+    await expect(save.orThrow.call(createContext(), saveForm(file, 'anonymous edit', file.revision)))
+      .rejects
+      .toMatchObject({ code: 'UNAUTHORIZED' })
+
     await expect(save.orThrow.call(createContext(8), saveForm(file, 'hijack', file.revision)))
       .rejects
       .toMatchObject({ code: 'NOT_FOUND' })
 
     await expect(save.orThrow.call(createContext(7), saveForm(file, 'owner edit', file.revision)))
       .resolves
-      .toMatchObject({ content: 'owner edit', userId: 7 })
+      .toMatchObject({ content: 'owner edit', userId: 7, private: false })
   })
 
   it('lets only the Owner trash, restore, and toggle visibility', async () => {
@@ -140,5 +145,49 @@ describe('file mutation ownership', () => {
     await expect(emptyTrash.orThrow.call(createContext(7), {})).resolves.toMatchObject({ count: 1 })
     const remaining = await emptyTrash.orThrow.call(createContext(8), {})
     expect(remaining).toMatchObject({ count: 1 })
+  })
+})
+
+describe('file Prefix read scopes', () => {
+  useOwnershipDatabase()
+
+  it('keeps the default scope authenticated and Owner-only, including owned public Files', async () => {
+    const owned = await createOwnedFile(7, '/data/owned')
+    await createOwnedFile(8, '/data/foreign-public')
+    await expect(byPrefix.orThrow.call(createContext(), { prefix: '/data' }))
+      .rejects
+      .toMatchObject({ code: 'UNAUTHORIZED' })
+    const files = await byPrefix.orThrow.call(createContext(7), { prefix: '/data' })
+    expect(files.map(file => file.id)).toEqual([owned.id])
+    expect(files[0]).toMatchObject({ private: false, userId: 7 })
+  })
+
+  it('returns only active direct public Files, regardless of the visiting user', async () => {
+    const publicFile = await createOwnedFile(7, '/data/public')
+    await add(env, { path: '/data/private', renderer: 'markdown', content: 'secret', private: true, userId: 7 })
+    await add(env, { path: '/data/deleted', renderer: 'markdown', content: 'deleted secret', deletedAt: new Date(), userId: 7 })
+    await createOwnedFile(7, '/database/outside')
+    await createOwnedFile(7, '/data/nested/inside')
+    for (const userId of [undefined, 7, 8]) {
+      const files = await byPrefix.orThrow.call(createContext(userId), { prefix: '/data', scope: 'public' })
+      expect(files).toHaveLength(1)
+      expect(files[0]).toMatchObject({ id: publicFile.id, content: 'owned body', private: false, canEdit: userId === 7 })
+    }
+  })
+
+  it('does not expose incoming links from private Files or the Owner id in public responses', async () => {
+    const file = await createOwnedFile(7, '/data/public')
+    const client = createClient({ url: process.env.SQLITE_URL! })
+    await client.execute({ sql: 'UPDATE markdown SET incoming_links = ? WHERE id = ?', args: ['["/private/secret"]', file.id] })
+    client.close()
+    const files = await byPrefix.orThrow.call(createContext(), { prefix: '/data', scope: 'public' })
+    expect(files[0]).toMatchObject({ incoming_links: null, userId: null, canEdit: false })
+    expect(JSON.stringify(files)).not.toContain('/private/secret')
+  })
+
+  it('rejects unknown scopes instead of falling back to an unscoped database read', async () => {
+    await expect(byPrefix.orThrow.call(createContext(), { prefix: '/data', scope: 'all' } as any))
+      .rejects
+      .toMatchObject({ code: 'BAD_REQUEST' })
   })
 })

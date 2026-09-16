@@ -17,7 +17,7 @@ export class ActionError extends Error {
 
 export class CompanionFileError extends Error {
   constructor(path, message) {
-    super(message || 'No active private Markdown File exists at ' + path + '.');
+    super(message || 'No accessible active Markdown File exists at ' + path + '.');
     this.name = 'CompanionFileError';
     this.path = path;
   }
@@ -110,30 +110,43 @@ export async function callAction(path, input) {
   return decodeDevalue(text);
 }
 
-function ownedMarkdownFile(value, path) {
+function markdownFile(value, path) {
   if (!value || typeof value !== 'object')
     throw new CompanionFileError(path);
   if (value.path !== path
     || value.renderer !== 'markdown'
-    || value.private !== true
+    || typeof value.private !== 'boolean'
     || value.deletedAt != null
     || !Number.isInteger(value.id)
     || !Number.isInteger(value.revision)
     || typeof value.content !== 'string') {
-    throw new CompanionFileError(path, 'Companion File at ' + path + ' must be active private Markdown.');
+    throw new CompanionFileError(path, 'Companion File at ' + path + ' must be active Markdown with explicit visibility.');
   }
   return value;
 }
 
-export async function readOwnedMarkdown(input) {
-  const files = await callAction('/_actions/db.markdown.byPrefix', { prefix: input.prefix });
+export async function readMarkdown(input) {
+  const scope = input.scope === undefined ? 'owned' : input.scope;
+  if (scope !== 'owned' && scope !== 'public')
+    throw new TypeError('Markdown read scope must be owned or public.');
+  const files = await callAction('/_actions/db.markdown.byPrefix', { prefix: input.prefix, scope });
   if (!Array.isArray(files))
     throw new Error('Invalid File list response.');
-  return ownedMarkdownFile(files.find(file => file && file.path === input.path), input.path);
+  const file = markdownFile(files.find(file => file && file.path === input.path && file.deletedAt == null), input.path);
+  if (scope === 'public' && file.private)
+    throw new CompanionFileError(input.path, 'Companion File at ' + input.path + ' must be public Markdown.');
+  return { ...file, canEdit: scope === 'owned' || file.canEdit === true };
+}
+
+export async function readOwnedMarkdown(input) {
+  return readMarkdown({ ...input, scope: 'owned' });
 }
 
 export async function saveOwnedMarkdown(file, content) {
-  const current = ownedMarkdownFile(file, file && file.path);
+  const current = markdownFile(file, file && file.path);
+  // This is a UI affordance, not authorization: form.save always checks ownerGuard.
+  if (current.canEdit === false)
+    throw new ActionError({ code: 'FORBIDDEN', status: 403, message: 'Only the File Owner may save this Markdown.' });
   if (typeof content !== 'string')
     throw new TypeError('Markdown content must be a string.');
 
@@ -142,9 +155,9 @@ export async function saveOwnedMarkdown(file, content) {
   form.set('path', current.path);
   form.set('renderer', 'markdown');
   form.set('content', content);
-  form.set('private', 'true');
+  form.set('private', String(current.private));
   form.set('baseRevision', String(current.revision));
-  return ownedMarkdownFile(await callAction('/_actions/form.save', form), current.path);
+  return { ...markdownFile(await callAction('/_actions/form.save', form), current.path), canEdit: true };
 }
 
 export function isOwnerAccessError(error) {

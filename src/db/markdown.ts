@@ -502,7 +502,7 @@ export async function trashByIdForOwner(env: Env, id: number, userId: number, ba
   return { status: 'conflict', current }
 }
 
-export function readByPrefix(env: Env, prefix: string, userId?: number) {
+export function readByPrefix(env: Env, prefix: string, userId?: number, scope: 'owned' | 'public' = 'owned') {
   const parsed = parseAbsolutePathPrefix(prefix)
   if (!parsed.ok)
     throw new FileInputError('invalid_path', `Invalid Path Prefix: ${parsed.error.code}`)
@@ -511,7 +511,9 @@ export function readByPrefix(env: Env, prefix: string, userId?: number) {
     where: and(
       sql`instr(${markdown.path}, ${parsed.value}) = 1`,
       sql`length(${relativePath}) - length(replace(${relativePath}, '/', '')) = 0`,
-      userId ? eq(markdown.userId, userId) : undefined,
+      scope === 'public'
+        ? and(isNull(markdown.deletedAt), eq(markdown.private, false))
+        : userId ? eq(markdown.userId, userId) : undefined,
     ),
     orderBy: desc(markdown.createdAt),
   })
