@@ -13,6 +13,7 @@ import {
   restore as restoreFile,
   trash as trashFile,
 } from '@/db/markdown'
+import { authInterceptor } from '@/lib/auth'
 import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { RENDERER_MODE } from '@/lib/files/types'
 import { authGuard, loginGuard, ownerGuard } from '../utils/auth'
@@ -102,8 +103,23 @@ export const byPrefix = defineAction({
       if (!parsed.ok)
         ctx.addIssue({ code: 'custom', message: `Invalid Path Prefix: ${parsed.error.code}` })
     }).default('/'),
-  }).default({ prefix: '/' }),
-  handler: async ({ prefix }, ctx) => {
+    scope: z.enum(['owned', 'public']).default('owned'),
+  }).default({ prefix: '/', scope: 'owned' }),
+  handler: async ({ prefix, scope }, ctx) => {
+    if (scope === 'public') {
+      // Identify an optional session without requiring login. Public reads must
+      // never broaden their visibility when the visitor happens to be an Owner.
+      await authInterceptor(ctx)
+      const viewerId = ctx.locals.session.userId
+      const files = await readByPrefix(ctx.locals.runtime?.env, prefix, undefined, 'public')
+      return files.map(file => ({
+        ...file,
+        // Incoming references can originate in private Files.
+        incoming_links: null,
+        userId: null,
+        canEdit: viewerId != null && file.userId === viewerId,
+      }))
+    }
     await loginGuard(ctx)
     return readByPrefix(ctx.locals.runtime?.env, prefix, ctx.locals.session.userId ?? undefined)
   },
