@@ -150,6 +150,27 @@ test('File Path Escape cancels inline editing and restores the path trigger focu
   await expect(path).toBeFocused()
 })
 
+test('File Path input follows the selected File and renames that File', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  await page.getByTestId('editor-path-edit').click()
+  const input = page.getByRole('textbox', { name: 'File Path' })
+  await expect(input).toHaveValue('/phase-two')
+
+  await page.getByRole('button', { name: 'second', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'File Source for /second' })).toBeVisible()
+  await expect(input).toHaveValue('/second')
+
+  await input.fill('/second-renamed')
+  await input.press('Enter')
+  await expect(page.getByTestId('editor-path-edit')).toHaveText('/second-renamed')
+  await page.getByRole('button', { name: 'Save File' }).click()
+
+  await expect(page.getByText('Source saved.')).toBeVisible()
+  await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Fsecond-renamed$/)
+})
+
 test('File Source exposes the stable editor contract', async ({ page }) => {
   await page.goto('/dashboard/edit?path=/phase-two')
   await page.waitForLoadState('networkidle')

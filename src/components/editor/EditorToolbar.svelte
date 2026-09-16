@@ -98,12 +98,23 @@
   let editingPath = $state(false)
   let pathDraft = $state('')
   let pathError = $state('')
+  let pathEditFileId: number | null = $state(null)
   let pathInput: HTMLInputElement | undefined = $state()
   let pathTrigger: HTMLButtonElement | undefined = $state()
+
+  $effect(() => {
+    const selectedFileId = file?.id ?? null
+    if (!editingPath || pathEditFileId === selectedFileId)
+      return
+    pathEditFileId = selectedFileId
+    pathDraft = pathValue
+    pathError = ''
+  })
 
   async function beginPathEdit() {
     if (!hasPersistedFile || trashed)
       return
+    pathEditFileId = file?.id ?? null
     pathDraft = pathValue
     pathError = ''
     editingPath = true
@@ -114,6 +125,7 @@
 
   function cancelPathEdit() {
     editingPath = false
+    pathEditFileId = null
     pathError = ''
     void tick().then(() => pathTrigger?.focus())
   }
@@ -127,6 +139,7 @@
     }
     onPathChange(parsed.value)
     editingPath = false
+    pathEditFileId = null
     pathError = ''
     void tick().then(() => pathTrigger?.focus())
   }
