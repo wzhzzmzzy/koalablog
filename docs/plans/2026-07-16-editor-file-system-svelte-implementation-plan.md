@@ -761,7 +761,7 @@ HTTPS dependency policy for v1:
 | MIME | JavaScript MIME types only (`text/javascript`, `application/javascript`, `text/ecmascript`, `application/ecmascript`). |
 | Graph depth | At most 8 dependency edges from the user entry. |
 | Module count | At most 64 fetched URL modules. |
-| Per resource | At most 512,000 UTF-8 bytes. |
+| Per resource | At most 1,000,000 UTF-8 bytes; accommodates browser libraries such as Three.js before Artifact tree-shaking. |
 | Total fetched source | At most 4,000,000 UTF-8 bytes. |
 | Timeout | 10 seconds per fetch and 20 seconds for dependency resolution/build. |
 
