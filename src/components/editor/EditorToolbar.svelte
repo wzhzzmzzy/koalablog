@@ -42,7 +42,7 @@
     onDeploy?: ClickHandler
     onCopyLink?: () => void
     onCopyReference?: () => void
-    onPathChange?: (path: string) => void
+    onPathChange?: (path: string) => void | Promise<void>
     onMarkdownViewChange?: (mode: MarkdownViewMode) => void
     onUpdate?: (file: FileRecord) => void
     onPurge?: (id: number) => void

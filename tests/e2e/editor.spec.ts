@@ -162,13 +162,36 @@ test('File Path input follows the selected File and renames that File', async ({
   await expect(page.getByRole('textbox', { name: 'File Source for /second' })).toBeVisible()
   await expect(input).toHaveValue('/second')
 
+  const saveResponse = page.waitForResponse(response =>
+    response.request().method() === 'POST' && response.url().includes('/_actions/form.save'),
+  )
   await input.fill('/second-renamed')
   await input.press('Enter')
+  await saveResponse
   await expect(page.getByTestId('editor-path-edit')).toHaveText('/second-renamed')
-  await page.getByRole('button', { name: 'Save File' }).click()
-
   await expect(page.getByText('Source saved.')).toBeVisible()
+  await expect(page.getByText('Unsaved changes')).toBeHidden()
   await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Fsecond-renamed$/)
+})
+
+test('applying a File Path derives the new Title and saves the rename immediately', async ({ page }) => {
+  await page.goto('/dashboard/edit?path=/phase-two')
+  await page.waitForLoadState('networkidle')
+
+  const saveResponse = page.waitForResponse(response =>
+    response.request().method() === 'POST' && response.url().includes('/_actions/form.save'),
+  )
+  await setBufferPath(page, '/renamed-from-path')
+  await saveResponse
+
+  await expect(page.getByRole('button', { name: 'renamed-from-path', exact: true })).toBeVisible()
+  await expect(page.getByText('Unsaved changes')).toBeHidden()
+  await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Frenamed-from-path$/)
+
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByTestId('editor-path-edit')).toHaveText('/renamed-from-path')
+  await expect(page.getByRole('button', { name: 'renamed-from-path', exact: true })).toBeVisible()
 })
 
 test('File Source exposes the stable editor contract', async ({ page }) => {
@@ -1023,8 +1046,11 @@ test('renaming a File preserves Source selection, scroll, folds, and undo', asyn
   await expect.poll(() => scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
   const savedScrollTop = await scroller.evaluate(element => element.scrollTop)
 
+  const saveResponse = page.waitForResponse(response =>
+    response.request().method() === 'POST' && response.url().includes('/_actions/form.save'),
+  )
   await setBufferPath(page, '/phase-two-renamed')
-  await page.getByRole('button', { name: 'Save File' }).click()
+  await saveResponse
   await expect(page.getByText('Source saved.')).toBeVisible()
   await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Fphase-two-renamed$/)
 

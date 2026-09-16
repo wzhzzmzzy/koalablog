@@ -18,7 +18,8 @@ export const SVELTE_USER_MODULE_SPECIFIERS = [
 export const SVELTE_DEPENDENCY_LIMITS = {
   maxDepth: 8,
   maxModules: 64,
-  maxModuleBytes: 512_000,
+  // Allow full browser libraries such as Three.js before Artifact tree-shaking.
+  maxModuleBytes: 1_000_000,
   maxTotalBytes: 4_000_000,
   fetchTimeoutMs: 10_000,
   resolutionTimeoutMs: 20_000,
