@@ -46,7 +46,7 @@ describe('bounded HTTPS dependency resolver', () => {
     expect(SVELTE_DEPENDENCY_LIMITS).toEqual({
       maxDepth: 8,
       maxModules: 64,
-      maxModuleBytes: 512_000,
+      maxModuleBytes: 1_000_000,
       maxTotalBytes: 4_000_000,
       fetchTimeoutMs: 10_000,
       resolutionTimeoutMs: 20_000,
@@ -114,6 +114,16 @@ describe('bounded HTTPS dependency resolver', () => {
       ok: false,
       error: { code: 'dependency_module_limit' },
     })
+  })
+
+  it('accepts a dependency the size of the Three.js r160 ESM build', async () => {
+    const url = 'https://esm.sh/three@0.160.0/es2022/three.mjs'
+    // The pinned CDN build is 663441 UTF-8 bytes before Artifact tree-shaking.
+    // Keep this independent of the configured limit to catch the 512 KB regression.
+    const source = `/*${'x'.repeat(663_441 - 4)}*/`
+    await expect(resolveHttpsModuleGraph([url], {
+      fetch: fetchFrom({ [url]: source }),
+    })).resolves.toMatchObject({ ok: true })
   })
 
   it('enforces per-module and total UTF-8 byte boundaries', async () => {

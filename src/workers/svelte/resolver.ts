@@ -233,7 +233,7 @@ export async function resolveHttpsModuleGraph(
     if (entry.bytes > SVELTE_DEPENDENCY_LIMITS.maxModuleBytes) {
       return {
         ok: false,
-        error: resolverDiagnostic('dependency_module_bytes', `Dependency exceeds 512000 UTF-8 bytes: ${pending.url}`),
+        error: resolverDiagnostic('dependency_module_bytes', `Dependency exceeds ${SVELTE_DEPENDENCY_LIMITS.maxModuleBytes} UTF-8 bytes: ${pending.url}`),
       }
     }
     if (totalBytes + entry.bytes > SVELTE_DEPENDENCY_LIMITS.maxTotalBytes) {
