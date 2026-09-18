@@ -29,6 +29,7 @@ local.db
 /.playwright/
 /playwright-report/
 /test-results/
+/playground/
 
 koala.config.json
 
