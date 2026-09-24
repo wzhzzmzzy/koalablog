@@ -103,6 +103,7 @@ local.db*
 *.db-journal
 
 # Testing
+/playground/
 test-results/
 playwright-report/
 playwright/.cache/
