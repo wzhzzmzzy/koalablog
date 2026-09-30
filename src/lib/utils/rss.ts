@@ -15,6 +15,7 @@ export async function retriveRss(ctx: APIContext) {
   const title = pageConfig.title ?? 'Koalablog'
 
   const allPosts = await readAllPublic(ctx.locals.runtime?.env)
+  const rssPosts = allPosts.filter(post => post.path !== '/data' && !post.path.startsWith('/data/'))
   const activePaths = await readActivePaths(ctx.locals.runtime?.env)
   const site = rssConfig.site ?? ctx.site ?? ctx.url.origin
   const md = rawMd({
@@ -25,7 +26,7 @@ export async function retriveRss(ctx: APIContext) {
     title,
     description: rssConfig.description ?? '',
     site,
-    items: allPosts.map((post) => {
+    items: rssPosts.map((post) => {
       const content = md.render(post.content || '')
       const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
       return {
