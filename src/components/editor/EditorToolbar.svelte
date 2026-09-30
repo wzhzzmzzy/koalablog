@@ -33,6 +33,7 @@
     deploymentFailed?: boolean
     markdownViewMode?: MarkdownViewMode
     onBackToDashboard: ClickHandler
+    onFindFile: () => void
     onBack?: ClickHandler
     onTogglePrivate?: ClickHandler
     onRendererChange?: (renderer: RendererMode) => void
@@ -66,6 +67,7 @@
     deploymentFailed = false,
     markdownViewMode = 'source',
     onBackToDashboard,
+    onFindFile,
     onBack = noopClick,
     onTogglePrivate = noopClick,
     onRendererChange = () => {},
@@ -285,6 +287,7 @@
       {privateValue}
       {trashed}
       {onBackToDashboard}
+      {onFindFile}
       {onTogglePrivate}
       {onRendererChange}
       {onUpload}

@@ -33,9 +33,10 @@
 	    onUpdate?: (file: FileRecord) => void;
 	    onPurge?: (id: number) => void;
 	    onBack?: () => void;
+	    onFindFile: () => void;
 	    onOpenReference?: (file: FileRecord) => void;
 			}
-  let { file, onSave, onUpdate, onPurge, onBack, onOpenReference }: Props = $props()
+  let { file, onSave, onUpdate, onPurge, onBack, onFindFile, onOpenReference }: Props = $props()
   const initialBuffer = editBuffers.get(file.id)
   let rendererValue = $state(initialBuffer?.renderer ?? file.renderer)
   let sourceValue = $state(initialBuffer?.content ?? file.content ?? '')
@@ -785,6 +786,7 @@
         markdownViewMode={markdownViewState.requestedMode}
         onBackToDashboard={backToDashboard}
         onBack={() => onBack?.()}
+        {onFindFile}
         onTogglePrivate={togglePrivate}
         onRendererChange={changeRenderer}
         onSave={save}

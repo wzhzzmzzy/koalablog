@@ -435,6 +435,14 @@ body:has(.editor-workspace) {
   opacity: 0.45;
 }
 
+.editor-more__shortcut {
+  margin-left: auto;
+  color: var(--editor-muted);
+  font-family: inherit;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
 .editor-more__section {
   display: grid;
   grid-template-columns: 1fr 1fr;
