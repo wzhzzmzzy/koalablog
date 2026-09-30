@@ -3,6 +3,7 @@ import { parse } from 'node-html-parser'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarkdownSource } from '@/db'
 import { readActivePaths, readAllPublic } from '@/db/markdown'
+import { parseAbsoluteFilePath } from '@/lib/files/path'
 import { GET } from '@/pages/rss.xml'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
 
@@ -58,7 +59,7 @@ describe('rss endpoint', () => {
     expect(response.status).toBe(200)
     expect(body.match(/<item>/g)).toHaveLength(visiblePaths.length)
     for (const path of visiblePaths) {
-      expect(body).toContain(`<link>https://example.com${path}/</link>`)
+      expect(body).toContain(`<link>https://example.com${path}</link>`)
       expect(body).toContain(`Visible body for ${path}`)
     }
     expect(body).not.toContain('Excluded')
@@ -114,7 +115,7 @@ describe('rss endpoint', () => {
 
     const body = await (await GET(context())).text()
     expect(body).toContain('<title>Interactive app</title>')
-    expect(body).toContain('<link>https://example.com/app/</link>')
+    expect(body).toContain('<link>https://example.com/app</link>')
     expect(body).not.toMatch(/sourceOnly|Template body|@brief/)
     const item = parse(body).querySelector('item')!
     expect(item.querySelector('description')?.text || '').toBe('')
@@ -136,5 +137,23 @@ describe('rss endpoint', () => {
     expect(item.querySelector('description')!.text).toBe('First <strong>paragraph</strong>.')
     expect(item.querySelector('content\\:encoded')!.text).toContain('<p>Second paragraph.</p>')
     expect(item.querySelectorAll('category').map(category => category.text)).toEqual(['tag-one', 'tag-two'])
+  })
+
+  it('keeps item links and permalink GUIDs at the exact valid File Paths', async () => {
+    const files = [
+      { ...makeFileRecord({ path: '/post/article', content: 'Article body' }), userId: 7 },
+      { ...makeFileRecord({ path: '/news-feed', renderer: 'svelte', content: '<!-- @brief: Daily news. -->' }), userId: 7 },
+    ]
+    vi.mocked(readAllPublic).mockResolvedValue(files)
+
+    const body = await (await GET(context())).text()
+    const items = body.match(/<item>[\s\S]*?<\/item>/g)!
+    expect(items).toHaveLength(files.length)
+    items.forEach((item, index) => {
+      const url = new URL(/<link>([^<]*)<\/link>/.exec(item)![1])
+      expect(url.href).toBe(`https://example.com${files[index].path}`)
+      expect(parseAbsoluteFilePath(url.pathname)).toEqual({ ok: true, value: files[index].path })
+      expect(item).toContain(`<guid isPermaLink="true">${url.href}</guid>`)
+    })
   })
 })
