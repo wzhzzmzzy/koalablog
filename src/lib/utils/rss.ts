@@ -27,6 +27,7 @@ export async function retriveRss(ctx: APIContext) {
     title,
     description: rssConfig.description ?? '',
     site,
+    trailingSlash: false,
     items: rssPosts.map((post) => {
       const isSvelte = post.renderer === 'svelte'
       const brief = isSvelte ? getSvelteBrief(post.content) : ''
