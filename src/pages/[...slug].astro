@@ -5,15 +5,16 @@ import PathPrefixPage from '@/components/path-prefix/PathPrefixPage.astro'
 import { readByPath, readVisiblePathPrefix } from '@/db/markdown'
 import { readArtifactAccess } from '@/db/render-artifact'
 import { getDisplayTitle } from '@/lib/files/display-title'
-import { parseAbsolutePathPrefix } from '@/lib/files/path'
+import { parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 
 const { slug } = Astro.params
 const isPrefixRequest = Astro.url.pathname.endsWith('/')
 
 const path = `/${slug || ''}`
-const maybePage: FileRecord | undefined = isPrefixRequest
-  ? undefined
-  : await readByPath(Astro.locals.runtime?.env, path)
+const parsedFilePath = isPrefixRequest ? undefined : parseAbsoluteFilePath(path)
+const maybePage: FileRecord | undefined = parsedFilePath?.ok
+  ? await readByPath(Astro.locals.runtime?.env, parsedFilePath.value)
+  : undefined
 
 if (maybePage?.private && maybePage.userId !== Astro.locals.session.userId) {
   if (!Astro.locals.session.userId) {
