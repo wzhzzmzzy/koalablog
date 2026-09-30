@@ -1,4 +1,5 @@
 import type { APIContext } from 'astro'
+import { parse } from 'node-html-parser'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarkdownSource } from '@/db'
 import { readActivePaths, readAllPublic } from '@/db/markdown'
@@ -43,7 +44,7 @@ describe('rss endpoint', () => {
           title: 'Excluded app',
           source: MarkdownSource.Post,
           renderer: 'svelte',
-          content: '<h1>Excluded Svelte source</h1>',
+          content: '<!-- @brief: Excluded brief. --><h1>Excluded Svelte source</h1>',
         }),
         userId: 7,
       },
@@ -76,5 +77,64 @@ describe('rss endpoint', () => {
     expect(body).toContain('<title>Test blog</title>')
     expect(body).not.toContain('<item>')
     expect(body).not.toContain('Excluded body')
+  })
+
+  it('publishes the Svelte brief as escaped text in both RSS summary fields', async () => {
+    const brief = 'Compare A & B, <img src=x onerror="alert(1)">, **text** and {count}.'
+    vi.mocked(readAllPublic).mockResolvedValue([{
+      ...makeFileRecord({
+        renderer: 'svelte',
+        content: `<!-- @brief: ${brief} -->\n<script>const sourceOnly = 1</script><style>.sourceStyle { color: red; }</style><h1>Template body</h1>`,
+      }),
+      userId: 7,
+    }])
+
+    const body = await (await GET(context())).text()
+    const item = parse(body).querySelector('item')!
+    const description = item.querySelector('description')!.text
+    const content = item.querySelector('content\\:encoded')!.text
+
+    expect(parse(description).text).toBe(brief)
+    expect(parse(content).querySelector('p')!.text).toBe(brief)
+    expect(parse(description).querySelector('img')).toBeNull()
+    expect(parse(content).querySelector('img')).toBeNull()
+    expect(body).not.toMatch(/sourceOnly|sourceStyle|Template body|@brief/)
+  })
+
+  it.each(['', '<!-- @brief: \n -->'])('keeps Svelte title and link without leaking Source when brief is absent: %s', async (header) => {
+    vi.mocked(readAllPublic).mockResolvedValue([{
+      ...makeFileRecord({
+        path: '/app',
+        title: 'Interactive app',
+        renderer: 'svelte',
+        content: `${header}<script>const sourceOnly = 1</script><h1>Template body</h1>`,
+      }),
+      userId: 7,
+    }])
+
+    const body = await (await GET(context())).text()
+    expect(body).toContain('<title>Interactive app</title>')
+    expect(body).toContain('<link>https://example.com/app/</link>')
+    expect(body).not.toMatch(/sourceOnly|Template body|@brief/)
+    const item = parse(body).querySelector('item')!
+    expect(item.querySelector('description')?.text || '').toBe('')
+    expect(item.querySelector('content\\:encoded')?.text || '').toBe('')
+  })
+
+  it('preserves Markdown summaries, full content, display titles and categories', async () => {
+    vi.mocked(readAllPublic).mockResolvedValue([{
+      ...makeFileRecord({
+        source: MarkdownSource.Post,
+        content: '---\ntitle: Markdown title\n---\n\nFirst **paragraph**.\n\nSecond paragraph.',
+        tags: '["tag-one","tag-two"]',
+      }),
+      userId: 7,
+    }])
+
+    const item = parse(await (await GET(context())).text()).querySelector('item')!
+    expect(item.querySelector('title')!.text).toBe('Markdown title')
+    expect(item.querySelector('description')!.text).toBe('First <strong>paragraph</strong>.')
+    expect(item.querySelector('content\\:encoded')!.text).toContain('<p>Second paragraph.</p>')
+    expect(item.querySelectorAll('category').map(category => category.text)).toEqual(['tag-one', 'tag-two'])
   })
 })

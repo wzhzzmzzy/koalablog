@@ -3,6 +3,7 @@ import rss from '@astrojs/rss'
 import { readActivePaths, readAllPublic } from '@/db/markdown'
 import { getDisplayTitle } from '@/lib/files/display-title'
 import { decodeStoredTags } from '@/lib/files/stored-tags'
+import { getSvelteBrief } from '@/lib/files/svelte-brief'
 import { rawMd } from '@/lib/markdown'
 
 export async function retriveRss(ctx: APIContext) {
@@ -27,14 +28,18 @@ export async function retriveRss(ctx: APIContext) {
     description: rssConfig.description ?? '',
     site,
     items: rssPosts.map((post) => {
-      const content = md.render(post.content || '')
+      const isSvelte = post.renderer === 'svelte'
+      const brief = isSvelte ? getSvelteBrief(post.content) : ''
+      const content = isSvelte
+        ? (brief ? `<p>${md.utils.escapeHtml(brief)}</p>` : '')
+        : md.render(post.content || '')
       const firstParagraph = /<p>(.*?)<\/p>/.exec(content)
       return {
         title: getDisplayTitle(post),
         link: post.path,
         categories: decodeStoredTags(post.tags),
         pubDate: post.createdAt,
-        description: firstParagraph?.[1] || '',
+        description: isSvelte ? md.utils.escapeHtml(brief) : firstParagraph?.[1] || '',
         content,
       }
     }),
