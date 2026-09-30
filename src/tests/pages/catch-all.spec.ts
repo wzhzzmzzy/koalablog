@@ -59,6 +59,35 @@ function useCatchAllDatabase() {
 describe('catch-all article route', () => {
   useCatchAllDatabase()
 
+  it.each(['any.txt', 'nested/any.txt', 'any.md', 'any.json', '.recycleBin/hidden'])(
+    'routes the unknown or invalid URL /%s to not found without throwing',
+    async (slug) => {
+      const container = await AstroContainer.create()
+      const response = await container.renderToResponse(CatchAllPage, {
+        params: { slug },
+        locals,
+        request: new Request(`https://koala.test/${slug}`),
+      })
+
+      expect(response.status).toBe(302)
+      expect(response.headers.get('Location')).toBe(`/404?source=${encodeURIComponent(`/${slug}`)}`)
+    },
+  )
+
+  it('still resolves a dotted Path Prefix without a trailing slash', async () => {
+    await add(env, { path: '/archive.txt/note', renderer: 'markdown', content: '', userId: 1 })
+
+    const container = await AstroContainer.create()
+    const response = await container.renderToResponse(CatchAllPage, {
+      params: { slug: 'archive.txt' },
+      locals,
+      request: new Request('https://koala.test/archive.txt'),
+    })
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('Location')).toBe('/archive.txt/')
+  })
+
   it('renders a Post through /post/* with its Post Display Title', async () => {
     await saveFile(env, {
       id: 0,
