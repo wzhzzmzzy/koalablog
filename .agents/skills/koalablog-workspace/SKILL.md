@@ -25,6 +25,7 @@ Use the local workspace and the `koala` CLI as the only operational boundary. Do
 
 1. Use Instant Search to identify candidate Source and read only the necessary files.
 2. Preserve the File Path, renderer extension, and ordinary Source content. Do not insert sync metadata into frontmatter or Source.
+   For every Svelte File you create or edit, include exactly one non-empty leading `<!-- @brief: ... -->` comment describing the page in plain text. Keep it current and verify it before delivery or synchronization. Read [the brief contract](../../../docs/svelte-brief.md) for placement and RSS/list behavior. Read-only operations and synchronization of otherwise unchanged Files do not require rewriting them.
 3. Put binary input only below `attachments/` and update Source references explicitly when their paths change.
 4. Use `koala sync --once` only after local changes are complete. It uses the configured Bearer credential internally and is safe to retry after a failure.
 5. Do not simulate a filesystem watcher, launch a background daemon, or create a local database.

@@ -9,6 +9,10 @@ Produce one Svelte Source file plus one private companion Markdown File. The Sve
 
 Before implementing, read [references/platform-contract.md](references/platform-contract.md). Obey the repository AGENTS.md; when .codegraph exists, use it before tracing the code path.
 
+## Include the page brief
+
+Every Svelte File you create or update must include exactly one non-empty leading `<!-- @brief: ... -->` comment. Write a short plain-text summary of the page's purpose and useful interactions, and keep it accurate when changing the page. Place it before scripts, styles, and markup. Read [the brief contract](../../../docs/svelte-brief.md) for syntax, RSS/list behavior, and compatibility with existing Files.
+
 ## Confirm the state model
 
 Use this skill only when these rules hold:
@@ -103,6 +107,8 @@ Use `onMount(() => import('https://…'))` for browser-loaded icon ESM when icon
 ## Validate and hand off
 
 Before delivery:
+
+Confirm every created or modified Svelte Source has its required brief and that the text describes the delivered page.
 
 1. Run the project's Svelte compiler and resolver-policy checks on the exact single-file Source. Fix all diagnostics, including unused scoped CSS selectors.
 2. Confirm the Source has no unsupported module specifier, @lucide/svelte, Node builtin, or filesystem access.
