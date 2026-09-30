@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types'
   import type { RendererMode } from '@/lib/files/types'
-  import { Code2, Copy, Ellipsis, FileText, House, Link, Lock, LockOpen, Upload } from '@lucide/svelte'
-  import { tick } from 'svelte'
+  import { Code2, Copy, Ellipsis, FileText, House, Link, Lock, LockOpen, Search, Upload } from '@lucide/svelte'
+  import { onMount, tick } from 'svelte'
   import FileLifecycle from './FileLifecycle.svelte'
 
   type ClickHandler = (event: MouseEvent) => void | Promise<void>
@@ -14,6 +14,7 @@
     privateValue: boolean
     trashed: boolean
     onBackToDashboard: ClickHandler
+    onFindFile: () => void
     onTogglePrivate?: ClickHandler
     onRendererChange: (renderer: RendererMode) => void
     onUpload?: ClickHandler
@@ -29,6 +30,7 @@
     privateValue,
     trashed,
     onBackToDashboard,
+    onFindFile,
     onTogglePrivate = noopClick,
     onRendererChange,
     onUpload = noopClick,
@@ -39,11 +41,17 @@
   }: Props = $props()
 
   let open = $state(false)
+  let isMacOS = $state(false)
   let menu: HTMLDivElement | undefined = $state()
   let trigger: HTMLButtonElement | undefined = $state()
 
   const hasPersistedFile = $derived((file?.id ?? 0) > 0)
   const unavailableTitle = 'Select a File from File Explorer first'
+
+  onMount(() => {
+    // iPadOS desktop mode also reports a Mac platform, but has multiple touch points.
+    isMacOS = navigator.platform.startsWith('Mac') && navigator.maxTouchPoints < 2
+  })
 
   async function openMenu() {
     open = true
@@ -123,6 +131,17 @@
     <button type="button" role="menuitem" class="editor-more__item" onclick={(event) => { closeMenu(); onBackToDashboard(event); }}>
       <House size={16} />
       <span>Back to Dashboard</span>
+    </button>
+    <button
+      type="button"
+      role="menuitem"
+      class="editor-more__item"
+      aria-keyshortcuts={isMacOS ? 'Meta+K' : 'Control+K'}
+      onclick={() => { closeMenu(); onFindFile(); }}
+    >
+      <Search size={16} />
+      <span>Find a File</span>
+      <kbd class="editor-more__shortcut">{isMacOS ? '⌘ K' : 'Ctrl K'}</kbd>
     </button>
 
     <div class="editor-more__section" role="group" aria-label="Renderer Mode">
