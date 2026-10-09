@@ -67,6 +67,10 @@
   });
   const recentFiles = $derived(editorRecentFiles.resolve(editorStore.items));
 
+  function openFileFinder() {
+    finderOpen = true;
+  }
+
   onMount(() => {
     const visualViewport = window.visualViewport;
     let previousVisualViewportHeight = visualViewport?.height ?? window.innerHeight;
@@ -87,7 +91,7 @@
       if (event.repeat || event.isComposing || event.altKey || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k')
         return;
       event.preventDefault();
-      finderOpen = true;
+      openFileFinder();
     };
 
     const handleFocusOut = (event: FocusEvent) => {
@@ -239,11 +243,12 @@
           onUpdate={handleUpdate}
           onPurge={handlePurge}
           onBack={() => workspaceNavigation.back()}
+          onFindFile={openFileFinder}
           onOpenReference={file => workspaceNavigation.open(file)}
         />
       {:else}
         <div class="editor-empty-layout">
-          <EditorToolbar file={null} onBackToDashboard={backToDashboard} />
+          <EditorToolbar file={null} onBackToDashboard={backToDashboard} onFindFile={openFileFinder} />
           <section class="editor-empty-state" aria-labelledby="editor-empty-state-title">
             <div class="editor-empty-state__icon" aria-hidden="true"><FolderOpen size={28} /></div>
             <h1 id="editor-empty-state-title">Choose a File to begin</h1>
