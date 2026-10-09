@@ -10,12 +10,27 @@ export function syncJson(body: unknown, status = 200) {
 
 export type SyncAuthorization = { response: Response } | { userId: number }
 
-export async function requireSyncOwner(ctx: Parameters<APIRoute>[0]): Promise<SyncAuthorization> {
-  await authInterceptor(ctx)
+export async function requireSyncOwner(ctx: Parameters<APIRoute>[0], { allowSession = false } = {}): Promise<SyncAuthorization> {
   const authorization = ctx.request.headers.get('Authorization')
-  const userId = ctx.locals.session?.userId
-  if (!authorization?.startsWith('Bearer ') || !Number.isInteger(userId))
+  const useSession = allowSession && !ctx.request.headers.has('Authorization')
+  if (!useSession && !authorization?.startsWith('Bearer '))
     return { response: syncJson({ error: 'Unauthorized' }, 401) }
+
+  await authInterceptor(ctx, { allowSession: useSession })
+  const userId = ctx.locals.session?.userId
+  if (!Number.isInteger(userId))
+    return { response: syncJson({ error: 'Unauthorized' }, 401) }
+
+  if (useSession) {
+    const origin = ctx.request.headers.get('Origin')
+    const site = ctx.request.headers.get('Sec-Fetch-Site')
+    const writes = !['GET', 'HEAD'].includes(ctx.request.method)
+    // Cookie writes need an explicit same-origin proof, regardless of MIME type.
+    if (((origin !== null || writes) && origin !== ctx.url.origin)
+      || (site !== null && site !== 'same-origin' && site !== 'none')) {
+      return { response: syncJson({ error: 'Cross-origin Session request forbidden' }, 403) }
+    }
+  }
   return { userId: userId! }
 }
 
