@@ -4,7 +4,7 @@ import { findApiTokenByHash, findUserById } from '@/db/user'
 import { hashApiToken } from './api-token'
 import { readSession, SESSION_COOKIE_NAME } from './session'
 
-export async function authInterceptor(ctx: APIContext | ActionAPIContext) {
+export async function authInterceptor(ctx: APIContext | ActionAPIContext, { allowSession = true } = {}) {
   const env = ctx.locals.runtime?.env
 
   const authHeader = ctx.request.headers.get('Authorization')
@@ -20,7 +20,8 @@ export async function authInterceptor(ctx: APIContext | ActionAPIContext) {
     }
   }
 
-  const sessionId = ctx.cookies.get(SESSION_COOKIE_NAME)?.value
+  // API-only callers must not turn an invalid API Token into a valid Session.
+  const sessionId = allowSession ? ctx.cookies.get(SESSION_COOKIE_NAME)?.value : undefined
   const record = sessionId ? await readSession(env, sessionId) : null
   ctx.locals.session = record
     ? { userId: record.userId, role: record.role }

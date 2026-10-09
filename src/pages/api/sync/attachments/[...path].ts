@@ -10,7 +10,7 @@ function contentType(object: { httpMetadata?: { contentType?: string } }) {
 }
 
 export const GET: APIRoute = async (ctx) => {
-  const authorization = await requireSyncOwner(ctx)
+  const authorization = await requireSyncOwner(ctx, { allowSession: true })
   if ('response' in authorization)
     return authorization.response
   const path = attachmentPath(ctx.params.path)
@@ -21,11 +21,11 @@ export const GET: APIRoute = async (ctx) => {
   if (!object)
     return syncJson({ error: 'not_found' }, 404)
   const body = 'arrayBuffer' in object ? await object.arrayBuffer() : object.body
-  return new Response(body, { headers: { 'Content-Type': contentType(object) } })
+  return new Response(body, { headers: { 'Content-Type': contentType(object), 'Cache-Control': 'private, no-store' } })
 }
 
 export const PUT: APIRoute = async (ctx) => {
-  const authorization = await requireSyncOwner(ctx)
+  const authorization = await requireSyncOwner(ctx, { allowSession: true })
   if ('response' in authorization)
     return authorization.response
   const path = attachmentPath(ctx.params.path)
@@ -46,7 +46,7 @@ export const PUT: APIRoute = async (ctx) => {
 }
 
 export const DELETE: APIRoute = async (ctx) => {
-  const authorization = await requireSyncOwner(ctx)
+  const authorization = await requireSyncOwner(ctx, { allowSession: true })
   if ('response' in authorization)
     return authorization.response
   const path = attachmentPath(ctx.params.path)
