@@ -415,6 +415,9 @@ export function readList(
   const filters = [
     eq(markdown.source, source),
     isNull(markdown.deletedAt),
+    source === MarkdownSource.Memo
+      ? sql`${markdown.path} <> '/data' AND instr(${markdown.path}, '/data/') <> 1`
+      : null,
     tag
       ? sql`(
           (json_valid(${markdown.tags}) = 1 AND json_type(${markdown.tags}) = 'array'

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarkdownSource } from '@/db'
-import { batchAdd, readList } from '@/db/markdown'
+import { batchAdd, readByPath, readList, saveFile } from '@/db/markdown'
 
 const env = {} as Env
 
@@ -51,6 +51,60 @@ function useReadListDatabase() {
 
 describe('readList filters', () => {
   useReadListDatabase()
+
+  it('excludes the /data namespace from Memo lists while keeping other Paths and direct reads', async () => {
+    const dataPaths = ['/data', '/data/news-feed/latest', '/data/yingji/objects/example', '/data/games/library']
+    const memoPaths = ['/memo/note', '/wiki/note', '/database/note', '/data-old/note', '/Data/note', '/memo/data/note']
+    await batchAdd(env, [...dataPaths, ...memoPaths].map(path => ({
+      path,
+      renderer: 'markdown' as const,
+      content: 'File content',
+      userId: 1,
+    })))
+    await batchAdd(env, [
+      { path: '/data/app', renderer: 'svelte', content: '<p>Data app</p>', userId: 1 },
+      { path: '/page/app', renderer: 'svelte', content: '<p>Public app</p>', userId: 1 },
+    ])
+
+    expect((await readList(env, MarkdownSource.Memo)).map(file => file.path).sort())
+      .toEqual([...memoPaths, '/page/app'].sort())
+    expect(await readByPath(env, '/data/games/library'))
+      .toMatchObject({ content: 'File content', source: MarkdownSource.Memo, private: false })
+  })
+
+  it.each([undefined, 1])('composes Memo data exclusion with year, tag and Owner %s visibility', async (ownerId) => {
+    const createdAt = new Date('2026-10-21T00:00:00.000Z')
+    await batchAdd(env, [
+      { path: '/data/public', renderer: 'markdown', content: '#note', userId: 1, createdAt },
+      { path: '/data/private', renderer: 'markdown', content: '#note', userId: 1, private: true, createdAt },
+      { path: '/memo/public', renderer: 'markdown', content: '#note', userId: 2, createdAt },
+      { path: '/memo/private', renderer: 'markdown', content: '#note', userId: 1, private: true, createdAt },
+      { path: '/memo/other-owner', renderer: 'markdown', content: '#note', userId: 2, private: true, createdAt },
+      { path: '/memo/other-tag', renderer: 'markdown', content: '#other', userId: 1, createdAt },
+      { path: '/memo/other-year', renderer: 'markdown', content: '#note', userId: 1, createdAt: new Date('2025-10-21T00:00:00.000Z') },
+      { path: '/memo/trashed', renderer: 'markdown', content: '#note', userId: 1, createdAt, deletedAt: createdAt },
+    ])
+
+    const files = await readList(env, MarkdownSource.Memo, 'note', { ownerId, year: 2026 })
+    expect(files.map(file => file.path).sort())
+      .toEqual(ownerId ? ['/memo/private', '/memo/public'] : ['/memo/public'])
+  })
+
+  it('preserves Post listing membership when a Post moves into /data', async () => {
+    const [post] = await batchAdd(env, [{ path: '/post/note', renderer: 'markdown', content: 'Post body', userId: 1 }])
+    const saved = await saveFile(env, {
+      id: post.id,
+      path: '/data/moved-post',
+      renderer: post.renderer,
+      content: post.content,
+      private: post.private,
+      baseRevision: post.revision,
+      userId: 1,
+    })
+
+    expect(saved).toMatchObject({ status: 'saved', file: { source: MarkdownSource.Post } })
+    expect((await readList(env, MarkdownSource.Post)).map(file => file.path)).toEqual(['/data/moved-post'])
+  })
 
   it('shows public Files to everyone and private Files only to their Owner', async () => {
     await batchAdd(env, [
