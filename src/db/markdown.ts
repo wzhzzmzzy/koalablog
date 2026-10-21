@@ -278,7 +278,17 @@ async function nextRestoredIdentity(env: Env, path: string) {
 }
 
 export function isActivePathConstraintError(error: unknown) {
-  return error instanceof Error && error.message.includes('UNIQUE constraint failed')
+  const seen = new Set<Error>()
+  while (error instanceof Error && !seen.has(error)) {
+    seen.add(error)
+    // Drizzle includes query parameters in its message; inspect the database cause.
+    if (error.cause instanceof Error) {
+      error = error.cause
+      continue
+    }
+    return /UNIQUE constraint failed:\s*markdown\.path\b/.test(error.message)
+  }
+  return false
 }
 
 export async function restore(env: Env, id: number, renameOnConflict = false) {

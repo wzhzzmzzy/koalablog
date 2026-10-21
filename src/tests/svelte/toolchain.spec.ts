@@ -5,7 +5,7 @@ import { SVELTE_TOOLCHAIN_VERSIONS } from '@/lib/svelte/toolchain'
 describe('svelte browser toolchain', () => {
   it('publishes the exact supported toolchain versions', () => {
     expect(SVELTE_TOOLCHAIN_VERSIONS).toEqual({
-      svelte: '5.33.0',
+      svelte: '5.57.2',
       rollup: '4.28.1',
       svelteLanguage: '6.0.0',
       unocss: '65.4.3',
@@ -13,7 +13,7 @@ describe('svelte browser toolchain', () => {
   })
 
   it('ships the matching browser runtime registry without server or compiler modules', () => {
-    expect(SVELTE_RUNTIME_REGISTRY.version).toBe('5.33.0')
+    expect(SVELTE_RUNTIME_REGISTRY.version).toBe(SVELTE_TOOLCHAIN_VERSIONS.svelte)
     expect(SVELTE_RUNTIME_REGISTRY.entrypoints).toMatchObject({
       'svelte': 'svelte/src/index-client.js',
       'svelte/internal/client': 'svelte/src/internal/client/index.js',
