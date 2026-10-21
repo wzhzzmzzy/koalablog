@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { actions } from 'astro:actions';
   import type { RendererMode } from '@/lib/files/types';
   import { RENDERER_MODE } from '@/lib/files/types';
   import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
@@ -67,7 +68,11 @@
 
   function markdownCompletionExtension(nextRenderer: RendererMode, nextReadonly: boolean, nextReferences: readonly FileReferenceCandidate[], nextTags: readonly TagCompletionCandidate[], nextFileId: number): Extension {
     return nextRenderer === RENDERER_MODE.Markdown && !nextReadonly
-      ? markdownCompletion({ references: nextReferences, tags: nextTags, excludeFileId: nextFileId })
+      ? markdownCompletion({
+          references: nextReferences, tags: nextTags, excludeFileId: nextFileId,
+          loadReferences: async query => (await actions.db.editor.references({ query })).data ?? [],
+          loadTags: async query => (await actions.db.editor.tags({ query })).data ?? [],
+        })
       : [];
   }
 

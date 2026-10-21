@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types'
+  import { actions } from 'astro:actions'
   import { Search, X } from '@lucide/svelte'
   import { tick } from 'svelte'
   import { editBuffers } from './edit-buffer.svelte'
@@ -23,11 +24,24 @@
   let activeIndex = $state(0)
   let searchTimer: ReturnType<typeof setTimeout> | undefined
   let visibleKey = ''
+  let remoteFiles = $state<FileRecord[]>([])
+  let searching = $state(false)
+  let searchError = $state(false)
+  let nextOffset = $state<number | null>(null)
+  let searchGeneration = 0
 
   const emptyGroups = $derived(emptyFileFinderGroups(files, editBuffers, recentFiles))
-  const searchResponse = $derived(searchFiles(files, activeQuery, editBuffers))
-  const queryResults = $derived(searchResponse.results)
-  const waitingForSearch = $derived(Boolean(query.trim()) && query.trim() !== activeQuery.trim())
+  const candidates = $derived.by(() => {
+    const byId = new Map(files.map(file => [file.id, file]))
+    for (const file of remoteFiles) {
+      if (!byId.has(file.id) || byId.get(file.id)!.revision <= file.revision)
+        byId.set(file.id, file)
+    }
+    return [...byId.values()]
+  })
+  const searchResponse = $derived(searchFiles(candidates, activeQuery, editBuffers, candidates.length))
+  const waitingForSearch = $derived(Boolean(query.trim()) && (query.trim() !== activeQuery.trim() || (searching && remoteFiles.length === 0)))
+  const queryResults = $derived(waitingForSearch ? [] : searchResponse.results)
   const visibleFiles = $derived(waitingForSearch
     ? []
     : query.trim()
@@ -75,13 +89,42 @@
     }
   }
 
+  async function loadSearchPage(value: string, offset: number, generation: number) {
+    searching = true
+    searchError = false
+    try {
+      const result = await actions.db.editor.search({ query: value, offset })
+      if (generation !== searchGeneration) return
+      if (result.error) {
+        searchError = true
+        return
+      }
+      remoteFiles = offset === 0 ? result.data.files : [...remoteFiles, ...result.data.files]
+      nextOffset = result.data.nextOffset
+    }
+    catch {
+      if (generation === searchGeneration) searchError = true
+    }
+    finally {
+      if (generation === searchGeneration) searching = false
+    }
+  }
+
   $effect(() => {
-    const nextQuery = query
+    const nextQuery = query.trim()
+    const isOpen = open
+    const generation = ++searchGeneration
+    remoteFiles = []
+    nextOffset = null
+    searchError = false
+    searching = false
     if (searchTimer)
       clearTimeout(searchTimer)
     searchTimer = setTimeout(() => {
       activeQuery = nextQuery
-    }, 80)
+      if (isOpen && nextQuery)
+        void loadSearchPage(nextQuery, 0, generation)
+    }, 150)
     return () => {
       if (searchTimer)
         clearTimeout(searchTimer)
@@ -150,7 +193,9 @@
   </div>
   <div id="file-finder-results" class="editor-file-finder__results" role="listbox" aria-label="File results">
     {#if query.trim()}
-      {#if queryResults.length}
+      {#if waitingForSearch}
+        <p class="editor-file-finder__empty" role="status">Searching…</p>
+      {:else if queryResults.length}
         {#each queryResults as result, index (result.file.id)}
           <button
             id={`file-finder-option-${result.file.id}`}
@@ -170,8 +215,13 @@
             <span class="editor-file-finder__result-kind">{result.primaryMatch}</span>
           </button>
         {/each}
-      {:else}
+      {:else if !searchError}
         <p class="editor-file-finder__empty">No matching active Files</p>
+      {/if}
+      {#if searchError}
+        <button type="button" class="editor-file-finder__result" onclick={() => loadSearchPage(activeQuery, nextOffset ?? 0, searchGeneration)}>Search failed. Retry</button>
+      {:else if nextOffset !== null && !waitingForSearch}
+        <button type="button" class="editor-file-finder__result" disabled={searching} onclick={() => loadSearchPage(activeQuery, nextOffset!, searchGeneration)}>{searching ? 'Searching…' : 'Load more matches'}</button>
       {/if}
     {:else if emptyGroups.localChanges.length || emptyGroups.recent.length}
       {#if emptyGroups.localChanges.length}

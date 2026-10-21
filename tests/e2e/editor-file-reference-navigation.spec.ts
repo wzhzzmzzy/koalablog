@@ -91,7 +91,8 @@ test('a missing File Reference keeps the workspace open and exposes a Missing Fi
   await page.getByRole('button', { name: 'preview' }).click()
 
   const reference = previewReference(page, '/does-not-exist')
-  await expect(reference).not.toHaveAttribute('href')
+  // Editor targets resolve on demand, so even a missing target starts focusable.
+  await expect(reference).toHaveAttribute('href', '/does-not-exist')
   await reference.click()
 
   await expect(page).toHaveURL(/\/dashboard\/edit\?path=%2Fphase-two$/)

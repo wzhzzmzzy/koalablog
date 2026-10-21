@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { FileRecord } from '@/db/types';
+  import { actions } from 'astro:actions';
   import type { RendererMode } from '@/lib/files/types';
   import type { DeploymentSummary } from '@/lib/svelte/deployment-status';
   import { FileText, SquarePen } from '@lucide/svelte';
@@ -15,6 +16,7 @@
   import SvelteIcon from './SvelteIcon.svelte';
   import SveltePreview from './svelte/SveltePreview.svelte';
   import TextEditor, { type TextEditorHandle } from './TextEditor.svelte';
+  import { cacheEditorFiles, notify } from './store.svelte';
 
   interface Props {
     title: string;
@@ -95,6 +97,8 @@
   let activeReferencePath = $state<string | null>(null);
   let referencePeekPosition = $state({ left: 0, top: 0 });
   let missingReferencePath = $state<string | null>(null);
+  const pendingReferences = new Map<string, Promise<FileRecord | null>>();
+  let referenceNavigation = 0;
   const lineCount = $derived(value.length === 0 ? 1 : value.split('\n').length);
   const effectiveMarkdownMode = $derived(effectiveMarkdownViewMode({
     requestedMode: markdownRequestedMode,
@@ -212,11 +216,33 @@
     activeReferencePath = null
   }
 
-  function showPeekFor(anchor: HTMLAnchorElement) {
+  async function resolveReference(path: string): Promise<FileRecord | null> {
+    const cached = referenceTargetsByPath.get(path);
+    if (cached) return cached.file;
+    const pending = pendingReferences.get(path);
+    if (pending) return pending;
+    const request = actions.db.editor.file({ path }).then(result => {
+      if (result.error) {
+        notify('error', 'Could not load referenced File');
+        return null;
+      }
+      if (result.data) cacheEditorFiles([result.data]);
+      return result.data;
+    }).finally(() => pendingReferences.delete(path));
+    pendingReferences.set(path, request);
+    return request;
+  }
+
+  async function showPeekFor(anchor: HTMLAnchorElement) {
     const path = anchor.dataset.fileReference
-    if (touchViewport || !path || !referenceTargetsByPath.has(path)) {
+    if (touchViewport || !path) {
       clearReferencePeek()
       return
+    }
+    if (!referenceTargetsByPath.has(path)) {
+      const target = await resolveReference(path);
+      if (!target || !anchor.isConnected || !keepReferencePeek(anchor)) return;
+      await tick();
     }
 
     const bounds = anchor.getBoundingClientRect()
@@ -235,14 +261,17 @@
     return document.activeElement === anchor || anchor.matches(':hover')
   }
 
-  function handleReferenceClick(event: MouseEvent) {
+  async function handleReferenceClick(event: MouseEvent) {
     const anchor = referenceAnchor(event.target)
     const path = anchor?.dataset.fileReference
     if (!anchor || !path)
       return
 
     event.preventDefault()
-    const target = referenceTargetsByPath.get(path)
+    const navigation = ++referenceNavigation;
+    const fromFileId = fileId;
+    const target = await resolveReference(path);
+    if (navigation !== referenceNavigation || fromFileId !== fileId) return;
     if (!target) {
       missingReferencePath = path
       clearReferencePeek()
@@ -251,7 +280,7 @@
 
     missingReferencePath = null
     clearReferencePeek()
-    onOpenReference(target.file)
+    onOpenReference(target)
   }
 
   function handleReferenceMouseOver(event: MouseEvent) {

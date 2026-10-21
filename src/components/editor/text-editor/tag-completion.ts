@@ -110,8 +110,8 @@ function tagCompletion(candidate: TagCompletionCandidate): Completion {
 
 export const TAG_COMPLETION_LIMIT = 12
 
-export function tagCompletionSource(candidates: readonly TagCompletionCandidate[]): CompletionSource {
-  return (context: CompletionContext): CompletionResult | null => {
+export function tagCompletionSource(candidates: readonly TagCompletionCandidate[], loadCandidates?: (query: string) => Promise<readonly TagCompletionCandidate[]>): CompletionSource {
+  return (context: CompletionContext) => {
     if (context.pos < parseLeadingFrontmatter(context.state.doc.toString()).bodyStart)
       return null
     if (isExcludedContext(context.state, context.pos))
@@ -121,14 +121,20 @@ export function tagCompletionSource(candidates: readonly TagCompletionCandidate[
     const trigger = parseTagCompletionTrigger(line.text.slice(0, context.pos - line.from))
     if (!trigger)
       return null
-    const ranked = filterTagCompletionCandidates(candidates, trigger.query)
-    if (ranked.length === 0)
-      return null
-    return {
-      from: line.from + trigger.from,
-      to: context.pos,
-      options: ranked.slice(0, TAG_COMPLETION_LIMIT).map(tagCompletion),
-      filter: false,
+    function result(remote: readonly TagCompletionCandidate[] = []): CompletionResult | null {
+      if (context.aborted)
+        return null
+      const merged = [...new Map([...candidates, ...remote].map(candidate => [candidate.tag, candidate])).values()]
+      const ranked = filterTagCompletionCandidates(merged, trigger!.query)
+      if (ranked.length === 0)
+        return null
+      return {
+        from: line.from + trigger!.from,
+        to: context.pos,
+        options: ranked.slice(0, TAG_COMPLETION_LIMIT).map(tagCompletion),
+        filter: false,
+      }
     }
+    return loadCandidates ? loadCandidates(trigger.query).then(result) : result()
   }
 }

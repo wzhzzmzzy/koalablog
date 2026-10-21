@@ -56,13 +56,15 @@ function doubleLinkPlugin(md: MarkdownIt, options: DoubleLinkPluginOptions = {})
   }
 
   // 渲染规则
-  md.renderer.rules.double_link = function (tokens, idx, _options, _env, _renderer) {
+  md.renderer.rules.double_link = function (tokens, idx, _options, env, _renderer) {
     const token = tokens[idx]
     const reference = token.content
     const parsed = parseAbsoluteFilePath(reference)
     const allFilePaths: string[] = (md as any).allFilePaths || opts.allFilePaths
     const path = parsed.ok ? parsed.value : ''
-    const href = path && allFilePaths.includes(path) ? path : ''
+    // The Editor resolves targets on demand; a native link keeps them focusable.
+    // This is per render so public pages still require a known, visible Path.
+    const href = path && (env?.linkUnresolvedFileReferences === true || allFilePaths.includes(path)) ? path : ''
 
     const attrs = [
       ['href', href],

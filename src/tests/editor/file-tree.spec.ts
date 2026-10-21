@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { editBuffers, setEditBuffer } from '@/components/editor/edit-buffer.svelte'
 import { buildFileTree, getTrashedFiles, isFileTreeEmpty } from '@/components/editor/file-tree'
-import { editorStore, replaceItemsByPrefix, setItems, upsertItem } from '@/components/editor/store.svelte'
+import { editorStore, initializeWorkspace, replaceItemsByPrefix, replacePrefixListing, setItems, upsertItem } from '@/components/editor/store.svelte'
 import { parseAbsolutePathPrefix } from '@/lib/files/path'
 import { makeFileRecord } from '@/tests/fixtures/file-record'
 
@@ -113,5 +113,36 @@ describe('editor File tree', () => {
     expect(withTemplate.children.memo).toBeDefined()
     expect(withoutTemplate.children.memo).toBeUndefined()
     expect(isFileTreeEmpty(withoutTemplate)).toBe(true)
+  })
+
+  it('keeps unloaded child Prefixes visible and replaces only the refreshed level', () => {
+    const root = makeFileRecord({ id: 1, path: '/root' })
+    const inside = makeFileRecord({ id: 2, path: '/project/inside' })
+    const deep = makeFileRecord({ id: 3, path: '/project/nested/deep' })
+    initializeWorkspace({ prefix: prefix('/'), prefixes: [prefix('/project/')], files: [root] }, null, { active: 3, trash: 0 })
+    expect(buildFileTree(editorStore.items, Object.values(editorStore.prefixesByParent).flat()).children.project.items).toEqual([])
+    replacePrefixListing({ prefix: prefix('/project/'), prefixes: [prefix('/project/nested/')], files: [inside] })
+    replacePrefixListing({ prefix: prefix('/project/nested/'), prefixes: [], files: [deep] })
+    replacePrefixListing({ prefix: prefix('/'), prefixes: [prefix('/project/')], files: [{ ...root, content: 'fresh' }] })
+    expect(editorStore.items.map(file => file.id).sort()).toEqual([1, 2, 3])
+
+    replacePrefixListing({ prefix: prefix('/project/'), prefixes: [], files: [inside] })
+    expect(editorStore.items.map(file => file.id).sort()).toEqual([1, 2])
+    expect(editorStore.prefixesByParent['/project/nested/']).toBeUndefined()
+  })
+
+  it('deduplicates an identity when a refresh discovers its new Path', () => {
+    const file = makeFileRecord({ id: 7, path: '/old/file' })
+    setItems([file])
+    replaceItemsByPrefix('/new/', [{ ...file, path: '/new/file', revision: 2 }])
+    expect(editorStore.items).toEqual([{ ...file, path: '/new/file', revision: 2 }])
+  })
+
+  it('reveals only the next Prefix after saving a move into an unopened branch', () => {
+    const file = makeFileRecord({ id: 7, path: '/old-file' })
+    initializeWorkspace({ prefix: prefix('/'), prefixes: [], files: [file] }, file, { active: 1, trash: 0 })
+    upsertItem({ ...file, path: '/new/deep/file', revision: 2 })
+    expect(editorStore.prefixesByParent).toEqual({ '/': ['/new/'] })
+    expect(editorStore.counts).toEqual({ active: 1, trash: 0 })
   })
 })

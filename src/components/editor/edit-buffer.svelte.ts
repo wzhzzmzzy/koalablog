@@ -32,6 +32,10 @@ export interface EditBufferStorage {
 }
 
 export const editBuffers = new SvelteMap<number, EditBuffer>()
+// Old formats need the authoritative File's Renderer/identity before migration.
+// Keep unloaded entries inert and persisted until that File is actually read.
+let pendingLegacyBuffers: unknown[] = []
+let pendingLegacyDrafts: unknown[] = []
 
 type EditableFileValues = Pick<EditBuffer, 'path' | 'renderer' | 'content' | 'private'>
 type ServerFileValues = Pick<FileRecord, 'path' | 'renderer' | 'content' | 'private'>
@@ -138,29 +142,42 @@ function storedEditBuffer(input: unknown, legacyRenderer?: RendererMode): EditBu
   return { ...value, renderer } as unknown as EditBuffer
 }
 
-function restoreStoredEditBuffers(files: FileRecord[], storage: EditBufferStorage) {
+function restoreBufferCandidates(candidates: unknown[], files: FileRecord[], legacy: boolean, authoritative: boolean) {
+  const filesById = new Map(files.map(file => [file.id, file]))
+  for (const candidate of candidates) {
+    const fileId = candidate && typeof candidate === 'object'
+      ? (candidate as Record<string, unknown>).fileId
+      : null
+    if (!Number.isInteger(fileId))
+      continue
+    const file = filesById.get(fileId as number)
+    if (file?.deletedAt || files.filter(item => item.id === fileId).length > 1)
+      continue
+    if (!file && authoritative)
+      continue
+    if (!file && legacy) {
+      pendingLegacyBuffers.push(candidate)
+      continue
+    }
+    const buffer = storedEditBuffer(candidate, legacy ? file?.renderer : undefined)
+    if (buffer && (buffer.dirty || buffer.conflict))
+      editBuffers.set(buffer.fileId, buffer)
+  }
+}
+
+function restoreStoredEditBuffers(files: FileRecord[], storage: EditBufferStorage, authoritative: boolean) {
   const stored = storage.getItem(EDIT_BUFFERS_STORAGE_KEY)
   if (!stored)
     return false
   try {
-    const value = JSON.parse(stored) as { schemaVersion?: unknown, buffers?: unknown }
+    const value = JSON.parse(stored) as { schemaVersion?: unknown, buffers?: unknown, pendingLegacyBuffers?: unknown, pendingLegacyDrafts?: unknown }
     if ((value.schemaVersion !== 1 && value.schemaVersion !== 2) || !Array.isArray(value.buffers))
       return false
-    const activeFilesById = new Map<number, FileRecord[]>()
-    for (const file of files.filter(file => !file.deletedAt))
-      activeFilesById.set(file.id, [...(activeFilesById.get(file.id) ?? []), file])
-
-    for (const candidate of value.buffers) {
-      const fileId = candidate && typeof candidate === 'object'
-        ? (candidate as Record<string, unknown>).fileId
-        : null
-      const matches = Number.isInteger(fileId) ? activeFilesById.get(fileId as number) : undefined
-      if (matches?.length !== 1)
-        continue
-      const buffer = storedEditBuffer(candidate, value.schemaVersion === 1 ? matches[0].renderer : undefined)
-      if (buffer && (buffer.dirty || buffer.conflict))
-        editBuffers.set(buffer.fileId, buffer)
-    }
+    if (Array.isArray(value.pendingLegacyBuffers))
+      restoreBufferCandidates(value.pendingLegacyBuffers, files, true, authoritative)
+    restoreBufferCandidates(value.buffers, files, value.schemaVersion === 1, authoritative)
+    if (Array.isArray(value.pendingLegacyDrafts))
+      restoreLegacyDrafts(value.pendingLegacyDrafts, files, authoritative)
     return true
   }
   catch {
@@ -174,41 +191,50 @@ export function persistEditBuffers(storage: EditBufferStorage | null = browserSt
   storage.setItem(EDIT_BUFFERS_STORAGE_KEY, JSON.stringify({
     schemaVersion: 2,
     buffers: Array.from(editBuffers.values()),
+    ...(pendingLegacyBuffers.length ? { pendingLegacyBuffers } : {}),
+    ...(pendingLegacyDrafts.length ? { pendingLegacyDrafts } : {}),
   }))
 }
 
-export function initializeEditBuffers(files: FileRecord[], storage: EditBufferStorage | null = browserStorage()) {
+function restoreLegacyDrafts(entries: unknown[], files: FileRecord[], authoritative: boolean) {
+  const counts = new Map<string, number>()
+  for (const entry of entries) {
+    if (Array.isArray(entry) && typeof entry[0] === 'string')
+      counts.set(entry[0], (counts.get(entry[0]) ?? 0) + 1)
+  }
+  for (const entry of entries) {
+    if (!Array.isArray(entry) || typeof entry[0] !== 'string')
+      continue
+    const path = entry[0]
+    const legacy = legacyFileRecord(entry[1])
+    if (!legacy || counts.get(path) !== 1)
+      continue
+    const matches = files.filter(file => !file.deletedAt && file.path === path)
+    if (matches.length !== 1) {
+      if (!authoritative && matches.length === 0 && !files.some(file => file.id === legacy.id))
+        pendingLegacyDrafts.push(entry)
+      continue
+    }
+    const buffer = editBufferFromLegacy(matches[0], legacy)
+    if (buffer && !editBuffers.has(buffer.fileId))
+      editBuffers.set(buffer.fileId, buffer)
+  }
+}
+
+export function initializeEditBuffers(files: FileRecord[], storage: EditBufferStorage | null = browserStorage(), authoritative = true) {
   editBuffers.clear()
+  pendingLegacyBuffers = []
+  pendingLegacyDrafts = []
   if (!storage)
     return
 
-  const restored = restoreStoredEditBuffers(files, storage)
+  const restored = restoreStoredEditBuffers(files, storage, authoritative)
   const storedLegacy = restored ? null : storage.getItem(LEGACY_DRAFTS_STORAGE_KEY)
   if (storedLegacy) {
     try {
       const entries = JSON.parse(storedLegacy) as unknown
-      if (Array.isArray(entries)) {
-        const counts = new Map<string, number>()
-        for (const entry of entries) {
-          if (Array.isArray(entry) && typeof entry[0] === 'string')
-            counts.set(entry[0], (counts.get(entry[0]) ?? 0) + 1)
-        }
-
-        for (const entry of entries) {
-          if (!Array.isArray(entry) || typeof entry[0] !== 'string' || !entry[1] || typeof entry[1] !== 'object')
-            continue
-          const path = entry[0]
-          const legacy = legacyFileRecord(entry[1])
-          if (!legacy || counts.get(path) !== 1)
-            continue
-          const activeMatches = files.filter(file => !file.deletedAt && file.path === path)
-          if (activeMatches.length !== 1)
-            continue
-          const buffer = editBufferFromLegacy(activeMatches[0], legacy)
-          if (buffer)
-            editBuffers.set(buffer.fileId, buffer)
-        }
-      }
+      if (Array.isArray(entries))
+        restoreLegacyDrafts(entries, files, authoritative)
     }
     catch {
       // Invalid legacy state is discarded rather than attached to the wrong File.
@@ -228,6 +254,8 @@ export function setEditBuffer(buffer: EditBuffer) {
 
 export function removeEditBuffer(fileId: number) {
   editBuffers.delete(fileId)
+  pendingLegacyBuffers = pendingLegacyBuffers.filter(entry => (entry as { fileId?: number })?.fileId !== fileId)
+  pendingLegacyDrafts = pendingLegacyDrafts.filter(entry => !Array.isArray(entry) || entry[1]?.id !== fileId)
 }
 
 export function editBufferServerValues(file: FileRecord): EditBufferServerValues {
@@ -241,6 +269,12 @@ export function editBufferServerValues(file: FileRecord): EditBufferServerValues
 }
 
 export function reconcileEditBuffer(file: FileRecord) {
+  const pendingBuffers = pendingLegacyBuffers
+  const pendingDrafts = pendingLegacyDrafts
+  pendingLegacyBuffers = []
+  pendingLegacyDrafts = []
+  restoreBufferCandidates(pendingBuffers, [file], true, false)
+  restoreLegacyDrafts(pendingDrafts, [file], false)
   const buffer = editBuffers.get(file.id)
   if (!buffer)
     return

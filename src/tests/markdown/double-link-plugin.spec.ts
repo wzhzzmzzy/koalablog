@@ -43,6 +43,15 @@ describe('double-link-plugin', () => {
     expect(result).toContain('>/missing</a>')
   })
 
+  it('lets the Editor link unopened absolute references without a complete Path index', () => {
+    const md = createMd()
+    const env = { linkUnresolvedFileReferences: true }
+    expect(md.render('[[/memo/inbox/entry]]', env)).toContain('href="/memo/inbox/entry"')
+    expect(md.render('[[relative]]', env)).not.toContain('href=')
+    expect(md.render('[[javascript:alert(1)]]', env)).not.toContain('href=')
+    expect(md.render('[[/memo/inbox/entry]]')).not.toContain('href=')
+  })
+
   it('does not parse incomplete, empty, or single-bracket syntax', () => {
     const md = createMd()
 

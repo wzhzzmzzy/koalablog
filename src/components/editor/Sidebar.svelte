@@ -10,21 +10,27 @@
   interface Props {
     onSelect: (file: FileRecord) => void;
     onCreate: (prefix: AbsolutePathPrefix) => void;
-    onRefresh?: (prefix: string) => Promise<void> | void;
+    onRefresh: (prefix: string) => Promise<boolean>;
+    onRefreshTrash: () => Promise<boolean>;
     onEmptyTrash: () => void;
     currentId: number;
-    templatePrefixes?: AbsolutePathPrefix[];
   }
 
-  let { onSelect, onCreate, onRefresh, onEmptyTrash, currentId, templatePrefixes = [] }: Props = $props();
+  let { onSelect, onCreate, onRefresh, onRefreshTrash, onEmptyTrash, currentId }: Props = $props();
 
-  const tree = $derived(buildFileTree(editorStore.items, templatePrefixes));
+  const tree = $derived(buildFileTree(
+    editorStore.items.filter(file => editorStore.prefixesByParent[file.path.slice(0, file.path.lastIndexOf('/') + 1)] !== undefined),
+    Object.values(editorStore.prefixesByParent).flat(),
+  ));
   const recycleBin = $derived(getTrashedFiles(editorStore.items));
-  const activeFileCount = $derived(editorStore.items.filter(item => !item.deletedAt).length);
+  const activeFileCount = $derived(editorStore.counts.active);
   // Folder expansion state
   let expandedFolders = $state<Record<string, boolean>>({});
   let refreshingFolders = $state<Record<string, boolean>>({});
+  let failedFolders = $state<Record<string, boolean>>({});
   let recycleBinExpanded = $state(false);
+  let refreshingTrash = $state(false);
+  let trashFailed = $state(false);
   let emptyingTrash = $state(false);
   const pendingRefreshes = new Map<string, Promise<void>>();
 
@@ -33,17 +39,18 @@
   }
 
   async function refreshPath(path: string) {
-    if (!onRefresh) return;
-
     const refreshKey = getRefreshKey(path);
     const pending = pendingRefreshes.get(refreshKey);
     if (pending) return pending;
 
     refreshingFolders[refreshKey] = true;
+    failedFolders[refreshKey] = false;
 
     const task = Promise.resolve(onRefresh(path))
+      .then(success => { failedFolders[refreshKey] = !success; })
       .catch((error) => {
         console.error(`Failed to refresh editor tree for path "${path}"`, error);
+        failedFolders[refreshKey] = true;
       })
       .finally(() => {
         pendingRefreshes.delete(refreshKey);
@@ -70,12 +77,27 @@
 
   function toggleRecycleBin() {
     recycleBinExpanded = !recycleBinExpanded;
-    if (recycleBinExpanded) void refreshPath('/');
+    if (recycleBinExpanded) void refreshTrash();
+  }
+
+  async function refreshTrash() {
+    if (refreshingTrash) return;
+    refreshingTrash = true;
+    trashFailed = false;
+    try {
+      trashFailed = !await onRefreshTrash();
+    }
+    catch {
+      trashFailed = true;
+    }
+    finally {
+      refreshingTrash = false;
+    }
   }
 
   async function handleEmptyTrash(event: MouseEvent) {
     event.stopPropagation();
-    if (emptyingTrash || recycleBin.length === 0 || !window.confirm('Permanently delete every File in the recycle bin?')) return;
+    if (emptyingTrash || editorStore.counts.trash === 0 || !window.confirm('Permanently delete every File in the recycle bin?')) return;
 
     emptyingTrash = true;
     const result = await actions.db.markdown.emptyTrash();
@@ -88,25 +110,6 @@
     onEmptyTrash();
     notify('success', `Permanently deleted ${result.data?.count ?? 0} File(s)`, 3000);
   }
-
-  // Auto-expand current item's path
-  $effect(() => {
-     if (currentId) {
-         const currentItem = editorStore.items.find(i => i.id === currentId);
-         if (currentItem) {
-             const parts = currentItem.path.split('/').filter(Boolean);
-             parts.pop(); // remove filename
-             let path = '';
-             for (const part of parts) {
-                 path += `/${part}`;
-                 const prefix = `${path}/`;
-                 if (expandedFolders[prefix] === undefined) {
-                      expandedFolders[prefix] = true;
-                 }
-             }
-         }
-     }
-  });
 
   function formatDate(date: Date | string | null) {
     if (!date) return '';
@@ -147,6 +150,13 @@
 
     {#if !node.name || expandedFolders[node.prefix]}
         <div class="{node.name ? 'editor-tree-children' : ''}">
+            {#if failedFolders[getRefreshKey(node.prefix)]}
+              <button type="button" class="editor-sidebar__new-file" onclick={() => refreshPath(node.prefix)}>
+                Could not load {node.name}. Retry
+              </button>
+            {:else if refreshingFolders[getRefreshKey(node.prefix)] && !editorStore.prefixesByParent[node.prefix]}
+              <p role="status" class="editor-sidebar__empty">Loading {node.name}…</p>
+            {/if}
             {#each Object.values(node.children).sort((a, b) => a.name.localeCompare(b.name)) as child}
                 {@render folderNode(child)}
             {/each}
@@ -199,7 +209,7 @@
     </button>
   </div>
 
-  {#if recycleBin.length > 0}
+  {#if editorStore.counts.trash > 0 || recycleBinExpanded}
     <section class="editor-recycle-bin" aria-label="Recycle bin">
       <div class="editor-recycle-bin__header">
         <button
@@ -212,13 +222,13 @@
           {#if recycleBinExpanded}<ChevronDown size={16} />{:else}<ChevronRight size={16} />{/if}
           <Trash2 size={16} />
           <span>Recycle Bin</span>
-          <span class="editor-sidebar__count">{recycleBin.length}</span>
+          <span class="editor-sidebar__count">{editorStore.counts.trash}</span>
         </button>
         <button
           type="button"
           class="editor-recycle-bin__clear"
           onclick={handleEmptyTrash}
-          disabled={emptyingTrash}
+          disabled={emptyingTrash || refreshingTrash || editorStore.counts.trash === 0}
           aria-label="Empty recycle bin"
           title="Empty recycle bin"
         >
@@ -228,6 +238,13 @@
 
       {#if recycleBinExpanded}
         <div class="editor-recycle-bin__items">
+          {#if refreshingTrash}
+            <p role="status" class="editor-sidebar__empty">Loading recycle bin…</p>
+          {:else if trashFailed}
+            <button type="button" class="editor-sidebar__new-file" onclick={refreshTrash}>Could not load recycle bin. Retry</button>
+          {:else if recycleBin.length === 0}
+            <p class="editor-sidebar__empty">Recycle bin is empty.</p>
+          {/if}
           {#each recycleBin as item (item.id)}
             <button
               type="button"

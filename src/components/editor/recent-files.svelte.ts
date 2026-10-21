@@ -51,6 +51,9 @@ export function createRecentFiles(storage: RecentFilesStorage | null = browserSt
   }
 
   return {
+    get ids() {
+      return [...fileIds]
+    },
     record(fileId: number) {
       if (!Number.isInteger(fileId) || fileId <= 0)
         return
