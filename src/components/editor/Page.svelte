@@ -1,6 +1,7 @@
 <script lang="ts">
   import { actions } from 'astro:actions';
   import type { FileRecord } from '@/db/types';
+  import type { EditorFileCounts, EditorPrefixListing } from '@/db/editor';
   import type { AbsolutePathPrefix } from '@/lib/files/types';
   import { FolderOpen, Plus } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';
@@ -11,29 +12,28 @@
   import EditorToolbar from './EditorToolbar.svelte';
   import Notification from './Notification.svelte';
   import { discardEditorState } from './TextEditor.svelte';
-  import { initializeEditBuffers, useEditBufferPersistence } from './edit-buffer.svelte';
+  import { editBuffers, initializeEditBuffers, useEditBufferPersistence } from './edit-buffer.svelte';
   import { getMarkdownSourceKey } from '@/db';
   import { editorRecentFiles } from './recent-files.svelte';
   import { createWorkspaceNavigation } from './workspace-navigation.svelte';
-  import { editorStore, hasStoredSidebarPreference, setItems, setCurrentFile, upsertItem, replaceItemsByPrefix, notify, setShowSidebar, removeItem, removeTrashedItems } from './store.svelte';
+  import { editorStore, hasStoredSidebarPreference, initializeWorkspace, cacheEditorFiles, setCurrentFile, upsertItem, replacePrefixListing, replaceTrashItems, notify, setShowSidebar, removeItem, removeTrashedItems } from './store.svelte';
   import { formatFileSaveError } from './utils';
 
   interface Props {
     initialFile: FileRecord | null;
-    initialItems?: FileRecord[] | null;
-    templatePrefixes?: AbsolutePathPrefix[];
+    initialListing: EditorPrefixListing;
+    initialCounts: EditorFileCounts;
     isMobile?: boolean;
   }
 
-  let { initialFile, initialItems = null, templatePrefixes = [], isMobile = false }: Props = $props();
+  let { initialFile, initialListing, initialCounts, isMobile = false }: Props = $props();
   let finderOpen = $state(false);
   let editor: { focus: () => void } | undefined = $state();
 
   // 统一初始化 Store
-  if (initialItems) {
-    initializeEditBuffers(initialItems);
-    setItems(initialItems);
-  }
+  const initialItems = initialFile ? [...initialListing.files.filter(file => file.id !== initialFile.id), initialFile] : initialListing.files;
+  initializeEditBuffers(initialItems, undefined, false);
+  initializeWorkspace(initialListing, initialFile, initialCounts);
 
   // 启用自动持久化
   useEditBufferPersistence();
@@ -69,6 +69,19 @@
 
   function openFileFinder() {
     finderOpen = true;
+    void loadFinderHistory();
+  }
+
+  async function loadFinderHistory() {
+    const loaded = new Set(editorStore.items.map(file => file.id));
+    const ids = [...new Set([...editBuffers.keys(), ...editorRecentFiles.ids])].filter(id => !loaded.has(id)).slice(0, 50);
+    if (!ids.length) return;
+    const result = await actions.db.editor.files({ ids });
+    if (result.error) {
+      notify('error', 'Could not load recent Files');
+      return;
+    }
+    cacheEditorFiles(result.data);
   }
 
   onMount(() => {
@@ -129,7 +142,11 @@
   });
 
   function handleSelect(m: FileRecord) {
-    workspaceNavigation.open(m);
+    // Finder groups may display Edit Buffer values; navigation keeps the saved baseline.
+    const existing = editorStore.items.find(item => item.id === m.id);
+    const selected = existing && existing.revision >= m.revision ? existing : m;
+    if (selected !== existing) cacheEditorFiles([selected]);
+    workspaceNavigation.open(selected);
   }
 
   function backToDashboard(event: MouseEvent) {
@@ -169,15 +186,26 @@
   }
 
   async function handleRefresh(prefix: string) {
-    const result = await actions.db.markdown.byPrefix({ prefix });
+    const result = await actions.db.editor.prefix({ prefix });
 
     if (result.error) {
       console.error(`Failed to refresh sidebar items for prefix "${prefix}"`, result.error);
       notify('error', 'Failed to refresh sidebar');
-      return;
+      return false;
     }
 
-    replaceItemsByPrefix(prefix, result.data || []);
+    replacePrefixListing(result.data);
+    return true;
+  }
+
+  async function handleRefreshTrash() {
+    const result = await actions.db.editor.trash();
+    if (result.error) {
+      notify('error', 'Failed to refresh recycle bin');
+      return false;
+    }
+    replaceTrashItems(result.data.files, result.data.counts);
+    return true;
   }
 
   async function createNew(targetPrefix: AbsolutePathPrefix) {
@@ -203,7 +231,7 @@
     open={finderOpen}
     files={editorStore.items}
     {recentFiles}
-    onOpen={file => workspaceNavigation.open(file)}
+    onOpen={handleSelect}
     onClose={() => { finderOpen = false; }}
   />
 
@@ -215,10 +243,10 @@
     <div class="editor-workspace__sidebar-inner">
       <Sidebar
         currentId={editorStore.currentFile?.id || 0}
-        {templatePrefixes}
         onSelect={handleSelect}
         onCreate={createNew}
         onRefresh={handleRefresh}
+        onRefreshTrash={handleRefreshTrash}
         onEmptyTrash={handleEmptyTrash}
       />
     </div>

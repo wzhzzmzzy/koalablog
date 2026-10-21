@@ -205,7 +205,7 @@
 
   let mdInstance: MarkdownIt | null = null
   onMount(async () => {
-    mdInstance = await md({ allFilePaths: editorStore.items.filter(item => !item.deletedAt).map(item => item.path) })
+    mdInstance = await md()
     refreshPreview()
     const handleKeydown = (e: KeyboardEvent) => {
       if (e.repeat) return
@@ -225,22 +225,13 @@
 
   onMount(() => () => svelteBuildController.dispose())
 
-  $effect(() => {
-      if (mdInstance && editorStore.items.length > 0) {
-          md({ allFilePaths: editorStore.items.filter(item => !item.deletedAt).map(item => item.path) }).then(inst => {
-              mdInstance = inst;
-              refreshPreview();
-          });
-      }
-  });
-
   async function refreshPreview() {
     let previewMd = sourceValue
     if (displayTitleValue) {
       previewMd = `# ${displayTitleValue}\n\n${sourceValue}`
     }
     if (mdInstance) {
-      previewHtml = mdInstance.render(previewMd)
+      previewHtml = mdInstance.render(previewMd, { linkUnresolvedFileReferences: true })
       setTimeout(() => {
         window.refreshCopyListener();
         window.refreshTagListener();

@@ -144,6 +144,7 @@ export function planFileReferenceInsertion(doc: string, from: number, to: number
 export interface FileReferenceCompletionOptions {
   candidates: readonly FileReferenceCandidate[]
   excludeId?: number | null
+  loadCandidates?: (query: string) => Promise<readonly FileReferenceCandidate[]>
 }
 
 const CODE_CONTEXT_NODES = new Set(['InlineCode', 'FencedCode', 'CodeBlock'])
@@ -151,7 +152,7 @@ const CODE_CONTEXT_NODES = new Set(['InlineCode', 'FencedCode', 'CodeBlock'])
 export const FILE_REFERENCE_COMPLETION_LIMIT = 12
 
 // A local, inert placeholder: accepting it never inserts text, so the picker
-// stays honest about an empty result without any server request.
+// stays honest about an empty result without inserting a placeholder path.
 const NO_MATCH_COMPLETION: Completion = {
   label: 'No matching Files',
   type: 'text',
@@ -185,21 +186,27 @@ function toCompletion(candidate: FileReferenceCandidate): Completion {
 }
 
 export function fileReferenceCompletionSource(options: FileReferenceCompletionOptions): CompletionSource {
-  return (context: CompletionContext): CompletionResult | null => {
+  return (context: CompletionContext) => {
     if (isInCodeContext(context.state, context.pos))
       return null
     const line = context.state.doc.lineAt(context.pos)
     const trigger = parseFileReferenceTrigger(line.text.slice(0, context.pos - line.from))
     if (!trigger)
       return null
-    const ranked = filterFileReferenceCandidates(options.candidates, trigger.query, options.excludeId)
-    return {
-      from: line.from + trigger.from,
-      to: context.pos,
-      options: ranked.length === 0
-        ? [NO_MATCH_COMPLETION]
-        : ranked.slice(0, FILE_REFERENCE_COMPLETION_LIMIT).map(toCompletion),
-      filter: false,
+    function result(remote: readonly FileReferenceCandidate[] = []): CompletionResult | null {
+      if (context.aborted)
+        return null
+      const candidates = [...new Map([...remote, ...options.candidates].map(candidate => [candidate.id, candidate])).values()]
+      const ranked = filterFileReferenceCandidates(candidates, trigger!.query, options.excludeId)
+      return {
+        from: line.from + trigger!.from,
+        to: context.pos,
+        options: ranked.length === 0
+          ? [NO_MATCH_COMPLETION]
+          : ranked.slice(0, FILE_REFERENCE_COMPLETION_LIMIT).map(toCompletion),
+        filter: false,
+      }
     }
+    return options.loadCandidates ? options.loadCandidates(trigger.query).then(result) : result()
   }
 }

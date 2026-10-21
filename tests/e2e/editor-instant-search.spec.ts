@@ -111,12 +111,14 @@ test('File Finder ranks literal Path, Tag, and Source results while excluding fr
   await expect(svelte).toContainText('source')
 })
 
-test('File Finder reflects dirty Path, Tag, and Source edits and prioritizes Local changes', async ({ page }) => {
+test('File Finder reflects a renamed Path and dirty Tag/Source edits and prioritizes Local changes', async ({ page }) => {
   await openEditor(page)
 
-  const source = page.getByRole('textbox', { name: 'File Source for /phase-two' })
-  await source.fill('#instant-find-tag\nUnsaved search body')
+  // Applying a Path saves immediately; edit Source after that save has finished.
   await renameInBuffer(page, '/search/dirty-path')
+  await expect(page.getByText('Source saved.')).toBeVisible()
+  const source = page.getByRole('textbox', { name: 'File Source for /search/dirty-path' })
+  await source.fill('#instant-find-tag\nUnsaved search body')
 
   const finder = await openFileFinder(page)
   await expect(page.getByRole('heading', { name: 'Local changes' })).toBeVisible()

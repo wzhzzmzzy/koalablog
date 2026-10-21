@@ -6,6 +6,7 @@ import {
   isEditBufferDirty,
   LEGACY_DRAFTS_STORAGE_KEY,
   persistEditBuffers,
+  reconcileEditBuffer,
   setEditBuffer,
 } from '@/components/editor/edit-buffer.svelte'
 import {
@@ -226,6 +227,59 @@ describe('editor Edit Buffer refresh reconciliation', () => {
 })
 
 describe('editor Edit Buffer lifecycle', () => {
+  it('preserves an unopened File buffer across partial bootstrap and reconciles when its Prefix loads', () => {
+    const root = makeFileRecord({ id: 1, path: '/root' })
+    const nested = makeFileRecord({ id: 7, path: '/memo/inbox/note', revision: 4 })
+    const storage = new MemoryStorage()
+    const buffer = {
+      fileId: nested.id,
+      path: nested.path,
+      renderer: nested.renderer,
+      content: 'unsaved text',
+      private: nested.private,
+      baseRevision: 4,
+      dirty: true,
+      conflict: null,
+    }
+    setEditBuffer(buffer)
+    persistEditBuffers(storage)
+    initializeEditBuffers([root], storage, false)
+    setItems([root], false)
+    expect(editBuffers.get(nested.id)).toEqual(buffer)
+    initializeEditBuffers([root], storage, false)
+    replaceItemsByPrefix('/memo/inbox/', [{ ...nested, content: 'remote', revision: 5 }])
+    expect(editBuffers.get(nested.id)).toMatchObject({ content: 'unsaved text', conflict: { server: { content: 'remote', revision: 5 } } })
+  })
+
+  it('defers v1 buffer migration until the unloaded File Renderer is known', () => {
+    const file = makeFileRecord({ id: 7, path: '/app/deep', renderer: 'svelte', revision: 4 })
+    const storage = new MemoryStorage()
+    storage.setItem(EDIT_BUFFERS_STORAGE_KEY, JSON.stringify({ schemaVersion: 1, buffers: [{
+      fileId: file.id,
+      path: file.path,
+      content: 'local Source',
+      private: true,
+      baseRevision: 4,
+      dirty: true,
+      conflict: null,
+    }] }))
+    initializeEditBuffers([], storage, false)
+    expect(editBuffers.has(file.id)).toBe(false)
+    initializeEditBuffers([], storage, false)
+    reconcileEditBuffer(file)
+    expect(editBuffers.get(file.id)).toMatchObject({ renderer: 'svelte', content: 'local Source' })
+  })
+
+  it('retains an unloaded legacy Draft until an unambiguous active File arrives', () => {
+    const file = makeFileRecord({ id: 7, path: '/memo/deep', content: 'saved' })
+    const storage = new MemoryStorage()
+    storage.setItem(LEGACY_DRAFTS_STORAGE_KEY, JSON.stringify([[file.path, { ...file, content: 'local' }]]))
+    initializeEditBuffers([], storage, false)
+    initializeEditBuffers([], storage, false)
+    reconcileEditBuffer(file)
+    expect(editBuffers.get(file.id)).toMatchObject({ renderer: file.renderer, content: 'local' })
+  })
+
   it('removes the Edit Buffer and current private state when a full refresh confirms purge', () => {
     const purged = makeFileRecord({ id: 7, path: '/memo/purged', content: 'server', revision: 4 })
     const fallback = makeFileRecord({ id: 8, path: '/post/fallback' })

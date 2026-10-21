@@ -9,12 +9,14 @@ export function markdownCompletion(options: {
   references: readonly FileReferenceCandidate[]
   tags: readonly TagCompletionCandidate[]
   excludeFileId?: number
+  loadReferences?: (query: string) => Promise<readonly FileReferenceCandidate[]>
+  loadTags?: (query: string) => Promise<readonly TagCompletionCandidate[]>
 }): Extension {
   return [
     autocompletion({
       override: [
-        fileReferenceCompletionSource({ candidates: options.references, excludeId: options.excludeFileId }),
-        tagCompletionSource(options.tags),
+        fileReferenceCompletionSource({ candidates: options.references, excludeId: options.excludeFileId, loadCandidates: options.loadReferences }),
+        tagCompletionSource(options.tags, options.loadTags),
       ],
     }),
     Prec.high(keymap.of([{ key: 'Tab', run: acceptCompletion }])),
