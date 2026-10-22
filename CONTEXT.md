@@ -136,13 +136,13 @@ _Avoid_: Document type, path type, page category
 The site-owned frame around a file body, including document-head metadata, blog navigation, theme, and footer. A Svelte File receives no supported document-head surface and owns only the body mount target.
 _Avoid_: Svelte page, file content
 
-**SEO Snapshot**:
-The saved, script-free HTML representation of a Svelte File's initial body. It contains no executable code or embedded browsing context but may preserve native safe navigation and form submission; it remains through initial load or mount failure, then is permanently replaced once the live body starts successfully rather than serving as later runtime recovery state.
-_Avoid_: Server rendering, cache, screenshot
-
 **Render Artifact**:
-The versioned compiled browser bundle, component and generated utility styles, and SEO snapshot derived entirely in the client from one saved Source Hash of a Svelte File. It identifies its artifact schema, Svelte and style-toolchain versions, and Source Hash, but its presence or validity never determines whether the Source File exists or can be saved.
+The versioned compiled browser bundle and component and generated utility styles derived entirely in the client from one saved Source Hash of a Svelte File. It identifies its artifact schema, Svelte and style-toolchain versions, and Source Hash, but its presence or validity never determines whether the Source File exists or can be saved. It contains no captured HTML and does not execute during Deploy. Public delivery requires JavaScript; the Page Shell provides loading, failure, and no-script messages rather than a saved static body.
 _Avoid_: Source file, generated file, publication state
+
+**Artifact Storage Mode**:
+The per-deployment location of the Render Artifact's JavaScript and CSS: D1 (inline database text, SQLite in local installations) or R2 (private objects referenced by database metadata). Editable Svelte Source remains in the database in both modes. A verified transfer changes only the storage location, preserving deployed identity, Source Hash, File revision, Owner and Visibility; Deploy without an explicit mode retains the existing mode, while a new deployment defaults to D1.
+_Avoid_: Renderer Mode, publication state, public bucket
 
 **Local Svelte Preview**:
 A temporary localhost-only Vite runtime that compiles and displays one Local Workspace Svelte Source. It neither uploads Source nor creates a Render Artifact; Dashboard Build remains the only way to attach an online Artifact.

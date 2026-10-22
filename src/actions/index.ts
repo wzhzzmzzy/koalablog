@@ -1,3 +1,4 @@
+import * as artifactStorage from './db/artifact-storage'
 import * as editor from './db/editor'
 import { all, batchImport, byPrefix, create, emptyTrash, purge, restore, trash } from './db/markdown'
 import { attach as attachRenderArtifact, status as renderArtifactStatus } from './db/render-artifact'
@@ -31,6 +32,7 @@ export const server = {
     resetPassword,
   },
   db: {
+    artifactStorage,
     editor,
     templates: {
       read: readTemplates,

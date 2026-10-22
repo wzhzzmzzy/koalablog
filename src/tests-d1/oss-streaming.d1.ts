@@ -5,6 +5,7 @@ import { GET as getPublic } from '@/pages/api/oss/[...link]'
 import { GET, PUT } from '@/pages/api/sync/attachments/[...path]'
 import initSql from '../../migrations/0000_init.sql?raw'
 import userSchemaSql from '../../migrations/0002_user.sql?raw'
+import artifactSchemaSql from '../../migrations/0003_artifact_objects.sql?raw'
 
 vi.mock('@/lib/auth', () => ({ authInterceptor: async () => {} }))
 
@@ -19,7 +20,7 @@ function context(request: Request) {
 
 describe('workerd R2 streaming routes', () => {
   beforeEach(async () => {
-    await resetD1ForOnboarding(env, [initSql, userSchemaSql])
+    await resetD1ForOnboarding(env, [initSql, userSchemaSql, artifactSchemaSql])
   })
 
   it('round-trips the request body directly through R2 and isolates Owner keys', async () => {

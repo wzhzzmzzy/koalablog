@@ -7,10 +7,11 @@ import { add } from '@/db/markdown'
 import { resetD1ForOnboarding } from '@/db/onboarding'
 import initSql from '../../migrations/0000_init.sql?raw'
 import userSchemaSql from '../../migrations/0002_user.sql?raw'
+import artifactSchemaSql from '../../migrations/0003_artifact_objects.sql?raw'
 
 describe('D1 editor one-level queries', () => {
   beforeEach(async () => {
-    await resetD1ForOnboarding(env, [initSql, userSchemaSql])
+    await resetD1ForOnboarding(env, [initSql, userSchemaSql, artifactSchemaSql])
   })
 
   it('aggregates only direct Prefix names in SQL and fetches direct active Source for the Owner', async () => {

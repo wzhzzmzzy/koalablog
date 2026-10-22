@@ -7,6 +7,7 @@ import { vi } from 'vitest'
 import { defineMetadataReadContract } from '@/tests/shared/metadata-read-contract'
 import initSql from '../../../migrations/0000_init.sql?raw'
 import userSchemaSql from '../../../migrations/0002_user.sql?raw'
+import artifactSchemaSql from '../../../migrations/0003_artifact_objects.sql?raw'
 
 let databasePath: string
 
@@ -17,7 +18,7 @@ defineMetadataReadContract({
     databasePath = join(tmpdir(), `koalablog-metadata-${randomUUID()}.db`)
     vi.stubEnv('SQLITE_URL', `file:${databasePath}`)
     const client = createClient({ url: `file:${databasePath}` })
-    await client.executeMultiple(`${initSql}\n${userSchemaSql}`)
+    await client.executeMultiple(`${initSql}\n${userSchemaSql}\n${artifactSchemaSql}`)
     client.close()
   },
   cleanup: async () => {

@@ -74,7 +74,8 @@ export const markdownRender = sqliteTable('markdown_render', {
   cssResourceHash: text().notNull(),
   javascript: text().notNull(),
   css: text().notNull(),
-  snapshotHtml: text().notNull(),
+  javascriptKey: text(),
+  cssKey: text(),
   createdAt: integer({ mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer({ mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 })

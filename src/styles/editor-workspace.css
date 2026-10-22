@@ -969,10 +969,6 @@ body:has(.editor-workspace) {
   border-radius: 0;
 }
 
-.editor-svelte-snapshot-host {
-  display: none;
-}
-
 .editor-workspace .cm-editor,
 .editor-workspace .cm-scroller {
   height: 100%;

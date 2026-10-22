@@ -6,7 +6,6 @@
     type PreviewArtifact,
     type PreviewRuntimeErrorMessage,
   } from './preview-runtime'
-  import { canonicalizeSnapshotHtml } from '@/lib/svelte/snapshot'
 
   interface Props {
     artifact?: PreviewArtifact | null
@@ -62,11 +61,6 @@
     return runtime.render(nextArtifact)
   }
 
-  export async function snapshot(nextArtifact: PreviewArtifact) {
-    if (!runtime)
-      throw new Error('Svelte Preview is not ready')
-    return canonicalizeSnapshotHtml(await runtime.snapshot(nextArtifact))
-  }
 </script>
 
 <div class="h-full min-h-0 w-full bg-[color:var(--koala-bg)]" data-koala-svelte-preview>

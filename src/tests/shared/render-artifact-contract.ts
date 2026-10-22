@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { connectDB } from '@/db'
 import { purge, restore, saveFile, trash } from '@/db/markdown'
 import { readArtifactAccess, readArtifactBody, readArtifactMetadata, readDeployedRenderArtifact, readRenderArtifact, replaceDeployedRenderArtifact, replaceRenderArtifact } from '@/db/render-artifact'
+import { serializeJavascriptResource } from '@/lib/svelte/artifact-hash'
 import { artifactByteLengths, artifactLimitViolation, SVELTE_ARTIFACT_LIMITS } from '@/lib/svelte/artifact-limits'
 
 interface RenderArtifactContractHarness {
@@ -15,7 +16,7 @@ interface RenderArtifactContractHarness {
 function artifact(fileId: number, sourceHash: string, overrides: Record<string, unknown> = {}) {
   return {
     fileId,
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     renderer: 'svelte' as const,
     svelteVersion: '5.19.2',
     unocssVersion: '65.4.3',
@@ -27,7 +28,6 @@ function artifact(fileId: number, sourceHash: string, overrides: Record<string, 
     cssResourceHash: 'd'.repeat(64),
     javascript: '',
     css: '',
-    snapshotHtml: '',
     ...overrides,
   }
 }
@@ -36,7 +36,6 @@ function artifactAtExactRowLimit(fileId: number, sourceHash: string) {
   const value = artifact(fileId, sourceHash, {
     javascript: 'j'.repeat(SVELTE_ARTIFACT_LIMITS.javascript),
     css: 'c'.repeat(SVELTE_ARTIFACT_LIMITS.css),
-    snapshotHtml: 's'.repeat(SVELTE_ARTIFACT_LIMITS.snapshotHtml),
     dependencies: [{ url: 'https://example.test/', bytes: 0, sha256: 'e'.repeat(64) }],
   })
   const metadata = artifactByteLengths(value).metadata
@@ -99,12 +98,12 @@ export function defineRenderArtifactContract(harness: RenderArtifactContractHarn
       const second = artifact(file.id, file.sourceHash, { artifactHash: '2'.repeat(64) })
       await replaceRenderArtifact(harness.env, first)
       await replaceRenderArtifact(harness.env, second)
-      expect(await readDeployedRenderArtifact(harness.env, file.id)).toMatchObject(second)
+      expect(await readDeployedRenderArtifact(harness.env, file.id)).toMatchObject({ artifactHash: second.artifactHash, sourceHash: second.sourceHash, dependencies: second.dependencies })
 
       await trash(harness.env, file.id)
       expect(await readRenderArtifact(harness.env, file.id)).toMatchObject(second)
       await restore(harness.env, file.id)
-      expect(await readDeployedRenderArtifact(harness.env, file.id)).toMatchObject(second)
+      expect(await readDeployedRenderArtifact(harness.env, file.id)).toMatchObject({ artifactHash: second.artifactHash, sourceHash: second.sourceHash, dependencies: second.dependencies })
       await trash(harness.env, file.id)
       await purge(harness.env, file.id)
       expect(await readRenderArtifact(harness.env, file.id)).toBeUndefined()
@@ -132,23 +131,24 @@ export function defineRenderArtifactContract(harness: RenderArtifactContractHarn
 
     it('reads only metadata and the requested representation, not Source or dependency JSON', async () => {
       const file = await createSvelteFile(harness.env)
-      const stored = artifact(file.id, file.sourceHash, { javascript: 'module', css: '', snapshotHtml: '<p>Snapshot</p>' })
+      const stored = artifact(file.id, file.sourceHash, { javascript: 'module', css: '' })
       await replaceRenderArtifact(harness.env, stored)
       await connectDB(harness.env).run('UPDATE markdown_render SET dependencies = \'invalid JSON must not be decoded on delivery\'')
       const input = { fileId: file.id, representation: 'resource' as const, requestedSourceHash: file.sourceHash }
       const metadata = await readArtifactMetadata(harness.env, input)
       expect(metadata.artifact).toEqual({
         fileId: file.id,
+        schemaVersion: 2,
         sourceHash: file.sourceHash,
         artifactHash: stored.artifactHash,
         javascriptResourceHash: stored.javascriptResourceHash,
         cssResourceHash: stored.cssResourceHash,
       })
       const bodyInput = { ...input, artifactHash: stored.artifactHash, privateResource: false }
-      expect(await readArtifactBody(harness.env, bodyInput, 'javascript')).toBe('module')
+      expect(await readArtifactBody(harness.env, bodyInput, 'javascript')).toBe(serializeJavascriptResource('module'))
       expect(await readArtifactBody(harness.env, bodyInput, 'css')).toBe('')
       const page = await readArtifactAccess(harness.env, { ...input, representation: 'page' })
-      expect(page.artifact).toEqual({ ...metadata.artifact, snapshotHtml: '<p>Snapshot</p>' })
+      expect(page.artifact).toEqual({ ...metadata.artifact })
     })
 
     it('rechecks visibility, Owner, trash and Artifact identity between metadata and body reads', async () => {
@@ -162,20 +162,20 @@ export function defineRenderArtifactContract(harness: RenderArtifactContractHarn
       await db.run('UPDATE markdown SET private = 1')
       expect(await readArtifactBody(harness.env, input, 'javascript')).toBeUndefined()
       const privateInput = { ...input, privateResource: true }
-      expect(await readArtifactBody(harness.env, privateInput, 'javascript')).toBe('module')
+      expect(await readArtifactBody(harness.env, privateInput, 'javascript')).toBe(serializeJavascriptResource('module'))
       expect(await readArtifactBody(harness.env, { ...privateInput, sessionUserId: 8 }, 'javascript')).toBeUndefined()
       expect((await readArtifactMetadata(harness.env, { ...input, sessionUserId: 8 })).decision.type).toBe('not_found')
       await db.run('UPDATE markdown SET sourceHash = \'new saved Source\'')
-      expect(await readArtifactBody(harness.env, privateInput, 'javascript')).toBe('module')
+      expect(await readArtifactBody(harness.env, privateInput, 'javascript')).toBe(serializeJavascriptResource('module'))
       await replaceRenderArtifact(harness.env, { ...stored, artifactHash: 'e'.repeat(64), javascript: 'replacement' })
       expect(await readArtifactBody(harness.env, privateInput, 'javascript')).toBeUndefined()
       const replacedInput = { ...privateInput, artifactHash: 'e'.repeat(64) }
-      expect(await readArtifactBody(harness.env, replacedInput, 'javascript')).toBe('replacement')
+      expect(await readArtifactBody(harness.env, replacedInput, 'javascript')).toBe(serializeJavascriptResource('replacement'))
       await trash(harness.env, file.id)
       expect(await readArtifactBody(harness.env, replacedInput, 'javascript')).toBeUndefined()
       expect((await readArtifactMetadata(harness.env, input)).decision.type).toBe('not_found')
       await restore(harness.env, file.id)
-      expect(await readArtifactBody(harness.env, replacedInput, 'javascript')).toBe('replacement')
+      expect(await readArtifactBody(harness.env, replacedInput, 'javascript')).toBe(serializeJavascriptResource('replacement'))
       await trash(harness.env, file.id)
       await purge(harness.env, file.id)
       expect(await readArtifactBody(harness.env, replacedInput, 'javascript')).toBeUndefined()

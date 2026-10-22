@@ -24,6 +24,7 @@ beforeEach(() => {
 describe('legacy public OSS boundary', () => {
   it.each([
     'sync-attachments_7/private.bin',
+    'render-artifacts_7/hash/module.js',
     'sync-attachments/7_private.bin',
     'render-artifacts_secret',
     'unknown_file',

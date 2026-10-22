@@ -1,12 +1,14 @@
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
-import type { SvelteArtifactHashes, SvelteArtifactInputV1 } from '@/lib/svelte/contracts'
+import type { SvelteArtifactHashes, SvelteArtifactInput } from '@/lib/svelte/contracts'
 import { and, eq, isNull, or, sql } from 'drizzle-orm'
 import { type ArtifactAccessInput, decideArtifactAccess } from '@/lib/svelte/artifact-access'
+import { serializeJavascriptResource } from '@/lib/svelte/artifact-hash'
+import { artifactObjectKey, type ArtifactStorageMode, storeArtifactResources } from '@/lib/svelte/artifact-storage'
 import { deploymentSummary, type DeploymentSummary } from '@/lib/svelte/deployment-status'
 import { connectDB } from '.'
 import { markdown, markdownRender } from './schema'
 
-export type StoredRenderArtifact = SvelteArtifactInputV1 & SvelteArtifactHashes & { fileId: number }
+export type StoredRenderArtifact = SvelteArtifactInput & SvelteArtifactHashes & { fileId: number }
 
 function affectedRows(result: unknown) {
   if (!result || typeof result !== 'object')
@@ -51,6 +53,7 @@ export async function readArtifactMetadata(env: Env, input: ArtifactReadInput) {
     },
     artifact: {
       fileId: markdownRender.fileId,
+      schemaVersion: markdownRender.schemaVersion,
       sourceHash: markdownRender.sourceHash,
       artifactHash: markdownRender.artifactHash,
       javascriptResourceHash: markdownRender.javascriptResourceHash,
@@ -64,37 +67,48 @@ export async function readArtifactMetadata(env: Env, input: ArtifactReadInput) {
   return decision.type === 'allowed' && artifact ? { artifact, decision } : { decision }
 }
 
-export async function readArtifactBody(env: Env, input: ArtifactReadInput & { artifactHash: string, privateResource: boolean }, field: 'javascript' | 'css' | 'snapshotHtml') {
+export async function readArtifactBody(env: Env, input: ArtifactReadInput & { artifactHash: string, privateResource: boolean, schemaVersion?: number }, field: 'javascript' | 'css') {
   const db: BaseSQLiteDatabase<'async', unknown, typeof import('./schema')> = connectDB(env)
-  const [record] = await db.select({ body: markdownRender[field] }).from(markdownRender).innerJoin(markdown, eq(markdown.id, markdownRender.fileId)).where(and(
+  const key = field === 'javascript' ? markdownRender.javascriptKey : markdownRender.cssKey
+  const resourceHash = field === 'javascript' ? markdownRender.javascriptResourceHash : markdownRender.cssResourceHash
+  const selection = input.schemaVersion === 1
+    ? { key: sql<string | null>`NULL`, resourceHash, body: markdownRender[field] }
+    : { key, resourceHash, body: sql<string | null>`CASE WHEN ${key} IS NULL THEN ${markdownRender[field]} ELSE NULL END` }
+  const access = and(
     eq(markdown.id, input.fileId),
     eq(markdown.renderer, 'svelte'),
     isNull(markdown.deletedAt),
     eq(markdown.private, input.privateResource),
     or(eq(markdown.private, false), input.sessionUserId != null ? eq(markdown.userId, input.sessionUserId) : undefined),
     eq(markdownRender.artifactHash, input.artifactHash),
+    input.schemaVersion === undefined ? undefined : eq(markdownRender.schemaVersion, input.schemaVersion),
     input.requestedSourceHash ? eq(markdownRender.sourceHash, input.requestedSourceHash) : undefined,
-  ))
-  return record?.body
+  )
+  const [record] = await db.select(selection).from(markdownRender).innerJoin(markdown, eq(markdown.id, markdownRender.fileId)).where(access)
+  if (!record)
+    return undefined
+  if (record.key !== null) {
+    if (record.key !== artifactObjectKey(input.fileId, record.resourceHash, field))
+      throw new Error('Invalid Artifact object reference')
+    const object = await env.OSS?.get(record.key)
+    if (!object)
+      throw new Error('Deployed Artifact object is missing')
+    const [current] = await db.select({ fileId: markdownRender.fileId }).from(markdownRender).innerJoin(markdown, eq(markdown.id, markdownRender.fileId)).where(access)
+    if (!current) {
+      await object.body.cancel()
+      return undefined
+    }
+    return object.body
+  }
+  return field === 'javascript' ? serializeJavascriptResource(record.body ?? '') : record.body ?? ''
 }
 
-export async function readArtifactAccess(env: Env, input: ArtifactReadInput) {
-  const result = await readArtifactMetadata(env, input)
-  if (!result.artifact)
-    return { decision: result.decision }
-  const snapshotHtml = await readArtifactBody(env, {
-    ...input,
-    artifactHash: result.artifact.artifactHash,
-    privateResource: result.decision.cacheControl === 'private, no-store',
-  }, 'snapshotHtml')
-  if (snapshotHtml === undefined)
-    return { decision: decideArtifactAccess({ ...input, authenticated: false }) }
-  return { decision: result.decision, artifact: { ...result.artifact, snapshotHtml } }
-}
+export const readArtifactAccess = readArtifactMetadata
 
-export async function replaceDeployedRenderArtifact(env: Env, artifact: StoredRenderArtifact, expectedDeployedArtifactHash: string | null = null) {
+export async function replaceDeployedRenderArtifact(env: Env, artifact: StoredRenderArtifact, expectedDeployedArtifactHash: string | null = null, options: { storage?: ArtifactStorageMode, ownerId?: number, expectedStorage?: ArtifactStorageMode } = {}) {
   const now = Math.floor(Date.now() / 1000)
   const dependencies = JSON.stringify(artifact.dependencies)
+  const resources = await storeArtifactResources(env, artifact, options.storage)
   const expectedDeployed = expectedDeployedArtifactHash
     ? sql`EXISTS (
       SELECT 1 FROM markdown_render
@@ -111,21 +125,28 @@ export async function replaceDeployedRenderArtifact(env: Env, artifact: StoredRe
     INSERT INTO markdown_render (
       fileId, schemaVersion, renderer, svelteVersion, unocssVersion, unocssConfigHash,
       sourceHash, dependencies, artifactHash, javascriptResourceHash, cssResourceHash,
-      javascript, css, snapshotHtml, createdAt, updatedAt
+      javascript, css, javascriptKey, cssKey, createdAt, updatedAt
     )
     SELECT
       ${artifact.fileId}, ${artifact.schemaVersion}, ${artifact.renderer}, ${artifact.svelteVersion},
       ${artifact.unocssVersion}, ${artifact.unocssConfigHash}, ${artifact.sourceHash}, ${dependencies},
       ${artifact.artifactHash}, ${artifact.javascriptResourceHash}, ${artifact.cssResourceHash},
-      ${artifact.javascript}, ${artifact.css}, ${artifact.snapshotHtml}, ${now}, ${now}
+      ${resources.javascript}, ${resources.css}, ${resources.javascriptKey}, ${resources.cssKey}, ${now}, ${now}
     WHERE EXISTS (
       SELECT 1 FROM markdown
       WHERE id = ${artifact.fileId}
         AND renderer = 'svelte'
         AND sourceHash = ${artifact.sourceHash}
         AND deletedAt IS NULL
+        ${options.ownerId === undefined ? sql`` : sql`AND userId = ${options.ownerId}`}
     )
       AND ${expectedDeployed}
+      ${options.expectedStorage === undefined
+        ? sql``
+        : sql`AND EXISTS (
+        SELECT 1 FROM markdown_render WHERE fileId = ${artifact.fileId}
+          AND (javascriptKey IS NOT NULL) = ${options.expectedStorage === 'r2' ? 1 : 0}
+      )`}
     ON CONFLICT(fileId) DO UPDATE SET
       schemaVersion = excluded.schemaVersion,
       renderer = excluded.renderer,
@@ -139,7 +160,8 @@ export async function replaceDeployedRenderArtifact(env: Env, artifact: StoredRe
       cssResourceHash = excluded.cssResourceHash,
       javascript = excluded.javascript,
       css = excluded.css,
-      snapshotHtml = excluded.snapshotHtml,
+      javascriptKey = excluded.javascriptKey,
+      cssKey = excluded.cssKey,
       updatedAt = excluded.updatedAt
   `)
   return affectedRows(result) === 1 ? artifact : undefined
@@ -147,8 +169,8 @@ export async function replaceDeployedRenderArtifact(env: Env, artifact: StoredRe
 
 export async function readDeployedRenderArtifact(env: Env, fileId: number) {
   const [file, artifact] = await Promise.all([
-    connectDB(env).query.markdown.findFirst({ where: eq(markdown.id, fileId) }),
-    readRenderArtifact(env, fileId),
+    connectDB(env).query.markdown.findFirst({ columns: { renderer: true, deletedAt: true }, where: eq(markdown.id, fileId) }),
+    connectDB(env).query.markdownRender.findFirst({ columns: { fileId: true, renderer: true, sourceHash: true, artifactHash: true, dependencies: true, javascriptKey: true, cssKey: true }, where: eq(markdownRender.fileId, fileId) }),
   ])
   return file?.renderer === 'svelte'
     && !file.deletedAt

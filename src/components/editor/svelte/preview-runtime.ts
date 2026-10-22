@@ -17,8 +17,6 @@ export class PreviewCommandSupersededError extends Error {
 interface PreviewArtifactApi {
   mount: (target: HTMLElement) => unknown
   unmount: (instance: unknown) => void | Promise<void>
-  flushSync?: () => void
-  tick?: () => Promise<void>
 }
 
 interface ActivePreview {
@@ -29,13 +27,12 @@ interface ActivePreview {
 interface PendingCommand {
   commandId: number
   reject: (error: Error) => void
-  resolve: (html?: string) => void
+  resolve: () => void
 }
 
 interface PreviewCommand {
   artifact: PreviewArtifact
   commandId: number
-  type: 'render' | 'snapshot'
 }
 
 export interface PreviewRuntimeEventTarget {
@@ -50,7 +47,6 @@ export interface InDocumentPreviewRuntimeOptions {
   eventTarget?: PreviewRuntimeEventTarget
   onFocusReturn?: () => void
   onRuntimeError?: (error: PreviewRuntimeErrorMessage) => void
-  waitForPaint?: () => Promise<void>
 }
 
 function browserEventTarget(): PreviewRuntimeEventTarget {
@@ -64,12 +60,6 @@ function defaultEvaluate(javascript: string) {
   // emits a self-contained IIFE expression for this exact execution seam.
   // eslint-disable-next-line no-eval
   return (0, eval)(javascript)
-}
-
-function defaultWaitForPaint() {
-  return new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-  })
 }
 
 function errorMessage(error: unknown) {
@@ -95,7 +85,6 @@ export class InDocumentPreviewRuntime {
   #queue = Promise.resolve()
   #root: HTMLElement
   #style: HTMLStyleElement
-  #waitForPaint: () => Promise<void>
 
   constructor(options: InDocumentPreviewRuntimeOptions) {
     this.#root = options.root
@@ -104,18 +93,13 @@ export class InDocumentPreviewRuntime {
     this.#eventTarget = options.eventTarget ?? browserEventTarget()
     this.#onFocusReturn = options.onFocusReturn ?? (() => {})
     this.#onRuntimeError = options.onRuntimeError ?? (() => {})
-    this.#waitForPaint = options.waitForPaint ?? defaultWaitForPaint
     this.#eventTarget.addEventListener('error', this.#onError)
     this.#eventTarget.addEventListener('unhandledrejection', this.#onUnhandledRejection)
     this.#eventTarget.addEventListener('keydown', this.#onKeyDown)
   }
 
   async render(artifact: PreviewArtifact) {
-    await this.#request('render', artifact)
-  }
-
-  async snapshot(artifact: PreviewArtifact) {
-    return (await this.#request('snapshot', artifact)) ?? ''
+    await this.#request(artifact)
   }
 
   focus() {
@@ -140,16 +124,16 @@ export class InDocumentPreviewRuntime {
     }
   }
 
-  #request(type: PreviewCommand['type'], artifact: PreviewArtifact) {
+  #request(artifact: PreviewArtifact) {
     if (this.#disposed)
       return Promise.reject(new Error('Svelte Preview has been disposed'))
     if (this.#pending)
       this.#settle(this.#pending.commandId, new PreviewCommandSupersededError())
 
     const commandId = ++this.#latestCommandId
-    return new Promise<string | undefined>((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       this.#pending = { commandId, reject, resolve }
-      const command = { artifact, commandId, type }
+      const command = { artifact, commandId }
       this.#queue = this.#queue.then(() => this.#run(command))
     })
   }
@@ -170,17 +154,6 @@ export class InDocumentPreviewRuntime {
         return
       }
       this.#active = { api, instance }
-
-      if (command.type === 'snapshot') {
-        api.flushSync?.()
-        if (api.tick)
-          await api.tick()
-        await this.#waitForPaint()
-        if (!this.#isCurrent(command.commandId))
-          return
-        this.#settle(command.commandId, null, this.#root.innerHTML)
-        return
-      }
 
       this.#settle(command.commandId)
     }
@@ -205,7 +178,7 @@ export class InDocumentPreviewRuntime {
     return !this.#disposed && this.#latestCommandId === commandId && this.#pending?.commandId === commandId
   }
 
-  #settle(commandId: number, error: Error | null = null, html?: string) {
+  #settle(commandId: number, error: Error | null = null) {
     const pending = this.#pending
     if (!pending || pending.commandId !== commandId)
       return
@@ -213,7 +186,7 @@ export class InDocumentPreviewRuntime {
     if (error)
       pending.reject(error)
     else
-      pending.resolve(html)
+      pending.resolve()
   }
 
   #reportRuntimeError(error: unknown) {

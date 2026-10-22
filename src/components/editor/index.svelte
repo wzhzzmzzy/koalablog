@@ -350,13 +350,9 @@
   }
 
   async function attachSavedBuild(savedFile: FileRecord, build: SvelteBuildSuccess, confirmation?: { currentArtifactHash: string, proposedArtifactHash: string }) {
-    const artifact = { css: build.css, javascript: build.javascript }
-    const snapshotHtml = await editorContent?.snapshotSvelteArtifact(artifact)
-    if (!snapshotHtml)
-      throw new Error('Svelte Preview did not produce an Artifact Snapshot')
     return actions.db.renderArtifact.attach({
       fileId: savedFile.id,
-      schemaVersion: 1,
+      schemaVersion: 2,
       renderer: 'svelte',
       svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
       unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
@@ -365,7 +361,6 @@
       dependencies: build.dependencies,
       javascript: build.javascript,
       css: build.css,
-      snapshotHtml,
       ...(confirmation ? { confirmation } : {}),
     })
   }

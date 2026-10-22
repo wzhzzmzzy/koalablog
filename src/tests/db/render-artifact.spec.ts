@@ -13,7 +13,7 @@ const env = {} as Env
 function artifact(fileId: number, sourceHash: string, javascript = 'export default {}') {
   return {
     fileId,
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     renderer: 'svelte' as const,
     svelteVersion: '5.19.2',
     unocssVersion: '65.4.3',
@@ -25,7 +25,6 @@ function artifact(fileId: number, sourceHash: string, javascript = 'export defau
     cssResourceHash: `css-${javascript}`,
     javascript,
     css: '.page {}',
-    snapshotHtml: '<main>Snapshot</main>',
   }
 }
 
@@ -74,7 +73,8 @@ function useRenderArtifactDatabase() {
         cssResourceHash text NOT NULL,
         javascript text NOT NULL,
         css text NOT NULL,
-        snapshotHtml text NOT NULL,
+        javascriptKey text,
+        cssKey text,
         createdAt integer DEFAULT (unixepoch()) NOT NULL,
         updatedAt integer DEFAULT (unixepoch()) NOT NULL
       );
@@ -112,11 +112,11 @@ describe('render Artifact persistence', () => {
 
     await replaceRenderArtifact(env, first)
     expect(await readRenderArtifact(env, file.id)).toMatchObject(first)
-    expect(await readDeployedRenderArtifact(env, file.id)).toMatchObject(first)
+    expect(await readDeployedRenderArtifact(env, file.id)).toMatchObject({ artifactHash: first.artifactHash, sourceHash: first.sourceHash, dependencies: first.dependencies })
 
     await replaceRenderArtifact(env, second)
     expect(await readRenderArtifact(env, file.id)).toMatchObject(second)
-    expect(await readDeployedRenderArtifact(env, file.id)).toMatchObject(second)
+    expect(await readDeployedRenderArtifact(env, file.id)).toMatchObject({ artifactHash: second.artifactHash, sourceHash: second.sourceHash, dependencies: second.dependencies })
   })
 
   it('keeps the deployed Artifact with the recycled predecessor across Renderer replacements', async () => {
@@ -135,7 +135,7 @@ describe('render Artifact persistence', () => {
     if (changed.status !== 'saved')
       throw new Error('Expected Source change to succeed')
     expect(await readRenderArtifact(env, original.id)).toMatchObject(stored)
-    expect(await readDeployedRenderArtifact(env, original.id)).toMatchObject(stored)
+    expect(await readDeployedRenderArtifact(env, original.id)).toMatchObject({ artifactHash: stored.artifactHash, sourceHash: stored.sourceHash, dependencies: stored.dependencies })
     expect(await readDeploymentSummary(env, original.id)).toMatchObject({
       status: 'deployment_drift',
       deployedSourceHash: original.sourceHash,
@@ -241,7 +241,7 @@ describe('render Artifact persistence', () => {
       throw new Error('Expected exact Source reversion to succeed')
 
     expect(await readRenderArtifact(env, original.id)).toMatchObject(replacement)
-    expect(await readDeployedRenderArtifact(env, original.id)).toMatchObject(replacement)
+    expect(await readDeployedRenderArtifact(env, original.id)).toMatchObject({ artifactHash: replacement.artifactHash, sourceHash: replacement.sourceHash, dependencies: replacement.dependencies })
   })
 
   it('preserves an Artifact in trash, restores its currentness, and cascades it away on purge', async () => {
@@ -254,7 +254,7 @@ describe('render Artifact persistence', () => {
     expect(await readDeployedRenderArtifact(env, file.id)).toBeUndefined()
 
     expect(await restore(env, file.id)).toMatchObject({ status: 'restored' })
-    expect(await readDeployedRenderArtifact(env, file.id)).toMatchObject(stored)
+    expect(await readDeployedRenderArtifact(env, file.id)).toMatchObject({ artifactHash: stored.artifactHash, sourceHash: stored.sourceHash, dependencies: stored.dependencies })
 
     expect(await trash(env, file.id)).toMatchObject({ status: 'trashed' })
     expect(await purge(env, file.id)).toEqual({ status: 'purged' })
@@ -308,7 +308,8 @@ defineRenderArtifactContract({
         cssResourceHash text NOT NULL,
         javascript text NOT NULL,
         css text NOT NULL,
-        snapshotHtml text NOT NULL,
+        javascriptKey text,
+        cssKey text,
         createdAt integer DEFAULT (unixepoch()) NOT NULL,
         updatedAt integer DEFAULT (unixepoch()) NOT NULL
       );

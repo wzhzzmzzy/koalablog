@@ -9,8 +9,7 @@ const artifact = {
   ],
   javascript: '({ mount(target) { target.textContent = "Koala"; return {}; }, unmount() {} })',
   renderer: 'svelte' as const,
-  schemaVersion: 1 as const,
-  snapshotHtml: '<p>Koala</p>',
+  schemaVersion: 2 as const,
   sourceHash: 'c'.repeat(64),
   svelteVersion: '5.19.2',
   unocssConfigHash: 'd'.repeat(64),
@@ -24,7 +23,7 @@ describe('svelte Artifact serialization', () => {
       'https://modules.example.test/z.js',
     ])
     expect(serializeArtifactPayload(artifact)).toBe(JSON.stringify([
-      'koala-artifact-v1',
+      'koala-artifact-v2',
       '5.19.2',
       '65.4.3',
       'd'.repeat(64),
@@ -32,11 +31,10 @@ describe('svelte Artifact serialization', () => {
       canonicalDependencies(artifact.dependencies),
       artifact.javascript,
       artifact.css,
-      artifact.snapshotHtml,
     ]))
     expect(serializeJavascriptResource(artifact.javascript)).toBe(`const artifact = ${artifact.javascript};\nexport async function mountKoalaArtifact(target) {\n  const instance = artifact.mount(target);\n  return { unmount: () => artifact.unmount(instance) };\n}\n`)
     await expect(calculateArtifactHashes(artifact)).resolves.toEqual({
-      artifactHash: '90138bfa4111320ec4bf1bcc8678d5d7ebc0282fabc32d5e407d0d981bfd4c53',
+      artifactHash: 'cc232f0a914cc88a79d9c5f8c42f646e489bbe73f7e57c574ea3f2c53d5104b1',
       cssResourceHash: '5a6f63df13598e7cfa0ae29dbe4d888c4ee927936b485e9c03dc2ba69f74a1cd',
       javascriptResourceHash: '9b20c1dc83ea2c5e3c32499c583b176a2ea5697099c83a5b3538bc4ea5bb1fe3',
     })

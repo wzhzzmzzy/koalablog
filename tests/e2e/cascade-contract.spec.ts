@@ -37,13 +37,6 @@ const CASCADE_PROBE_SOURCE = `<div class="flex" data-cascade-probe>Cascade probe
   :global(.flex) { display: grid; }
 </style>`
 
-// The no-JS snapshot for the probe. The SEO Snapshot renders without JavaScript,
-// so the computed-style assertion is made against the `snapshot` render state —
-// it depends only on the stylesheet cascade (static Site Stylesheet in <head> +
-// Artifact Stylesheet <link> in <body>), never on a successful artifact mount.
-// This isolates a cascade failure from a mount/runtime failure.
-const CASCADE_PROBE_SNAPSHOT = '<div class="flex" data-cascade-probe>Cascade probe</div>'
-
 interface BuiltArtifact {
   css: string
   javascript: string
@@ -79,7 +72,7 @@ async function seedCascadeProbeArtifact(build: BuiltArtifact) {
       throw new Error('Failed to insert cascade-probe File')
 
     const artifact = {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       renderer: 'svelte' as const,
       svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
       unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
@@ -88,7 +81,6 @@ async function seedCascadeProbeArtifact(build: BuiltArtifact) {
       dependencies: [],
       javascript: build.javascript,
       css: build.css,
-      snapshotHtml: CASCADE_PROBE_SNAPSHOT,
     }
     const hashes = await calculateArtifactHashes(artifact)
     await db.insert(schema.markdownRender).values({ fileId: file.id, ...artifact, ...hashes })
@@ -101,7 +93,7 @@ async function seedCascadeProbeArtifact(build: BuiltArtifact) {
 
 test.describe.configure({ timeout: 180_000 })
 
-test('Artifact Stylesheet wins over static utilities for the shared flex class (cascade contract)', async ({ page, browser }) => {
+test('Artifact Stylesheet wins over static utilities for the shared flex class (cascade contract)', async ({ page }) => {
   // --- 1. Build the probe source through the same-origin Worker toolchain ---
   // The first Worker creation in a dev-server session can trigger one or more
   // Vite HMR full reloads (compiling the Worker entry + its toolchain
@@ -160,36 +152,14 @@ test('Artifact Stylesheet wins over static utilities for the shared flex class (
   // --- 3. Seed the built artifact so the public page serves the real payload ---
   await seedCascadeProbeArtifact({ css, javascript })
 
-  // --- 4. Visit the public page WITHOUT JavaScript (snapshot render state) ---
-  const noJavascript = await browser.newContext({ javaScriptEnabled: false })
-  const staticPage = await noJavascript.newPage()
-  try {
-    const response = await staticPage.goto(PROBE_PATH, { waitUntil: 'load' })
-    // Distinguish "page did not load / 404" from a cascade failure.
-    expect(response?.status(), 'cascade-probe public page should respond 200, got a non-200 so the computed-style assertion cannot run').toBe(200)
-
-    const root = staticPage.locator('[data-koala-artifact-root]')
-    await expect(root, 'artifact root must be present in the DOM — a 503/artifact-unavailable response means the fixture did not seed correctly').toBeVisible()
-    // Assert the snapshot render state explicitly. The computed-style check
-    // depends on the stylesheet cascade only, not on a successful JS mount.
-    await expect(root).toHaveAttribute('data-koala-render-state', 'snapshot')
-
-    const probe = root.locator('[data-cascade-probe]')
-    await expect(probe, 'cascade probe element must be present in the snapshot — if missing the fixture snapshotHtml is wrong').toBeVisible()
-    await expect(probe).toContainText('Cascade probe')
-
-    // The core cascade contract: the Artifact Stylesheet's `.flex { display: grid }`
-    // (equal specificity, later source order pre-migration / layer-free
-    // post-migration) must beat the static `.flex { display: flex }` utility.
-    const display = await probe.evaluate(el => getComputedStyle(el).display)
-    expect(
-      display,
-      'static utility beat the Artifact Stylesheet — cascade contract broken (expected grid, the Artifact Stylesheet override did not win)',
-    ).toBe('grid')
-  }
-  finally {
-    await noJavascript.close()
-  }
+  const response = await page.goto(PROBE_PATH)
+  expect(response?.status()).toBe(200)
+  const root = page.locator('[data-koala-artifact-root]')
+  await expect(root).toHaveAttribute('data-koala-render-state', 'mounted')
+  const probe = root.locator('[data-cascade-probe]')
+  await expect(probe).toBeVisible()
+  await expect(probe).toContainText('Cascade probe')
+  await expect(probe).toHaveCSS('display', 'grid')
 })
 
 // CSSOM probe (slice 04) — asserts the Site Stylesheet's statically generated
