@@ -22,9 +22,13 @@ function fixture() {
   const oss = {
     get: vi.fn(async (key: string) => {
       const body = objects.get(key)
-      return body ? { body, httpMetadata: { contentType: 'application/octet-stream' } } : null
+      return body ? { body, size: body.byteLength, httpMetadata: { contentType: 'application/octet-stream' } } : null
     }),
-    put: vi.fn(async (key: string, body: ArrayBuffer) => { objects.set(key, body) }),
+    put: vi.fn(async (key: string, body: ReadableStream) => {
+      const bytes = await new Response(body).arrayBuffer()
+      objects.set(key, bytes)
+      return { size: bytes.byteLength, uploaded: new Date() }
+    }),
     delete: vi.fn(async (key: string) => { objects.delete(key) }),
   }
   const context = (method: string, headers: HeadersInit = {}, sessionId?: string) => {
@@ -66,7 +70,7 @@ describe('attachment Session authentication', () => {
     expect(read.headers.get('Cache-Control')).toBe('private, no-store')
     expect(await read.text()).toBe('checkpoint')
     expect((await DELETE(context('DELETE', headers, 'owner-session'))).status).toBe(200)
-    expect(oss.put).toHaveBeenCalledWith('sync-attachments/7/game-saves/auto.bin', expect.any(ArrayBuffer), expect.any(Object))
+    expect(oss.put).toHaveBeenCalledWith('sync-attachments/7/game-saves/auto.bin', expect.any(ReadableStream), expect.any(Object))
     expect(oss.get).toHaveBeenCalledWith('sync-attachments/7/game-saves/auto.bin')
     expect(oss.delete).toHaveBeenCalledWith('sync-attachments/7/game-saves/auto.bin')
     expect(users.findApiTokenByHash).not.toHaveBeenCalled()
@@ -138,7 +142,7 @@ describe('attachment Session authentication', () => {
     expect((await PUT(context('PUT', headers, 'other-session'))).status).toBe(201)
     expect(await (await GET(context('GET', headers))).text()).toBe('checkpoint')
     expect((await DELETE(context('DELETE', { ...headers, Origin: 'https://foreign.test' }, 'other-session'))).status).toBe(200)
-    expect(oss.put).toHaveBeenCalledWith('sync-attachments/7/game-saves/auto.bin', expect.any(ArrayBuffer), expect.any(Object))
+    expect(oss.put).toHaveBeenCalledWith('sync-attachments/7/game-saves/auto.bin', expect.any(ReadableStream), expect.any(Object))
     expect(oss.delete).toHaveBeenCalledWith('sync-attachments/7/game-saves/auto.bin')
   })
 

@@ -12,7 +12,8 @@ export const upload = defineAction({
     file: z.instanceof(File),
   }),
   handler: async (input, ctx) => {
-    await guards([authGuard(ctx), ossGuard(ctx)])
+    await authGuard(ctx)
+    await ossGuard(ctx)
 
     const { file, source, name } = input
 
@@ -63,7 +64,8 @@ export const remove = defineAction({
 
 export const list = defineAction({
   handler: async (_, ctx) => {
-    await guards([authGuard(ctx), ossGuard(ctx)])
+    await authGuard(ctx)
+    await ossGuard(ctx)
 
     const OSS = ctx.locals.OSS || ctx.locals.runtime.env.OSS
     return OSS.list()

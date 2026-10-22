@@ -55,4 +55,18 @@ describe('sqlite blob storage list', () => {
     expect(second.objects.map(object => object.key)).toEqual(['sync-attachments/1/c.png'])
     expect(second.truncated).toBe(false)
   })
+
+  it('accepts a stream and returns exact bytes, including small pooled buffers and an overwrite', async () => {
+    const storage = new SQLiteBlobStorage(env)
+    for (const content of ['tiny', '', 'replacement']) {
+      const uploaded = await storage.put('sync-attachments/1/file', new Response(content).body!, {
+        httpMetadata: { contentType: 'text/plain' },
+      })
+      expect(uploaded.size).toBe(content.length)
+      const object = await storage.get(uploaded.key)
+      expect(object?.body.byteLength).toBe(content.length)
+      expect(await new Response(object!.body).text()).toBe(content)
+      expect((await storage.head(uploaded.key))?.size).toBe(content.length)
+    }
+  })
 })

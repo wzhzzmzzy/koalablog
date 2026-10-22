@@ -5,6 +5,9 @@ import OSSUpload from '@/components/io/oss-upload.svelte'
 import { incrementToday } from '@/db/ossAccess'
 import DashboardShell from '@/layouts/dashboard-shell.astro'
 
+if (Astro.locals.session?.role !== 'admin')
+  return Astro.redirect('/dashboard')
+
 let errorMessage = ''
 
 interface ObjectRecord {
@@ -14,13 +17,13 @@ interface ObjectRecord {
 }
 
 const records: ObjectRecord[] = []
-const operateLimit = (Astro.locals.config.oss?.operateLimit || 0) / 50
+const operateLimit = Astro.locals.config.oss?.operateLimit || 0
 const accessToday = await incrementToday(Astro.locals.runtime?.env, operateLimit, 'operate').catch((e: Error) => {
   errorMessage = e?.message
 })
 
-if (!accessToday?.[0] || (accessToday[0].operateTimes || 0) > operateLimit) {
-  errorMessage = `Operate reached limit today, times:${(accessToday?.[0]?.operateTimes || 0)}, limit:${operateLimit}`
+if (!accessToday?.length) {
+  errorMessage = `Operate reached limit today, limit:${operateLimit}`
 }
 else {
   const OSS = Astro.locals.OSS || Astro.locals.runtime.env.OSS

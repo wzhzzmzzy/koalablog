@@ -20,8 +20,8 @@ beforeEach(() => vi.clearAllMocks())
 describe('sync Attachment API', () => {
   it('uses the Bearer Token Owner storage prefix for download, upload, and delete', async () => {
     const oss = {
-      get: vi.fn().mockResolvedValue({ body: new TextEncoder().encode('image').buffer, httpMetadata: { contentType: 'image/png' } }),
-      put: vi.fn(),
+      get: vi.fn().mockResolvedValue({ size: 5, body: new TextEncoder().encode('image').buffer, httpMetadata: { contentType: 'image/png' } }),
+      put: vi.fn().mockResolvedValue({ size: 5, uploaded: new Date() }),
       delete: vi.fn(),
     }
     const headers = { 'Authorization': 'Bearer owner-token', 'Content-Type': 'image/png' }
@@ -32,7 +32,7 @@ describe('sync Attachment API', () => {
 
     const put = await PUT(context(new Request('https://koala.test/api/sync/attachments/diagram.png', { method: 'PUT', headers, body: 'image' }), oss))
     expect(put.status).toBe(201)
-    expect(oss.put).toHaveBeenCalledWith('sync-attachments/7/diagram.png', expect.any(ArrayBuffer), expect.objectContaining({ httpMetadata: { contentType: 'image/png' } }))
+    expect(oss.put).toHaveBeenCalledWith('sync-attachments/7/diagram.png', expect.any(ReadableStream), expect.objectContaining({ httpMetadata: { contentType: 'image/png' } }))
 
     const remove = await DELETE(context(new Request('https://koala.test/api/sync/attachments/diagram.png', { method: 'DELETE', headers }), oss))
     expect(remove.status).toBe(200)
