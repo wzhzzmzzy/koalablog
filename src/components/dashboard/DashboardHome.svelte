@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText, HardDrive, RefreshCw, Settings } from '@lucide/svelte'
+  import { FileText, HardDrive, RefreshCw, Settings, SquarePen } from '@lucide/svelte'
   import { Button } from '@/components/ui/button'
 
   interface Props {
@@ -9,6 +9,7 @@
   const { blogTitle }: Props = $props()
   const links = [
     { href: '/dashboard/oss', label: 'Storage', icon: HardDrive },
+    { href: '/dashboard/editor', label: 'Editor', icon: SquarePen },
     { href: '/dashboard/template', label: 'Templates', icon: FileText },
     { href: '/dashboard/rebuild', label: 'Deploy', icon: RefreshCw },
     { href: '/dashboard/settings', label: 'Settings', icon: Settings },
