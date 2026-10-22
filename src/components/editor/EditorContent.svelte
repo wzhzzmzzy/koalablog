@@ -86,7 +86,6 @@
 
   let textEditor: TextEditorHandle | undefined = $state();
   let sveltePreview: SveltePreview | undefined = $state();
-  let svelteSnapshotPreview: SveltePreview | undefined = $state();
   let previewCloseButton: HTMLButtonElement | undefined = $state();
   let markdownPreview: HTMLElement | undefined = $state();
   let viewContainer: HTMLDivElement | undefined = $state();
@@ -149,12 +148,6 @@
     textEditor?.acknowledgeSavedSource(content)
   }
 
-  export async function snapshotSvelteArtifact(artifact: PreviewArtifact) {
-    const snapshotPreview = sveltePreview ?? svelteSnapshotPreview
-    if (!snapshotPreview)
-      throw new Error('Svelte Snapshot Preview is not ready')
-    return snapshotPreview.snapshot(artifact)
-  }
 
   export function focusPreview() {
     previewCloseButton?.focus()
@@ -531,9 +524,4 @@
     </div>
   </footer>
 
-  {#if renderer === 'svelte' && !showPreview}
-    <div class="editor-svelte-snapshot-host" aria-hidden="true">
-      <SveltePreview bind:this={svelteSnapshotPreview} onFocusReturn={() => {}} onPreviewError={reportPreviewError} />
-    </div>
-  {/if}
 </section>

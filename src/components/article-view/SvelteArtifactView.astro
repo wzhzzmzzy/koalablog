@@ -2,16 +2,15 @@
 interface Props {
   cssUrl: string
   moduleUrl: string
-  snapshotHtml: string
 }
 
-const { cssUrl, moduleUrl, snapshotHtml } = Astro.props
+const { cssUrl, moduleUrl } = Astro.props
 ---
 
 <link rel="stylesheet" href={cssUrl} />
 <koala-artifact-mount>
-  <section data-koala-artifact-root data-koala-artifact-module={moduleUrl} data-koala-render-state="snapshot">
-    <div data-koala-artifact-snapshot set:html={snapshotHtml} />
+  <section data-koala-artifact-root data-koala-artifact-module={moduleUrl} data-koala-render-state="loading">
+    <p data-koala-artifact-status role="status">Loading application… <span>This application requires JavaScript.</span></p>
     <div data-koala-artifact-live hidden></div>
   </section>
 </koala-artifact-mount>
@@ -25,10 +24,10 @@ class KoalaArtifactMount extends HTMLElement {
     if (!(root instanceof HTMLElement))
       return
 
-    const snapshot = root.querySelector<HTMLElement>('[data-koala-artifact-snapshot]')
+    const status = root.querySelector<HTMLElement>('[data-koala-artifact-status]')
     const live = root.querySelector<HTMLElement>('[data-koala-artifact-live]')
     const moduleUrl = root.dataset.koalaArtifactModule
-    if (!snapshot || !live || !moduleUrl)
+    if (!status || !live || !moduleUrl)
       return
 
     void mountPublicArtifact({
@@ -36,7 +35,7 @@ class KoalaArtifactMount extends HTMLElement {
       live,
       moduleUrl,
       root,
-      snapshot,
+      status,
     })
   }
 }

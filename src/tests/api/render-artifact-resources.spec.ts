@@ -51,7 +51,7 @@ function createContext(path: string, headers?: HeadersInit, userId: number | nul
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.readArtifactAccess.mockResolvedValue(allowed())
-  mocks.readArtifactBody.mockImplementation(async (_env, _input, field) => field === 'javascript' ? javascript : css)
+  mocks.readArtifactBody.mockImplementation(async (_env, _input, field) => field === 'javascript' ? serializeJavascriptResource(javascript) : css)
 })
 
 describe('render Artifact resource API', () => {

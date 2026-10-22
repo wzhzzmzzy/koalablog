@@ -6,7 +6,7 @@ export interface ArtifactResourceInput {
   ifNoneMatch: string | null
   mimeType: string
   privateResource: boolean
-  body: string | null
+  body: BodyInit | null
 }
 
 function noStoreResponse(status = 404) {

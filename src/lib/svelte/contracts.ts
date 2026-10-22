@@ -57,8 +57,8 @@ export interface SvelteDependencyManifestEntry {
   sha256: string
 }
 
-export interface SvelteArtifactInputV1 {
-  schemaVersion: 1
+export interface SvelteArtifactInput {
+  schemaVersion: 2
   renderer: 'svelte'
   svelteVersion: string
   unocssVersion: string
@@ -67,7 +67,6 @@ export interface SvelteArtifactInputV1 {
   dependencies: SvelteDependencyManifestEntry[]
   javascript: string
   css: string
-  snapshotHtml: string
 }
 
 export interface SvelteArtifactHashes {

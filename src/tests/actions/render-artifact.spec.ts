@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/actions/utils/auth', () => ({ loginGuard: mocks.authGuard }))
+vi.mock('@/db/artifact-migration', () => ({ artifactSchemaStatus: async () => ({ ready: true }) }))
 vi.mock('@/db/markdown', () => ({ readById: mocks.readById }))
 vi.mock('@/db/render-artifact', () => ({
   readDeployedRenderArtifact: mocks.readDeployedRenderArtifact,
@@ -29,7 +30,7 @@ const sourceHash = 'a'.repeat(64)
 function input(overrides: Record<string, unknown> = {}) {
   return {
     fileId: 7,
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     renderer: 'svelte' as const,
     svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
     unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
@@ -38,7 +39,6 @@ function input(overrides: Record<string, unknown> = {}) {
     dependencies: [],
     javascript: '({ mount() { return {}; }, unmount() {} })',
     css: '.page {}',
-    snapshotHtml: '<p>Snapshot</p>',
     ...overrides,
   }
 }
@@ -83,6 +83,7 @@ describe('render Artifact attach action', () => {
         cssResourceHash: 'd'.repeat(64),
       }),
       null,
+      { storage: 'd1', ownerId: 1, expectedStorage: undefined },
     )
     expect(result).toMatchObject({ artifactHash: 'b'.repeat(64) })
   })
@@ -92,6 +93,32 @@ describe('render Artifact attach action', () => {
 
     await expect(attach.orThrow.call(context, input())).rejects.toThrow('Unauthorized')
     expect(mocks.readById).not.toHaveBeenCalled()
+    expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
+  })
+
+  it('preserves R2 mode on ordinary redeploy and supports an explicit return to D1', async () => {
+    const r2Context = { locals: { ...context.locals, runtime: { env: { DB: 'db', OSS: {} } } } } as any
+    mocks.readDeployedRenderArtifact.mockResolvedValue(currentArtifact({ dependencies: [], javascriptKey: 'internal/module.js' }))
+    await attach.orThrow.call(r2Context, input())
+    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), 'e'.repeat(64), {
+      storage: 'r2',
+      ownerId: 1,
+      expectedStorage: 'r2',
+    })
+    await attach.orThrow.call(r2Context, input({ storage: 'd1' }))
+    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), 'e'.repeat(64), {
+      storage: 'd1',
+      ownerId: 1,
+      expectedStorage: 'r2',
+    })
+    expect(mocks.calculateArtifactHashes).toHaveBeenLastCalledWith(input())
+  })
+
+  it('rejects R2 selection without a binding rather than silently falling back to D1', async () => {
+    await expect(attach.orThrow.call(context, input({ storage: 'r2' }))).rejects.toMatchObject({
+      code: 'UNPROCESSABLE_CONTENT',
+      message: JSON.stringify({ code: 'r2_unavailable', message: 'Configure a private OSS R2 binding before selecting R2.' }),
+    })
     expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
   })
 
@@ -115,7 +142,7 @@ describe('render Artifact attach action', () => {
     expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
   })
 
-  it('rejects unsupported toolchains, non-canonical manifests, and executable Snapshots before replacement', async () => {
+  it('rejects unsupported toolchains, non-canonical manifests, and obsolete snapshot payloads before replacement', async () => {
     await expect(attach.orThrow.call(context, input({ svelteVersion: '5.20.0' }))).rejects.toMatchObject({
       code: 'UNPROCESSABLE_CONTENT',
       status: 422,
@@ -130,9 +157,8 @@ describe('render Artifact attach action', () => {
       message: JSON.stringify({ code: 'invalid_dependency_manifest' }),
     })
     await expect(attach.orThrow.call(context, input({ snapshotHtml: '<p onclick="alert(1)">Snapshot</p>' }))).rejects.toMatchObject({
-      code: 'UNPROCESSABLE_CONTENT',
-      status: 422,
-      message: JSON.stringify({ code: 'invalid_snapshot' }),
+      code: 'BAD_REQUEST',
+      status: 400,
     })
     expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
   })
@@ -166,7 +192,7 @@ describe('render Artifact attach action', () => {
     await expect(attach.orThrow.call(context, input({
       dependencies: [{ url: 'https://example.test/new.js', bytes: 1, sha256: 'e'.repeat(64) }],
     }))).resolves.toMatchObject({ artifactHash: 'b'.repeat(64) })
-    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenCalledWith(expect.anything(), expect.anything(), null)
+    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenCalledWith(expect.anything(), expect.anything(), null, { storage: 'd1', ownerId: 1, expectedStorage: 'd1' })
   })
 
   it('returns a bounded dependency review instead of replacing a Current Artifact', async () => {
@@ -204,7 +230,7 @@ describe('render Artifact attach action', () => {
       dependencies: [{ url: 'https://example.test/module.js', bytes: 2, sha256: 'a'.repeat(64) }],
       confirmation: { currentArtifactHash: 'e'.repeat(64), proposedArtifactHash: 'b'.repeat(64) },
     }))).resolves.toMatchObject({ artifactHash: 'b'.repeat(64) })
-    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'e'.repeat(64))
+    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'e'.repeat(64), { storage: 'd1', ownerId: 1, expectedStorage: 'd1' })
   })
 
   it('rejects stale dependency confirmation after Source, current Artifact, or proposed Artifact changes', async () => {

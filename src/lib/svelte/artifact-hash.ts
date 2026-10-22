@@ -1,6 +1,6 @@
-import type { SvelteArtifactHashes, SvelteArtifactInputV1, SvelteDependencyManifestEntry } from './contracts'
+import type { SvelteArtifactHashes, SvelteArtifactInput, SvelteDependencyManifestEntry } from './contracts'
 
-export const SVELTE_ARTIFACT_SERIALIZATION_VERSION = 'koala-artifact-v1'
+export const SVELTE_ARTIFACT_SERIALIZATION_VERSION = 'koala-artifact-v2'
 export const SVELTE_JAVASCRIPT_RESOURCE_VERSION = 'koala-js-v1'
 
 function bytes(value: string) {
@@ -25,7 +25,7 @@ export function canonicalDependencies(dependencies: readonly SvelteDependencyMan
     .sort((left, right) => left.url.localeCompare(right.url))
 }
 
-export function serializeArtifactPayload(input: SvelteArtifactInputV1) {
+export function serializeArtifactPayload(input: SvelteArtifactInput) {
   return JSON.stringify([
     SVELTE_ARTIFACT_SERIALIZATION_VERSION,
     input.svelteVersion,
@@ -35,7 +35,6 @@ export function serializeArtifactPayload(input: SvelteArtifactInputV1) {
     canonicalDependencies(input.dependencies),
     input.javascript,
     input.css,
-    input.snapshotHtml,
   ])
 }
 
@@ -43,7 +42,7 @@ export function serializeJavascriptResource(javascript: string) {
   return `const artifact = ${javascript};\nexport async function mountKoalaArtifact(target) {\n  const instance = artifact.mount(target);\n  return { unmount: () => artifact.unmount(instance) };\n}\n`
 }
 
-export async function calculateArtifactHashes(input: SvelteArtifactInputV1): Promise<SvelteArtifactHashes> {
+export async function calculateArtifactHashes(input: SvelteArtifactInput): Promise<SvelteArtifactHashes> {
   const javascriptResource = serializeJavascriptResource(input.javascript)
   const [artifactHash, javascriptResourceHash, cssResourceHash] = await Promise.all([
     sha256Hex(serializeArtifactPayload(input)),

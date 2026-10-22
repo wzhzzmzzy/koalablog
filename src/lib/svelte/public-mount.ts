@@ -1,7 +1,7 @@
 export interface PublicArtifactElements {
   live: HTMLElement
   root: HTMLElement
-  snapshot: HTMLElement
+  status: HTMLElement
 }
 
 export interface PublicArtifactModule {
@@ -18,11 +18,11 @@ function detail(error: unknown) {
 }
 
 export async function mountPublicArtifact(input: MountPublicArtifactInput) {
-  const { live, root, snapshot } = input
+  const { live, root, status } = input
   try {
     const artifact = await input.importModule(input.moduleUrl)
     await artifact.mountKoalaArtifact(live)
-    snapshot.remove()
+    status.remove()
     live.hidden = false
     root.dataset.koalaRenderState = 'mounted'
     root.dispatchEvent(new CustomEvent('koala:artifact-mounted'))
@@ -32,9 +32,9 @@ export async function mountPublicArtifact(input: MountPublicArtifactInput) {
       live.replaceChildren()
     }
     catch {
-      // A trusted Artifact can leave a malformed live target; Snapshot remains visible either way.
     }
     root.dataset.koalaRenderState = 'failed'
+    status.textContent = 'Unable to load this application. Please reload to try again.'
     root.dispatchEvent(new CustomEvent('koala:artifact-error', { detail: detail(error) }))
   }
 }

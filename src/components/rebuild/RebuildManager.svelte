@@ -1,11 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { actions } from 'astro:actions'
-  import SveltePreview from '@/components/editor/svelte/SveltePreview.svelte'
   import { SvelteBuildController } from '@/components/editor/svelte/build-controller.svelte'
   import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
   import type { SvelteBuildSuccess } from '@/lib/svelte/contracts'
-  import type { PreviewArtifact } from '@/components/editor/svelte/preview-runtime'
   import { Badge } from '@/components/ui/badge'
   import { Button } from '@/components/ui/button'
   import { Card, CardContent } from '@/components/ui/card'
@@ -22,17 +20,17 @@
     type RebuildEntry,
   } from './rebuild-model'
 
+  let { r2Available = false }: { r2Available?: boolean } = $props()
   const buildController = new SvelteBuildController()
   let rebuildState = $state(createRebuildState([]))
   let loading = $state(true)
   let loadError = $state<string | null>(null)
   let running = $state(false)
-  let previewReady = $state(false)
-  let preview: SveltePreview | undefined = $state()
+  let storage = $state<'d1' | 'r2' | 'preserve'>('preserve')
   let runGeneration = 0
 
   const progress = $derived(rebuildProgress(rebuildState))
-  const canStart = $derived(!loading && !running && previewReady && progress.queued > 0)
+  const canStart = $derived(!loading && !running && progress.queued > 0)
 
   onMount(() => {
     void loadCandidates()
@@ -94,18 +92,12 @@
   }
 
   async function attachSavedBuild(candidate: RebuildCandidate, build: SvelteBuildSuccess, generation: number) {
-    if (!preview || !isCurrentRun(generation))
-      throw new Error('Batch rebuild stopped')
-    const artifact: PreviewArtifact = { css: build.css, javascript: build.javascript }
-    const snapshotHtml = await preview.snapshot(artifact)
     if (!isCurrentRun(generation))
       throw new Error('Batch rebuild stopped')
-    if (!snapshotHtml)
-      throw new Error('Svelte Preview did not produce an Artifact Snapshot')
 
     return actions.db.renderArtifact.attach({
       fileId: candidate.id,
-      schemaVersion: 1,
+      schemaVersion: 2,
       renderer: 'svelte',
       svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
       unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
@@ -114,7 +106,7 @@
       dependencies: build.dependencies,
       javascript: build.javascript,
       css: build.css,
-      snapshotHtml,
+      ...(storage === 'preserve' ? {} : { storage }),
     })
   }
 
@@ -207,6 +199,13 @@
       <p class="mt-2 text-sm text-muted-foreground">Deployments run sequentially in this open browser tab. Closing it stops the batch.</p>
     </div>
     <div class="flex flex-wrap gap-2">
+      <label>Artifact storage
+        <select aria-label="Artifact storage mode" bind:value={storage} disabled={running} class="rounded-lg border border-input bg-background px-2 py-1 text-sm">
+          <option value="preserve">Keep current mode (new: D1)</option>
+          <option value="d1">D1</option>
+          <option value="r2" disabled={!r2Available}>R2</option>
+        </select>
+      </label>
       <Button variant="outline" type="button" onclick={() => void loadCandidates()} disabled={loading || running}>Refresh candidates</Button>
       {#if running}
         <Button variant="outline" type="button" onclick={stopBatch}>Stop after current step</Button>
@@ -229,9 +228,6 @@
       <Badge variant="outline" class="text-muted-foreground">{progress.queued + progress.running} remaining</Badge>
     </div>
 
-    {#if !previewReady}
-      <p class="mt-3 text-sm text-muted-foreground">Preparing Preview for Snapshot capture…</p>
-    {/if}
 
     {#if progress.total === 0}
       <p class="mt-8 text-sm text-muted-foreground">No active Svelte Files need deploying.</p>
@@ -261,15 +257,5 @@
     {/if}
   {/if}
 
-  <section class="mt-8" aria-label="Svelte Artifact Snapshot Preview">
-    <div class="mb-3">
-      <h2 class="text-sm font-medium text-foreground">Snapshot Preview</h2>
-      <p class="mt-1 text-sm text-muted-foreground">The final processed File is rendered here only to capture its canonical Snapshot.</p>
-    </div>
-    <Card class="overflow-hidden">
-      <div class="h-64 overflow-hidden bg-[color:var(--koala-dashboard-code)]">
-        <SveltePreview bind:this={preview} onFocusReturn={() => {}} onReady={() => { previewReady = true }} />
-      </div>
-    </Card>
-  </section>
+
 </section>

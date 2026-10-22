@@ -218,7 +218,7 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
     throw new Error('Expected public Svelte test File')
 
   const publicArtifact = {
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
     renderer: 'svelte' as const,
     svelteVersion: SVELTE_TOOLCHAIN_VERSIONS.svelte,
     unocssVersion: SVELTE_TOOLCHAIN_VERSIONS.unocss,
@@ -227,7 +227,6 @@ async function seedDatabase(database: ReturnType<typeof openDatabase>) {
     dependencies: [],
     javascript: '({ mount(target) { target.innerHTML = \'<p id="live-artifact">Live Artifact</p>\'; return {}; }, unmount() {} })',
     css: ':where([data-koala-artifact-root]) .snapshot { color: rgb(1, 2, 3); }',
-    snapshotHtml: '<p class="snapshot">Snapshot Artifact</p><a href="/phase-two">Safe link</a>',
   }
   const hashes = await calculateArtifactHashes(publicArtifact)
   await database.insert(schema.markdownRender).values({ fileId: svelteFile.id, ...publicArtifact, ...hashes })

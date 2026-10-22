@@ -28,8 +28,14 @@ export const GET: APIRoute = async (ctx) => {
   }
   if (!responseInput.privateResource && matchesIfNoneMatch(responseInput.ifNoneMatch, responseInput.etag))
     return artifactResourceResponse(responseInput)
-  const css = await readArtifactBody(env, { ...input, artifactHash: result.artifact.artifactHash, privateResource: responseInput.privateResource }, 'css')
-  if (css === undefined)
-    return noStoreResponse()
-  return artifactResourceResponse({ ...responseInput, body: css })
+  try {
+    const css = await readArtifactBody(env, { ...input, schemaVersion: result.artifact.schemaVersion, artifactHash: result.artifact.artifactHash, privateResource: responseInput.privateResource }, 'css')
+    if (css === undefined)
+      return noStoreResponse()
+    return artifactResourceResponse({ ...responseInput, body: css })
+  }
+  catch (error) {
+    console.error('artifact_resource_read_failed', { fileId: input.fileId, sourceHash, message: error instanceof Error ? error.message : String(error) })
+    return noStoreResponse(503)
+  }
 }

@@ -5,10 +5,11 @@ import { add, readByPath, readList } from '@/db/markdown'
 import { resetD1ForOnboarding } from '@/db/onboarding'
 import initSql from '../../migrations/0000_init.sql?raw'
 import userSchemaSql from '../../migrations/0002_user.sql?raw'
+import artifactSchemaSql from '../../migrations/0003_artifact_objects.sql?raw'
 
 describe('D1 Memo list filtering', () => {
   beforeEach(async () => {
-    await resetD1ForOnboarding(env, [initSql, userSchemaSql])
+    await resetD1ForOnboarding(env, [initSql, userSchemaSql, artifactSchemaSql])
   })
 
   it('excludes /data at a case-sensitive Path boundary before applying year, tag and visibility filters', async () => {

@@ -6,6 +6,7 @@ import { resetD1ForOnboarding } from '@/db/onboarding'
 import initSql from '../../migrations/0000_init.sql?raw'
 import memoRemapSql from '../../migrations/0001_memo_source_remap.sql?raw'
 import userSchemaSql from '../../migrations/0002_user.sql?raw'
+import artifactSchemaSql from '../../migrations/0003_artifact_objects.sql?raw'
 
 describe('D1 onboarding reset', () => {
   it('replays the single initialization migration on a repeated incomplete onboarding visit', async () => {
@@ -19,8 +20,8 @@ describe('D1 onboarding reset', () => {
   })
 
   it('replays the full migration chain including the user schema on a repeated visit', async () => {
-    await resetD1ForOnboarding(env, [initSql, memoRemapSql, userSchemaSql])
-    await resetD1ForOnboarding(env, [initSql, memoRemapSql, userSchemaSql])
+    await resetD1ForOnboarding(env, [initSql, memoRemapSql, userSchemaSql, artifactSchemaSql])
+    await resetD1ForOnboarding(env, [initSql, memoRemapSql, userSchemaSql, artifactSchemaSql])
 
     const tables = await connectD1(env.DB).all<{ name: string }>(sql.raw(
       `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('user', 'api_token') ORDER BY name`,

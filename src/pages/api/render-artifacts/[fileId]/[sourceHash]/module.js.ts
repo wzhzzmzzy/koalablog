@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro'
 import { readArtifactBody, readArtifactMetadata } from '@/db/render-artifact'
-import { serializeJavascriptResource } from '@/lib/svelte/artifact-hash'
 import { artifactFileId, artifactResourceResponse, isArtifactResourceRequest, matchesIfNoneMatch, noStoreResponse } from '@/lib/svelte/artifact-resource'
 
 export const GET: APIRoute = async (ctx) => {
@@ -29,8 +28,14 @@ export const GET: APIRoute = async (ctx) => {
   }
   if (!responseInput.privateResource && matchesIfNoneMatch(responseInput.ifNoneMatch, responseInput.etag))
     return artifactResourceResponse(responseInput)
-  const javascript = await readArtifactBody(env, { ...input, artifactHash: result.artifact.artifactHash, privateResource: responseInput.privateResource }, 'javascript')
-  if (javascript === undefined)
-    return noStoreResponse()
-  return artifactResourceResponse({ ...responseInput, body: serializeJavascriptResource(javascript) })
+  try {
+    const javascript = await readArtifactBody(env, { ...input, schemaVersion: result.artifact.schemaVersion, artifactHash: result.artifact.artifactHash, privateResource: responseInput.privateResource }, 'javascript')
+    if (javascript === undefined)
+      return noStoreResponse()
+    return artifactResourceResponse({ ...responseInput, body: javascript })
+  }
+  catch (error) {
+    console.error('artifact_resource_read_failed', { fileId: input.fileId, sourceHash, message: error instanceof Error ? error.message : String(error) })
+    return noStoreResponse(503)
+  }
 }

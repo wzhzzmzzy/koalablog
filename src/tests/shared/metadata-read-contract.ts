@@ -65,7 +65,7 @@ export function defineMetadataReadContract(harness: {
       })
       await db.insert(markdownRender).values({
         fileId: 4,
-        schemaVersion: 1,
+        schemaVersion: 2,
         renderer: 'svelte',
         svelteVersion: '5',
         unocssVersion: '65',
@@ -76,7 +76,6 @@ export function defineMetadataReadContract(harness: {
         cssResourceHash: 'css',
         javascript: 'j'.repeat(100_000),
         css: 'c'.repeat(100_000),
-        snapshotHtml: 's'.repeat(100_000),
         dependencies: [],
       })
       await db.run('UPDATE markdown_render SET dependencies = \'invalid JSON must not be decoded by a status read\'')

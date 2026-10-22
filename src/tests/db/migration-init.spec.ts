@@ -24,7 +24,7 @@ describe('fresh database migration', () => {
     const database = drizzleSqlite({ connection: { url: sqliteUrl } })
     const journal = JSON.parse(await readFile('migrations/meta/_journal.json', 'utf8')) as { entries: unknown[] }
 
-    expect(journal.entries).toHaveLength(3)
+    expect(journal.entries).toHaveLength(4)
 
     await migrate(database, { migrationsFolder: 'migrations' })
 
@@ -56,10 +56,10 @@ describe('fresh database migration', () => {
       INSERT INTO markdown_render (
         fileId, schemaVersion, renderer, svelteVersion, unocssVersion, unocssConfigHash,
         sourceHash, dependencies, artifactHash, javascriptResourceHash, cssResourceHash,
-        javascript, css, snapshotHtml
+        javascript, css
       ) VALUES (
         1, 1, 'svelte', '5.19.2', '65.4.3', 'a', 'fresh-source-hash', '[]', 'b', 'c', 'd',
-        'export {}', '', '<p>fresh</p>'
+        'export {}', ''
       )
     `)
     await database.run(sql.raw('DELETE FROM markdown WHERE id = 1'))

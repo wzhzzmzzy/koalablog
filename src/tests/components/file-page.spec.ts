@@ -98,7 +98,7 @@ describe('shared File page shell', () => {
     expect(mocks.renderIt).toHaveBeenCalledTimes(matrix.length)
   })
 
-  it('renders a current Svelte Artifact as styled Snapshot without reading Markdown Source', async () => {
+  it('renders a current Svelte Artifact as a loading shell with no static body without reading Markdown Source', async () => {
     const container = await AstroContainer.create()
     const response = await container.renderToResponse(FilePage, {
       locals: locals(),
@@ -113,7 +113,9 @@ describe('shared File page shell', () => {
     expect(html).toContain(`href="/api/render-artifacts/7/${'b'.repeat(64)}/styles.css"`)
     expect(html).toContain(`data-koala-artifact-module="/api/render-artifacts/7/${'b'.repeat(64)}/module.js"`)
     expect(html).toContain('data-koala-artifact-root')
-    expect(html).toContain('<p>Svelte summary</p><a href="/safe">Safe</a>')
+    expect(html).not.toContain('Svelte summary')
+    expect(html).toContain('This application requires JavaScript.')
+    expect(html).toContain('data-koala-render-state="loading"')
     expect(html).not.toContain('secret()')
     expect(mocks.renderIt).not.toHaveBeenCalled()
   })

@@ -1,11 +1,11 @@
 import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
+import { artifactSchemaStatus } from '@/db/artifact-migration'
 import { readById } from '@/db/markdown'
 import { readDeployedRenderArtifact, readDeploymentSummary, replaceDeployedRenderArtifact } from '@/db/render-artifact'
 import { calculateArtifactHashes, canonicalDependencies } from '@/lib/svelte/artifact-hash'
 import { artifactLimitViolation } from '@/lib/svelte/artifact-limits'
 import { dependencyDiff, sameDependencies } from '@/lib/svelte/dependency-diff'
-import { isCanonicalSnapshotHtml } from '@/lib/svelte/snapshot'
 import { SVELTE_TOOLCHAIN_VERSIONS, UNOCSS_CONFIG_HASH } from '@/lib/svelte/toolchain'
 import { loginGuard } from '../utils/auth'
 
@@ -19,7 +19,7 @@ const dependency = z.object({
 
 const artifactInput = z.object({
   fileId: z.number().int().positive(),
-  schemaVersion: z.literal(1),
+  schemaVersion: z.literal(2),
   renderer: z.literal('svelte'),
   svelteVersion: z.string(),
   unocssVersion: z.string(),
@@ -28,7 +28,7 @@ const artifactInput = z.object({
   dependencies: z.array(dependency),
   javascript: z.string(),
   css: z.string(),
-  snapshotHtml: z.string(),
+  storage: z.enum(['d1', 'r2']).optional(),
   confirmation: z.object({
     currentArtifactHash: sha256,
     proposedArtifactHash: sha256,
@@ -60,8 +60,10 @@ export const attach = defineAction({
   input: artifactInput,
   handler: async (input, ctx) => {
     await loginGuard(ctx)
-    const { confirmation, ...artifact } = input
+    const { confirmation, storage, ...artifact } = input
     const env = ctx.locals.runtime?.env || {}
+    if (!(await artifactSchemaStatus(env)).ready)
+      return reject('CONFLICT', { code: 'artifact_migration_required', message: 'An administrator must run the database migration in Settings.' })
     const file = await readById(env, artifact.fileId)
     if (!file || file.userId !== ctx.locals.session.userId)
       throw new ActionError({ code: 'NOT_FOUND', message: 'File not found' })
@@ -73,8 +75,6 @@ export const attach = defineAction({
       return reject('UNPROCESSABLE_CONTENT', { code: 'unsupported_toolchain' })
     if (!isCanonicalManifest(artifact.dependencies))
       return reject('UNPROCESSABLE_CONTENT', { code: 'invalid_dependency_manifest' })
-    if (!await isCanonicalSnapshotHtml(artifact.snapshotHtml))
-      return reject('UNPROCESSABLE_CONTENT', { code: 'invalid_snapshot' })
 
     const violation = artifactLimitViolation(artifact)
     if (violation)
@@ -100,10 +100,17 @@ export const attach = defineAction({
       return reject('CONFLICT', { code: 'dependency_confirmation_stale' })
     }
 
-    const attached = await replaceDeployedRenderArtifact(env, { ...artifact, ...hashes }, rebuiltDeployment?.artifactHash ?? null)
+    const currentStorage = deployed ? (deployed.javascriptKey ? 'r2' : 'd1') : undefined
+    if ((storage ?? currentStorage) === 'r2' && !env.OSS)
+      return reject('UNPROCESSABLE_CONTENT', { code: 'r2_unavailable', message: 'Configure a private OSS R2 binding before selecting R2.' })
+    const attached = await replaceDeployedRenderArtifact(env, { ...artifact, ...hashes }, rebuiltDeployment?.artifactHash ?? null, {
+      storage: storage ?? currentStorage ?? 'd1',
+      ownerId: ctx.locals.session.userId!,
+      expectedStorage: currentStorage,
+    })
     if (!attached)
       return reject('CONFLICT', { code: confirmation ? 'dependency_confirmation_stale' : 'artifact_changed' })
-    return attached
+    return { fileId: attached.fileId, artifactHash: attached.artifactHash, sourceHash: attached.sourceHash }
   },
 })
 

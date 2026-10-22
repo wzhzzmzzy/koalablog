@@ -3,6 +3,7 @@ import { Save, Upload } from '@lucide/astro'
 import { actions } from 'astro:actions'
 import ExportZip from '@/components/io/export-zip.svelte'
 import ImportFile from '@/components/io/import-file.svelte'
+import ArtifactDatabaseMigration from '@/components/settings/ArtifactDatabaseMigration.svelte'
 import RssEnableSwitch from '@/components/settings/RssEnableSwitch.svelte'
 import ThemeSwitch from '@/components/settings/theme-switch.svelte'
 import { readToday } from '@/db/ossAccess'
@@ -52,6 +53,8 @@ const secondaryButtonClass = 'inline-flex h-8 items-center justify-center rounde
       </div>
       {isAdmin && <span class="settings-page-status">Site administrator</span>}
     </header>
+
+    {isAdmin && <ArtifactDatabaseMigration client:load />}
 
     <section class="settings-section" aria-labelledby="account-settings-title">
       <div class="settings-section-grid">

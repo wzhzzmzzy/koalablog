@@ -49,7 +49,6 @@ function fixture() {
     eventTarget,
     root: root as unknown as HTMLElement,
     style: style as unknown as HTMLStyleElement,
-    waitForPaint: async () => {},
   })
   return { evaluate, eventTarget, root, runtime, style, unmount }
 }
@@ -59,16 +58,15 @@ function artifact(javascript: string, css = '.koala { color: rebeccapurple; }'):
 }
 
 describe('in-document Svelte Preview runtime', () => {
-  it('replaces the active Component and captures its settled DOM Snapshot', async () => {
+  it('replaces the active Component without capturing or serializing its DOM', async () => {
     const { root, runtime, style, unmount } = fixture()
 
     await runtime.render(artifact('<p>First preview</p>', '.first { color: red; }'))
-    const snapshot = await runtime.snapshot(artifact('<p>Second preview</p>', '.second { color: blue; }'))
+    await runtime.render(artifact('<p>Second preview</p>', '.second { color: blue; }'))
 
     expect(unmount).toHaveBeenCalledTimes(1)
     expect(style.textContent).toBe('.second { color: blue; }')
     expect(root.innerHTML).toBe('<p>Second preview</p>')
-    expect(snapshot).toBe('<p>Second preview</p>')
     await runtime.dispose()
   })
 
@@ -98,7 +96,6 @@ describe('in-document Svelte Preview runtime', () => {
       onRuntimeError: error => errors.push(error.message),
       root: root as unknown as HTMLElement,
       style: { textContent: '' } as HTMLStyleElement,
-      waitForPaint: async () => {},
     })
     await observedRuntime.render(artifact('ignored'))
 

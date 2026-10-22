@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { artifactByteLengths, artifactLimitViolation, SVELTE_ARTIFACT_LIMITS } from '@/lib/svelte/artifact-limits'
 
-function artifact(overrides: Partial<{ css: string, javascript: string, snapshotHtml: string }> = {}) {
+function artifact(overrides: Partial<{ css: string, javascript: string }> = {}) {
   return {
     css: '',
     dependencies: [],
     javascript: '',
     renderer: 'svelte' as const,
-    schemaVersion: 1 as const,
-    snapshotHtml: '',
+    schemaVersion: 2 as const,
     sourceHash: 'a'.repeat(64),
     svelteVersion: '5.19.2',
     unocssConfigHash: 'b'.repeat(64),

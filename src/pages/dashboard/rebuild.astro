@@ -1,8 +1,10 @@
 ---
+import ArtifactStorageManager from '@/components/rebuild/ArtifactStorageManager.svelte'
 import RebuildManager from '@/components/rebuild/RebuildManager.svelte'
 import DashboardShell from '@/layouts/dashboard-shell.astro'
 ---
 
 <DashboardShell title="Deploy Svelte Files" description="Publish browser-built Svelte Files safely.">
-  <RebuildManager client:load />
+  <RebuildManager r2Available={Boolean(Astro.locals.runtime?.env.OSS)} client:load />
+  <ArtifactStorageManager client:load />
 </DashboardShell>

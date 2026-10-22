@@ -8,6 +8,7 @@ import { GET as getModule } from '@/pages/api/render-artifacts/[fileId]/[sourceH
 import { GET as getStyles } from '@/pages/api/render-artifacts/[fileId]/[sourceHash]/styles.css'
 import initSql from '../../migrations/0000_init.sql?raw'
 import userSchemaSql from '../../migrations/0002_user.sql?raw'
+import artifactSchemaSql from '../../migrations/0003_artifact_objects.sql?raw'
 
 const sourceHash = 'a'.repeat(64)
 
@@ -30,7 +31,7 @@ function instrumentedEnv() {
 
 describe('D1 Artifact delivery projections', () => {
   beforeEach(async () => {
-    await resetD1ForOnboarding(env, [initSql, userSchemaSql])
+    await resetD1ForOnboarding(env, [initSql, userSchemaSql, artifactSchemaSql])
     await connectDB(env).insert(markdown).values({
       id: 1,
       path: '/page/test',
@@ -44,7 +45,7 @@ describe('D1 Artifact delivery projections', () => {
     })
     await replaceRenderArtifact(env, {
       fileId: 1,
-      schemaVersion: 1,
+      schemaVersion: 2,
       renderer: 'svelte',
       svelteVersion: '5',
       unocssVersion: '65',
@@ -55,7 +56,6 @@ describe('D1 Artifact delivery projections', () => {
       cssResourceHash: 'css',
       javascript: '({ mount() {}, unmount() {} })',
       css: '.test {}',
-      snapshotHtml: '<p>Snapshot</p>',
       dependencies: [],
     })
   })
@@ -82,14 +82,15 @@ describe('D1 Artifact delivery projections', () => {
     expect(response.status).toBe(200)
     await response.text()
     expect(statements).toHaveLength(2)
-    expect(statements[1].split(' from ')[0]).toBe(`select "markdown_render"."${field}"`)
+    expect(statements[1].split(' from ')[0]).toContain(`"markdown_render"."${field}"`)
+    expect(statements[1].split(' from ')[0]).not.toContain(`"markdown_render"."${field === 'javascript' ? 'css' : 'javascript'}"`)
   })
 
-  it('loads only the Snapshot for HTML delivery', async () => {
+  it('loads only metadata for HTML delivery', async () => {
     const { statements, environment } = instrumentedEnv()
-    expect((await readArtifactAccess(environment, { fileId: 1, representation: 'page' })).artifact?.snapshotHtml).toBe('<p>Snapshot</p>')
-    expect(statements).toHaveLength(2)
-    expect(statements[1].split(' from ')[0]).toBe('select "markdown_render"."snapshotHtml"')
+    expect((await readArtifactAccess(environment, { fileId: 1, representation: 'page' })).artifact?.sourceHash).toBe(sourceHash)
+    expect(statements).toHaveLength(1)
+    expect(statements[0]).not.toMatch(/"(?:content|javascript|css|snapshotHtml|dependencies)"/)
   })
 
   it('refuses a matching cached validator after the File becomes private', async () => {
