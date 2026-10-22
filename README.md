@@ -21,6 +21,10 @@ CLI requests continue using `Authorization: Bearer <API Token>` without requirin
 
 ## Development
 
+### Upgrading existing installations
+
+Ordinary HTTP requests do not initialize the Template Catalog or migrate legacy Users. Fresh sites still use onboarding. Before serving this release on an older installation, follow the [explicit initialization runbook](docs/runbooks/explicit-installation-initialization.md); select the existing database/configuration and apply schema migrations without resetting data. The `installation:initialize` command is an operator action, not an automatic startup hook or deployment.
+
 ### 1. Cloudflare Pages Mode
 
 #### Prerequirments
