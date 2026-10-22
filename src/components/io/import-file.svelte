@@ -1,7 +1,6 @@
 <script lang="ts">
 import type { DiskSourceFile } from "@/lib/files/disk";
 import type { FileRecord } from '@/db/types'
-import { flattenFileCollections } from "@/lib/files/collection";
 import { supportFSApi } from "@/lib/services/file-reader";
 import { importExchangeArchive, importFromFilePicker, pickExchangeArchive } from "@/lib/services/io";
 import { actions } from "astro:actions";
@@ -87,15 +86,6 @@ const checkForDuplicates = () => {
 onMount(() => {
   supportFilePicker = supportFSApi()
 
-  actions.db.markdown.all({ includeTrash: false }).then((allFilesFromDB) => {
-    if (allFilesFromDB.error) {
-      console.error('Failed to load existing File Paths:', allFilesFromDB.error)
-    } else {
-      const data = allFilesFromDB.data
-      allFilePaths = flattenFileCollections(data ?? {})
-        .map(file => file.path)
-    }
-  })
   
   // Cleanup function to ensure scroll is unlocked if component unmounts
   return () => {
@@ -119,6 +109,14 @@ const onImport = async () => {
     status = ImportStatus.IDLE
     return
   }
+
+  const paths = await actions.db.markdown.paths().catch(() => null)
+  if (!paths || paths.error) {
+    saveError = paths?.error?.message ?? 'Unable to check existing File Paths. Please retry.'
+    status = ImportStatus.IDLE
+    return
+  }
+  allFilePaths = paths.data ?? []
 
   // Setup drawer
   foundFiles = result

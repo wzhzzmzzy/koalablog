@@ -22,7 +22,7 @@ export default defineConfig({
     actionBodySizeLimit: 21 * 1024 * 1024,
   },
   build: {
-    inlineStylesheets: 'always',
+    inlineStylesheets: 'auto',
   },
   vite: {
     plugins: [tailwindcss(), PreprocessorDirectives()],

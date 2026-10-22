@@ -1,6 +1,6 @@
 import * as artifactStorage from './db/artifact-storage'
 import * as editor from './db/editor'
-import { all, batchImport, byPrefix, create, emptyTrash, purge, restore, trash } from './db/markdown'
+import { all, batchImport, byPrefix, create, emptyTrash, paths, purge, restore, trash } from './db/markdown'
 import { attach as attachRenderArtifact, status as renderArtifactStatus } from './db/render-artifact'
 import { read as readTemplates, replace as replaceTemplates } from './db/templates'
 import { changePassword, createApiToken, createUser, resetPassword, revokeApiToken } from './form/account'
@@ -39,6 +39,7 @@ export const server = {
       replace: replaceTemplates,
     },
     markdown: {
+      paths,
       all,
       batchImport,
       byPrefix,

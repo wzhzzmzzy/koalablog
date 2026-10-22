@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { connectDB, MarkdownSource } from '@/db'
-import { readActiveMetadataByOwner, readAllMetadata } from '@/db/markdown'
+import { readActiveMetadataByOwner, readAllMetadata, readOwnedFilePaths } from '@/db/markdown'
 import { readDeploymentSummary } from '@/db/render-artifact'
 import { markdown, markdownRender } from '@/db/schema'
 
@@ -30,6 +30,12 @@ export function defineMetadataReadContract(harness: {
       })))
     })
     afterEach(async () => harness.cleanup?.())
+
+    it('lists only active Owner paths for explicit import checks', async () => {
+      expect((await readOwnedFilePaths(harness.env, 7)).sort()).toEqual(['/memo/owned', '/post/owned'])
+      expect(await readOwnedFilePaths(harness.env, 8)).toEqual(['/memo/other'])
+      expect(await readOwnedFilePaths(harness.env, 9)).toEqual([])
+    })
 
     it('projects only list metadata while preserving Source, Owner, trash and order filters', async () => {
       const batch = readAllMetadata(harness.env, MarkdownSource.Memo)

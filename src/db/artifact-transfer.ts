@@ -7,16 +7,23 @@ import { artifactObjectKey, storeArtifactResources, verifyArtifactResource } fro
 import { connectDB } from '.'
 import { markdown, markdownRender } from './schema'
 
-export async function listArtifactStorage(env: Env, ownerId: number, afterId = 0) {
+export async function listArtifactStorage(env: Env, ownerId: number, afterId = 0, schemaReady = true, fileId?: number) {
   const db: BaseSQLiteDatabase<'async', unknown, typeof import('./schema')> = connectDB(env)
   return db.select({
     fileId: markdown.id,
     path: markdown.path,
     deletedAt: markdown.deletedAt,
+    sourceHash: markdown.sourceHash,
+    deployedSourceHash: markdownRender.sourceHash,
+    deployedAt: markdownRender.updatedAt,
     artifactHash: markdownRender.artifactHash,
-    mode: sql<ArtifactStorageMode>`CASE WHEN ${markdownRender.javascriptKey} IS NULL THEN 'd1' ELSE 'r2' END`,
-  }).from(markdownRender).innerJoin(markdown, eq(markdown.id, markdownRender.fileId)).where(and(
+    mode: schemaReady
+      ? sql<ArtifactStorageMode | null>`CASE WHEN ${markdownRender.fileId} IS NULL THEN NULL WHEN ${markdownRender.javascriptKey} IS NULL THEN 'd1' ELSE 'r2' END`
+      : sql<ArtifactStorageMode | null>`CASE WHEN ${markdownRender.fileId} IS NULL THEN NULL ELSE 'd1' END`,
+  }).from(markdown).leftJoin(markdownRender, eq(markdown.id, markdownRender.fileId)).where(and(
     eq(markdown.userId, ownerId),
+    eq(markdown.renderer, 'svelte'),
+    fileId === undefined ? undefined : eq(markdown.id, fileId),
     gt(markdown.id, afterId),
   )).orderBy(markdown.id).limit(50)
 }

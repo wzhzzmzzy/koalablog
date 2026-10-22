@@ -1,6 +1,7 @@
+import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
+import type { PreparedMarkdownSource } from '@/lib/files/analysis'
 import type { AbsoluteFilePath, AbsolutePathPrefix, RendererMode } from '@/lib/files/types'
 import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
-import { prepareMarkdownSource } from '@/lib/files/analysis'
 import { classifySource, deriveTitle, parseAbsoluteFilePath, parseAbsolutePathPrefix } from '@/lib/files/path'
 import { calculateSourceHash } from '@/lib/files/source-hash'
 import { encodeStoredTags } from '@/lib/files/stored-tags'
@@ -16,6 +17,15 @@ export interface SaveFileInput {
   private: boolean
   baseRevision: number
   userId?: number
+}
+
+export async function readOwnedFilePaths(env: Env, ownerId: number) {
+  const database: BaseSQLiteDatabase<'async', unknown, typeof import('./schema')> = connectDB(env)
+  const files = await database.select({ path: markdown.path }).from(markdown).where(and(
+    eq(markdown.userId, ownerId),
+    isNull(markdown.deletedAt),
+  ))
+  return files.map(file => file.path)
 }
 
 export interface BatchFileInput {
@@ -40,7 +50,7 @@ export interface PathPrefixListing {
 }
 
 export type SaveFileResult =
-  | { status: 'saved', file: typeof markdown.$inferSelect, warnings: ReturnType<typeof prepareMarkdownSource>['warnings'] }
+  | { status: 'saved', file: typeof markdown.$inferSelect, warnings: PreparedMarkdownSource['warnings'] }
   | { status: 'conflict', current: typeof markdown.$inferSelect }
   | { status: 'path_conflict', path: AbsoluteFilePath }
   | { status: 'not_found' }
@@ -64,7 +74,7 @@ function requiredPath(input: string): AbsoluteFilePath {
 
 async function baseValues(path: AbsoluteFilePath, renderer: RendererMode, content: string) {
   const prepared = renderer === RENDERER_MODE.Markdown
-    ? prepareMarkdownSource(content)
+    ? (await import('@/lib/files/analysis')).prepareMarkdownSource(content)
     : { content, tags: [], outgoingPaths: [], warnings: [] }
   return {
     values: {
@@ -98,7 +108,7 @@ async function replaceRendererFile(
   env: Env,
   input: SaveFileInput,
   values: Awaited<ReturnType<typeof baseValues>>['values'] & { private: boolean, updatedAt: Date },
-  warnings: ReturnType<typeof prepareMarkdownSource>['warnings'],
+  warnings: PreparedMarkdownSource['warnings'],
   ownerScoped: boolean,
 ): Promise<SaveFileResult> {
   const replacedAt = new Date()

@@ -96,6 +96,23 @@ describe('render Artifact attach action', () => {
     expect(mocks.replaceDeployedRenderArtifact).not.toHaveBeenCalled()
   })
 
+  it('uses the configured default only for the first deployment, never silently moving existing deployments', async () => {
+    const configured = { locals: { ...context.locals, config: { svelte: { storage: 'r2' } }, runtime: { env: { OSS: {} } } } } as any
+    await attach.orThrow.call(configured, input())
+    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), null, {
+      storage: 'r2',
+      ownerId: 1,
+      expectedStorage: undefined,
+    })
+    mocks.readDeployedRenderArtifact.mockResolvedValue(currentArtifact({ dependencies: [], javascriptKey: null }))
+    await attach.orThrow.call(configured, input())
+    expect(mocks.replaceDeployedRenderArtifact).toHaveBeenLastCalledWith(expect.anything(), expect.anything(), 'e'.repeat(64), {
+      storage: 'd1',
+      ownerId: 1,
+      expectedStorage: 'd1',
+    })
+  })
+
   it('preserves R2 mode on ordinary redeploy and supports an explicit return to D1', async () => {
     const r2Context = { locals: { ...context.locals, runtime: { env: { DB: 'db', OSS: {} } } } } as any
     mocks.readDeployedRenderArtifact.mockResolvedValue(currentArtifact({ dependencies: [], javascriptKey: 'internal/module.js' }))

@@ -141,7 +141,7 @@ The versioned compiled browser bundle and component and generated utility styles
 _Avoid_: Source file, generated file, publication state
 
 **Artifact Storage Mode**:
-The per-deployment location of the Render Artifact's JavaScript and CSS: D1 (inline database text, SQLite in local installations) or R2 (private objects referenced by database metadata). Editable Svelte Source remains in the database in both modes. A verified transfer changes only the storage location, preserving deployed identity, Source Hash, File revision, Owner and Visibility; Deploy without an explicit mode retains the existing mode, while a new deployment defaults to D1.
+The per-deployment location of the Render Artifact's JavaScript and CSS: D1 (inline database text, SQLite in local installations) or R2 (private objects referenced by database metadata). Editable Svelte Source remains in the database in both modes. A verified transfer changes only the storage location, preserving deployed identity, Source Hash, File revision, Owner and Visibility; Deploy without an explicit mode retains the existing mode. A first deployment uses the Admin-configured site default (D1 when unset). Changing that default never migrates existing deployments.
 _Avoid_: Renderer Mode, publication state, public bucket
 
 **Local Svelte Preview**:

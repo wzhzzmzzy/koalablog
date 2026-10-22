@@ -101,10 +101,11 @@ export const attach = defineAction({
     }
 
     const currentStorage = deployed ? (deployed.javascriptKey ? 'r2' : 'd1') : undefined
-    if ((storage ?? currentStorage) === 'r2' && !env.OSS)
+    const targetStorage = storage ?? currentStorage ?? ctx.locals.config?.svelte?.storage ?? 'd1'
+    if (targetStorage === 'r2' && !env.OSS)
       return reject('UNPROCESSABLE_CONTENT', { code: 'r2_unavailable', message: 'Configure a private OSS R2 binding before selecting R2.' })
     const attached = await replaceDeployedRenderArtifact(env, { ...artifact, ...hashes }, rebuiltDeployment?.artifactHash ?? null, {
-      storage: storage ?? currentStorage ?? 'd1',
+      storage: targetStorage,
       ownerId: ctx.locals.session.userId!,
       expectedStorage: currentStorage,
     })

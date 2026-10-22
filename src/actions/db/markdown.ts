@@ -10,6 +10,7 @@ import {
   purge as purgeFile,
   readAll,
   readByPrefix,
+  readOwnedFilePaths,
   restore as restoreFile,
   trash as trashFile,
 } from '@/db/markdown'
@@ -26,6 +27,13 @@ export interface AllCollection {
   home?: FileRecord
   nav?: FileRecord
 }
+
+export const paths = defineAction({
+  handler: async (_, ctx) => {
+    await loginGuard(ctx)
+    return readOwnedFilePaths(ctx.locals.runtime?.env || {}, ctx.locals.session.userId!)
+  },
+})
 
 export const create = defineAction({
   accept: 'json',
