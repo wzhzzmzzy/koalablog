@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   }),
   batchTrashByPaths: vi.fn(),
   readDeploymentSummary: vi.fn(),
-  readAll: vi.fn(),
+  readAllMetadata: vi.fn(),
   saveSyncedFile: vi.fn(),
 }))
 
@@ -21,7 +21,7 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/db/markdown', () => ({
   batchTrashByPaths: mocks.batchTrashByPaths,
   FileInputError: class FileInputError extends Error {},
-  readAll: mocks.readAll,
+  readAllMetadata: mocks.readAllMetadata,
   saveSyncedFile: mocks.saveSyncedFile,
 }))
 
@@ -47,7 +47,7 @@ beforeEach(() => {
 
 describe('markdown batch API reads and deletes', () => {
   it('maps post to Post and legacy page/wiki filters to Memo', async () => {
-    mocks.readAll.mockResolvedValue([
+    mocks.readAllMetadata.mockResolvedValue([
       {
         id: 1,
         path: '/wiki/entities/transformer-architecture',
@@ -62,13 +62,13 @@ describe('markdown batch API reads and deletes', () => {
       headers: { Authorization: 'Bearer token' },
     })))
     expect(postResponse.status).toBe(200)
-    expect(mocks.readAll).toHaveBeenCalledWith({ DB: 'db' }, 10)
+    expect(mocks.readAllMetadata).toHaveBeenCalledWith({ DB: 'db' }, 10)
 
     const wikiResponse = await GET(createContext(new Request('https://koala.test/api/markdown/batch?source=wiki', {
       headers: { Authorization: 'Bearer token' },
     })))
     expect(wikiResponse.status).toBe(200)
-    expect(mocks.readAll).toHaveBeenCalledWith({ DB: 'db' }, 30)
+    expect(mocks.readAllMetadata).toHaveBeenCalledWith({ DB: 'db' }, 30)
     expect(await wikiResponse.json()).toEqual([
       {
         id: 1,
@@ -80,10 +80,11 @@ describe('markdown batch API reads and deletes', () => {
         revision: 3,
       },
     ])
+    expect(mocks.readDeploymentSummary).not.toHaveBeenCalled()
   })
 
   it('reports one shared deployment status for a Svelte File', async () => {
-    mocks.readAll.mockResolvedValue([{
+    mocks.readAllMetadata.mockResolvedValue([{
       id: 2,
       path: '/page/application',
       title: 'application',
@@ -101,6 +102,14 @@ describe('markdown batch API reads and deletes', () => {
     expect(await response.json()).toMatchObject([
       { path: '/page/application', renderer: 'svelte', artifactStatus: 'deployed' },
     ])
+    expect(mocks.readDeploymentSummary).toHaveBeenCalledExactlyOnceWith({ DB: 'db' }, 2)
+  })
+
+  it('does not read metadata for unauthenticated requests', async () => {
+    const response = await GET(createContext(new Request('https://koala.test/api/markdown/batch')))
+    expect(response.status).toBe(401)
+    expect(mocks.readAllMetadata).not.toHaveBeenCalled()
+    expect(mocks.readDeploymentSummary).not.toHaveBeenCalled()
   })
 
   it('returns one explicit soft-delete result for every requested Path', async () => {
@@ -292,6 +301,7 @@ describe('markdown batch API optimistic Source writes', () => {
         content: 'canonical Source',
       }],
     })
+    expect(mocks.readDeploymentSummary).not.toHaveBeenCalled()
   })
 })
 

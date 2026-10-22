@@ -40,11 +40,10 @@ export async function ossGuard(ctx: ActionAPIContext) {
   const operateLimit = ctx.locals.config.oss.operateLimit || 0
   const accessToday = await incrementToday(ctx.locals.runtime?.env, operateLimit, 'operate')
 
-  const operateTimes = accessToday[0]?.operateTimes || 0
-  if (operateTimes >= operateLimit) {
+  if (!accessToday.length) {
     throw new ActionError({
       code: 'TOO_MANY_REQUESTS',
-      message: `Operate reached limit today, times:${operateTimes}, limit:${operateLimit}`,
+      message: `Operate reached limit today, limit:${operateLimit}`,
     })
   }
 }

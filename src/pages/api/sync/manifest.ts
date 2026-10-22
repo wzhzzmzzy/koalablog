@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { readActiveByOwner } from '@/db/markdown'
+import { readActiveMetadataByOwner } from '@/db/markdown'
 import { requireSyncOwner, syncAttachmentPrefix, syncFileManifest, syncJson } from '@/lib/sync/api'
 
 interface AttachmentStore {
@@ -35,7 +35,7 @@ export const GET: APIRoute = async (ctx) => {
   if ('response' in authorization)
     return authorization.response
 
-  const files = await readActiveByOwner(ctx.locals.runtime?.env ?? {} as Env, authorization.userId)
+  const files = await readActiveMetadataByOwner(ctx.locals.runtime?.env ?? {} as Env, authorization.userId)
   const oss = ctx.locals.OSS || ctx.locals.runtime?.env.OSS
   const attachments = oss ? await listAllAttachments(oss, syncAttachmentPrefix(authorization.userId)) : []
   return syncJson({

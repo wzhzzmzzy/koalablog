@@ -5,19 +5,20 @@ import { GET as getStyles } from '@/pages/api/render-artifacts/[fileId]/[sourceH
 
 const mocks = vi.hoisted(() => ({
   readArtifactAccess: vi.fn(),
+  readArtifactBody: vi.fn(),
 }))
 
 vi.mock('@/db/render-artifact', () => ({
-  readArtifactAccess: mocks.readArtifactAccess,
+  readArtifactMetadata: mocks.readArtifactAccess,
+  readArtifactBody: mocks.readArtifactBody,
 }))
 
 const sourceHash = 'a'.repeat(64)
 const javascript = '({ mount(target) { target.textContent = "Koala" }, unmount() {} })'
 const css = ':where([data-koala-artifact-root]) .koala { color: teal; }'
 const artifact = {
-  css,
+  artifactHash: 'e'.repeat(64),
   cssResourceHash: 'c'.repeat(64),
-  javascript,
   javascriptResourceHash: 'j'.repeat(64),
 }
 
@@ -50,6 +51,7 @@ function createContext(path: string, headers?: HeadersInit, userId: number | nul
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.readArtifactAccess.mockResolvedValue(allowed())
+  mocks.readArtifactBody.mockImplementation(async (_env, _input, field) => field === 'javascript' ? javascript : css)
 })
 
 describe('render Artifact resource API', () => {
@@ -64,6 +66,7 @@ describe('render Artifact resource API', () => {
       'x-content-type-options': 'nosniff',
     })
     expect(await response.text()).toBe(serializeJavascriptResource(javascript))
+    expect(mocks.readArtifactBody).toHaveBeenCalledWith({ DB: 'db' }, expect.objectContaining({ artifactHash: artifact.artifactHash, privateResource: false }), 'javascript')
     expect(mocks.readArtifactAccess).toHaveBeenCalledWith({ DB: 'db' }, {
       sessionUserId: null,
       fileId: 17,
@@ -83,6 +86,7 @@ describe('render Artifact resource API', () => {
       'x-content-type-options': 'nosniff',
     })
     expect(await response.text()).toBe(css)
+    expect(mocks.readArtifactBody).toHaveBeenCalledWith({ DB: 'db' }, expect.objectContaining({ artifactHash: artifact.artifactHash }), 'css')
   })
 
   it('matches a public validator list only after the current access check succeeds', async () => {
@@ -96,6 +100,7 @@ describe('render Artifact resource API', () => {
     expect(response.headers.get('ETag')).toBe(etag)
     expect(await response.text()).toBe('')
     expect(mocks.readArtifactAccess).toHaveBeenCalledTimes(1)
+    expect(mocks.readArtifactBody).not.toHaveBeenCalled()
   })
 
   it('never returns 304 or an ETag for authorized private resources', async () => {
@@ -157,5 +162,25 @@ describe('render Artifact resource API', () => {
     expect(await malformed.text()).toBe('')
     expect(mocks.readArtifactAccess).toHaveBeenCalledTimes(1)
     expect(mocks.readArtifactAccess).toHaveBeenCalledWith({ DB: 'db' }, expect.objectContaining({ requestedSourceHash: 'b'.repeat(64) }))
+    expect(mocks.readArtifactBody).not.toHaveBeenCalled()
+  })
+
+  it.each([getModule, getStyles])('returns no bytes or stale ETag if the checked Artifact changes before the body read', async (handler) => {
+    mocks.readArtifactBody.mockResolvedValue(undefined)
+    const response = await handler(createContext(`/api/render-artifacts/17/${sourceHash}/module.js`))
+    expect(response.status).toBe(404)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    expect(response.headers.get('ETag')).toBeNull()
+    expect(await response.text()).toBe('')
+  })
+
+  it('skips CSS reads for a matching validator and preserves empty CSS on a cache miss', async () => {
+    const path = `/api/render-artifacts/17/${sourceHash}/styles.css`
+    expect((await getStyles(createContext(path, { 'If-None-Match': '*' }))).status).toBe(304)
+    expect(mocks.readArtifactBody).not.toHaveBeenCalled()
+    mocks.readArtifactBody.mockResolvedValue('')
+    const response = await getStyles(createContext(path))
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('')
   })
 })

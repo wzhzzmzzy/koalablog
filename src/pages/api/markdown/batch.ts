@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { MarkdownSource } from '@/db'
-import { batchTrashByPaths, FileInputError, readAll, saveSyncedFile } from '@/db/markdown'
+import { batchTrashByPaths, FileInputError, readAllMetadata, saveSyncedFile } from '@/db/markdown'
 import { readDeploymentSummary } from '@/db/render-artifact'
 import { authInterceptor } from '@/lib/auth'
 import { isRendererMode, RENDERER_MODE, type RendererMode } from '@/lib/files/types'
@@ -22,8 +22,10 @@ function requestedSource(value: string | null) {
 }
 
 async function artifactStatus(env: Env | undefined, file: { id: number, renderer: RendererMode }) {
+  if (file.renderer === RENDERER_MODE.Markdown)
+    return 'not_applicable'
   const summary = await readDeploymentSummary(env ?? {} as Env, file.id)
-  return summary?.status ?? (file.renderer === RENDERER_MODE.Markdown ? 'not_applicable' : 'not_deployed')
+  return summary?.status ?? 'not_deployed'
 }
 
 async function serializedFile(env: Env | undefined, file: {
@@ -52,7 +54,7 @@ export const GET: APIRoute = async (ctx) => {
   if (unauthorized)
     return unauthorized
 
-  const files = await readAll(ctx.locals.runtime?.env, requestedSource(ctx.url.searchParams.get('source')))
+  const files = await readAllMetadata(ctx.locals.runtime?.env, requestedSource(ctx.url.searchParams.get('source')))
   return json(await Promise.all(files.map(file => serializedFile(ctx.locals.runtime?.env, file))))
 }
 
