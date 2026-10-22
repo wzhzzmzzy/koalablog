@@ -19,6 +19,7 @@ describe('global config persistence', () => {
       auth: { adminKey: 'admin', guestKey: 'guest' },
       oss: {},
       font: { serif: 'Old Serif' },
+      svelte: { storage: 'r2' },
       _runtime: { ready: true },
     })
     const env = {
@@ -39,6 +40,7 @@ describe('global config persistence', () => {
       pageConfig: { title: 'After', author: 'Amber' },
       auth: { adminKey: 'admin', guestKey: 'guest' },
       font: { serif: 'Old Serif' },
+      svelte: { storage: 'r2' },
     })
   })
 
@@ -52,6 +54,7 @@ describe('global config persistence', () => {
       pageConfig: { title: 'Koala', author: 'Amber' },
       auth: { adminKey: 'admin' },
     }, firstStore)
+    await updateGlobalConfig(env, { svelte: { storage: 'r2' } }, firstStore)
     await updateGlobalConfig(env, {
       pageConfig: { title: 'Renamed' },
       auth: { guestKey: 'guest' },
@@ -61,6 +64,7 @@ describe('global config persistence', () => {
     expect(reloaded).toMatchObject({
       pageConfig: { title: 'Renamed', author: 'Amber' },
       auth: { adminKey: 'admin', guestKey: 'guest' },
+      svelte: { storage: 'r2' },
     })
   })
 })

@@ -1,12 +1,8 @@
-import type { AllCollection } from '@/actions/db/markdown'
-import type { FileRecord } from '@/db/types'
-
 export type RebuildStatus = 'queued' | 'running' | 'success' | 'failure' | 'dependency_changed'
 
 export interface RebuildCandidate {
   id: number
   path: string
-  content: string
   sourceHash: string
 }
 
@@ -28,35 +24,10 @@ export interface RebuildProgress {
   dependencyChanged: number
 }
 
-const collectionKeys = ['posts', 'pages', 'memos', 'wikis'] as const
-
-function isActiveSvelteFile(file: FileRecord) {
-  return file.renderer === 'svelte' && !file.deletedAt
-}
-
-/**
- * Normalizes the one browser-visible batch input. The server action remains a
- * normal authenticated file listing; no rebuild work is queued on the server.
- */
-export function rebuildCandidates(collection: AllCollection): RebuildCandidate[] {
-  const seen = new Set<number>()
-  const candidates: RebuildCandidate[] = []
-
-  for (const key of collectionKeys) {
-    for (const file of collection[key] ?? []) {
-      if (!isActiveSvelteFile(file) || seen.has(file.id))
-        continue
-      seen.add(file.id)
-      candidates.push({
-        id: file.id,
-        path: file.path,
-        content: file.content,
-        sourceHash: file.sourceHash,
-      })
-    }
-  }
-
-  return candidates.sort((left, right) => left.path.localeCompare(right.path) || left.id - right.id)
+export function rebuildCandidates(files: { fileId: number, path: string, sourceHash: string, deletedAt: Date | null }[]): RebuildCandidate[] {
+  return files.filter(file => !file.deletedAt)
+    .map(file => ({ id: file.fileId, path: file.path, sourceHash: file.sourceHash }))
+    .sort((left, right) => left.path.localeCompare(right.path) || left.id - right.id)
 }
 
 export function createRebuildState(candidates: RebuildCandidate[]): RebuildState {

@@ -34,6 +34,9 @@ export interface GlobalConfig {
     operateLimit?: number
     readLimit?: number
   }
+  svelte?: {
+    storage?: 'd1' | 'r2'
+  }
   _runtime: {
     ready: boolean
   }
@@ -104,6 +107,7 @@ function mergeGlobalConfig(currentConfig: GlobalConfig, patch: Partial<GlobalCon
     font: patch.font === undefined ? currentConfig.font : { ...currentConfig.font, ...patch.font },
     auth: { ...currentConfig.auth, ...patch.auth },
     oss: { ...currentConfig.oss, ...patch.oss },
+    svelte: patch.svelte === undefined ? currentConfig.svelte : { ...currentConfig.svelte, ...patch.svelte },
     _runtime: { ...currentConfig._runtime, ...patch._runtime },
   }
 }

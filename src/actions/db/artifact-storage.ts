@@ -2,12 +2,13 @@ import { ActionError, defineAction } from 'astro:actions'
 import { z } from 'astro:schema'
 import { artifactSchemaStatus, migrateArtifactSchema } from '@/db/artifact-migration'
 import { listArtifactStorage, transferArtifactStorage } from '@/db/artifact-transfer'
+import { updateGlobalConfig } from '@/lib/kv'
 import { authGuard, loginGuard } from '../utils/auth'
 
 export const schemaStatus = defineAction({
   handler: async (_, ctx) => {
     await authGuard(ctx)
-    const { columns: _columns, ...status } = await artifactSchemaStatus(ctx.locals.runtime?.env || {}, true)
+    const { columns: _columns, ...status } = await artifactSchemaStatus(ctx.locals.runtime?.env || {})
     return status
   },
 })
@@ -22,13 +23,30 @@ export const migrateSchema = defineAction({
 })
 
 export const list = defineAction({
-  input: z.object({ afterId: z.number().int().nonnegative().default(0) }).strict(),
+  input: z.object({ afterId: z.number().int().nonnegative().default(0), fileId: z.number().int().positive().optional() }).strict(),
   handler: async (input, ctx) => {
     await loginGuard(ctx)
     const env = ctx.locals.runtime?.env || {}
-    if (!(await artifactSchemaStatus(env)).ready)
-      return { ready: false, r2Available: Boolean(env.OSS), files: [] }
-    return { ready: true, r2Available: Boolean(env.OSS), files: await listArtifactStorage(env, ctx.locals.session.userId!, input.afterId) }
+    const { ready } = await artifactSchemaStatus(env)
+    return {
+      ready,
+      r2Available: Boolean(env.OSS),
+      defaultStorage: ctx.locals.config?.svelte?.storage ?? 'd1',
+      canConfigure: ctx.locals.session.role === 'admin',
+      files: await listArtifactStorage(env, ctx.locals.session.userId!, input.afterId, ready, input.fileId),
+    }
+  },
+})
+
+export const setDefault = defineAction({
+  input: z.object({ storage: z.enum(['d1', 'r2']) }).strict(),
+  handler: async ({ storage }, ctx) => {
+    await authGuard(ctx)
+    const env = ctx.locals.runtime?.env || {}
+    if (storage === 'r2' && !env.OSS)
+      throw new ActionError({ code: 'BAD_REQUEST', message: 'R2 is not configured for this installation.' })
+    await updateGlobalConfig(env, { svelte: { storage } })
+    return { storage }
   },
 })
 

@@ -54,7 +54,7 @@ const secondaryButtonClass = 'inline-flex h-8 items-center justify-center rounde
       {isAdmin && <span class="settings-page-status">Site administrator</span>}
     </header>
 
-    {isAdmin && <ArtifactDatabaseMigration client:load />}
+    {isAdmin && <ArtifactDatabaseMigration client:only="svelte" />}
 
     <section class="settings-section" aria-labelledby="account-settings-title">
       <div class="settings-section-grid">
@@ -266,7 +266,7 @@ const secondaryButtonClass = 'inline-flex h-8 items-center justify-center rounde
                           <input id="light" type="hidden" name="lightTheme" value={lightTheme} />
                           <input id="dark" type="hidden" name="darkTheme" value={darkTheme} />
                         </div>
-                        <ThemeSwitch client:load light={lightTheme} dark={darkTheme} />
+                        <ThemeSwitch client:only="svelte" light={lightTheme} dark={darkTheme} />
                       </div>
                     </div>
                   </div>
@@ -314,7 +314,9 @@ const secondaryButtonClass = 'inline-flex h-8 items-center justify-center rounde
                         <p>Publish a discoverable RSS feed for this site.</p>
                       </div>
                       <div class="settings-row-control">
-                        <RssEnableSwitch client:load checked={rssConfig?.enable || false} />
+                        <RssEnableSwitch client:only="svelte" checked={rssConfig?.enable || false}>
+                          <label slot="fallback"><input type="checkbox" name="rssEnable" checked={rssConfig?.enable || false} /> Enable RSS</label>
+                        </RssEnableSwitch>
                       </div>
                     </div>
                     <div class="settings-list-row">
@@ -390,8 +392,8 @@ const secondaryButtonClass = 'inline-flex h-8 items-center justify-center rounde
             <p>Import a local workspace or export a portable archive.</p>
           </header>
           <div class="settings-section-content">
-            <ImportFile client:load />
-            <ExportZip client:load />
+            <ImportFile client:only="svelte" />
+            <ExportZip client:only="svelte" />
           </div>
         </div>
       </section>

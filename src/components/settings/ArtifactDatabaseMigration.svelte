@@ -1,9 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { actions } from 'astro:actions'
   import { Button } from '@/components/ui/button'
 
-  let status = $state<{ ready: boolean, snapshots: number, snapshotBytes: number } | null>(null)
+  let status = $state<{ ready: boolean } | null>(null)
   let confirmed = $state(false)
   let busy = $state(false)
   let error = $state('')
@@ -40,7 +39,6 @@
     }
   }
 
-  onMount(() => { void inspect() })
 </script>
 
 <section class="settings-section" aria-labelledby="artifact-database-title">
@@ -55,7 +53,6 @@
         <p role="status">Database is up to date. Stored snapshots have been removed.</p>
         <a href="/dashboard/rebuild" class="underline">Manage Artifact storage in Deploy</a>
       {:else if status}
-        <p>{status.snapshots} stored snapshots · {status.snapshotBytes.toLocaleString()} bytes to remove.</p>
         <p>Export a recoverable database backup first. This migration permanently drops the snapshot column, including recycled Files. Existing JavaScript and CSS stay in D1 until you migrate them in Deploy.</p>
         <label class="flex items-start gap-2">
           <input type="checkbox" bind:checked={confirmed} disabled={busy} />
@@ -64,6 +61,8 @@
         <Button type="button" disabled={busy || !confirmed} onclick={() => void migrate()}>Migrate database and remove snapshots</Button>
       {:else if busy}
         <p role="status">Checking database…</p>
+      {:else}
+        <p>Check the database schema when needed. Opening Settings does not scan stored snapshots or run migrations.</p>
       {/if}
       <Button variant="outline" type="button" disabled={busy} onclick={() => void inspect()}>Check migration status</Button>
     </div>

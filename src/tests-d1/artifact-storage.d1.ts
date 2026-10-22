@@ -76,11 +76,11 @@ describe('D1 / R2 Artifact storage and migration', () => {
       .bind(input.unocssConfigHash, sourceHash, stored.artifactHash, stored.javascriptResourceHash, stored.cssResourceHash, stored.javascript)
       .run()
     const before = await env.DB.prepare('SELECT * FROM markdown').first()
-    expect(await artifactSchemaStatus(env, true)).toMatchObject({ ready: false, snapshots: 1, snapshotBytes: 19 })
+    expect(await artifactSchemaStatus(env)).toMatchObject({ ready: false })
     expect(await (await getModule(context())).text()).toBe(serializeJavascriptResource(input.javascript))
     await trash(env, 1)
     const trashed = await env.DB.prepare('SELECT * FROM markdown').first()
-    expect(await migrateArtifactSchema(env)).toMatchObject({ ready: true, snapshots: 0, snapshotBytes: 0 })
+    expect(await migrateArtifactSchema(env)).toMatchObject({ ready: true })
     expect(await env.DB.prepare('SELECT * FROM markdown').first()).toEqual(trashed)
     expect(await readRenderArtifact(env, 1)).toMatchObject(stored)
     expect((await artifactSchemaStatus(env)).columns).not.toContain('snapshotHtml')
@@ -103,6 +103,46 @@ describe('D1 / R2 Artifact storage and migration', () => {
     expect(await transfer(stored.artifactHash, 'r2', 'd1')).toEqual({ status: 'migrated' })
     expect(await readRenderArtifact(env, 1)).toEqual(before)
     expect(await env.DB.prepare('SELECT * FROM markdown').first()).toEqual(fileBefore)
+  })
+
+  it('checks only schema metadata and lists undeployed, deployed and recycled Owner pages without bodies', async () => {
+    const prepare = vi.spyOn(env.DB, 'prepare')
+    expect(await artifactSchemaStatus(env)).toMatchObject({ ready: false })
+    expect(prepare.mock.calls.map(call => call[0])).toEqual(['PRAGMA table_info(markdown_render)'])
+    prepare.mockClear()
+    expect(await listArtifactStorage(env, 7, 0, false)).toMatchObject([{ fileId: 1, mode: null, artifactHash: null }])
+    expect(prepare.mock.calls.map(call => call[0]).join(' ')).not.toMatch(/"content"|"javascript"|"css"|snapshotHtml|javascriptKey/)
+    prepare.mockRestore()
+    const stored = await seed()
+    await env.DB.prepare('UPDATE markdown SET sourceHash = ? WHERE id = 1').bind('b'.repeat(64)).run()
+    await trash(env, 1)
+    const [entry] = await listArtifactStorage(env, 7, 0, true, 1)
+    expect(entry).toMatchObject({ artifactHash: stored.artifactHash, sourceHash: 'b'.repeat(64), deployedSourceHash: sourceHash, mode: 'd1' })
+    expect(entry.deletedAt).not.toBeNull()
+    expect(entry).not.toHaveProperty('content')
+    expect(entry).not.toHaveProperty('javascript')
+    expect(await listArtifactStorage(env, 8, 0, true, 1)).toEqual([])
+    expect(await listArtifactStorage(env, 7, 1)).toEqual([])
+  })
+
+  it('paginates Svelte-only metadata without skipping or repeating pages', async () => {
+    await migrateArtifactSchema(env)
+    const rows = Array.from({ length: 51 }, (_, index) => ({
+      id: index + 2,
+      path: `/app-${index}`,
+      title: 'app',
+      source: 30,
+      renderer: 'svelte' as const,
+      content: '',
+      sourceHash,
+      userId: 7,
+    }))
+    for (const row of rows) await connectDB(env).insert(markdown).values(row)
+    await connectDB(env).insert(markdown).values({ ...rows[0], id: 100, path: '/markdown', renderer: 'markdown' })
+    const first = await listArtifactStorage(env, 7)
+    const second = await listArtifactStorage(env, 7, first.at(-1)!.fileId)
+    expect(first).toHaveLength(50)
+    expect(second.map(entry => entry.fileId)).toEqual([51, 52])
   })
 
   it('uses no R2 reads for denied requests or matching public 304 validators', async () => {

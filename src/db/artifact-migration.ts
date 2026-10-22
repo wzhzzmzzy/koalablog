@@ -4,15 +4,12 @@ import { sha256Hex } from '@/lib/svelte/artifact-hash'
 import { connectDB, getDataSource } from '.'
 import migrationSql from '../../migrations/0003_artifact_objects.sql?raw'
 
-export async function artifactSchemaStatus(env: Env, includeCounts = false) {
+export async function artifactSchemaStatus(env: Env) {
   const db: BaseSQLiteDatabase<'async', unknown, typeof import('./schema')> = connectDB(env)
   const columns = await db.all<{ name: string }>(sql`PRAGMA table_info(markdown_render)`)
   const names = new Set(columns.map(column => column.name))
   const ready = names.has('javascriptKey') && names.has('cssKey') && !names.has('snapshotHtml')
-  const [counts] = includeCounts && names.has('snapshotHtml')
-    ? await db.all<{ snapshots: number, snapshotBytes: number }>(sql`SELECT COUNT(*) AS snapshots, COALESCE(SUM(length(CAST(snapshotHtml AS BLOB))), 0) AS snapshotBytes FROM markdown_render WHERE snapshotHtml <> ''`)
-    : [{ snapshots: 0, snapshotBytes: 0 }]
-  return { ready, columns: [...names], ...counts }
+  return { ready, columns: [...names] }
 }
 
 export async function migrateArtifactSchema(env: Env) {
@@ -47,5 +44,5 @@ export async function migrateArtifactSchema(env: Env) {
       throw new Error('SQLite migration connection is unavailable')
     await client.batch(statements, 'write')
   }
-  return artifactSchemaStatus(env, true)
+  return artifactSchemaStatus(env)
 }
