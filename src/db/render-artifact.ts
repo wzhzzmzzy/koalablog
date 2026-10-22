@@ -110,11 +110,18 @@ export async function readDeployedRenderArtifact(env: Env, fileId: number) {
 }
 
 export async function readDeploymentSummary(env: Env, fileId: number, ownerId?: number): Promise<DeploymentSummary | undefined> {
-  const [file, artifact] = await Promise.all([
-    connectDB(env).query.markdown.findFirst({ where: eq(markdown.id, fileId) }),
-    readRenderArtifact(env, fileId),
-  ])
+  const db = connectDB(env)
+  const file = await db.query.markdown.findFirst({
+    columns: { renderer: true, sourceHash: true, deletedAt: true, userId: true },
+    where: eq(markdown.id, fileId),
+  })
   if (!file || file.deletedAt || (ownerId !== undefined && file.userId !== ownerId))
     return undefined
+  if (file.renderer !== 'svelte')
+    return deploymentSummary(file, undefined)
+  const artifact = await db.query.markdownRender.findFirst({
+    columns: { artifactHash: true, sourceHash: true },
+    where: eq(markdownRender.fileId, fileId),
+  })
   return deploymentSummary(file, artifact)
 }

@@ -489,6 +489,22 @@ export function readActiveByOwner(env: Env, userId: number) {
   })
 }
 
+export function readAllMetadata(env: Env, source: MarkdownSource) {
+  return connectDB(env).query.markdown.findMany({
+    columns: { id: true, path: true, title: true, renderer: true, sourceHash: true, revision: true },
+    where: and(eq(markdown.source, source), isNull(markdown.deletedAt)),
+    orderBy: desc(markdown.createdAt),
+  })
+}
+
+export function readActiveMetadataByOwner(env: Env, userId: number) {
+  return connectDB(env).query.markdown.findMany({
+    columns: { id: true, path: true, renderer: true, sourceHash: true, revision: true, updatedAt: true },
+    where: and(eq(markdown.userId, userId), isNull(markdown.deletedAt)),
+    orderBy: desc(markdown.updatedAt),
+  })
+}
+
 export function readActiveByIdForOwner(env: Env, id: number, userId: number) {
   return connectDB(env).query.markdown.findFirst({
     where: and(eq(markdown.id, id), eq(markdown.userId, userId), isNull(markdown.deletedAt)),
