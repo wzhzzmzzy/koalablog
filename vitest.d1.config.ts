@@ -23,6 +23,7 @@ export default defineWorkersConfig({
           kvNamespaces: {
             KOALA: 'gate-1a-global-config-test',
           },
+          r2Buckets: ['OSS'],
         },
       },
     },

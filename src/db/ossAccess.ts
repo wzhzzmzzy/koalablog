@@ -1,5 +1,5 @@
 import { format, startOfDay } from 'date-fns'
-import { and, eq, lte, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { connectDB } from '.'
 import { ossAccess } from './schema'
 
@@ -14,23 +14,16 @@ export function readToday(env: Env) {
 }
 
 export async function incrementToday(env: Env, limit: number, access: 'read' | 'operate') {
+  if (!Number.isFinite(limit) || limit < 1)
+    return []
   const today = format(startOfDay(new Date()), 'yyyyMMdd')
-  const tx = connectDB(env)
   const countColumn = access === 'read' ? ossAccess.readTimes : ossAccess.operateTimes
-
-  await tx.insert(ossAccess).values({ date: today }).onConflictDoNothing({
+  return connectDB(env).insert(ossAccess).values({
+    date: today,
+    [`${access}Times`]: 1,
+  }).onConflictDoUpdate({
     target: ossAccess.date,
-  })
-
-  const updated = await tx.update(ossAccess).set({
-    [`${access}Times`]: sql`coalesce(${countColumn}, 0) + 1`,
-  }).where(and(
-    eq(ossAccess.date, today),
-    lte(countColumn, limit),
-  )).returning()
-  if (updated.length > 0)
-    return updated
-
-  const todayAccess = await readToday(env)
-  return todayAccess ? [todayAccess] : []
+    set: { [`${access}Times`]: sql`coalesce(${countColumn}, 0) + 1` },
+    setWhere: sql`coalesce(${countColumn}, 0) < ${Math.floor(limit)}`,
+  }).returning()
 }

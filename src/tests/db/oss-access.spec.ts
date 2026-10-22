@@ -6,6 +6,7 @@ import { drizzle } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { incrementToday, readToday } from '@/db/ossAccess'
+import { defineOssAccessContract } from '@/tests/shared/oss-access-contract'
 
 const testEnv = {} as Env
 let databasePath: string
@@ -30,4 +31,20 @@ describe('oss access accounting', () => {
 
     await expect(readToday(testEnv)).resolves.toMatchObject({ operateTimes: 4 })
   })
+})
+
+defineOssAccessContract({
+  name: 'SQLite',
+  env: testEnv,
+  prepare: async () => {
+    databasePath = join(tmpdir(), `koalablog-oss-contract-${randomUUID()}.db`)
+    vi.stubEnv('SQLITE_URL', `file:${databasePath}`)
+    const database = drizzle({ connection: { url: `file:${databasePath}` } })
+    await migrate(database, { migrationsFolder: 'migrations' })
+    database.$client.close()
+  },
+  cleanup: async () => {
+    vi.unstubAllEnvs()
+    await unlink(databasePath).catch(() => undefined)
+  },
 })

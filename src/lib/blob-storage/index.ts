@@ -36,8 +36,10 @@ export interface BlobStorageOptions {
 export class SQLiteBlobStorage {
   constructor(private env: Env) { }
 
-  async put(key: string, value: File | ArrayBuffer | string, options?: BlobStorageOptions): Promise<void> {
+  async put(key: string, value: File | ArrayBuffer | string | ReadableStream, options?: BlobStorageOptions): Promise<BlobObjectMeta> {
     const db = connectDB(this.env)
+    if (value instanceof ReadableStream)
+      value = await new Response(value).arrayBuffer()
 
     let data: string
     let size: number
@@ -60,10 +62,6 @@ export class SQLiteBlobStorage {
       contentType = options?.httpMetadata?.contentType || 'text/plain'
     }
 
-    const existingBlob = await db.query.blobStorage.findFirst({
-      where: eq(blobStorage.key, key),
-    })
-
     const blobData = {
       key,
       contentType,
@@ -72,23 +70,19 @@ export class SQLiteBlobStorage {
       metadata: options?.customMetadata || {},
     }
 
-    if (existingBlob) {
-      await db.update(blobStorage)
-        .set({
-          ...blobData,
-          updatedAt: new Date(),
-        })
-        .where(eq(blobStorage.key, key))
-    }
-    else {
-      await db.insert(blobStorage).values(blobData)
-    }
+    const uploaded = new Date()
+    await db.insert(blobStorage).values(blobData).onConflictDoUpdate({
+      target: blobStorage.key,
+      set: { ...blobData, updatedAt: uploaded },
+    })
+    return { key, size, uploaded, httpMetadata: { contentType }, customMetadata: blobData.metadata }
   }
 
   async head(key: string): Promise<BlobObjectMeta | null> {
     const db = connectDB(this.env)
 
     const blob = await db.query.blobStorage.findFirst({
+      columns: { key: true, size: true, uploadedAt: true, contentType: true, metadata: true },
       where: eq(blobStorage.key, key),
     })
 
@@ -126,7 +120,7 @@ export class SQLiteBlobStorage {
         contentType: blob.contentType,
       },
       customMetadata: blob.metadata as Record<string, string> || {},
-      body: Buffer.from(blob.data as string, 'base64').buffer,
+      body: Uint8Array.from(Buffer.from(blob.data as string, 'base64')).buffer,
     }
   }
 
@@ -146,6 +140,7 @@ export class SQLiteBlobStorage {
     const limit = Math.min(1000, Math.max(1, options?.limit ?? 1000))
 
     const query = db.query.blobStorage.findMany({
+      columns: { key: true, size: true, uploadedAt: true, contentType: true, metadata: true },
       where: and(
         options?.prefix
           ? sql`substr(${blobStorage.key}, 1, ${options.prefix.length}) = ${options.prefix}`

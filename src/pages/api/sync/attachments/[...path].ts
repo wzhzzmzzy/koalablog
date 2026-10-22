@@ -1,12 +1,9 @@
 import type { APIRoute } from 'astro'
+import { objectResponse } from '@/lib/oss/response'
 import { attachmentPath, requireSyncOwner, syncAttachmentKey, syncJson } from '@/lib/sync/api'
 
 function objectStore(ctx: Parameters<APIRoute>[0]) {
   return ctx.locals.OSS || ctx.locals.runtime?.env.OSS
-}
-
-function contentType(object: { httpMetadata?: { contentType?: string } }) {
-  return object.httpMetadata?.contentType || 'application/octet-stream'
 }
 
 export const GET: APIRoute = async (ctx) => {
@@ -20,8 +17,7 @@ export const GET: APIRoute = async (ctx) => {
   const object = await oss.get(syncAttachmentKey(authorization.userId, path))
   if (!object)
     return syncJson({ error: 'not_found' }, 404)
-  const body = 'arrayBuffer' in object ? await object.arrayBuffer() : object.body
-  return new Response(body, { headers: { 'Content-Type': contentType(object), 'Cache-Control': 'private, no-store' } })
+  return objectResponse(object, true)
 }
 
 export const PUT: APIRoute = async (ctx) => {
@@ -32,16 +28,18 @@ export const PUT: APIRoute = async (ctx) => {
   const oss = objectStore(ctx)
   if (!path || !oss)
     return syncJson({ error: 'invalid_attachment_path' }, 400)
-  const body = await ctx.request.arrayBuffer()
+  const body = ctx.request.body ?? new ArrayBuffer(0)
   const uploaded = await oss.put(syncAttachmentKey(authorization.userId, path), body, {
     httpMetadata: { contentType: ctx.request.headers.get('Content-Type') || 'application/octet-stream' },
-    customMetadata: { uploadedAt: new Date().toISOString(), size: String(body.byteLength) },
+    customMetadata: { uploadedAt: new Date().toISOString() },
   })
+  if (!uploaded)
+    return syncJson({ error: 'upload_failed' }, 502)
   return syncJson({
     path,
-    size: uploaded?.size ?? body.byteLength,
-    updatedAt: uploaded?.uploaded?.toISOString?.() ?? new Date().toISOString(),
-    etag: uploaded?.etag,
+    size: uploaded.size,
+    updatedAt: uploaded.uploaded.toISOString(),
+    etag: uploaded.etag,
   }, 201)
 }
 
