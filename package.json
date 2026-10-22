@@ -23,6 +23,7 @@
     "test:e2e:setup": "tsx scripts/test/setup-editor-e2e.ts",
     "test:e2e:server": "pnpm run svelte:toolchain:prepare && pnpm run test:e2e:setup && cross-env DATA_SOURCE=sqlite SQLITE_URL=file:.playwright/local.db KOALA_CONFIG_PATH=.playwright/koala.config.json astro dev --host 127.0.0.1 --port ${E2E_PORT:-4322}",
     "audit:markdown-tags": "node --import tsx scripts/audit/markdown-tags.mjs",
+    "installation:initialize": "node scripts/db/initialize-runtime.mjs",
     "koala": "node ./bin/koala.mjs",
     "migration:d1:local": "pnpx wrangler d1 migrations apply DB --local",
     "migration:d1:remote": "pnpx wrangler d1 migrations apply DB --remote",
