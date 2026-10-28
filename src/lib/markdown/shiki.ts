@@ -111,4 +111,13 @@ export async function useShiki(
       ],
     }),
   )
+  // Keep unknown fence languages readable without aborting the surrounding preview.
+  const highlight = instance.options.highlight
+  if (highlight) {
+    instance.options.highlight = (code, language, attributes) => highlight(
+      code,
+      highlighter.getLoadedLanguages().includes(language) ? language : 'text',
+      attributes,
+    )
+  }
 }
