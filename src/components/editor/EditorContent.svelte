@@ -3,7 +3,7 @@
   import { actions } from 'astro:actions';
   import type { RendererMode } from '@/lib/files/types';
   import type { DeploymentSummary } from '@/lib/svelte/deployment-status';
-  import { FileText, SquarePen } from '@lucide/svelte';
+  import { Check, FileText, LockKeyhole, PenLine, SquarePen } from '@lucide/svelte';
   import { onMount, tick } from 'svelte';
   import { clampSplitRatio, effectiveMarkdownViewMode, type MarkdownViewMode } from './markdown-view-state.svelte';
   import type { PreviewArtifact, PreviewRuntimeErrorMessage } from './svelte/preview-runtime';
@@ -481,6 +481,7 @@
             <span>{title || 'Untitled'}</span><span class="editor-file-title__extension">{fileExtension}</span>
           </p>
         </div>
+        <span class="editor-preview-overlay__type">Svelte Preview</span>
         <button
           bind:this={previewCloseButton}
           type="button"
@@ -500,6 +501,9 @@
             {#if svelteBuildError}
               <p class="m-0 p-4 text-[color:var(--koala-error-text)]" role="alert">{svelteBuildError}</p>
             {:else}
+              {#if !svelteArtifact}
+                <p class="editor-preview-loading" role="status">Preparing preview…</p>
+              {/if}
               <SveltePreview bind:this={sveltePreview} artifact={svelteArtifact} onFocusReturn={returnPreviewFocus} onPreviewError={reportPreviewError} />
             {/if}
           </section>
@@ -511,11 +515,11 @@
   <footer class="editor-status-bar" aria-label="File status">
     <div class="editor-status-bar__group">
       <span class="editor-status-bar__state {trashed ? 'editor-status-bar__state--readonly' : (changed ? 'editor-status-bar__state--dirty' : '')}">
-        <span class="editor-status-bar__dot" aria-hidden="true"></span>
-        {trashed ? 'Recycled · read-only' : (changed ? 'Unsaved changes' : 'Saved')}
+        {#if trashed}<LockKeyhole class="editor-status-bar__indicator" aria-hidden="true" />{:else if changed}<PenLine class="editor-status-bar__indicator" aria-hidden="true" />{:else}<Check class="editor-status-bar__indicator" aria-hidden="true" />{/if}
+        {trashed ? 'Recycled, read-only' : (changed ? 'Unsaved changes' : 'Saved')}
       </span>
       {#if artifactStatusLabel}<span class="editor-status-bar__detail" data-testid="editor-artifact-status">{artifactStatusLabel}</span>{/if}
-      <span class="editor-status-bar__detail">{modeLabel} · {rendererLabel}</span>
+      <span class="editor-status-bar__detail editor-status-bar__formats"><span>{modeLabel}</span><span>{rendererLabel}</span></span>
       {#if privateValue && !trashed}<span class="editor-status-bar__detail">Private</span>{/if}
     </div>
     <div class="editor-status-bar__group">

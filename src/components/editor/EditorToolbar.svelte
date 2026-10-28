@@ -3,7 +3,7 @@
   import type { RendererMode } from '@/lib/files/types'
   import { parseAbsoluteFilePath } from '@/lib/files/path'
   import type { DeploymentSummary } from '@/lib/svelte/deployment-status'
-  import { ArrowLeft, Eye, FileText, Menu, RotateCw, Save, SquarePen } from '@lucide/svelte'
+  import { ArrowLeft, BookOpen, Columns2, Eye, FileText, Menu, RotateCw, Save, Search, SquarePen, Code2 } from '@lucide/svelte'
   import type { EditBufferServerValues } from './edit-buffer.svelte'
   import { deployActionLabel } from './deployment-view-model'
   import EditorMoreMenu from './EditorMoreMenu.svelte'
@@ -175,6 +175,7 @@
     >
       <ArrowLeft size={20} />
     </button>
+    <button type="button" class="editor-tool-button" onclick={onFindFile} aria-label="Find a File" title="Find a File (⌘ K / Ctrl K)"><Search size={18} /></button>
   </div>
 
   <div class="editor-toolbar__context" class:editor-toolbar__context--editing={editingPath} title={pathValue || unavailableTitle} aria-label={hasFile ? `File Path ${pathValue}` : unavailableTitle}>
@@ -223,7 +224,10 @@
           class="editor-view-button"
           aria-pressed={markdownViewMode === mode}
           onclick={() => onMarkdownViewChange(mode as MarkdownViewMode)}
-        >{mode}</button>
+        >
+          {#if mode === 'source'}<Code2 size={15} />{:else if mode === 'split'}<Columns2 size={15} />{:else}<BookOpen size={15} />{/if}
+          <span>{mode}</span>
+        </button>
       {/each}
     </div>
   {/if}

@@ -153,9 +153,9 @@
     <h3 id={dialogTitleId}>Move to recycle bin?</h3>
     <p>The File can be restored later.</p>
     <div class="editor-modal__actions">
-      <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
+      <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /><span>Cancel</span></button>
       <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={trashFile} aria-label="Move to recycle bin">
-        <Trash2 size={20} />
+        <Trash2 size={20} /><span>Move to recycle bin</span>
       </button>
     </div>
   </dialog>
@@ -174,9 +174,9 @@
     <h3 id={dialogTitleId}>Permanently delete?</h3>
     <p>This cannot be undone. Other Files with the same Title will not be affected.</p>
     <div class="editor-modal__actions">
-      <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
+      <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /><span>Cancel</span></button>
       <button type="button" class="editor-tool-button editor-tool-button--danger" onclick={purgeFile} aria-label="Permanently delete">
-        <Trash2 size={20} />
+        <Trash2 size={20} /><span>Permanently delete</span>
       </button>
     </div>
   </dialog>
@@ -198,7 +198,7 @@
       Restore as {restoreConflict.suggestedPath} with Title “{restoreConflict.suggestedTitle}”.
     </p>
     <div class="editor-modal__actions">
-      <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /></button>
+      <button type="button" class="editor-tool-button" onclick={closeDialogs} aria-label="Cancel"><X size={20} /><span>Cancel</span></button>
       <button type="button" class="editor-conflict__button" onclick={() => restoreFile(true)}>
         <RotateCcw size={20} />
         <span>Restore renamed</span>
